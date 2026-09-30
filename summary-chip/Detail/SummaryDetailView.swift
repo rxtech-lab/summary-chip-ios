@@ -12,6 +12,8 @@ struct SummaryDetailView: View {
     @State private var showsRegenerate = false
     @State private var confirmsDelete = false
     @State private var isDeleting = false
+    @State private var didDelete = false
+    @State private var savedCount = 0
     @State private var errorMessage: String?
     @State private var showsNavigationTitle = false
     @Environment(\.dismiss) private var dismiss
@@ -95,10 +97,10 @@ struct SummaryDetailView: View {
             ShareModeSheet(summary: summary)
         }
         .sheet(isPresented: $showsEditSharing) {
-            EditSharingSheet(api: environment.api, summary: summary) { updated in apply(updated) }
+            EditSharingSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
         .sheet(isPresented: $showsRegenerate) {
-            RegenerateImageSheet(api: environment.api, summary: summary) { updated in apply(updated) }
+            RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
         .confirmationDialog("Delete this summary?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete Summary", role: .destructive) { Task { await delete() } }
@@ -110,12 +112,21 @@ struct SummaryDetailView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        .sensoryFeedback(.success, trigger: savedCount)
+        .sensoryFeedback(.success, trigger: didDelete) { _, new in new }
+        .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         .task(id: summary.id) { await refresh() }
     }
 
     private func apply(_ updated: Summary) {
         summary = updated
         environment.library.upsert(updated)
+    }
+
+    /// A sheet's edit went through; the sheet dismisses itself, so the feedback fires here.
+    private func saved(_ updated: Summary) {
+        apply(updated)
+        savedCount += 1
     }
 
     private func refresh() async {
@@ -129,6 +140,7 @@ struct SummaryDetailView: View {
         do {
             try await environment.api.deleteSummary(id: summary.id)
             environment.library.remove(id: summary.id)
+            didDelete = true
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

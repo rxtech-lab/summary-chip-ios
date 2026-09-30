@@ -43,6 +43,7 @@ public struct GenerationOptionsSections: View {
                     .contentShape(Rectangle())
                 }
                 .accessibilityAddTraits(options.imageStyle == style ? .isSelected : [])
+                .sensoryFeedback(.selection, trigger: options.imageStyle == style) { _, new in new }
             }
         }
 
@@ -84,6 +85,7 @@ public struct SharingOptionsSections: View {
                     .contentShape(Rectangle())
                 }
                 .accessibilityAddTraits(visibility == value ? .isSelected : [])
+                .sensoryFeedback(.selection, trigger: visibility == value) { _, new in new }
             }
         }
 
@@ -155,6 +157,7 @@ public struct GenerationProgressView: View {
                 .foregroundStyle(.secondary)
         }
         .animation(.default, value: current)
+        .sensoryFeedback(.selection, trigger: current)
     }
 }
 

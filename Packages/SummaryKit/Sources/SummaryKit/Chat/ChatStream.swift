@@ -115,7 +115,10 @@ public final class ChatStreamClient: Sendable {
                     if event == .done { break }
                 }
                 continuation.finish()
+            } catch is CancellationError {
+                continuation.finish(throwing: CancellationError())
             } catch {
+                SummaryLog.chat.error("Chat stream ended with error: \(error.logDescription, privacy: .public)")
                 continuation.finish(throwing: error)
             }
         }
@@ -134,8 +137,16 @@ public final class ChatStreamClient: Sendable {
                 throw SummaryAPIError.notSignedIn
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            let (bytes, response) = try await api.session.bytes(for: request)
+            let bytes: URLSession.AsyncBytes
+            let response: URLResponse
+            do {
+                (bytes, response) = try await api.session.bytes(for: request)
+            } catch {
+                SummaryLog.chat.error("✗ \(request.logDescription, privacy: .public) failed: \(error.logDescription, privacy: .public)")
+                throw error
+            }
             guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
+            SummaryLog.chat.info("← \(request.logDescription, privacy: .public) \(http.statusCode)")
             if http.statusCode == 401, attempt == 0 {
                 attempt += 1
                 continue

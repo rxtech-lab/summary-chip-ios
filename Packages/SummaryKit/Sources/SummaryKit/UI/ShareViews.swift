@@ -274,6 +274,7 @@ public struct ShareActionsSection: View {
             .listRowBackground(Color.clear)
         }
         .sensoryFeedback(.success, trigger: copied) { _, new in new }
+        .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         .onChange(of: mode) { errorMessage = nil }
     }
 

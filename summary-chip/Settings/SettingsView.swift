@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var deletion: AccountDeletionState = .none
     @State private var cacheSize: Int?
     @State private var confirmsClearCache = false
+    @State private var clearedCount = 0
 
     var body: some View {
         NavigationStack {
@@ -99,11 +100,13 @@ struct SettingsView: View {
             ) {
                 Button("Clear Cache", role: .destructive) {
                     environment.clearCache()
+                    clearedCount += 1
                     Task { cacheSize = await environment.cacheSize() }
                 }
             } message: {
                 Text("Saved summaries and images are removed from this device. Your summaries stay in your account.")
             }
+            .sensoryFeedback(.success, trigger: clearedCount)
             .task {
                 cacheSize = await environment.cacheSize()
             }

@@ -23,7 +23,7 @@ struct ChatView: View {
     init(environment: AppEnvironment, summary: Summary? = nil) {
         self.environment = environment
         self.summary = summary
-        self._model = State(initialValue: ChatModel(client: environment.chatClient, summaryID: summary?.id))
+        self._model = State(initialValue: ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id))
     }
 
     var body: some View {
@@ -43,6 +43,10 @@ struct ChatView: View {
                         guard abs(height - inputBarHeight) > 0.5 else { return }
                         inputBarHeight = height
                     }
+            }
+            .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
+                if isStreaming { return .impact(weight: .light) }
+                return model.entries.last?.errorText == nil ? .impact(flexibility: .soft) : .error
             }
             .navigationTitle(summary == nil ? "Chat" : "Ask About This")
             .navigationBarTitleDisplayMode(.inline)
@@ -117,10 +121,12 @@ struct ChatView: View {
     private var transcript: some View {
         // `isStreaming` stays false: `MessageList` would otherwise snap to the bottom on
         // every layout pass (every token). `followStream()` scrolls on a debounce instead.
+        // `.onSend` still pins each sent question to the top while its answer fills in below.
         MessageList(
             messages: model.entries,
             isStreaming: false,
             shouldScrollToBottom: shouldScrollToBottom,
+            userMessagePinning: .onSend,
             bottomInset: inputBarHeight,
             isAtBottom: $isAtBottom
         ) { entry in

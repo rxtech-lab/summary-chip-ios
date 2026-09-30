@@ -133,9 +133,21 @@ public final class SummaryAPIClient: Sendable {
             put.setValue("application/pdf", forHTTPHeaderField: "Content-Type")
         }
         // Streams from disk: keeps the share extension well below its memory cap.
-        let (_, response) = try await session.upload(for: put, fromFile: fileURL)
+        // Presigned URL: log host only, the query carries the signature.
+        let uploadHost = ticket.uploadUrl.host() ?? "?"
+        SummaryLog.api.info("→ upload \(filename, privacy: .private) (\(size) bytes) to \(uploadHost, privacy: .public)")
+        let response: URLResponse
+        do {
+            (_, response) = try await session.upload(for: put, fromFile: fileURL)
+        } catch {
+            SummaryLog.api.error("✗ upload to \(uploadHost, privacy: .public) failed: \(error.logDescription, privacy: .public)")
+            throw error
+        }
         guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
-        guard (200..<300).contains(http.statusCode) else { throw SummaryAPIError.uploadFailed(status: http.statusCode) }
+        guard (200..<300).contains(http.statusCode) else {
+            SummaryLog.api.error("← upload to \(uploadHost, privacy: .public) returned \(http.statusCode)")
+            throw SummaryAPIError.uploadFailed(status: http.statusCode)
+        }
         return ticket.key
     }
 
@@ -167,6 +179,7 @@ public final class SummaryAPIClient: Sendable {
         do {
             return try SummaryJSON.decoder().decode(T.self, from: data)
         } catch {
+            SummaryLog.api.error("Decoding \(String(describing: T.self), privacy: .public) failed for \(request.logDescription, privacy: .public): \(String(describing: error), privacy: .public)")
             throw SummaryAPIError.decoding(String(describing: error))
         }
     }
@@ -182,6 +195,7 @@ public final class SummaryAPIClient: Sendable {
     func authorizedData(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let first = try await perform(request, forceRefresh: false)
         guard first.1.statusCode == 401 else { return first }
+        SummaryLog.api.notice("401 for \(request.logDescription, privacy: .public); refreshing token and retrying")
         return try await perform(request, forceRefresh: true)
     }
 
@@ -191,11 +205,31 @@ public final class SummaryAPIClient: Sendable {
         do {
             token = try await tokenProvider.accessToken(forceRefresh: forceRefresh)
         } catch TokenBrokerError.missingSession {
+            SummaryLog.api.notice("\(request.logDescription, privacy: .public) skipped: not signed in")
             throw SummaryAPIError.notSignedIn
         }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
+        let label = request.logDescription
+        let clock = ContinuousClock.now
+        SummaryLog.api.debug("→ \(label, privacy: .public)\(forceRefresh ? " (retry after token refresh)" : "", privacy: .public)")
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            SummaryLog.api.error("✗ \(label, privacy: .public) failed after \(clock.duration(to: .now), privacy: .public): \(error.logDescription, privacy: .public)")
+            throw error
+        }
+        guard let http = response as? HTTPURLResponse else {
+            SummaryLog.api.error("✗ \(label, privacy: .public): non-HTTP response")
+            throw SummaryAPIError.invalidResponse
+        }
+        let elapsed = clock.duration(to: .now)
+        if (200..<300).contains(http.statusCode) {
+            SummaryLog.api.info("← \(label, privacy: .public) \(http.statusCode) in \(elapsed, privacy: .public), \(data.count) bytes")
+        } else {
+            SummaryLog.api.error("← \(label, privacy: .public) \(http.statusCode) in \(elapsed, privacy: .public): \(String(decoding: data.prefix(500), as: UTF8.self), privacy: .public)")
+        }
         return (data, http)
     }
 
@@ -222,12 +256,21 @@ public final class PublicSummaryClient: Sendable {
         var request = URLRequest(url: baseURL.appending(path: "/api/public/summaries/\(slug.urlPathEscaped)"))
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            SummaryLog.api.error("✗ \(request.logDescription, privacy: .public) failed: \(error.logDescription, privacy: .public)")
+            throw error
+        }
         guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
+        SummaryLog.api.info("← \(request.logDescription, privacy: .public) \(http.statusCode)")
         try SummaryAPIClient.validate(data: data, response: http)
         do {
             return try SummaryJSON.decoder().decode(Summary.self, from: data)
         } catch {
+            SummaryLog.api.error("Decoding public Summary failed: \(String(describing: error), privacy: .public)")
             throw SummaryAPIError.decoding(String(describing: error))
         }
     }

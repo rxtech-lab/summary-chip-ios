@@ -3,7 +3,7 @@ import AgentMessageListUI
 import Observation
 import SummaryKit
 
-nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable {
+nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable, Codable {
     let id: String
     let toolName: String
     var label: String
@@ -12,8 +12,8 @@ nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable {
 }
 
 /// Row model for the RxAgentSDK `MessageList`.
-nonisolated struct ChatEntry: Identifiable, Hashable, MessageListItem {
-    enum Role: Hashable { case user, assistant }
+nonisolated struct ChatEntry: Identifiable, Hashable, Codable, MessageListItem {
+    enum Role: String, Hashable, Codable { case user, assistant }
 
     let id: String
     let role: Role
@@ -25,10 +25,13 @@ nonisolated struct ChatEntry: Identifiable, Hashable, MessageListItem {
     var isUserMessage: Bool { role == .user }
 }
 
-/// In-memory agent conversation against `POST /api/v1/chat`.
+/// Agent conversation against `POST /api/v1/chat`, saved to `ChatTranscriptStore` so it
+/// survives relaunches until the user starts a new chat or signs out.
 @Observable
 final class ChatModel {
     private let client: ChatStreamClient
+    private let store: ChatTranscriptStore
+    private let storeKey: String
     /// Set when chatting from a summary's detail screen; the agent answers from its original text.
     let summaryID: String?
     private(set) var entries: [ChatEntry] = []
@@ -36,9 +39,12 @@ final class ChatModel {
     var draft = ""
     private var task: Task<Void, Never>?
 
-    init(client: ChatStreamClient, summaryID: String? = nil) {
+    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil) {
         self.client = client
+        self.store = store
         self.summaryID = summaryID
+        storeKey = summaryID.map(ChatTranscriptStore.key(summaryID:)) ?? ChatTranscriptStore.libraryKey
+        entries = Self.restored(store.load([ChatEntry].self, key: storeKey) ?? [])
     }
 
     var suggestions: [String] { summaryID == nil ? Self.librarySuggestions : Self.summarySuggestions }
@@ -66,6 +72,7 @@ final class ChatModel {
         let assistantID = UUID().uuidString
         entries.append(ChatEntry(id: assistantID, role: .assistant, text: "", isStreaming: true))
         isStreaming = true
+        persist()
         task = Task { await stream(request, into: assistantID) }
     }
 
@@ -79,6 +86,7 @@ final class ChatModel {
         stop()
         entries = []
         draft = ""
+        store.remove(key: storeKey)
     }
 
     private func stream(_ messages: [ChatUIMessage], into id: String) async {
@@ -136,6 +144,28 @@ final class ChatModel {
         for index in entries.indices where entries[index].isStreaming {
             entries[index].isStreaming = false
             for tool in entries[index].tools.indices { entries[index].tools[tool].isRunning = false }
+        }
+        persist()
+    }
+
+    private func persist() {
+        guard !entries.isEmpty else { return }
+        store.save(entries, key: storeKey)
+    }
+
+    /// A transcript saved mid-stream (the app was killed) comes back settled: nothing is
+    /// streaming any more, and an empty assistant reply is dropped.
+    static func restored(_ saved: [ChatEntry]) -> [ChatEntry] {
+        saved.compactMap { entry in
+            var entry = entry
+            let wasStreaming = entry.isStreaming
+            entry.isStreaming = false
+            for index in entry.tools.indices { entry.tools[index].isRunning = false }
+            if wasStreaming, entry.role == .assistant, entry.text.isEmpty, entry.errorText == nil,
+               entry.tools.allSatisfy({ $0.references.isEmpty }) {
+                return nil
+            }
+            return entry
         }
     }
 

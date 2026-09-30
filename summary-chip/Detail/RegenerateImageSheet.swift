@@ -62,6 +62,7 @@ struct RegenerateImageSheet: View {
                 }
             }
             .interactiveDismissDisabled(isWorking)
+            .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
     }
 
