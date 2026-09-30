@@ -1,0 +1,19 @@
+{
+  "id": "5f0c7a0e-3c2b-4d0e-9d7a-1e2f3a4b5c6d", "slug": "a1B2c3D4e5",
+  "shareUrl": "https://summary.rxlab.app/s/a1B2c3D4e5",
+  "ogImageUrl": "https://summary.rxlab.app/s/a1B2c3D4e5/og.png?v=1759276800000",
+  "artImageUrl": "https://summary.rxlab.app/s/a1B2c3D4e5/art.png?v=1759276800000",
+  "sourceType": "url", "source": "web",
+  "sourceUrl": "https://example.com/article",
+  "sourceTitle": "Example article", "siteName": "Example",
+  "sourceFileUrl": null,
+  "title": "Apple ships a new chip", "summary": "A short summary.", "highlights": ["One", "Two"],
+  "category": "Technology", "tags": ["ai", "apple"], "keywords": ["chip"],
+  "language": "en",
+  "theme": { "colors": ["#104b8f", "#18673c", "#efcabc"], "mode": "dark", "emoji": "📰", "accent": "#104b8f" },
+  "imageStyle": "graphic",
+  "visibility": "public",
+  "ttlDays": 7, "expiresAt": "2026-10-08T00:00:00.000Z",
+  "viewCount": 3, "isOwner": true,
+  "createdAt": "2026-10-01T00:00:00.000Z", "updatedAt": "2026-10-01T00:00:00Z"
+}

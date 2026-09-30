@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1600"
+   LastUpgradeVersion = "2700"
    wasCreatedForAppExtension = "YES"
-   version = "2.0">
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
-      buildArchitectures = "Automatic">
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -16,7 +16,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CDB9971B2C2DBB750029938D"
+               BlueprintIdentifier = "3DA1D3483E4E2D149FFD9C33"
                BuildableName = "SmartShare.appex"
                BlueprintName = "SmartShare"
                ReferencedContainer = "container:summary-chip.xcodeproj">
@@ -30,7 +30,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CD2FB6992C2DAE6700CFF729"
+               BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
                BuildableName = "summary-chip.app"
                BlueprintName = "summary-chip"
                ReferencedContainer = "container:summary-chip.xcodeproj">
@@ -43,14 +43,25 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "3DA1D3483E4E2D149FFD9C33"
+            BuildableName = "SmartShare.appex"
+            BlueprintName = "SmartShare"
+            ReferencedContainer = "container:summary-chip.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = ""
       selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"
       launchStyle = "0"
-      askForAppToLaunch = "Yes"
+      askForAppToLaunch = "YES"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
@@ -61,28 +72,28 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD2FB6992C2DAE6700CFF729"
-            BuildableName = "summary-chip.app"
-            BlueprintName = "summary-chip"
+            BlueprintIdentifier = "3DA1D3483E4E2D149FFD9C33"
+            BuildableName = "SmartShare.appex"
+            BlueprintName = "SmartShare"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
-      debugDocumentVersioning = "YES"
-      askForAppToLaunch = "Yes"
-      launchAutomaticallySubstyle = "2">
+      debugDocumentVersioning = "YES">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD2FB6992C2DAE6700CFF729"
-            BuildableName = "summary-chip.app"
-            BlueprintName = "summary-chip"
+            BlueprintIdentifier = "3DA1D3483E4E2D149FFD9C33"
+            BuildableName = "SmartShare.appex"
+            BlueprintName = "SmartShare"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -1,0 +1,370 @@
+#if os(iOS)
+import SwiftUI
+
+/// A shared summary as a card: OG image, title, two-line excerpt, category chip,
+/// visibility + expiry, and a clearly visible date.
+public struct SummaryCardView: View {
+    public enum DateKind: Sendable, Hashable {
+        case created
+        case viewed
+
+        var prefix: String {
+            switch self {
+            case .created: ""
+            case .viewed: "Viewed "
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .created: "calendar"
+            case .viewed: "eye"
+            }
+        }
+    }
+
+    let summary: Summary
+    let date: Date
+    let dateKind: DateKind
+    let compact: Bool
+
+    public init(summary: Summary, date: Date? = nil, dateKind: DateKind = .created, compact: Bool = false) {
+        self.summary = summary
+        self.date = date ?? summary.createdAt
+        self.dateKind = dateKind
+        self.compact = compact
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SummaryOGImage(summary: summary)
+            VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+                HStack(spacing: 6) {
+                    Text(summary.sourceLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Label(dateKind.prefix + SummaryDateFormatter.display(date), systemImage: dateKind.systemImage)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .labelStyle(.titleAndIcon)
+                        .lineLimit(1)
+                }
+                Text(summary.title)
+                    .font(compact ? .subheadline.weight(.semibold) : .headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if !compact, !summary.summary.isEmpty {
+                    Text(summary.summary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                if !compact {
+                    HStack(spacing: 6) {
+                        ChipLabel(summary.category, tint: summary.theme.accentColor)
+                        if summary.isOwner {
+                            VisibilityBadge(summary.visibility)
+                        }
+                        Spacer(minLength: 4)
+                        if summary.isOwner && summary.visibility == .public {
+                            ExpiryLabel(summary.expiresAt)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
+            .padding(compact ? 10 : 14)
+        }
+        .background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(.quaternary, lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One card in a feed: the summary plus the date the feed sorts by.
+public struct SummaryFeedEntry: Identifiable, Hashable, Sendable {
+    public var summary: Summary
+    public var date: Date
+    public var dateKind: SummaryCardView.DateKind
+    public var id: String { summary.id }
+
+    public init(summary: Summary, date: Date, dateKind: SummaryCardView.DateKind) {
+        self.summary = summary
+        self.date = date
+        self.dateKind = dateKind
+    }
+
+    /// Library entry: dated by creation for your own summaries, by last view for others'.
+    public init(summary: Summary) {
+        self.init(summary: summary, date: summary.activityDate, dateKind: summary.viewedAt == nil ? .created : .viewed)
+    }
+}
+
+/// Home-feed tile: a soft white card with the date on top, a large bold title, and either the
+/// excerpt, the generated image inset below the title, or the image full-bleed behind the title.
+/// Theme artwork stands in while the image loads or when there is none.
+public struct SummaryTileView: View {
+    public enum Style: Sendable, Hashable {
+        case text
+        case inset
+        case hero
+
+        /// Stable per summary so a card keeps its look across launches and reloads.
+        public static func style(for summary: Summary) -> Style {
+            let hash = summary.id.unicodeScalars.reduce(UInt64(5381)) { ($0 &* 33) &+ UInt64($1.value) }
+            switch hash % 5 {
+            case 0, 1: return summary.summary.isEmpty ? .inset : .text
+            case 2, 3: return .inset
+            default: return .hero
+            }
+        }
+
+        /// Rough height relative to column width, used to balance masonry columns.
+        func estimatedHeight(title: String) -> CGFloat {
+            let titleLines = CGFloat(min(4, max(1, title.count / 14 + 1))) * 0.17
+            switch self {
+            case .text: return 0.3 + titleLines + 0.6
+            case .inset: return 0.3 + titleLines + 0.85
+            case .hero: return 1.25
+            }
+        }
+    }
+
+    static let cornerRadius: CGFloat = 30
+    private static let insetMargin: CGFloat = 10
+
+    let summary: Summary
+    let date: Date
+    let dateKind: SummaryCardView.DateKind
+    let style: Style
+
+    public init(summary: Summary, date: Date? = nil, dateKind: SummaryCardView.DateKind = .created, style: Style? = nil) {
+        self.summary = summary
+        self.date = date ?? summary.createdAt
+        self.dateKind = dateKind
+        self.style = style ?? .style(for: summary)
+    }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+    }
+
+    public var body: some View {
+        Group {
+            switch style {
+            case .text, .inset: standard
+            case .hero: hero
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: shape)
+        .clipShape(shape)
+        .overlay { shape.strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5) }
+        .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
+        .contentShape(shape)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text(dateKind == .viewed ? "Viewed \(stamp)" : stamp))
+    }
+
+    private var stamp: String { SummaryDateFormatter.tile(date) }
+
+    private var standard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header(ink: .primary, secondary: .secondary)
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
+                .padding(.bottom, style == .text ? 20 : 12)
+            if style == .inset {
+                Color.clear
+                    .aspectRatio(1.1, contentMode: .fit)
+                    .overlay { artwork }
+                    .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius - Self.insetMargin, style: .continuous))
+                    .padding([.horizontal, .bottom], Self.insetMargin)
+            }
+        }
+    }
+
+    private var hero: some View {
+        let scrim: Color = summary.theme.mode == .dark ? .black : .white
+        let ink = summary.theme.foreground
+        return Color.clear
+            .aspectRatio(0.8, contentMode: .fit)
+            .background { artwork }
+            // Progressive blur behind the title: the generated image often carries its own
+            // text, which clashes with ours. Fades out towards the bottom.
+            .overlay {
+                artwork
+                    .blur(radius: 18, opaque: true)
+                    .mask {
+                        LinearGradient(
+                            stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.5), .init(color: .clear, location: 0.8)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .allowsHitTesting(false)
+            }
+            .overlay {
+                LinearGradient(
+                    stops: [
+                        .init(color: scrim.opacity(summary.theme.mode == .dark ? 0.5 : 0.6), location: 0),
+                        .init(color: scrim.opacity(summary.theme.mode == .dark ? 0.3 : 0.4), location: 0.5),
+                        .init(color: scrim.opacity(0), location: 0.8),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .overlay(alignment: .topLeading) {
+                header(ink: ink, secondary: ink.opacity(0.8))
+                    .shadow(color: .black.opacity(summary.theme.mode == .dark ? 0.25 : 0), radius: 3)
+                    .padding(18)
+            }
+    }
+
+    private var artwork: some View {
+        SummaryRemoteImage(url: summary.tileImageUrl, authorized: summary.isOwner) {
+            ThemeArtwork(theme: summary.theme)
+        }
+    }
+
+    private func header(ink: Color, secondary: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                if dateKind == .viewed {
+                    Image(systemName: "eye.fill").imageScale(.small)
+                }
+                Text(stamp).lineLimit(1)
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(secondary)
+            .accessibilityHidden(true)
+
+            Text(summary.title)
+                .font(.title2.weight(.bold))
+                .kerning(-0.6)
+                .foregroundStyle(ink)
+                .lineLimit(4)
+                .minimumScaleFactor(0.85)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if style == .text {
+                Text(summary.summary)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(5)
+                    .multilineTextAlignment(.leading)
+                    .padding(.top, 6)
+            }
+        }
+    }
+}
+
+/// Scrolling masonry feed of `SummaryTileView`s, newest first. Two columns on compact widths,
+/// three on regular (iPad). Cards push `Summary` values; register
+/// `.navigationDestination(for: Summary.self)` on the enclosing stack. `menuItems` builds each
+/// card's long-press context menu.
+public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
+    let entries: [SummaryFeedEntry]
+    let onReachEnd: () -> Void
+    let menuItems: (Summary) -> MenuItems
+    let footer: Footer
+
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private static var spacing: CGFloat { 14 }
+
+    public init(
+        entries: [SummaryFeedEntry],
+        onReachEnd: @escaping () -> Void = {},
+        @ViewBuilder menuItems: @escaping (Summary) -> MenuItems,
+        @ViewBuilder footer: () -> Footer
+    ) {
+        self.entries = entries
+        self.onReachEnd = onReachEnd
+        self.menuItems = menuItems
+        self.footer = footer()
+    }
+
+    public var body: some View {
+        let columnCount = sizeClass == .regular ? 3 : 2
+        let columns = Self.distribute(entries, into: columnCount)
+        // Columns end at different entries, so any of the final few appearing means we're at the end.
+        let tail = Set(entries.suffix(columnCount).map(\.id))
+        ScrollView {
+            VStack(spacing: Self.spacing) {
+                HStack(alignment: .top, spacing: Self.spacing) {
+                    ForEach(columns.indices, id: \.self) { index in
+                        LazyVStack(spacing: Self.spacing) {
+                            ForEach(columns[index]) { entry in
+                                NavigationLink(value: entry.summary) {
+                                    SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind)
+                                }
+                                .buttonStyle(TilePressStyle())
+                                .contentShape(
+                                    .contextMenuPreview,
+                                    RoundedRectangle(cornerRadius: SummaryTileView.cornerRadius, style: .continuous)
+                                )
+                                .contextMenu { menuItems(entry.summary) }
+                                .transition(.scale(scale: 0.9).combined(with: .opacity))
+                                .onAppear {
+                                    if tail.contains(entry.id) { onReachEnd() }
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    }
+                }
+                footer.frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+    }
+
+    /// Greedy masonry: each entry goes to the currently shortest column, preserving feed order
+    /// row by row.
+    static func distribute(_ entries: [SummaryFeedEntry], into count: Int) -> [[SummaryFeedEntry]] {
+        var columns = Array(repeating: [SummaryFeedEntry](), count: count)
+        var heights = Array(repeating: CGFloat(0), count: count)
+        for entry in entries {
+            let target = heights.indices.min { heights[$0] < heights[$1] } ?? 0
+            columns[target].append(entry)
+            heights[target] += SummaryTileView.Style.style(for: entry.summary).estimatedHeight(title: entry.summary.title) + 0.08
+        }
+        return columns
+    }
+}
+
+private struct TilePressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.25), value: configuration.isPressed)
+    }
+}
+
+public extension SummaryCardFeed where MenuItems == EmptyView {
+    init(entries: [SummaryFeedEntry], onReachEnd: @escaping () -> Void = {}, @ViewBuilder footer: () -> Footer) {
+        self.init(entries: entries, onReachEnd: onReachEnd, menuItems: { _ in EmptyView() }, footer: footer)
+    }
+}
+
+public extension SummaryCardFeed where Footer == EmptyView, MenuItems == EmptyView {
+    init(entries: [SummaryFeedEntry], onReachEnd: @escaping () -> Void = {}) {
+        self.init(entries: entries, onReachEnd: onReachEnd) { EmptyView() }
+    }
+}
+#endif

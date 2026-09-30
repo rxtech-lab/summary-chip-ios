@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1600"
+   LastUpgradeVersion = "2700"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
-      buildArchitectures = "Automatic">
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -15,9 +15,23 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CD2FB6992C2DAE6700CFF729"
+               BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
                BuildableName = "summary-chip.app"
                BlueprintName = "summary-chip"
+               ReferencedContainer = "container:summary-chip.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "EBCF72BEDEDD15754929155B"
+               BuildableName = "summary-chipTests.xctest"
+               BlueprintName = "summary-chipTests"
                ReferencedContainer = "container:summary-chip.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -28,7 +42,43 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      codeCoverageEnabled = "YES"
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
+            BuildableName = "summary-chip.app"
+            BlueprintName = "summary-chip"
+            ReferencedContainer = "container:summary-chip.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "EBCF72BEDEDD15754929155B"
+               BuildableName = "summary-chipTests.xctest"
+               BlueprintName = "summary-chipTests"
+               ReferencedContainer = "container:summary-chip.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "SummaryKitTests"
+               BuildableName = "SummaryKitTests"
+               BlueprintName = "SummaryKitTests"
+               ReferencedContainer = "container:Packages/SummaryKit">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -44,12 +94,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD2FB6992C2DAE6700CFF729"
+            BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
             BuildableName = "summary-chip.app"
             BlueprintName = "summary-chip"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -61,12 +113,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD2FB6992C2DAE6700CFF729"
+            BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
             BuildableName = "summary-chip.app"
             BlueprintName = "summary-chip"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

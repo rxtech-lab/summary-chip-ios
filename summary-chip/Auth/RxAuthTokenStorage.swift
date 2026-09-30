@@ -1,0 +1,129 @@
+import Foundation
+import RxAuthSwift
+import SummaryKit
+
+/// Bridges RxAuthSwift's ordered storage callbacks (access → optional refresh → optional
+/// expiry) into one atomic replacement of the shared keychain bundle, so the share and
+/// iMessage extensions always see a consistent session.
+nonisolated final class RxAuthSharedTokenStorage: TokenStorageProtocol, @unchecked Sendable {
+    private let vault: any SharedTokenVaultProtocol
+    private let processLockURL: URL?
+    private let lock = NSLock()
+    private var staged: SharedTokenBundle?
+    private var stagedAccountChange = false
+
+    init(vault: any SharedTokenVaultProtocol, processLockURL: URL? = SharedTokenBroker.defaultLockURL()) {
+        self.vault = vault
+        self.processLockURL = processLockURL
+    }
+
+    func saveAccessToken(_ token: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        let current = try vault.load()
+        let subject = JWTClaims.subject(in: token)
+        let sameAccount = current?.subject != nil && current?.subject == subject
+        stagedAccountChange = current?.subject != nil && current?.subject != subject
+        staged = SharedTokenBundle(
+            accessToken: token,
+            refreshToken: sameAccount ? current?.refreshToken : nil,
+            idToken: sameAccount ? current?.idToken : nil,
+            expiresAt: JWTClaims.expiration(in: token) ?? .distantPast,
+            subject: subject
+        )
+    }
+
+    func getAccessToken() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        // If the provider omitted expires_in, a JWT exp claim lets us commit the staged pair
+        // when RxAuth asks for the token to fetch user info.
+        if let staged, staged.expiresAt != .distantPast {
+            try? commit(staged)
+            self.staged = nil
+            stagedAccountChange = false
+            return staged.accessToken
+        }
+        return staged?.accessToken ?? (try? vault.load()?.accessToken)
+    }
+
+    func deleteAccessToken() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        var bundle = staged
+        if bundle == nil { bundle = try vault.load() }
+        bundle?.accessToken = ""
+        bundle?.expiresAt = .distantPast
+        if let bundle { try vault.replace(with: bundle) }
+        staged = nil
+    }
+
+    func saveRefreshToken(_ token: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        if staged == nil { staged = try vault.load() }
+        staged?.refreshToken = token
+    }
+
+    func getRefreshToken() -> String? {
+        // Deliberately hidden from OAuthManager: its private refresh timer would rotate the
+        // token outside the App Group flock. SharedTokenBroker is the only refresher.
+        nil
+    }
+
+    func deleteRefreshToken() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        var bundle = staged
+        if bundle == nil { bundle = try vault.load() }
+        bundle?.refreshToken = nil
+        if let bundle { try vault.replace(with: bundle) }
+        staged = nil
+    }
+
+    func saveExpiresAt(_ date: Date) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        var candidate = staged
+        if candidate == nil { candidate = try vault.load() }
+        guard var bundle = candidate else { return }
+        bundle.expiresAt = date
+        try commit(bundle)
+        staged = nil
+        stagedAccountChange = false
+    }
+
+    func getExpiresAt() -> Date? {
+        lock.lock()
+        defer { lock.unlock() }
+        return staged?.expiresAt ?? (try? vault.load()?.expiresAt)
+    }
+
+    func isTokenExpired() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return (staged ?? (try? vault.load()))?.expires(within: 0) ?? true
+    }
+
+    func clearAll() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        staged = nil
+        stagedAccountChange = false
+        guard let processLockURL else { throw TokenBrokerError.lockUnavailable }
+        let processLock = try AppGroupProcessLock(url: processLockURL, unavailableError: TokenBrokerError.lockUnavailable)
+        try processLock.lock()
+        defer { processLock.unlock() }
+        _ = try vault.load()
+        try vault.clear()
+    }
+
+    private func commit(_ bundle: SharedTokenBundle) throws {
+        guard let processLockURL else { throw TokenBrokerError.lockUnavailable }
+        let processLock = try AppGroupProcessLock(url: processLockURL, unavailableError: TokenBrokerError.lockUnavailable)
+        try processLock.lock()
+        defer { processLock.unlock() }
+        if stagedAccountChange { SharedLogoutPurger.purge() }
+        try vault.replace(with: bundle)
+    }
+}

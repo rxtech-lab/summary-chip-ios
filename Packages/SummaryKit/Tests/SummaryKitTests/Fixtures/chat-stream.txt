@@ -1,0 +1,23 @@
+data: {"type":"start","messageId":"m1"}
+
+data: {"type":"start-step"}
+
+data: {"type":"tool-input-start","toolCallId":"call_1","toolName":"searchSummaries"}
+
+data: {"type":"tool-input-available","toolCallId":"call_1","toolName":"searchSummaries","input":{"query":"apple chips","scope":"all"}}
+
+data: {"type":"tool-output-available","toolCallId":"call_1","output":{"results":[{"id":"5f0c","slug":"a1B2c3D4e5","title":"Apple ships a new chip","summary":"A short summary.","category":"Technology","tags":["ai"],"siteName":"Example","sourceUrl":"https://example.com/article","shareUrl":"https://summary.rxlab.app/s/a1B2c3D4e5","ogImageUrl":"https://summary.rxlab.app/s/a1B2c3D4e5/og.png","createdAt":"2026-10-01T00:00:00.000Z"}]}}
+
+data: {"type":"text-start","id":"t1"}
+
+data: {"type":"text-delta","id":"t1","delta":"Here is "}
+
+data: {"type":"text-delta","id":"t1","delta":"**one** result."}
+
+data: {"type":"text-end","id":"t1"}
+
+data: {"type":"finish-step"}
+
+data: {"type":"finish"}
+
+data: [DONE]
