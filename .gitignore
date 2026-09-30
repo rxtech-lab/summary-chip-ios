@@ -1,1 +1,55 @@
-shared/constants/Secrets.swift
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+*.xcresult
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/*/.build/
+
+# Fastlane / signing
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+*.mobileprovision
+*.p12
+*.p8
+*.cer
+
+# Secrets & local env (server has its own .gitignore too)
+.env
+.env.*
+!.env.example
+*.pem
+
+# Local databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Node (in case tooling runs at the repo root)
+node_modules/
+
+# Editors & tools
+.idea/
+.vscode/
+*.swp
+*~
+.claude/settings.local.json
+
+# Logs
+*.log
+
+# macOS
+.DS_Store

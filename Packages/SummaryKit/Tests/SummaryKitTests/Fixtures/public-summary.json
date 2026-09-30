@@ -1,0 +1,12 @@
+{
+  "id": "b", "slug": "zzzzzzzzzz",
+  "shareUrl": "https://summary.rxlab.app/s/zzzzzzzzzz",
+  "ogImageUrl": "https://summary.rxlab.app/s/zzzzzzzzzz/og.png?v=1",
+  "sourceType": "pdf", "sourceUrl": null, "sourceTitle": null, "siteName": null,
+  "sourceFileUrl": "https://summary.rxlab.app/s/zzzzzzzzzz/source",
+  "title": "A paper", "summary": "Findings.", "highlights": [],
+  "category": "Research", "tags": [], "keywords": [], "language": "en",
+  "theme": { "colors": ["#000000"], "mode": "light", "emoji": "🧪", "accent": "#ff0000" },
+  "imageStyle": "illustration", "isOwner": false,
+  "createdAt": "2026-09-30T10:00:00Z", "updatedAt": "2026-09-30T10:00:00Z"
+}

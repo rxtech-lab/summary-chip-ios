@@ -1,0 +1,3 @@
+#include "Base.xcconfig"
+
+SUMMARY_CHIP_API_BASE_URL = https:/$()/summary.rxlab.app

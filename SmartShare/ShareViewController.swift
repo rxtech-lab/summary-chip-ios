@@ -1,39 +1,49 @@
-//
-//  ShareViewController.swift
-//  SmartShare
-//
-//  Created by Qiwei Li on 6/27/24.
-//
-
-import MobileCoreServices
-import Social
+import SummaryKit
 import SwiftUI
 import UIKit
-import UniformTypeIdentifiers
 
-class ShareViewController: UIViewController {
+/// Principal class of the share extension. Hosts the SwiftUI flow.
+final class ShareViewController: UIViewController {
     override func viewDidLoad() {
-        if let item = extensionContext?.inputItems.first as? NSExtensionItem,
-           let attachments = item.attachments
-        {
-            for provider in attachments {
-                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                    provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] url, _ in
-                        if let url = url as? URL {
-                            DispatchQueue.main.async {
-                                self?.buildingWebpageSharingView(with: url)
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        super.viewDidLoad()
+        isModalInPresentation = true
+        let context = extensionContext
+        let root = ShareRootView(
+            inputItems: context?.inputItems ?? [],
+            finish: { [weak self] in self?.extensionContext?.completeRequest(returningItems: nil) },
+            cancel: { [weak self] in
+                self?.extensionContext?.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+            },
+            openURL: { [weak self] url in self?.openContainingApp(url) }
+        )
+        let host = UIHostingController(rootView: root)
+        addChild(host)
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(host.view)
+        NSLayoutConstraint.activate([
+            host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            host.view.topAnchor.constraint(equalTo: view.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        host.didMove(toParent: self)
     }
 
-    func buildingWebpageSharingView(with url: URL) {
-        isModalInPresentation = true
-        let hostingView = UIHostingController(rootView: MainShareView(url: url, extensionContext: extensionContext))
-        hostingView.view.frame = view.frame
-        view.addSubview(hostingView.view)
+    /// Share extensions can't call `UIApplication.open`; walk the responder chain to the host
+    /// application and invoke `open(_:options:completionHandler:)` dynamically.
+    private func openContainingApp(_ url: URL) {
+        var responder: UIResponder? = self
+        let selector = NSSelectorFromString("openURL:options:completionHandler:")
+        while let current = responder {
+            if let application = current as? UIApplication, application.responds(to: selector) {
+                typealias OpenMethod = @convention(c) (NSObject, Selector, NSURL, NSDictionary, Any?) -> Void
+                let implementation = application.method(for: selector)
+                let open = unsafeBitCast(implementation, to: OpenMethod.self)
+                open(application, selector, url as NSURL, NSDictionary(), nil)
+                break
+            }
+            responder = current.next
+        }
+        extensionContext?.completeRequest(returningItems: nil)
     }
 }

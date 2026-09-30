@@ -1,0 +1,292 @@
+# XcodeGen spec. Regenerate the project with:
+#   xcodegen generate --spec /Users/qiweili/Desktop/rxlab/summary-chip-ios/project.yml
+name: summary-chip
+
+options:
+  bundleIdPrefix: com.rxlab
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  groupSortPosition: top
+  xcodeVersion: "27.0"
+
+configFiles:
+  Debug: Configuration/Debug.xcconfig
+  Release: Configuration/Release.xcconfig
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: P9KK452K8P
+    CODE_SIGN_STYLE: Automatic
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ENABLE_MODULE_VERIFIER: NO
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SUMMARY_CHIP_KEYCHAIN_GROUP: $(AppIdentifierPrefix)com.rxlab.summary-chip.shared
+
+packages:
+  SummaryKit:
+    path: Packages/SummaryKit
+  RxAuthSwift:
+    url: https://github.com/rxtech-lab/RxAuthSwift
+    from: 1.3.1
+  RxAgentSDK:
+    url: https://github.com/rxtech-lab/RxAgentSDK
+    from: 1.0.8
+
+# Info.plist keys every target reads through SummaryConfiguration.
+x-config-info: &configInfo
+  SummaryChipAPIBaseURL: $(SUMMARY_CHIP_API_BASE_URL)
+  SummaryChipSiteHost: $(SUMMARY_CHIP_SITE_HOST)
+  SummaryChipIOSClientID: $(SUMMARY_CHIP_IOS_CLIENT_ID)
+  SummaryChipOAuthIssuer: $(SUMMARY_CHIP_OAUTH_ISSUER)
+  SummaryChipOAuthRedirectURI: $(SUMMARY_CHIP_OAUTH_REDIRECT_URI)
+  SummaryChipAuthTokenURL: $(SUMMARY_CHIP_AUTH_TOKEN_URL)
+  SummaryChipKeychainAccessGroup: $(SUMMARY_CHIP_KEYCHAIN_GROUP)
+  ITSAppUsesNonExemptEncryption: false
+  NSAppTransportSecurity:
+    NSAllowsLocalNetworking: true
+
+x-shared-entitlements: &sharedEntitlements
+  keychain-access-groups:
+    - $(AppIdentifierPrefix)com.rxlab.summary-chip.shared
+  com.apple.security.application-groups:
+    - group.com.rxlab.summary-chip
+
+targets:
+  summary-chip:
+    type: application
+    platform: iOS
+    sources:
+      - path: summary-chip
+    dependencies:
+      - package: SummaryKit
+      - package: RxAuthSwift
+        product: RxAuthSwift
+      - package: RxAuthSwift
+        product: RxAuthSwiftUI
+      - package: RxAgentSDK
+        product: RxAgentSDK
+      - target: SmartShare
+      - target: SummaryMessages
+      - target: SummaryClip
+    info:
+      path: summary-chip/Info.plist
+      properties:
+        <<: *configInfo
+        CFBundleDisplayName: Summary Chip
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.rxlab.summary-chip
+            CFBundleURLSchemes: [summarychip]
+        LSApplicationCategoryType: public.app-category.productivity
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    entitlements:
+      path: summary-chip/summary-chip.entitlements
+      properties:
+        <<: *sharedEntitlements
+        com.apple.developer.associated-domains:
+          - applinks:summary.rxlab.app
+          - webcredentials:rxlab.app
+          - appclips:summary.rxlab.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip
+        PRODUCT_NAME: summary-chip
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  SmartShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SmartShare
+        excludes:
+          - "*.js"
+      - path: SmartShare/ExtractContent.js
+        buildPhase: resources
+    dependencies:
+      - package: SummaryKit
+    info:
+      path: SmartShare/Info.plist
+      properties:
+        <<: *configInfo
+        CFBundleDisplayName: Summary Chip
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionJavaScriptPreprocessingFile: ExtractContent
+            NSExtensionActivationRule: >-
+              SUBQUERY (
+                extensionItems, $extensionItem,
+                SUBQUERY (
+                  $extensionItem.attachments, $attachment,
+                  ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.property-list"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.adobe.pdf"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text"
+                ).@count >= 1
+              ).@count == 1
+    entitlements:
+      path: SmartShare/SmartShare.entitlements
+      properties:
+        <<: *sharedEntitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.SmartShare
+        PRODUCT_NAME: SmartShare
+        APPLICATION_EXTENSION_API_ONLY: YES
+
+  SummaryMessages:
+    type: app-extension.messages
+    platform: iOS
+    sources:
+      - path: SummaryMessages
+    dependencies:
+      - package: SummaryKit
+    info:
+      path: SummaryMessages/Info.plist
+      properties:
+        <<: *configInfo
+        CFBundleDisplayName: Summary Chip
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        MSSupportedPresentationContexts:
+          - MSMessagesAppPresentationContextMessages
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.message-payload-provider
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MessagesViewController
+    entitlements:
+      path: SummaryMessages/SummaryMessages.entitlements
+      properties:
+        <<: *sharedEntitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.Messages
+        PRODUCT_NAME: SummaryMessages
+        APPLICATION_EXTENSION_API_ONLY: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: iMessage App Icon
+
+  SummaryClip:
+    type: application.on-demand-install-capable
+    platform: iOS
+    sources:
+      - path: SummaryClip
+    dependencies:
+      - package: SummaryKit
+    info:
+      path: SummaryClip/Info.plist
+      properties:
+        <<: *configInfo
+        CFBundleDisplayName: Summary Chip
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSAppClip:
+          NSAppClipRequestEphemeralUserNotification: false
+          NSAppClipRequestLocationConfirmation: false
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    entitlements:
+      path: SummaryClip/SummaryClip.entitlements
+      properties:
+        com.apple.developer.parent-application-identifiers:
+          - $(AppIdentifierPrefix)com.rxlab.summary-chip
+        com.apple.developer.on-demand-install-capable: true
+        com.apple.developer.associated-domains:
+          - appclips:summary.rxlab.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.Clip
+        PRODUCT_NAME: SummaryClip
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  summary-chipTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: summary-chipTests
+    dependencies:
+      - target: summary-chip
+      - package: SummaryKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chipTests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  summary-chip:
+    build:
+      targets:
+        summary-chip: all
+        summary-chipTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - summary-chipTests
+        - package: SummaryKit/SummaryKitTests
+    profile:
+      config: Release
+    archive:
+      config: Release
+  SummaryClip:
+    build:
+      targets:
+        SummaryClip: all
+    run:
+      config: Debug
+      environmentVariables:
+        _XCAppClipURL: https://summary.rxlab.app/s/a1B2c3D4e5
+    archive:
+      config: Release
+  SmartShare:
+    build:
+      targets:
+        SmartShare: all
+        summary-chip: all
+    run:
+      config: Debug
+      askForAppToLaunch: true
+  SummaryMessages:
+    build:
+      targets:
+        SummaryMessages: all
+        summary-chip: all
+    run:
+      config: Debug
+      askForAppToLaunch: true

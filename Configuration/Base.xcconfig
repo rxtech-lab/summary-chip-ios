@@ -1,0 +1,9 @@
+// Shared by Debug and Release. `https:/$()/` keeps xcconfig from treating `//` as a comment.
+
+// Public RxAuth client registered for the iOS app (https://auth.rxlab.app).
+// REPLACE: register a public client with redirect URI summarychip://oauth/callback and put its id here.
+SUMMARY_CHIP_IOS_CLIENT_ID = client_72b7654cefdb4764a80c13f1f1401d7e
+SUMMARY_CHIP_OAUTH_ISSUER = https:/$()/auth.rxlab.app
+SUMMARY_CHIP_AUTH_TOKEN_URL = https:/$()/auth.rxlab.app/api/oauth/token
+SUMMARY_CHIP_OAUTH_REDIRECT_URI = summarychip:/$()/oauth/callback
+SUMMARY_CHIP_SITE_HOST = summary.rxlab.app
