@@ -8,6 +8,7 @@ struct LibraryView: View {
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
     @State private var errorMessage: String?
+    @State private var deletedCount = 0
     @Environment(\.scenePhase) private var scenePhase
 
     private var model: LibraryModel { environment.library }
@@ -69,6 +70,8 @@ struct LibraryView: View {
                 } message: { _ in
                     Text("The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead.")
                 }
+                .sensoryFeedback(.success, trigger: deletedCount)
+                .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
                 .alert("Something went wrong", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -121,6 +124,7 @@ struct LibraryView: View {
         do {
             try await environment.api.deleteSummary(id: summary.id)
             withAnimation { model.remove(id: summary.id) }
+            deletedCount += 1
         } catch {
             errorMessage = error.localizedDescription
         }

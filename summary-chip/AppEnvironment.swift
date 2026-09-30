@@ -35,6 +35,7 @@ final class AppEnvironment {
     let tokenBroker: SharedTokenBroker
     let api: SummaryAPIClient
     let chatClient: ChatStreamClient
+    let chatStore = ChatTranscriptStore()
     let assetLoader: SummaryAssetLoader
     let library: LibraryModel
     private(set) var authenticationState: AuthenticationPresentationState

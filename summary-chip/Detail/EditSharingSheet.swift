@@ -57,6 +57,7 @@ struct EditSharingSheet: View {
                 }
             }
             .interactiveDismissDisabled(isSaving)
+            .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
     }
 

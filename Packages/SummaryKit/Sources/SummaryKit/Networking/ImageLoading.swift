@@ -1,8 +1,7 @@
 import Foundation
 import Kingfisher
-import os
 
-private let logger = Logger(subsystem: "com.rxlab.summary-chip", category: "AssetLoader")
+private let logger = SummaryLog.assets
 
 /// Loads OG images and source PDFs. For owned summaries it attaches the bearer token so private
 /// summaries still render (`/s/<slug>/og.png` and `/s/<slug>/source` accept an optional
@@ -41,7 +40,13 @@ public final class SummaryAssetLoader: Sendable {
     /// slug, ready to share / attach.
     public func downloadOGImage(for summary: Summary) async throws -> URL {
         guard let url = summary.ogImageUrl else { throw SummaryAPIError.invalidResponse }
-        let result = try await KingfisherManager.shared.retrieveImage(with: url, options: imageOptions(authorized: summary.isOwner))
+        let result: RetrieveImageResult
+        do {
+            result = try await KingfisherManager.shared.retrieveImage(with: url, options: imageOptions(authorized: summary.isOwner))
+        } catch {
+            logger.error("OG image download failed for \(url.absoluteString, privacy: .public): \(String(describing: error), privacy: .public)")
+            throw error
+        }
         guard let data = result.data() ?? result.image.kf.pngRepresentation() else { throw SummaryAPIError.invalidResponse }
         return try Self.writeTemporary(data, name: "\(summary.slug).png")
     }
@@ -87,7 +92,7 @@ public final class SummaryAssetLoader: Sendable {
             do {
                 (data, response) = try await session.data(for: request, delegate: StripAuthorizationOnRedirect())
             } catch {
-                logger.error("Fetch failed for \(url.absoluteString, privacy: .public): \(error, privacy: .public)")
+                logger.error("Fetch failed for \(url.absoluteString, privacy: .public): \(error.logDescription, privacy: .public)")
                 throw error
             }
             guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }

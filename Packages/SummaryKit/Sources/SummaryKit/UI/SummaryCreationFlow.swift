@@ -53,6 +53,15 @@ public struct SummaryCreationFlow<Result: View>: View {
                 }
         }
         .interactiveDismissDisabled(session.isGenerating)
+        .sensoryFeedback(trigger: session.state) { old, new in
+            switch new {
+            case .generating: if case .generating = old { nil } else { .impact(weight: .medium) }
+            case .finished: .success
+            case .failed: .error
+            case .idle: nil
+            }
+        }
+        .sensoryFeedback(.error, trigger: importError) { _, new in new != nil }
     }
 
     private struct OptionsRoute: Hashable {}

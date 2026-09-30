@@ -1,5 +1,5 @@
 {
-  "originHash" : "b1f73e4a7d10078f07cedbb07bbbf812bef4b6558c4f96738d407fd765730a12",
+  "originHash" : "fa0485b9b2b49b66d177352160ea4349c56866d3ac7109aa202912afcd3c9104",
   "pins" : [
     {
       "identity" : "kingfisher",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "8648fe649c5d62be38721110f835821906e9242a",
         "version" : "8.13.0"
-      }
-    },
-    {
-      "identity" : "rxagentsdk",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rxtech-lab/RxAgentSDK",
-      "state" : {
-        "revision" : "15cd2bde13eef44e9fa02e1c7197ba771ad6e53e",
-        "version" : "1.0.8"
       }
     },
     {
