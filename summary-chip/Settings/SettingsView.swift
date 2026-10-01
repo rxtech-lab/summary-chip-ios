@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var confirmsClearCache = false
     @State private var clearedCount = 0
     @State private var helpSheet: HelpSheet?
+    @State private var showsCredits = false
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
     var body: some View {
@@ -25,6 +26,7 @@ struct SettingsView: View {
             .sheet(isPresented: $showsDeleteAccount) {
                 DeleteAccountSheet(environment: environment, state: $deletion)
             }
+            .sheet(isPresented: $showsCredits) { SummaryCreditsSheet(environment: environment) }
             .sheet(item: $helpSheet) { sheet in
                 switch sheet {
                 case .welcome:
@@ -90,6 +92,8 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settings-features")
                 }
             }
+
+            creditsSection
 
             Section("Legal") {
                 ForEach(LegalDocument.allCases, id: \.self) { document in
@@ -170,6 +174,8 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings-features")
             }
+
+            creditsSection
 
             Section("Legal") {
                 ForEach(LegalDocument.allCases, id: \.self) { document in
@@ -254,6 +260,15 @@ struct SettingsView: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("signed-in-profile")
+    }
+
+    private var creditsSection: some View {
+        Section("Usage") {
+            Button { showsCredits = true } label: {
+                Label("Summaries & Points", systemImage: "plus.circle")
+            }
+            .accessibilityIdentifier("summary-credits")
+        }
     }
 
     private var user: User? { environment.authManager.currentUser }

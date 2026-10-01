@@ -8,6 +8,7 @@ struct SidebarMainView: View {
     @State private var selection: MainTab? = .library
     @State private var showsChat = true
     @State private var showsNewSummary = false
+    @State private var libraryPath: [Summary] = []
 
     var body: some View {
         NavigationSplitView {
@@ -24,7 +25,7 @@ struct SidebarMainView: View {
         } detail: {
             Group {
                 switch selection ?? .library {
-                case .library, .chat: LibraryView(environment: environment)
+                case .library, .chat: LibraryView(environment: environment, path: $libraryPath)
                 case .settings: SettingsView(environment: environment)
                 }
             }
@@ -34,12 +35,18 @@ struct SidebarMainView: View {
                     .inspectorColumnWidth(min: 320, ideal: 380, max: 560)
             }
         }
-        .summarySearchPresentation(environment: environment)
+        .summarySearchPresentation(environment: environment, onOpenSummary: openFromSearch)
         .sheet(isPresented: $showsNewSummary) {
             NewSummarySheet(environment: environment)
         }
         .focusedSceneValue(\.newSummaryAction, { showsNewSummary = true })
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
+    }
+
+    /// A search result opens as the Library's detail page.
+    private func openFromSearch(_ summary: Summary) {
+        selection = .library
+        libraryPath = [summary]
     }
 }
 

@@ -4,7 +4,7 @@ Summary Chip runs natively on macOS 26 and later. Open `summary-chip.xcodeproj`,
 
 The Mac app uses a sidebar for Library, Chat, and Settings. Toolbar Search (also available with Command-K) opens a focused overlay over the current screen; close it with Escape, the close button, or a click on the backdrop. New Summary (also available with Command-N), filters, sharing, image regeneration, account deletion, and summary deletion have dedicated sheets. Creation options use a separate navigation destination. The feed adjusts its column count as the window changes size.
 
-The app includes native clipboard copying, the macOS system sharing picker, security-scoped PDF import, welcome onboarding, and Siri/Shortcuts actions. Long-running intents use the macOS 27 API when available and the existing generation path on macOS 26.
+The app includes native clipboard copying, the macOS system sharing picker, security-scoped PDF import, drag-and-drop summary creation (drop a PDF, text or Markdown file or a web link on the window, or a file on the Dock icon or via Finder’s Open With, to open New Summary with it), welcome onboarding, and Siri/Shortcuts actions. Long-running intents use the macOS 27 API when available and the existing generation path on macOS 26.
 
 `MacSmartShare` is the bundled macOS share extension. It accepts web links, PDFs, and text, and uses the same generation flow as the main app. Sign in to the containing app first, then choose Summary Chip in Safari’s Share menu. macOS may require enabling the extension in System Settings before it appears.
 
@@ -15,6 +15,8 @@ The app and Mac share extension reuse `Configuration/Debug.xcconfig` (localhost 
 The `summary-chip` target supports iOS and native macOS. Dependencies use `destinationFilters`: `MacSmartShare` is built and embedded only for macOS; `SmartShare`, `SummaryMessages`, and `SummaryClip` only for iOS. SDK-conditioned build settings select the Mac app icon, sandbox entitlements, Info.plist, signing identity, and framework search path. Mac app configuration files are maintained in `summary-chip-macOS/`; targets, schemes, and other generated plists and entitlements are defined in `project.yml`. Regenerate with `xcodegen generate` after changing the spec. Existing local Xcode signing overrides may need to be reapplied after regeneration.
 
 ## Validation
+
+For Developer ID distribution, Sparkle updates, release credentials, and GitHub Pages/Cloudflare setup, see [macOS signing and updates](macos-updates.md).
 
 Build the Mac app and extension without distribution signing:
 

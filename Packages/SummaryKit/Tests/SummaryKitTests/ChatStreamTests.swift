@@ -47,6 +47,21 @@ import Testing
         #expect(ChatToolOutput.references(from: .string("nope")).isEmpty)
     }
 
+    @Test func describesLocalFileToolCalls() throws {
+        let grep = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"pattern":"revenue","regex":false}"#.utf8))
+        #expect(ChatToolOutput.detail(toolName: "grepLocalFile", input: grep) == "“revenue”")
+        #expect(ChatToolOutput.activityLabel(toolName: "grepLocalFile", input: grep) == "Searching the file…")
+        let read = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"startLine":10,"endLine":40}"#.utf8))
+        #expect(ChatToolOutput.detail(toolName: "readLocalFile", input: read) == "Lines 10–40")
+        #expect(ChatToolOutput.detail(toolName: "readLocalFile", input: .object(["startLine": .number(5)])) == "From line 5")
+
+        let matches = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"totalLines":120,"matches":[],"totalMatches":3,"truncated":false}"#.utf8))
+        #expect(ChatToolOutput.localFileStatus(toolName: "grepLocalFile", output: matches) == "3 matches")
+        let lines = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"startLine":10,"endLine":40,"totalLines":120,"text":"…"}"#.utf8))
+        #expect(ChatToolOutput.localFileStatus(toolName: "readLocalFile", output: lines) == "Lines 10–40 of 120")
+        #expect(ChatToolOutput.localFileStatus(toolName: "searchSummaries", output: lines) == nil)
+    }
+
     @Test func describesToolCallsForCards() throws {
         let input = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"query":" sleep better ","category":"Health","tag":"habits","scope":"all"}"#.utf8))
         #expect(ChatToolOutput.detail(toolName: "searchSummaries", input: input) == "“sleep better” · Health · #habits")

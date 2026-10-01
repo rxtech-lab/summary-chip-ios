@@ -6,12 +6,19 @@ import SwiftUI
 @main
 struct SummaryChipApp: App {
     @State private var environment: AppEnvironment
+    #if os(macOS)
+    private let serviceProvider: SummaryServiceProvider
+    #endif
 
     init() {
         let environment = AppEnvironment.live()
         _environment = State(initialValue: environment)
         // Siri / Shortcuts intents run in this process and share the signed-in environment.
         AppDependencyManager.shared.add(dependency: environment)
+        #if os(macOS)
+        serviceProvider = SummaryServiceProvider(environment: environment)
+        serviceProvider.register()
+        #endif
     }
 
     var body: some Scene {
@@ -22,8 +29,15 @@ struct SummaryChipApp: App {
                 #endif
                 .environment(\.summaryAssetLoader, environment.assetLoader)
                 .task {
+                    #if os(macOS)
+                    UpdateService.shared.start()
+                    #endif
                     #if DEBUG
+                    #if os(iOS)
+                    if ProcessInfo.processInfo.arguments.contains("--preview-local-file") { return }
+                    #endif
                     if ProcessInfo.processInfo.arguments.contains("--preview-education") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--preview-credits") { return }
                     #if os(macOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-mac") { return }
                     #endif
@@ -40,14 +54,43 @@ struct SummaryChipApp: App {
         }
         #if os(macOS)
         .defaultSize(width: 1100, height: 760)
-        .commands { SummaryMacCommands() }
+        .commands {
+            SummaryMacCommands()
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…", systemImage: "arrow.triangle.2.circlepath") {
+                    UpdateService.shared.checkForUpdates()
+                }
+                Button("Software Update Settings…", systemImage: "gearshape") {
+                    UpdateService.shared.showSettings()
+                }
+            }
+        }
         #endif
     }
 
     @ViewBuilder
     private var appContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-education") {
+        #if os(iOS)
+        if ProcessInfo.processInfo.arguments.contains("--preview-local-file") {
+            LocalFilePreviewHost()
+        } else {
+            standardAppContent
+        }
+        #else
+        standardAppContent
+        #endif
+        #else
+        ContentView(environment: environment)
+        #endif
+    }
+
+    @ViewBuilder
+    private var standardAppContent: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-credits") {
+            CreditsPreviewHost()
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-education") {
             OnboardingPreviewHost()
         } else {
             #if os(macOS)

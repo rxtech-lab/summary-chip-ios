@@ -24,7 +24,12 @@ fastlane/test_output/
 *.mobileprovision
 *.p12
 *.p8
+*.dmg
+output/
+sparkle.key
+.secrets/
 *.cer
+!server/lib/subscription/certificates/AppleRootCA-G3.cer
 
 # Secrets & local env (server has its own .gitignore too)
 .env
@@ -50,6 +55,7 @@ node_modules/
 
 # Logs
 *.log
+__pycache__/
 
 # macOS
 .DS_Store

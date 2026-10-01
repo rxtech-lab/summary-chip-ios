@@ -1,5 +1,5 @@
 {
-  "originHash" : "b1f73e4a7d10078f07cedbb07bbbf812bef4b6558c4f96738d407fd765730a12",
+  "originHash" : "db1d2d7e5677e00a60e3f88d7a2ee72ee135e1eac61942e6c46331ad06c575ed",
   "pins" : [
     {
       "identity" : "kingfisher",
@@ -26,6 +26,24 @@
       "state" : {
         "revision" : "c917e47df83292b9f4d6d03a80218d33da8f4886",
         "version" : "1.3.1"
+      }
+    },
+    {
+      "identity" : "rxsubscriptionios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rxtech-lab/RxSubscriptionIOS",
+      "state" : {
+        "revision" : "cae18f034945030f1c513830f174f9f77b524ec3",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "sparkle",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sparkle-project/Sparkle",
+      "state" : {
+        "revision" : "eef1a539a373c1f1a320624b1130fc5de7b2e100",
+        "version" : "2.10.0"
       }
     },
     {

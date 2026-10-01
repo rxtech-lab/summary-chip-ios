@@ -4,7 +4,7 @@ import Foundation
 /// staged share-extension uploads, saved agent chats, the recent-summaries cache used by the
 /// iMessage app).
 public enum SharedLogoutPurger {
-    public static let sharedDirectories = ["SharedImages", "Uploads", "Cache", "Chats"]
+    public static let sharedDirectories = ["SharedImages", "Uploads", "Cache", "Chats", "LocalFiles"]
 
     public static func purge(fileManager: FileManager = .default) {
         try? fileManager.removeItem(at: SharedImageCache.temporaryDirectory)

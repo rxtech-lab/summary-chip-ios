@@ -25,6 +25,8 @@ import { extractPdfText } from "@/lib/extract/pdf";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateOgImages, type OgImages } from "@/lib/og/generate";
 import { generateSlug } from "@/lib/slug";
+import { consumeSummaryUsage } from "@/lib/subscription/usage";
+import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, isPublicAndLive, relevance } from "./search";
@@ -34,6 +36,7 @@ export interface ServiceDeps {
   ai?: AiProvider;
   store?: ObjectStore;
   now?: () => Date;
+  billingEnvironment?: BillingEnvironment;
 }
 
 async function resolveDeps(deps: ServiceDeps = {}) {
@@ -147,6 +150,11 @@ async function extractSource(db: Database, ownerId: string, input: CreateSummary
       return { content: await extractFromWebpage(source), uploadKey: null };
     case "text":
       return { content: extractFromText(source), uploadKey: null };
+    case "local":
+      return {
+        content: { ...extractFromText({ text: source.text, title: source.filename.replace(/\.[^.]+$/, "") }), source: source.kind },
+        uploadKey: null,
+      };
     case "pdf":
       return extractPdfUpload(db, ownerId, source, store);
   }
@@ -169,6 +177,8 @@ export async function createSummary(
 ): Promise<SummaryJson> {
   const { ai, store, now } = await resolveDeps(deps);
   const { content, uploadKey } = await extractSource(db, principal.sub, input, store);
+  const id = crypto.randomUUID();
+  await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
   const raw = await ai.summarize({
     text: truncateForModel(content.text),
@@ -178,11 +188,12 @@ export async function createSummary(
     sourceLang: content.lang,
     language: input.language,
   });
-  const id = crypto.randomUUID();
   const draft = normalizeDraft(raw, { requestedLanguage: input.language, seed: id, fallbackTitle: content.sourceTitle });
+  // A local file's content never leaves this request; the device supplies it again when chatting.
+  const storedText = input.source.type === "local" ? "" : content.text;
 
   // Embedded alongside the image generation; stored once the row exists.
-  const embedding = embedSummary(ai, { ...draft, siteName: content.siteName, sourceTitle: content.sourceTitle, contentText: content.text });
+  const embedding = embedSummary(ai, { ...draft, siteName: content.siteName, sourceTitle: content.sourceTitle, contentText: storedText });
 
   const createdAt = now();
   let imageKeys: ImageKeys = { ogImageKey: null, artImageKey: null };
@@ -212,8 +223,8 @@ export async function createSummary(
     sourceTitle: content.sourceTitle,
     siteName: content.siteName,
     sourceFileKey: uploadKey,
-    contentExcerpt: content.text.slice(0, EXCERPT_LIMIT),
-    contentText: content.text.slice(0, SOURCE_TEXT_LIMIT),
+    contentExcerpt: storedText.slice(0, EXCERPT_LIMIT),
+    contentText: storedText.slice(0, SOURCE_TEXT_LIMIT),
     title: draft.title,
     summary: draft.summary,
     highlights: draft.highlights,

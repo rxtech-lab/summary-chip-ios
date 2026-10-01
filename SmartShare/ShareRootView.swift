@@ -20,13 +20,15 @@ struct ShareRootView: View {
     @State private var broker: SharedTokenBroker?
     @State private var api: SummaryAPIClient?
     @State private var loader: SummaryAssetLoader = .anonymous
+    @State private var sourceFile: URL?
+    @State private var sourceFilename: String?
 
     var body: some View {
         Group {
             switch phase {
             case .loading:
                 NavigationStack {
-                    ProgressView("Reading what you shared…")
+                    Color.clear.overlay { ActionStatusOverlay("Reading what you shared…", isWorking: true) }
                         .toolbar { cancelItem }
                 }
             case .signedOut:
@@ -38,12 +40,12 @@ struct ShareRootView: View {
                 }
             case .failed(let message):
                 NavigationStack {
-                    ContentUnavailableView("Can't summarise this", systemImage: "questionmark.folder", description: Text(message))
+                    Color.clear.statusAlert("Couldn't Read Shared Item", message: message, onDismiss: cancel)
                         .toolbar { cancelItem }
                 }
             case .ready(let input):
                 if let api {
-                    SummaryCreationFlow(api: api, input: input, title: "Summary Chip", onCancel: cancel) { summary in
+                    SummaryCreationFlow(api: api, input: input, sourceFile: sourceFile, sourceFilename: sourceFilename, title: "Summary Chip", onCancel: cancel) { summary in
                         ShareResultView(summary: summary, openInApp: { openURL(SummaryLink.openInAppURL(summaryID: summary.id)) }, done: finish)
                     }
                 }
@@ -69,7 +71,11 @@ struct ShareRootView: View {
         api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: broker)
         loader = SummaryAssetLoader(tokenProvider: broker, cacheLimitBytes: 8 * 1024 * 1024)
         do {
-            phase = .ready(try await SharePayloadLoader.load(inputItems: inputItems))
+            let raw = try await SharePayloadLoader.loadRaw(inputItems: inputItems)
+            guard let input = ShareClassifier.classify(raw) else { throw SharePayloadError.noSupportedItems }
+            sourceFile = raw.pdfFile ?? raw.localFile
+            sourceFilename = raw.pdfFilename ?? raw.localFilename
+            phase = .ready(input)
         } catch {
             phase = .failed(error.localizedDescription)
         }

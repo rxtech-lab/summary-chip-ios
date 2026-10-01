@@ -38,8 +38,18 @@ final class AppEnvironment {
     let chatStore = ChatTranscriptStore()
     let assetLoader: SummaryAssetLoader
     let library: LibraryModel
+    let credits = SummaryCreditsStore()
+    var pendingTopUp = false
     private(set) var authenticationState: AuthenticationPresentationState
     var pendingRoute: AppRoute?
+    /// Text or link sent from another app through the macOS Services menu.
+    var pendingServiceText: String?
+    /// A file dropped on the window or opened with the app (Finder "Open With", the Dock icon).
+    /// Replacing or clearing it discards a staged copy nobody will summarise.
+    var pendingFile: DroppedSummaryFile? {
+        didSet { if let oldValue, oldValue != pendingFile, !isHandingOffFile { oldValue.discard() } }
+    }
+    @ObservationIgnored private var isHandingOffFile = false
 
     init(configuration: SummaryConfiguration, authManager: OAuthManager, tokenBroker: SharedTokenBroker, authenticationState: AuthenticationPresentationState = .checking) {
         self.configuration = configuration
@@ -94,17 +104,40 @@ final class AppEnvironment {
         }
         await authManager.checkExistingAuth()
         synchronizeAuthenticationState()
+        if authenticationState == .signedIn {
+            Task { await credits.refresh(api: api, broker: tokenBroker) }
+        }
     }
 
     func authenticationCompleted() {
         synchronizeAuthenticationState()
-        Task { await library.reload() }
+        Task {
+            await library.reload()
+            await credits.refresh(api: api, broker: tokenBroker)
+        }
     }
 
     func handleIncomingURL(_ url: URL) {
+        if url.isFileURL {
+            pendingFile = DroppedSummaryFile(url: url, isStagedCopy: false)
+            return
+        }
+        if url.scheme == "summarychip", url.host() == "top-up" {
+            pendingTopUp = true
+            return
+        }
         // The OAuth callback shares the custom scheme and is owned by RxAuthSwift.
         guard let route = AppRoute(url: url, siteHost: configuration.siteHost) else { return }
         pendingRoute = route
+    }
+
+    /// Hands the pending file to the caller, which presents it and owns it from then on.
+    func takePendingFile() -> DroppedSummaryFile? {
+        guard let file = pendingFile else { return nil }
+        isHandingOffFile = true
+        pendingFile = nil
+        isHandingOffFile = false
+        return file
     }
 
     func sessionExpired() async {
@@ -128,7 +161,11 @@ final class AppEnvironment {
         await authManager.logout()
         SharedLogoutPurger.purge()
         library.reset()
+        credits.reset()
+        pendingTopUp = false
         pendingRoute = nil
+        pendingServiceText = nil
+        pendingFile = nil
         authenticationState = .signedOut
     }
 

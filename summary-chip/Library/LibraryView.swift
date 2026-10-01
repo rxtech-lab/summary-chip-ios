@@ -8,6 +8,9 @@ struct LibraryView: View {
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
     @State private var deletedCount = 0
+    @State private var localPath: [Summary] = []
+    /// Lets a parent (the macOS sidebar layout) push a summary, e.g. one picked in search.
+    var path: Binding<[Summary]>?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openSummarySearch) private var openSearch
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
@@ -15,7 +18,7 @@ struct LibraryView: View {
     private var model: LibraryModel { environment.library }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: path ?? $localPath) {
             content
                 .navigationTitle("Library")
                 .navigationDestination(for: Summary.self) { summary in

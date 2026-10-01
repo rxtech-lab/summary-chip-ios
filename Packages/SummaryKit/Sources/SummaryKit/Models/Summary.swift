@@ -6,6 +6,8 @@ public enum SummarySourceType: String, Codable, Sendable, CaseIterable {
     case webpage
     case pdf
     case text
+    /// A file on the owner's device; the server keeps only the summary, never its content.
+    case local
 
     public init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
@@ -17,6 +19,7 @@ public enum SummarySourceType: String, Codable, Sendable, CaseIterable {
         case .url, .webpage: "safari"
         case .pdf: "doc.richtext"
         case .text: "text.alignleft"
+        case .local: "doc"
         }
     }
 }
@@ -61,7 +64,7 @@ public enum SummaryOrigin: Codable, Sendable, Hashable {
         switch sourceType {
         case .url, .webpage: self = .web
         case .pdf: self = .pdf
-        case .text: self = .text
+        case .text, .local: self = .text
         }
     }
 

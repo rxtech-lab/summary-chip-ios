@@ -5,6 +5,75 @@ It implements the contract in [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.m
 iOS API (`/api/v1/*`), the anonymous App Clip API (`/api/public/*`), the public share site (`/s/[slug]`),
 OG image generation, and the cleanup cron.
 
+## Free summaries and top-ups
+
+Generation calls RxSubscription's `POST /api/v1/usage` for `daily_summary_generation`
+after source validation and before AI. RxSubscription controls the allowance, reset,
+point cost and available balance; the app never counts usage or embeds a limit.
+
+Configure **Summary Chip's own application** in RxSubscription:
+
+1. Create the `points` balance unit and `daily_summary_generation` usage item.
+2. Set its default limit to **5**, reset policy to **daily**, and overage policy to
+   **charge_balance**, using `points` with your chosen cost per extra summary.
+   All users receive the allowance, including accounts with no plan or points.
+3. Publish consumable top-up packs that credit `points`, with mapped Apple product IDs.
+   Do not require an active plan or publish recurring paid plans.
+4. Allow the app's OAuth client ID on the publishable keys. Configure matching
+   secret/publishable environment keys and the service URL from `.env.example`.
+
+Live setup verified on **2026-10-01** for Summary Chip's RxSubscription application:
+`daily_summary_generation` gives **5 summaries per calendar day** and charges
+**1 point** per extra summary. The active standalone `points_100` pack grants
+**100 points for US$1.99**, and the catalog contains no recurring plans. These
+values live in RxSubscription and can be changed without an app release.
+Production, sandbox and Xcode return the same catalog and allowance policy;
+their user balances and usage remain isolated.
+
+**Apple purchases still require setup:** this application currently has no App Store
+integration or Apple product mapping. Its catalog advertises Stripe checkout only.
+Connect the Summary Chip app in RxSubscription's **Settings → App Store**, create
+the consumable `com.rxlab.summary-chip.points100` in App Store Connect, and map it
+to `points_100` before validating Apple purchase fulfillment. Keep App Store Connect
+private keys in RxSubscription's settings, never in this repository.
+
+The iOS/macOS **Settings → Summaries & Points** sheet displays the service's balance,
+remaining allowance and reset time. Top-ups have their own screen; purchases use
+RxSubscriptionIOS (≥ 1.2.0) and refresh the balance in place. iOS creates the client
+with `useIap: true` (App Store consumables, Restore Purchases shown); the Developer ID
+macOS build uses `useIap: false`, so the catalog is priced with `platform=web` and every
+pack opens Stripe Checkout in the browser, fulfilled by RxSubscription's Stripe webhook.
+The Stripe price on `points_100` must stay active for macOS. Share and Messages extensions,
+App Clip and Siri all reach the same server enforcement.
+
+`GET /api/v1/billing` is bearer-authenticated and returns only a publishable key,
+service URL and item/unit identifiers. With separate sandbox/production keys, the
+server validates Apple's signed `AppTransaction` against the bundled Apple trust
+anchor and `APP_STORE_ID` before selecting sandbox. Missing proof uses production;
+unsigned environment headers cannot select sandbox or production.
+
+Xcode StoreKit testing uses `RX_SUBSCRIPTION_XCODE_API_KEY` and
+`RX_SUBSCRIPTION_XCODE_PUBLISHABLE_KEY` (prefixes `rxs_xcode_` and `rxs_pk_xcode_`).
+Debug builds send `x-storekit-environment: xcode` when StoreKit reports `.xcode`;
+both the storefront and summary usage then use that environment's separate balance.
+On deployed servers, add authorized RxAuth user subjects to the comma-separated
+`RX_SUBSCRIPTION_XCODE_USER_IDS`. Other users receive `403 XCODE_BILLING_NOT_ALLOWED`.
+Xcode's locally signed transactions cannot prove identity or an Apple environment;
+the authenticated subject and server configuration authorize this test-only route.
+Local development does not require a tester list. A dedicated Xcode server may use
+`RX_SUBSCRIPTION_ENVIRONMENT=xcode` with matching named or single-environment keys.
+Enable a StoreKit configuration in the Xcode scheme containing consumable product
+IDs matching the top-up packs published in RxSubscription's Xcode catalog.
+
+Usage measures **accepted generation attempts**. Rejected/invalid requests do not
+spend usage. Once RxSubscription accepts an attempt it stays counted (and any
+overage stays charged) if AI or persistence later fails: the deployed usage API
+does not support refunds. Each operation sends a unique metering idempotency key;
+a new user retry is a new attempt.
+
+Unconfigured local development may skip metering. Production and partially
+configured servers fail closed, as do service outages and unknown usage items.
+
 ## Layout
 
 ```
