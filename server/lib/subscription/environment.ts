@@ -24,12 +24,17 @@ export async function billingEnvironment(request: Request, principal: Pick<ApiPr
   if (!proof) return "production";
   if (proof.length > 16_384 || proof.split(".").length !== 3) throw invalidProof();
   const bundleId = process.env.APPLE_BUNDLE_ID?.trim() || "com.rxlab.summary-chip";
-  const appId = Number(process.env.APP_STORE_ID);
-  if (!Number.isSafeInteger(appId) || appId <= 0) throw new ApiError(503, "SUBSCRIPTION_NOT_CONFIGURED", "App Store billing is not configured.");
+  const parsedAppId = Number(process.env.APP_STORE_ID);
+  const appId = Number.isSafeInteger(parsedAppId) && parsedAppId > 0 ? parsedAppId : undefined;
+  // Apple only requires the app ID to verify production proofs. Without it, still detect sandbox and otherwise
+  // fall back to production — the same default as a request without proof — so usage is never blocked.
+  const environments = appId
+    ? [[Environment.SANDBOX, "sandbox"], [Environment.PRODUCTION, "production"]] as const
+    : [[Environment.SANDBOX, "sandbox"]] as const;
   for (const expectedBundle of [bundleId, `${bundleId}.Clip`]) {
-    for (const [apple, billing] of [[Environment.SANDBOX, "sandbox"], [Environment.PRODUCTION, "production"]] as const) {
+    for (const [apple, billing] of environments) {
       try {
-        const key = `${expectedBundle}:${apple}:${appId}`;
+        const key = `${expectedBundle}:${apple}:${appId ?? "none"}`;
         let verifier = verifiers.get(key);
         if (!verifier) {
           const root = readFileSync(path.join(process.cwd(), "lib/subscription/certificates/AppleRootCA-G3.cer"));
@@ -45,6 +50,7 @@ export async function billingEnvironment(request: Request, principal: Pick<ApiPr
       }
     }
   }
+  if (!appId) return "production";
   throw invalidProof();
 }
 
