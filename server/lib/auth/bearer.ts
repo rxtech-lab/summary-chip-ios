@@ -53,7 +53,7 @@ export function getBearerVerifierConfig(): BearerVerifierConfig {
 function toPrincipal(payload: JWTPayload, allowedClientIds: ReadonlySet<string>): ApiPrincipal {
   const clientId = typeof payload.client_id === "string" ? payload.client_id : undefined;
   if (!clientId || !allowedClientIds.has(clientId)) {
-    throw new ApiError(403, "OAUTH_CLIENT_NOT_ALLOWED", "This OAuth client cannot access Summary Chip");
+    throw new ApiError(403, "OAUTH_CLIENT_NOT_ALLOWED", "This OAuth client cannot access Chippy");
   }
   if (typeof payload.sub !== "string" || payload.sub.length === 0) {
     throw new ApiError(401, "INVALID_ACCESS_TOKEN", "The access token is missing a subject");

@@ -5,9 +5,9 @@ import "./globals.css";
 export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(siteUrl()),
-    title: { default: "Summary Chip", template: "%s · Summary Chip" },
+    title: { default: "Chippy", template: "%s · Chippy" },
     description: "Summarise any web page, PDF or note into a shareable card.",
-    applicationName: "Summary Chip",
+    applicationName: "Chippy",
   };
 }
 

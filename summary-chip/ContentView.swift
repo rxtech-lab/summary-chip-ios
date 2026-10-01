@@ -21,7 +21,7 @@ struct ContentView: View {
                     manager: environment.authManager,
                     appearance: RxSignInAppearance(
                         icon: .systemImage("text.quote"),
-                        title: "Summary Chip",
+                        title: "Chippy",
                         subtitle: "Summarise anything into a link worth sharing.",
                         signInButtonTitle: "Sign in with RxLab",
                         accentColor: .indigo,

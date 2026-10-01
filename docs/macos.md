@@ -1,12 +1,12 @@
 # macOS support
 
-Summary Chip runs natively on macOS 26 and later. Open `summary-chip.xcodeproj`, select the **summary-chip** scheme, and run on **My Mac**. The same app target and scheme support iOS devices and simulators. The **summary-chip-macOS** scheme builds this shared target and selects the Mac test suites.
+Chippy runs natively on macOS 26 and later. Open `summary-chip.xcodeproj`, select the **summary-chip** scheme, and run on **My Mac**. The same app target and scheme support iOS devices and simulators. The **summary-chip-macOS** scheme builds this shared target and selects the Mac test suites.
 
 The Mac app uses a sidebar for Library, Chat, and Settings. Toolbar Search (also available with Command-K) opens a focused overlay over the current screen; close it with Escape, the close button, or a click on the backdrop. New Summary (also available with Command-N), filters, sharing, image regeneration, account deletion, and summary deletion have dedicated sheets. Creation options use a separate navigation destination. The feed adjusts its column count as the window changes size.
 
 The app includes native clipboard copying, the macOS system sharing picker, security-scoped PDF import, drag-and-drop summary creation (drop a PDF, text or Markdown file or a web link on the window, or a file on the Dock icon or via Finder’s Open With, to open New Summary with it), welcome onboarding, and Siri/Shortcuts actions. Long-running intents use the macOS 27 API when available and the existing generation path on macOS 26.
 
-`MacSmartShare` is the bundled macOS share extension. It accepts web links, PDFs, and text, and uses the same generation flow as the main app. Sign in to the containing app first, then choose Summary Chip in Safari’s Share menu. macOS may require enabling the extension in System Settings before it appears.
+`MacSmartShare` is the bundled macOS share extension. It accepts web links, PDFs, and text, and uses the same generation flow as the main app. Sign in to the containing app first, then choose Chippy in Safari’s Share menu. macOS may require enabling the extension in System Settings before it appears.
 
 ## Configuration and signing
 

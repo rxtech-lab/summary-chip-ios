@@ -1,4 +1,4 @@
-# Summary Chip — Architecture & API Contract
+# Chippy — Architecture & API Contract
 
 This document is the single source of truth shared by the Next.js server (`server/`) and
 the iOS targets (app, share extension, iMessage extension, App Clip). Both sides must

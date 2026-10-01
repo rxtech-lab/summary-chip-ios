@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Summary Chip</string>
+	<string>Chippy</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -63,12 +63,12 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Summarize with Summary Chip</string>
+				<string>Summarize with Chippy</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>summarize</string>
 			<key>NSPortName</key>
-			<string>Summary Chip</string>
+			<string>Chippy</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendTypes</key>
@@ -78,6 +78,16 @@
 			</array>
 		</dict>
 	</array>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://update.summary.rxlab.app/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>OOJs50Q9V9lpqBgeRi0ow0YBdiAlmc9uJ3B9hABDsqQ=</string>
 	<key>SummaryChipAPIBaseURL</key>
 	<string>$(SUMMARY_CHIP_API_BASE_URL)</string>
 	<key>SummaryChipAuthTokenURL</key>
@@ -92,15 +102,5 @@
 	<string>$(SUMMARY_CHIP_OAUTH_REDIRECT_URI)</string>
 	<key>SummaryChipSiteHost</key>
 	<string>$(SUMMARY_CHIP_SITE_HOST)</string>
-	<key>SUFeedURL</key>
-	<string>https://update.summary.rxlab.app/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>OOJs50Q9V9lpqBgeRi0ow0YBdiAlmc9uJ3B9hABDsqQ=</string>
-	<key>SUEnableInstallerLauncherService</key>
-	<true/>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUAllowsAutomaticUpdates</key>
-	<true/>
 </dict>
 </plist>

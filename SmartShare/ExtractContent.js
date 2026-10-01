@@ -1,4 +1,4 @@
-// Safari share-sheet preprocessing for Summary Chip.
+// Safari share-sheet preprocessing for Chippy.
 // run() receives the page before the extension launches; its results arrive in the extension
 // as NSExtensionJavaScriptPreprocessingResultsKey.
 var ExtractContent = function () {};

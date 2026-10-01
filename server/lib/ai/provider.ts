@@ -58,7 +58,7 @@ function languageInstruction(language: OutputLanguage, sourceLang: string | null
   return `Write every text field (title, summary, highlights, headline, keywords) in ${LANGUAGE_NAMES[language]}, translating if needed. Tags stay short and lowercase.`;
 }
 
-export const SUMMARY_INSTRUCTIONS = `You are Summary Chip, an editor that turns web pages, PDFs and notes into compact, shareable summary cards.
+export const SUMMARY_INSTRUCTIONS = `You are Chippy, an editor that turns web pages, PDFs and notes into compact, shareable summary cards.
 Be faithful to the source: never invent facts, numbers or quotes. Prefer concrete specifics over vague statements.
 - summary: 2-4 sentences.
 - highlights: 3-5 key takeaways, one sentence each.

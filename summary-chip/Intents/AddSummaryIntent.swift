@@ -2,7 +2,7 @@ import AppIntents
 import SummaryKit
 import SwiftUI
 
-/// "Hey Siri, add a summary in Summary Chip" — summarises a link or some text in the background
+/// "Hey Siri, add a summary in Chippy" — summarises a link or some text in the background
 /// with the user's saved generation options, then shows the finished card.
 struct AddSummaryIntent: AppIntent, ProgressReportingIntent {
     static let title: LocalizedStringResource = "Add Summary"
@@ -95,7 +95,7 @@ enum AddSummaryIntentError: Error, CustomLocalizedStringResourceConvertible {
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
-        case .notSignedIn: "Open Summary Chip and sign in first."
+        case .notSignedIn: "Open Chippy and sign in first."
         }
     }
 }
@@ -103,7 +103,7 @@ enum AddSummaryIntentError: Error, CustomLocalizedStringResourceConvertible {
 /// Opens a summary in the app, e.g. the one "Add Summary" just made.
 struct OpenSummaryIntent: OpenIntent {
     static let title: LocalizedStringResource = "Open Summary"
-    static let description = IntentDescription("Opens a summary in Summary Chip.", categoryName: "Summaries")
+    static let description = IntentDescription("Opens a summary in Chippy.", categoryName: "Summaries")
     static let supportedModes: IntentModes = .foreground
 
     @Parameter(title: "Summary")

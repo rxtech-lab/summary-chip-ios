@@ -171,7 +171,7 @@ struct LibraryView: View {
             ContentUnavailableView {
                 Label("No summaries yet", systemImage: "text.quote")
             } description: {
-                Text("Summaries you create, and ones you open from shared links, appear here. Share a web page, PDF or text to Summary Chip, or paste a link.")
+                Text("Summaries you create, and ones you open from shared links, appear here. Share a web page, PDF or text to Chippy, or paste a link.")
             } actions: {
                 Button("New Summary") { showsNewSummary = true }
                     .buttonStyle(.borderedProminent)

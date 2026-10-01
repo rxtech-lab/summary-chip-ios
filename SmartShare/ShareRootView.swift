@@ -34,7 +34,7 @@ struct ShareRootView: View {
             case .signedOut:
                 NavigationStack {
                     SignedOutNotice()
-                        .navigationTitle("Summary Chip")
+                        .navigationTitle("Chippy")
                         .summaryInlineNavigationTitle()
                         .toolbar { cancelItem }
                 }
@@ -45,7 +45,7 @@ struct ShareRootView: View {
                 }
             case .ready(let input):
                 if let api {
-                    SummaryCreationFlow(api: api, input: input, sourceFile: sourceFile, sourceFilename: sourceFilename, title: "Summary Chip", onCancel: cancel) { summary in
+                    SummaryCreationFlow(api: api, input: input, sourceFile: sourceFile, sourceFilename: sourceFilename, title: "Chippy", onCancel: cancel) { summary in
                         ShareResultView(summary: summary, openInApp: { openURL(SummaryLink.openInAppURL(summaryID: summary.id)) }, done: finish)
                     }
                 }
@@ -97,7 +97,7 @@ private struct ShareResultView: View {
             ShareActionsSection(summary: summary)
             Section {
                 Button(action: openInApp) {
-                    Label("Open in Summary Chip", systemImage: "arrow.up.forward.app")
+                    Label("Open in Chippy", systemImage: "arrow.up.forward.app")
                 }
             }
         }

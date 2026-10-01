@@ -11,9 +11,9 @@ struct EducationPage: Identifiable, Equatable {
 
     private static var safariMessage: String {
         #if os(macOS)
-        "Open a page in Safari, click Share, and choose Summary Chip. The share extension turns the page into a summary without leaving your browser. You can also paste a link or choose a PDF in New Summary."
+        "Open a page in Safari, click Share, and choose Chippy. The share extension turns the page into a summary without leaving your browser. You can also paste a link or choose a PDF in New Summary."
         #else
-        "Open a page in Safari, tap Share, and choose Summary Chip. The share extension turns the page into a summary without leaving your browser."
+        "Open a page in Safari, tap Share, and choose Chippy. The share extension turns the page into a summary without leaving your browser."
         #endif
     }
 
@@ -24,7 +24,7 @@ struct EducationPage: Identifiable, Equatable {
               imageName: "WelcomeSafari"),
         .init(id: "welcome-siri", kind: .welcome,
               title: "Just ask Siri",
-              message: "Say “Add a summary in Summary Chip”, then give Siri a link or some text. Your summary is saved to your Library using your saved options.",
+              message: "Say “Add a summary in Chippy”, then give Siri a link or some text. Your summary is saved to your Library using your saved options.",
               imageName: "WelcomeSiri"),
         .init(id: "welcome-sharing", kind: .welcome,
               title: "Share on your terms",

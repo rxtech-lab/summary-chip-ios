@@ -40,7 +40,7 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
             case 500...: "The server had a problem (\(status)). Please try again."
             default: "The request failed (\(status))."
             }
-        case .notSignedIn: "Open Summary Chip and sign in first."
+        case .notSignedIn: "Open Chippy and sign in first."
         case .invalidResponse: "The server returned an unexpected response."
         case .decoding(let detail): "Could not read the server response. \(detail)"
         case .fileTooLarge(let max): "PDFs must be smaller than \(ByteCountFormatter.string(fromByteCount: Int64(max), countStyle: .file))."

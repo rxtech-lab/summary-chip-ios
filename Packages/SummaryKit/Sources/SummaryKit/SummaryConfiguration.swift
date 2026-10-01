@@ -2,7 +2,7 @@ import Foundation
 
 /// Identifiers shared by every target (see docs/ARCHITECTURE.md → Identifiers).
 public enum SummaryIdentifiers {
-    public static let appName = "Summary Chip"
+    public static let appName = "Chippy"
     public static let appBundleID = "com.rxlab.summary-chip"
     public static let appGroupIdentifier = "group.com.rxlab.summary-chip"
     public static let keychainService = "com.rxlab.summary-chip.oauth"

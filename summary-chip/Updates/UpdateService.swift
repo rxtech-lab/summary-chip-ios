@@ -79,7 +79,7 @@ final class UpdateService: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         guard sheet == nil else { sheet?.makeKeyAndOrderFront(nil); return }
         automaticallyChecks = updater.automaticallyChecksForUpdates
         automaticallyDownloads = updater.automaticallyDownloadsUpdates
-        present(title: "Software Update", message: "Keep Summary Chip up to date.",
+        present(title: "Software Update", message: "Keep Chippy up to date.",
                 primaryTitle: "Check for Updates…", primary: { [weak self] in self?.checkForUpdates() })
         showsSettings = true
     }
@@ -142,7 +142,7 @@ final class UpdateService: NSObject, SPUUserDriver, SPUUpdaterDelegate {
 
     func show(_ request: SPUUpdatePermissionRequest,
                                      reply: @escaping (SUUpdatePermissionResponse) -> Void) {
-        present(title: "Automatic Updates", message: "Check for new Summary Chip versions automatically?",
+        present(title: "Automatic Updates", message: "Check for new Chippy versions automatically?",
                 primaryTitle: "Enable", primary: { [weak self] in
                     self?.closeSheet()
                     reply(SUUpdatePermissionResponse(automaticUpdateChecks: true, sendSystemProfile: false))
@@ -160,7 +160,7 @@ final class UpdateService: NSObject, SPUUserDriver, SPUUpdaterDelegate {
                          reply: @escaping (SPUUserUpdateChoice) -> Void) {
         let informationOnly = appcastItem.isInformationOnlyUpdate
         present(title: "Update Available",
-                message: "Summary Chip \(appcastItem.displayVersionString) is available.",
+                message: "Chippy \(appcastItem.displayVersionString) is available.",
                 primaryTitle: informationOnly ? "View Update" : (state.stage == .installing ? "Install and Relaunch" : "Install Update"),
                 primary: { [weak self] in
                     if informationOnly {
@@ -209,7 +209,7 @@ final class UpdateService: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     func showExtractionReceivedProgress(_ progress: Double) { self.progress = progress }
 
     func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
-        present(title: "Ready to Install", message: "Restart Summary Chip to finish updating.",
+        present(title: "Ready to Install", message: "Restart Chippy to finish updating.",
                 primaryTitle: "Install and Relaunch", primary: { reply(.install) },
                 secondaryTitle: "Later", secondary: { reply(.dismiss) })
     }
@@ -222,7 +222,7 @@ final class UpdateService: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     }
 
     func showUpdateInstalledAndRelaunched(_ relaunched: Bool, acknowledgement: @escaping () -> Void) {
-        present(title: "Update Installed", message: "Summary Chip is up to date.", secondary: acknowledgement)
+        present(title: "Update Installed", message: "Chippy is up to date.", secondary: acknowledgement)
     }
 
     func dismissUpdateInstallation() { closeSheet() }

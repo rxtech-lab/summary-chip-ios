@@ -3,7 +3,7 @@ import Observation
 import RxSubscriptionIOS
 import SummaryKit
 
-/// Display cache only. Generation is always authorized by the Summary Chip server.
+/// Display cache only. Generation is always authorized by the Chippy server.
 @MainActor
 @Observable
 final class SummaryCreditsStore {

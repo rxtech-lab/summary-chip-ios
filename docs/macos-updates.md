@@ -1,6 +1,6 @@
 # macOS signing and updates
 
-The macOS app uses Sparkle 2.10.0. Automatic checks run daily by default; users can change this and enable automatic downloading/installing from **Summary Chip → Software Update Settings…**. **Check for Updates…** starts a manual check. Update offers, failures, downloads, and installation status use a dedicated native sheet, with progress in an overlay. iOS does not link Sparkle.
+The macOS app uses Sparkle 2.10.0. Automatic checks run daily by default; users can change this and enable automatic downloading/installing from **Chippy → Software Update Settings…**. **Check for Updates…** starts a manual check. Update offers, failures, downloads, and installation status use a dedicated native sheet, with progress in an overlay. iOS does not link Sparkle.
 
 The production feed is `https://update.summary.rxlab.app/appcast.xml`. GitHub Pages hosts the feed and release notes; GitHub Release assets host `SummaryChip.dmg`. `summary-chip-macOS/Info.plist` embeds the feed URL and the same public EdDSA key as RxCode, matching the organization's shared `SPARKLE_KEY` secret. The release script cryptographically verifies each archive against that embedded public key before publishing. A mismatched organization key fails the release.
 
@@ -28,7 +28,7 @@ Repository or inherited organization secrets:
 | `MACOS_PROVISIONING_PROFILE_BASE64` | Developer ID profile for `com.rxlab.summary-chip` |
 | `MACOS_SHARE_EXTENSION_PROVISIONING_PROFILE_BASE64` | Developer ID profile for `com.rxlab.summary-chip.MacSmartShare` |
 
-Summary Chip's profiles must include its app/keychain groups and the app's associated domains, and belong to the Developer ID signing certificate's team. RxCode's app-specific profile cannot be reused. Profiles are pinned per target on the CI working copy; they are not passed globally to Swift package targets. Local and iOS signing settings remain automatic.
+Chippy's profiles must include its app/keychain groups and the app's associated domains, and belong to the Developer ID signing certificate's team. RxCode's app-specific profile cannot be reused. Profiles are pinned per target on the CI working copy; they are not passed globally to Swift package targets. Local and iOS signing settings remain automatic.
 
 Use `gh secret set NAME --body-file /path/to/base64-file` to install a secret without printing its contents. Keep P12s, raw profiles, keys, and credential files outside version control. The existing `create-release.yaml` uses `RELEASE_TOKEN` so the resulting release event can start the macOS workflow.
 

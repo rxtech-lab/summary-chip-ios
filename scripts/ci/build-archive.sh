@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Archive the Summary Chip macOS app for Developer ID distribution.
+# Archive the Chippy macOS app for Developer ID distribution.
 #
 # CURRENT_PROJECT_VERSION is overridden per-build so every CI build has a unique
 # build number (github.run_number), without committing churn to project.pbxproj.

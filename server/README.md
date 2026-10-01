@@ -1,4 +1,4 @@
-# Summary Chip — server
+# Chippy — server
 
 Next.js 16 (App Router) + Vercel AI SDK v7 + Turso (libsql/drizzle) + Cloudflare R2.
 It implements the contract in [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md): the bearer-authenticated
@@ -11,7 +11,7 @@ Generation calls RxSubscription's `POST /api/v1/usage` for `daily_summary_genera
 after source validation and before AI. RxSubscription controls the allowance, reset,
 point cost and available balance; the app never counts usage or embeds a limit.
 
-Configure **Summary Chip's own application** in RxSubscription:
+Configure **Chippy's own application** in RxSubscription:
 
 1. Create the `points` balance unit and `daily_summary_generation` usage item.
 2. Set its default limit to **5**, reset policy to **daily**, and overage policy to
@@ -22,7 +22,7 @@ Configure **Summary Chip's own application** in RxSubscription:
 4. Allow the app's OAuth client ID on the publishable keys. Configure matching
    secret/publishable environment keys and the service URL from `.env.example`.
 
-Live setup verified on **2026-10-01** for Summary Chip's RxSubscription application:
+Live setup verified on **2026-10-01** for Chippy's RxSubscription application:
 `daily_summary_generation` gives **5 summaries per calendar day** and charges
 **1 point** per extra summary. The active standalone `points_100` pack grants
 **100 points for US$1.99**, and the catalog contains no recurring plans. These
@@ -32,7 +32,7 @@ their user balances and usage remain isolated.
 
 **Apple purchases still require setup:** this application currently has no App Store
 integration or Apple product mapping. Its catalog advertises Stripe checkout only.
-Connect the Summary Chip app in RxSubscription's **Settings → App Store**, create
+Connect the Chippy app in RxSubscription's **Settings → App Store**, create
 the consumable `com.rxlab.summary-chip.points100` in App Store Connect, and map it
 to `points_100` before validating Apple purchase fulfillment. Keep App Store Connect
 private keys in RxSubscription's settings, never in this repository.
@@ -159,7 +159,7 @@ Set `AI_IMAGE_MODEL` (e.g. `google/gemini-3.1-flash-lite-image`) to enable `imag
 Gemini image models are language models on the Gateway, so they are called with `generateText` and the
 drawing is read from `result.files`; other ids (e.g. `openai/gpt-image-2`) go through `generateImage`.
 The model designs the whole OG image itself — 16:9 artwork in the summary palette (background,
-shapes, line work, illustrated subject) with the headline, category, source and "Summary Chip"
+shapes, line work, illustrated subject) with the headline, category, source and "Chippy"
 wordmark typeset in — and `lib/og/generated.ts` cover-crops it to a 1200×630 PNG with `sharp`. No
 template is composited on top. If the env var is unset or the call fails, the graphic style is used.
 

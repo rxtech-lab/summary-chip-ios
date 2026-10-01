@@ -98,7 +98,7 @@ public struct SummaryCreationFlow<Result: View>: View {
         .statusAlert("Couldn't Read File", message: importError) { importError = nil }
         .statusAlert("Couldn't Create Summary", message: session.needsTopUp ? nil : failureMessage) { session.reset() }
         .alert("Not Enough Points", isPresented: topUpAlertPresented, presenting: failureMessage) { _ in
-            Button(onTopUp == nil ? "Open Summary Chip" : "Top Up") {
+            Button(onTopUp == nil ? "Open Chippy" : "Top Up") {
                 session.reset()
                 if let onTopUp { onTopUp() }
                 else if let url = URL(string: "summarychip://top-up") { openURL(url) }
@@ -416,12 +416,12 @@ public struct SignedOutNotice: View {
 
     public var body: some View {
         ContentUnavailableView {
-            Label("Sign in to Summary Chip", systemImage: "person.crop.circle.badge.exclamationmark")
+            Label("Sign in to Chippy", systemImage: "person.crop.circle.badge.exclamationmark")
         } description: {
-            Text("Open the Summary Chip app and sign in. This extension then uses the same account automatically.")
+            Text("Open the Chippy app and sign in. This extension then uses the same account automatically.")
         } actions: {
             if let action {
-                Button("Open Summary Chip", action: action)
+                Button("Open Chippy", action: action)
                     .buttonStyle(.borderedProminent)
             }
         }

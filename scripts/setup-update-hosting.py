@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure only Summary Chip's GitHub Pages site and Cloudflare update hostname."""
+"""Configure only Chippy's GitHub Pages site and Cloudflare update hostname."""
 import argparse
 import json
 import os

@@ -35,7 +35,7 @@ struct SettingsView: View {
                     EducationSheet(pages: EducationPage.features, allowsDismissal: true) { helpSheet = nil }
                 }
             }
-            .confirmationDialog("Sign out of Summary Chip?", isPresented: $confirmsSignOut, titleVisibility: .visible) {
+            .confirmationDialog("Sign out of Chippy?", isPresented: $confirmsSignOut, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) {
                     Task { await environment.signOut() }
                 }
@@ -82,7 +82,7 @@ struct SettingsView: View {
 
             Section("Help") {
                 SettingsActionRow("Welcome Tour", systemImage: "hand.wave.fill", tint: .orange,
-                                  detail: "A quick look at how Summary Chip works.") {
+                                  detail: "A quick look at how Chippy works.") {
                     Button("Show") { helpSheet = .welcome }
                         .accessibilityIdentifier("settings-welcome")
                 }
