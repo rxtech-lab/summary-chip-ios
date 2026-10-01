@@ -2,7 +2,7 @@ import type { SummarySource } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { renderWithBrowser } from "./browser";
 import { decodeText, fetchPublicDocument, type FetchedDocument } from "./fetch";
-import { extractHtml, normalizeWhitespace, type HtmlExtraction } from "./html";
+import { extractHtml, normalizeWhitespace, simplifyHtml, type HtmlExtraction } from "./html";
 import { extractPdfText } from "./pdf";
 import { extractFromPlatform, platformOf, siteNameFor } from "./platforms";
 
@@ -16,6 +16,8 @@ export interface ExtractedContent {
   siteName: string | null;
   lang: string | null;
   imageUrl: string | null;
+  /** The content as simplified HTML (see `simplifyHtml`) when the source had markup; feeds the document agent. */
+  html?: string | null;
 }
 
 /** Characters of source text sent to the model. */
@@ -64,6 +66,7 @@ function fromHtml(page: HtmlExtraction, url: string, finalUrl: string): Extracte
     siteName: siteNameFor(page.siteName ?? hostOf(finalUrl), url, finalUrl),
     lang: page.lang,
     imageUrl: page.imageUrl,
+    html: page.html,
   };
 }
 
@@ -112,6 +115,7 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
     siteName: renderedPage.siteName ?? staticPage.siteName,
     lang: renderedPage.lang ?? staticPage.lang,
     imageUrl: renderedPage.imageUrl ?? staticPage.imageUrl,
+    html: renderedPage.html ?? staticPage.html,
   }, url, finalUrl);
 }
 
@@ -128,6 +132,7 @@ async function extractPlatformContent(url: string): Promise<ExtractedContent | n
       siteName: content.siteName,
       lang: null,
       imageUrl: content.imageUrl,
+      html: content.html ? simplifyHtml(content.html, url) : null,
     };
   } catch (error) {
     if (process.env.NODE_ENV !== "test") console.info(`[extract] platform extractor failed for ${url}, reading the page instead`, error);
@@ -136,7 +141,7 @@ async function extractPlatformContent(url: string): Promise<ExtractedContent | n
 }
 
 export async function extractFromWebpage(input: {
-  url: string; title?: string | null; content?: string | null; siteName?: string | null; lang?: string | null;
+  url: string; title?: string | null; content?: string | null; html?: string | null; siteName?: string | null; lang?: string | null;
 }): Promise<ExtractedContent> {
   const content = normalizeWhitespace(input.content ?? "");
   if (!content) {
@@ -157,6 +162,7 @@ export async function extractFromWebpage(input: {
     siteName: siteNameFor(input.siteName?.trim() || hostOf(input.url), input.url),
     lang: input.lang?.trim() || null,
     imageUrl: null,
+    html: input.html ? simplifyHtml(input.html, input.url) : null,
   };
 }
 

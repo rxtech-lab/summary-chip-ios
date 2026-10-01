@@ -62,17 +62,22 @@ public enum TTLOption: Hashable, Sendable, Identifiable, CaseIterable {
 
 public struct WebpageSource: Codable, Sendable, Hashable {
     public static let maxContentLength = 60_000
+    /// The contract's cap on `html`; longer markup is dropped rather than cut mid-tag.
+    public static let maxHTMLLength = 400_000
 
     public var url: URL
     public var title: String?
     public var content: String
+    /// The main content's markup, so the server keeps the page's links, images and structure.
+    public var html: String?
     public var siteName: String?
     public var lang: String?
 
-    public init(url: URL, title: String?, content: String, siteName: String?, lang: String?) {
+    public init(url: URL, title: String?, content: String, html: String? = nil, siteName: String?, lang: String?) {
         self.url = url
         self.title = title
         self.content = String(content.prefix(Self.maxContentLength))
+        self.html = html.flatMap { $0.isEmpty || $0.count > Self.maxHTMLLength ? nil : $0 }
         self.siteName = siteName
         self.lang = lang
     }
@@ -99,7 +104,7 @@ public enum SummarySource: Sendable, Hashable {
 
 extension SummarySource: Codable {
     private enum CodingKeys: String, CodingKey {
-        case type, url, title, content, siteName, lang, uploadKey, filename, sourceUrl, text, kind
+        case type, url, title, content, html, siteName, lang, uploadKey, filename, sourceUrl, text, kind
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -112,6 +117,7 @@ extension SummarySource: Codable {
             try c.encode(page.url.absoluteString, forKey: .url)
             try c.encodeIfPresent(page.title, forKey: .title)
             try c.encode(String(page.content.prefix(WebpageSource.maxContentLength)), forKey: .content)
+            try c.encodeIfPresent(page.html, forKey: .html)
             try c.encodeIfPresent(page.siteName, forKey: .siteName)
             try c.encodeIfPresent(page.lang, forKey: .lang)
         case .pdf(let key, let filename, let sourceUrl):
@@ -144,6 +150,7 @@ extension SummarySource: Codable {
                 url: try c.decode(URL.self, forKey: .url),
                 title: try c.decodeIfPresent(String.self, forKey: .title),
                 content: try c.decode(String.self, forKey: .content),
+                html: try c.decodeIfPresent(String.self, forKey: .html),
                 siteName: try c.decodeIfPresent(String.self, forKey: .siteName),
                 lang: try c.decodeIfPresent(String.self, forKey: .lang)
             ))
@@ -171,17 +178,21 @@ public struct GenerationOptions: Hashable, Sendable {
     public var imageStyle: ImageStyle
     public var ttl: TTLOption
     public var visibility: SummaryVisibility
+    /// Also keep a local file's text (as Markdown) with the summary. Chosen per file, never remembered.
+    public var keepsSourceText: Bool
 
     public init(
         language: SummaryLanguage = .auto,
         imageStyle: ImageStyle = .graphic,
         ttl: TTLOption = .default,
-        visibility: SummaryVisibility = .public
+        visibility: SummaryVisibility = .public,
+        keepsSourceText: Bool = false
     ) {
         self.language = language
         self.imageStyle = imageStyle
         self.ttl = ttl
         self.visibility = visibility
+        self.keepsSourceText = keepsSourceText
     }
 }
 
@@ -192,16 +203,25 @@ public struct CreateSummaryRequest: Encodable, Sendable, Hashable {
     public var imageStyle: ImageStyle
     public var ttl: TTLOption
     public var visibility: SummaryVisibility
+    /// The device can read pages the server can't; such failures come back as `SOURCE_NEEDS_DEVICE`.
+    public var deviceReader: Bool
+    /// `false` summarises shared text as-is instead of reading a link inside it.
+    public var followLinks: Bool
+    /// Keep a local file's text as Markdown; links and text are always kept by the server.
+    public var keepSourceText: Bool
 
-    public init(source: SummarySource, options: GenerationOptions = .init()) {
+    public init(source: SummarySource, options: GenerationOptions = .init(), deviceReader: Bool = false, followLinks: Bool = true) {
         self.source = source
         self.language = options.language
         self.imageStyle = options.imageStyle
         self.ttl = options.ttl
         self.visibility = options.visibility
+        self.deviceReader = deviceReader
+        self.followLinks = followLinks
+        self.keepSourceText = options.keepsSourceText
     }
 
-    private enum CodingKeys: String, CodingKey { case source, language, imageStyle, ttlDays, visibility }
+    private enum CodingKeys: String, CodingKey { case source, language, imageStyle, ttlDays, visibility, deviceReader, followLinks, keepSourceText }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -211,6 +231,9 @@ public struct CreateSummaryRequest: Encodable, Sendable, Hashable {
         // `null` means "never expire" and must be sent explicitly (omitting means server default).
         if let days = ttl.ttlDays { try c.encode(days, forKey: .ttlDays) } else { try c.encodeNil(forKey: .ttlDays) }
         try c.encode(visibility, forKey: .visibility)
+        if deviceReader { try c.encode(true, forKey: .deviceReader) }
+        if !followLinks { try c.encode(false, forKey: .followLinks) }
+        if keepSourceText { try c.encode(true, forKey: .keepSourceText) }
     }
 }
 

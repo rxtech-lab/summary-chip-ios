@@ -44,16 +44,29 @@ public final class SummaryAPIClient: Sendable {
     let tokenProvider: any AccessTokenProvider
     let session: URLSession
     private let billingProofProvider: @Sendable () async -> StoreKitBillingProof?
+    /// Reads a page the server couldn't, on the device. Nil: the server's error stands.
+    private let pageReader: PageReader?
+
+    public typealias PageReader = @Sendable (URL) async throws -> WebpageSource
 
     public convenience init(baseURL: URL, tokenProvider: any AccessTokenProvider, session: URLSession = .shared) {
-        self.init(baseURL: baseURL, tokenProvider: tokenProvider, session: session, billingProofProvider: Self.liveBillingProof)
+        self.init(baseURL: baseURL, tokenProvider: tokenProvider, session: session, billingProofProvider: Self.liveBillingProof) { url in
+            try await WebPageReader.read(url)
+        }
     }
 
-    init(baseURL: URL, tokenProvider: any AccessTokenProvider, session: URLSession, billingProofProvider: @escaping @Sendable () async -> StoreKitBillingProof?) {
+    init(
+        baseURL: URL,
+        tokenProvider: any AccessTokenProvider,
+        session: URLSession,
+        billingProofProvider: @escaping @Sendable () async -> StoreKitBillingProof?,
+        pageReader: PageReader? = nil
+    ) {
         self.baseURL = baseURL
         self.tokenProvider = tokenProvider
         self.session = session
         self.billingProofProvider = billingProofProvider
+        self.pageReader = pageReader
     }
 
     private static func liveBillingProof() async -> StoreKitBillingProof? {
@@ -77,6 +90,12 @@ public final class SummaryAPIClient: Sendable {
 
     public func summary(id: String) async throws -> Summary {
         try await send(get("/api/v1/summaries/\(id.urlPathEscaped)"))
+    }
+
+    /// The summary's source rewritten as Markdown. Fails with `404 SOURCE_NOT_KEPT` when it wasn't kept.
+    public func sourceMarkdown(id: String) async throws -> String {
+        let body: SourceMarkdown = try await send(get("/api/v1/summaries/\(id.urlPathEscaped)/markdown"))
+        return body.markdown
     }
 
     public func updateSummary(id: String, patch: SummaryPatch) async throws -> Summary {
@@ -142,8 +161,14 @@ public final class SummaryAPIClient: Sendable {
         return try await send(request)
     }
 
-    /// Creates a summary from any input, uploading PDFs first.
-    public func createSummary(from input: SummaryInput, options: GenerationOptions, onUploaded: (@Sendable () -> Void)? = nil) async throws -> Summary {
+    /// Creates a summary from any input, uploading PDFs first. `followLinks: false` summarises
+    /// shared text as-is instead of reading a link inside it.
+    public func createSummary(
+        from input: SummaryInput,
+        options: GenerationOptions,
+        followLinks: Bool = true,
+        onUploaded: (@Sendable () -> Void)? = nil
+    ) async throws -> Summary {
         let source: SummarySource
         switch input {
         case .url(let url): source = .url(url)
@@ -155,7 +180,31 @@ public final class SummaryAPIClient: Sendable {
             onUploaded?()
             source = .pdf(uploadKey: key, filename: filename, sourceUrl: sourceURL)
         }
-        return try await createSummary(CreateSummaryRequest(source: source, options: options))
+        return try await createSummary(source, options: options, followLinks: followLinks)
+    }
+
+    /// Links are read on the server first (plain fetch, then its headless browser). When it can't
+    /// read the page it answers `SOURCE_NEEDS_DEVICE`; the page is then read in a web view here and
+    /// sent as a `webpage`. When the device can't read it either, `UnreadablePageError` lets the UI
+    /// offer opening the page in Safari and sharing it to Chippy from there.
+    private func createSummary(_ source: SummarySource, options: GenerationOptions, followLinks: Bool) async throws -> Summary {
+        do {
+            return try await createSummary(CreateSummaryRequest(
+                source: source, options: options, deviceReader: pageReader != nil, followLinks: followLinks))
+        } catch let error as SummaryAPIError {
+            guard let pageReader, let url = error.deviceReadURL else { throw error }
+            SummaryLog.api.notice("Server could not read \(url.absoluteString, privacy: .private); reading it on the device")
+            let page: WebpageSource
+            do {
+                page = try await pageReader(url)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let readError {
+                SummaryLog.api.error("On-device read failed: \(readError.logDescription, privacy: .public)")
+                throw UnreadablePageError(url: url, reason: readError.localizedDescription)
+            }
+            return try await createSummary(CreateSummaryRequest(source: .webpage(page), options: options, deviceReader: true))
+        }
     }
 
     public func createUpload(_ body: CreateUploadRequest) async throws -> UploadTicket {
@@ -233,6 +282,21 @@ public final class SummaryAPIClient: Sendable {
         return data
     }
 
+    /// Tells the server which StoreKit environment's points to use, on the requests that spend or show them.
+    func applyBillingProof(to request: inout URLRequest) async {
+        let path = request.url?.path
+        guard path == "/api/v1/billing" ||
+            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/chat")),
+            let proof = await billingProofProvider() else { return }
+        switch proof {
+        case .xcode:
+            // Xcode signs locally; the server authorizes the authenticated test account.
+            request.setValue("xcode", forHTTPHeaderField: "x-storekit-environment")
+        case .appleSigned(let signature):
+            request.setValue(signature, forHTTPHeaderField: "x-storekit-app-transaction")
+        }
+    }
+
     /// Performs the request with a bearer token; on 401 forces one refresh and retries.
     func authorizedData(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let first = try await perform(request, forceRefresh: false)
@@ -251,17 +315,7 @@ public final class SummaryAPIClient: Sendable {
             throw SummaryAPIError.notSignedIn
         }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        if request.url?.path == "/api/v1/billing" ||
-            (request.url?.path == "/api/v1/summaries" && request.httpMethod == "POST"),
-           let proof = await billingProofProvider() {
-            switch proof {
-            case .xcode:
-                // Xcode signs locally; the server authorizes the authenticated test account.
-                request.setValue("xcode", forHTTPHeaderField: "x-storekit-environment")
-            case .appleSigned(let signature):
-                request.setValue(signature, forHTTPHeaderField: "x-storekit-app-transaction")
-            }
-        }
+        await applyBillingProof(to: &request)
         let label = request.logDescription
         let clock = ContinuousClock.now
         SummaryLog.api.debug("→ \(label, privacy: .public)\(forceRefresh ? " (retry after token refresh)" : "", privacy: .public)")

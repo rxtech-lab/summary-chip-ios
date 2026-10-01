@@ -95,6 +95,11 @@ public struct SummaryCreationFlow<Result: View>: View {
                 .accessibilityIdentifier("generation-status-overlay")
             }
         }
+        .sheet(item: $session.unreadablePage) { page in
+            OpenInSafariSheet(page: page, onSummariseText: summariseTextInstead) {
+                session.unreadablePage = nil
+            }
+        }
         .statusAlert("Couldn't Read File", message: importError) { importError = nil }
         .statusAlert("Couldn't Create Summary", message: session.needsTopUp ? nil : failureMessage) { session.reset() }
         .alert("Not Enough Points", isPresented: topUpAlertPresented, presenting: failureMessage) { _ in
@@ -130,6 +135,7 @@ public struct SummaryCreationFlow<Result: View>: View {
             }
         }
         .sensoryFeedback(.error, trigger: importError) { _, new in new != nil }
+        .sensoryFeedback(.warning, trigger: session.unreadablePage) { _, new in new != nil }
     }
 
     private var failureMessage: String? {
@@ -206,13 +212,25 @@ public struct SummaryCreationFlow<Result: View>: View {
                 Text("Source")
             } footer: {
                 if fixedInput == nil, pickedDocument == nil {
-                    Text(allowsFilePicking ? "A web link, text, or drop or choose a PDF, text or Markdown file." : draftHint)
+                    Text(allowsFilePicking ? "A web link, text, or drop or choose a PDF, document, text, Markdown or code file." : draftHint)
                 } else if sourceFile != nil {
-                    Text("Read on this device; only the summary is saved to your account. A copy of the file stays on this device.")
+                    Text("Read on this device; \(savedToAccount). A copy of the file stays on this device.")
                 } else if case .copy = pickedLink {
-                    Text("Read on this device; only the summary is saved to your account. A copy of the file stays on this device.")
+                    Text("Read on this device; \(savedToAccount). A copy of the file stays on this device.")
                 } else if pickedDocument != nil {
-                    Text("Read on this device; only the summary is saved to your account. The original file stays linked on this device.")
+                    Text("Read on this device; \(savedToAccount). The original file stays linked on this device.")
+                }
+            }
+
+            if offersKeepingSourceText {
+                Section {
+                    Toggle(isOn: $options.keepsSourceText) {
+                        Label("Keep source text", systemImage: "doc.plaintext")
+                    }
+                    .sensoryFeedback(.selection, trigger: options.keepsSourceText)
+                    .accessibilityIdentifier("keep-source-text")
+                } footer: {
+                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it.")
                 }
             }
 
@@ -319,6 +337,21 @@ public struct SummaryCreationFlow<Result: View>: View {
             .joined(separator: " · ")
     }
 
+    /// Links and text always keep their source; a file read on this device only when the user opts in.
+    private var offersKeepingSourceText: Bool {
+        switch currentInput {
+        case .localFile: true
+        case .pdf(_, _, let sourceURL): sourceURL == nil
+        default: false
+        }
+    }
+
+    private var savedToAccount: String {
+        offersKeepingSourceText && options.keepsSourceText
+            ? "the summary and the file's text are saved to your account"
+            : "only the summary is saved to your account"
+    }
+
     private var draftHint: String {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "A web link, or any text you want summarised." }
@@ -331,10 +364,21 @@ public struct SummaryCreationFlow<Result: View>: View {
         return ShareClassifier.classify(typed: draft)
     }
 
-    private func generate() {
+    /// Offered when the link inside pasted text can't be read anywhere.
+    private var summariseTextInstead: (() -> Void)? {
+        guard case .text = currentInput else { return nil }
+        return {
+            session.unreadablePage = nil
+            generate(followLinks: false)
+        }
+    }
+
+    private func generate(followLinks: Bool = true) {
         guard let input = currentInput else { return }
         GenerationOptionsStore.save(options)
-        session.start(input: input, options: options, api: api) { summary in
+        var options = options
+        if !offersKeepingSourceText { options.keepsSourceText = false }
+        session.start(input: input, options: options, api: api, followLinks: followLinks) { summary in
             onCreated(summary)
             do {
                 let store = LocalFileStore()
@@ -357,6 +401,7 @@ public struct SummaryCreationFlow<Result: View>: View {
         if case .copy(let file, _) = pickedLink { LocalDocument.discardCopy(file) }
         pickedLink = nil
         pickedDocument = nil
+        options.keepsSourceText = false
     }
 
     private func importFile(_ result: Swift.Result<URL, any Error>) {

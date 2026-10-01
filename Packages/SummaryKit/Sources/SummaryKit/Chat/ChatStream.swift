@@ -140,6 +140,7 @@ public final class ChatStreamClient: Sendable {
                 throw SummaryAPIError.notSignedIn
             }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            await api.applyBillingProof(to: &request)
             let bytes: URLSession.AsyncBytes
             let response: URLResponse
             do {

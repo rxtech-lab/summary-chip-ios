@@ -21,7 +21,12 @@ struct SummaryCreditsSheet: View {
         NavigationStack(path: $path) {
             account
                 .navigationTitle("Summaries & Points")
-                .navigationDestination(for: CreditsRoute.self) { _ in topUps }
+                .navigationDestination(for: CreditsRoute.self) { route in
+                    switch route {
+                    case .topUps: topUps
+                    case .usage: usage
+                    }
+                }
                 .toolbar { doneButton }
         }
         .summarySheetSize()
@@ -113,6 +118,19 @@ struct SummaryCreditsSheet: View {
         .toolbar { doneButton }
     }
 
+    @ViewBuilder
+    private var usage: some View {
+        if let client = store.client {
+            PointsUsageView(client: client, points: store.points, allowance: store.allowance)
+                .toolbar { doneButton }
+        } else {
+            ProgressView("Loading usage…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle("Usage")
+                .toolbar { doneButton }
+        }
+    }
+
     private var doneButton: some ToolbarContent {
         ToolbarItem(placement: .confirmationAction) {
             Button("Done") { dismiss() }.disabled(isRestoring)
@@ -144,5 +162,10 @@ struct SummaryCreditsSheet: View {
         }
     }
 
-    private enum CreditsRoute: Hashable { case topUps }
+}
+
+/// Screens pushed inside the credits sheet: top-ups, and the usage summary reached from them.
+enum CreditsRoute: Hashable {
+    case topUps
+    case usage
 }

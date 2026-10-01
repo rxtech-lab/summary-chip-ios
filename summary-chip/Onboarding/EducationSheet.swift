@@ -8,22 +8,37 @@ struct EducationSheet: View {
     var onAcknowledged: (EducationPage) -> Void = { _ in }
     var onFinished: () -> Void
     @State private var index = 0
+    @State private var finishedCount = 0
 
     private var current: EducationPage? { pages.indices.contains(index) ? pages[index] : nil }
     private var isLast: Bool { index == pages.count - 1 }
 
     var body: some View {
-        #if os(macOS)
-        macBody
-        #else
-        iOSBody
-        #endif
+        Group {
+            #if os(macOS)
+            macBody
+            #else
+            iOSBody
+            #endif
+        }
+        // Covers Next, Back, swipes and page-dot taps alike.
+        .sensoryFeedback(Self.pageFeedback, trigger: index)
+        .sensoryFeedback(Self.finishFeedback, trigger: finishedCount)
     }
+
+    #if os(macOS)
+    private static let pageFeedback = SensoryFeedback.alignment
+    private static let finishFeedback = SensoryFeedback.levelChange
+    #else
+    private static let pageFeedback = SensoryFeedback.selection
+    private static let finishFeedback = SensoryFeedback.success
+    #endif
 
     private func advance() {
         guard let current else { onFinished(); return }
         onAcknowledged(current)
         if isLast {
+            finishedCount += 1
             onFinished()
         } else {
             withAnimation(Self.pageAnimation) { index += 1 }

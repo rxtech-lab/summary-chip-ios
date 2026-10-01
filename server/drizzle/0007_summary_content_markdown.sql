@@ -1,0 +1,1 @@
+ALTER TABLE `summaries` ADD `content_markdown` text;

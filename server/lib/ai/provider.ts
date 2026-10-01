@@ -1,4 +1,4 @@
-import { embedMany, generateImage, generateText, Output, type LanguageModel } from "ai";
+import { embedMany, experimental_evaluate as evaluate, generateImage, generateText, Output, type LanguageModel, type LanguageModelUsage } from "ai";
 import type { OutputLanguage } from "@/lib/contracts/api";
 import { ApiError } from "@/lib/http/errors";
 import { mockServicesEnabled } from "@/lib/storage/r2";
@@ -7,13 +7,24 @@ import {
   dedicatedImageModel,
   embeddingModel,
   embeddingModelId,
+  evaluationModel,
+  evaluationModelId,
   imageLanguageModel,
   imageModelId,
   imageTimeoutMs,
   isLanguageImageModel,
   textModel,
+  textModelId,
+  textModelPricing,
 } from "./models";
+import { writeDocument, type DocumentSource } from "./document-agent";
 import { LANGUAGE_NAMES, llmSummarySchema, type LlmSummary } from "./summary-schema";
+
+/**
+ * Budget for the document agent. It starts once the summary is saved (≤ ~90 s into the request)
+ * and must finish within the create route's `maxDuration` (300 s).
+ */
+const DOCUMENT_TIMEOUT_MS = 190_000;
 
 export interface SummarizeInput {
   text: string;
@@ -22,6 +33,14 @@ export interface SummarizeInput {
   sourceUrl: string | null;
   sourceLang: string | null;
   language: OutputLanguage;
+}
+
+export type MarkdownInput = DocumentSource;
+
+export interface MarkdownOptions {
+  abortSignal?: AbortSignal;
+  /** Token usage of each model step, for points billing. */
+  onUsage?: (usage: LanguageModelUsage) => void;
 }
 
 export interface DesignInput {
@@ -38,13 +57,29 @@ export interface DesignInput {
   language?: string;
 }
 
+/** API list price in USD per token. */
+export interface ModelPricing {
+  input: number;
+  output: number;
+  cachedInput?: number;
+  cacheWrite?: number;
+}
+
 export interface AiProvider {
+  /** Whether shared text containing a URL is really a link to open rather than text to summarise. */
+  isSharedLink(text: string): Promise<boolean>;
   summarize(input: SummarizeInput): Promise<LlmSummary>;
+  /** The source rewritten by the document agent as a formatted Markdown document, or null when it failed. */
+  formatMarkdown(input: MarkdownInput, options?: MarkdownOptions): Promise<string | null>;
   /** Raw SVG markup (unsanitised) for the OG background, or null. */
   designSvg(input: DesignInput): Promise<string | null>;
   /** Text-free 1200×630 artwork drawn by the image model, or null when unconfigured or it failed. */
   illustrate(input: DesignInput): Promise<Uint8Array | null>;
   chatModel(): LanguageModel;
+  /** Gateway id of the chat model, recorded on the points it charges. */
+  chatModelId(): string;
+  /** The chat model's API list price, or null when the catalog has none. */
+  chatPricing(): Promise<ModelPricing | null>;
   /** Id of the embedding model `embed` uses, or null when semantic search is disabled. */
   embeddingModelId(): string | null;
   /** One embedding per value, in order. Throws when the model is unavailable. */
@@ -75,7 +110,29 @@ Style: elegant material-design geometry — a few large flat layered shapes (cir
 combined with fine line work (thin concentric rings, parallel hairlines, dot grids). No emoji, icons, pictograms or literal illustrations.
 Keep the left 60% calm (text is drawn there) and put the most interesting shapes on the right side.`;
 
+const SHARED_LINK_INSTRUCTIONS = `The state is text a user shared to a summariser app and it contains at least one URL.
+Answer true when the text is mainly a pointer to the linked page: a share-sheet snippet, a teaser or truncated headline ending in "...", an app prompt such as "copy this text and open the app", or a URL with only a short caption; summarising the text alone would miss the actual content.
+Answer false when the text is substantial content in its own right (an article, notes, a message or a document) that merely mentions or cites a link.`;
+
 export class GatewayAiProvider implements AiProvider {
+  async isSharedLink(text: string): Promise<boolean> {
+    const id = evaluationModelId();
+    if (!id) return false;
+    try {
+      const { answers } = await evaluate({
+        model: evaluationModel(id),
+        state: text.slice(0, 4_000),
+        questions: { sharedLink: { type: "boolean", instructions: SHARED_LINK_INSTRUCTIONS } },
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(15_000),
+      });
+      return answers.sharedLink.probability >= 0.5;
+    } catch (error) {
+      console.warn("[ai] shared-link evaluation failed; summarising the text as-is", error);
+      return false;
+    }
+  }
+
   async summarize(input: SummarizeInput): Promise<LlmSummary> {
     const header = [
       input.title ? `Title: ${input.title}` : null,
@@ -95,6 +152,21 @@ export class GatewayAiProvider implements AiProvider {
     } catch (error) {
       console.error("[ai] summarisation failed", error);
       throw new ApiError(502, "AI_SUMMARY_FAILED", "The summary could not be generated. Please try again.");
+    }
+  }
+
+  async formatMarkdown(input: MarkdownInput, options: MarkdownOptions = {}): Promise<string | null> {
+    try {
+      const timeout = AbortSignal.timeout(DOCUMENT_TIMEOUT_MS);
+      return await writeDocument(textModel(), input, {
+        abortSignal: options.abortSignal ? AbortSignal.any([options.abortSignal, timeout]) : timeout,
+        onUsage: options.onUsage,
+        // Faithful reformatting needs little deliberation; keeps each part's step quick.
+        providerOptions: { openai: { reasoningEffort: "low" } },
+      });
+    } catch (error) {
+      console.warn("[ai] document agent failed", error);
+      return null;
     }
   }
 
@@ -127,6 +199,14 @@ export class GatewayAiProvider implements AiProvider {
 
   chatModel(): LanguageModel {
     return textModel();
+  }
+
+  chatModelId(): string {
+    return textModelId();
+  }
+
+  chatPricing(): Promise<ModelPricing | null> {
+    return textModelPricing(textModelId());
   }
 
   embeddingModelId(): string | null {

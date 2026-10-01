@@ -48,6 +48,21 @@ struct ChatView: View {
                 if isStreaming { return .impact(weight: .light) }
                 return model.entries.last?.errorText == nil ? .impact(flexibility: .soft) : .error
             }
+            .onChange(of: model.isStreaming) { _, isStreaming in
+                // Each answer spends points; keep the balance shown elsewhere current.
+                guard !isStreaming else { return }
+                Task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
+            }
+            .alert("Not Enough Points", isPresented: $model.needsTopUp) {
+                Button("Top Up") {
+                    // The top-up sheet is presented from the root, so close this chat sheet first.
+                    if summary != nil { dismiss() }
+                    environment.pendingTopUp = true
+                }
+                Button("Later", role: .cancel) {}
+            } message: {
+                Text("Chatting uses points based on the AI's usage. Top up to keep chatting.")
+            }
             .navigationTitle(summary == nil ? "Chat" : "Ask About This")
             .summaryInlineNavigationTitle()
             .summarySearchToolbar(isEnabled: summary == nil && !isPanel)

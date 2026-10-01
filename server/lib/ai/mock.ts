@@ -1,15 +1,29 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
-import type { AiProvider, DesignInput, SummarizeInput } from "./provider";
+import type { AiProvider, DesignInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput } from "./provider";
 import type { LlmSummary } from "./summary-schema";
 
 /** Deterministic stand-in for tests and `SUMMARY_MOCK_SERVICES=true` local development. */
 export class MockAiProvider implements AiProvider {
-  readonly calls: { summarize: SummarizeInput[]; designSvg: DesignInput[]; illustrate: DesignInput[] } = {
+  readonly calls: {
+    isSharedLink: string[];
+    summarize: SummarizeInput[];
+    formatMarkdown: MarkdownInput[];
+    designSvg: DesignInput[];
+    illustrate: DesignInput[];
+  } = {
+    isSharedLink: [],
     summarize: [],
+    formatMarkdown: [],
     designSvg: [],
     illustrate: [],
   };
+
+  /** A share snippet is a URL with under 200 characters of accompanying text. */
+  async isSharedLink(text: string): Promise<boolean> {
+    this.calls.isSharedLink.push(text);
+    return text.replace(/https?:\/\/\S+/gi, "").trim().length < 200;
+  }
 
   async summarize(input: SummarizeInput): Promise<LlmSummary> {
     this.calls.summarize.push(input);
@@ -34,6 +48,17 @@ export class MockAiProvider implements AiProvider {
     };
   }
 
+  /** The text under its title as a heading; `null` from tests simulates a failed rewrite. */
+  markdown: ((input: MarkdownInput) => string | null) | undefined;
+
+  /** One agent step of 10 input + 10 output tokens, reported like the real agent does. */
+  async formatMarkdown(input: MarkdownInput, options: MarkdownOptions = {}): Promise<string | null> {
+    this.calls.formatMarkdown.push(input);
+    options.onUsage?.({ inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0]);
+    if (this.markdown) return this.markdown(input);
+    return `${input.title ? `# ${input.title}\n\n` : ""}${input.content.trim()}`;
+  }
+
   async designSvg(input: DesignInput): Promise<string | null> {
     this.calls.designSvg.push(input);
     const [a, b, c] = input.colors;
@@ -47,6 +72,17 @@ export class MockAiProvider implements AiProvider {
 
   chatModel(): LanguageModel {
     return createMockChatModel();
+  }
+
+  chatModelId(): string {
+    return "mock/chat";
+  }
+
+  /** $0.01 per input and $0.04 per output token, so a mock turn's cost is easy to read in points. */
+  pricing: ModelPricing | null = { input: 0.01, output: 0.04 };
+
+  async chatPricing(): Promise<ModelPricing | null> {
+    return this.pricing;
   }
 
   embeddingModelId(): string | null {

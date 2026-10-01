@@ -3,10 +3,18 @@ import { subscriptionConfig, type BillingEnvironment } from "./config";
 
 export const SUMMARY_USAGE_ITEM = "daily_summary_generation";
 
-/** RxSubscription owns the allowance, reset and overage price. No local counters. */
-export async function consumeSummaryUsage(userId: string, summaryId: string, environment?: BillingEnvironment) {
+export interface SummaryUsage {
+  /** Points taken for this summary; 0 when the free allowance covered it. */
+  chargedUnits: number;
+}
+
+/**
+ * RxSubscription owns the allowance, reset and overage price. No local counters. The free
+ * allowance is used first; past it, the summary's overage is taken from the points balance.
+ */
+export async function consumeSummaryUsage(userId: string, summaryId: string, environment?: BillingEnvironment): Promise<SummaryUsage> {
   const config = subscriptionConfig(environment);
-  if (!config) return; // Entirely unconfigured local development only.
+  if (!config) return { chargedUnits: 0 }; // Entirely unconfigured local development only.
   let response: Response;
   try {
     response = await fetch(`${config.baseURL}/api/v1/usage`, {
@@ -22,6 +30,8 @@ export async function consumeSummaryUsage(userId: string, summaryId: string, env
     }
     if (response.status === 404) throw new ApiError(503, "SUMMARY_USAGE_NOT_CONFIGURED", "Summary usage is not available yet. Please try again later.");
     if (!response.ok || body.allowed !== true) throw new Error("Invalid usage response");
+    const charged = Number(body.chargedUnits);
+    return { chargedUnits: Number.isFinite(charged) && charged > 0 ? charged : 0 };
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(503, "SUMMARY_USAGE_UNAVAILABLE", "Your summary allowance could not be checked. Please try again.");

@@ -19,6 +19,10 @@ export interface SummaryJson {
   sourceTitle: string | null;
   siteName: string | null;
   sourceFileUrl: string | null;
+  /** The source was kept as Markdown; fetch it from `GET /api/v1/summaries/:id/markdown`. */
+  hasSourceMarkdown: boolean;
+  /** The document agent is still writing the source; poll the summary until `hasSourceMarkdown`. */
+  sourceMarkdownPending: boolean;
   title: string;
   summary: string;
   highlights: string[];
@@ -68,6 +72,27 @@ export function publicArtImageUrl(row: Pick<SummaryRow, "slug" | "updatedAt" | "
   return (live ? publicObjectUrl(row.artImageKey) : null) ?? artImageUrlFor(row);
 }
 
+/** The source as Markdown, for whoever may open the summary; a local file's text only for its owner. */
+export function sourceMarkdownFor(row: Pick<SummaryRow, "contentMarkdown" | "sourceType" | "ownerId">, viewerId: string | null): string | null {
+  if (!row.contentMarkdown) return null;
+  if (row.sourceType === "local" && row.ownerId !== viewerId) return null;
+  return row.contentMarkdown;
+}
+
+/** How long a document may stay pending; past it the agent's run is presumed lost. */
+export const SOURCE_MARKDOWN_PENDING_MS = 6 * 60 * 1000;
+
+/** An empty `contentMarkdown` marks a document the agent is still writing (set when the row is created). */
+export function isSourceMarkdownPending(
+  row: Pick<SummaryRow, "contentMarkdown" | "sourceType" | "ownerId" | "createdAt">,
+  viewerId: string | null,
+  now = new Date(),
+): boolean {
+  if (row.contentMarkdown !== "") return false;
+  if (row.sourceType === "local" && row.ownerId !== viewerId) return false;
+  return now.getTime() - row.createdAt.getTime() < SOURCE_MARKDOWN_PENDING_MS;
+}
+
 export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt: Date | null = null): SummaryJson {
   const shareUrl = shareUrlFor(row.slug);
   return {
@@ -82,6 +107,8 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     sourceTitle: row.sourceTitle,
     siteName: siteNameFor(row.siteName, row.sourceUrl),
     sourceFileUrl: row.sourceType === "pdf" && row.sourceFileKey ? `${shareUrl}/source` : null,
+    hasSourceMarkdown: sourceMarkdownFor(row, viewerId) !== null,
+    sourceMarkdownPending: isSourceMarkdownPending(row, viewerId),
     title: row.title,
     summary: row.summary,
     highlights: row.highlights,

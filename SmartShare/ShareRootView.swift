@@ -46,7 +46,7 @@ struct ShareRootView: View {
             case .ready(let input):
                 if let api {
                     SummaryCreationFlow(api: api, input: input, sourceFile: sourceFile, sourceFilename: sourceFilename, title: "Chippy", onCancel: cancel) { summary in
-                        ShareResultView(summary: summary, openInApp: { openURL(SummaryLink.openInAppURL(summaryID: summary.id)) }, done: finish)
+                        ShareResultView(api: api, summary: summary, openInApp: { openURL(SummaryLink.openInAppURL(summaryID: summary.id)) }, done: finish, discarded: cancel)
                     }
                 }
             }
@@ -83,9 +83,12 @@ struct ShareRootView: View {
 }
 
 private struct ShareResultView: View {
+    let api: SummaryAPIClient
     let summary: Summary
     let openInApp: () -> Void
     let done: () -> Void
+    let discarded: () -> Void
+    @State private var showsDiscard = false
 
     var body: some View {
         List {
@@ -100,6 +103,18 @@ private struct ShareResultView: View {
                     Label("Open in Chippy", systemImage: "arrow.up.forward.app")
                 }
             }
+            Section {
+                Button(role: .destructive) {
+                    showsDiscard = true
+                } label: {
+                    Label("Not right? Discard…", systemImage: "trash")
+                }
+                .accessibilityIdentifier("discard-new-summary")
+            }
+        }
+        .sheet(isPresented: $showsDiscard) {
+            // Already shared from the page; reopening it in Safari wouldn't help, so only discard.
+            DiscardSummarySheet(api: api, summary: summary, offersSafari: false, onDiscarded: discarded)
         }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

@@ -63,6 +63,10 @@ summaries(
   source_url, source_title, site_name, source_file_key (R2, pdf only),
   content_excerpt (≤ 8k chars of extracted text, for the chat's getSummary tool),
   content_text (the full extracted original text, ≤ 500k chars; grounds the per-summary chat),
+  content_markdown (the source as a formatted Markdown document, NULL when not kept: always kept for
+                    url/webpage/text and pdfs with a sourceUrl; local files only with keepSourceText.
+                    Written by the document agent (lib/ai/document-agent.ts) from the page's simplified
+                    HTML — links, images, headings, tables — or the plain text; saved after the response),
   title, summary, highlights JSON[], category, tags JSON[], keywords JSON[], language,
   theme JSON {colors[], mode, emoji, accent},
   image_style 'graphic' | 'illustration', og_image_key (R2),
@@ -102,6 +106,7 @@ while the owner still sees it in the app and can flip it back to public.
   "sourceUrl": "https://…" | null,
   "sourceTitle": "string" | null, "siteName": "string" | null,
   "sourceFileUrl": "https://summary.rxlab.app/s/<slug>/source" | null,   // pdf only
+  "hasSourceMarkdown": true,   // the source was kept as Markdown (GET /api/v1/summaries/:id/markdown); a local file's only for its owner
   "title": "string", "summary": "string", "highlights": ["string"],
   "category": "Technology", "tags": ["ai", "apple"], "keywords": ["..."],
   "language": "en",
@@ -132,6 +137,7 @@ Food, Opinion, Research, Other`.
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
 | `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?}` | `Summary` |
 | `DELETE /api/v1/summaries/:id` | – | `204` |
+| `GET /api/v1/summaries/:id/markdown` | – | `{markdown}` — the source as Markdown; `404 SOURCE_NOT_KEPT` when not kept (or a local file's, for anyone but the owner) |
 | `POST /api/v1/summaries/:id/image` | `{imageStyle}` | `Summary` (regenerated OG image) |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
 | `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
@@ -149,17 +155,32 @@ Food, Opinion, Research, Other`.
 {
   "source":
       { "type": "url", "url": "https://…" }                          // server fetches + extracts (Readability)
-    | { "type": "webpage", "url": "https://…", "title": "…", "content": "main text", "siteName": "…", "lang": "en" }
+    | { "type": "webpage", "url": "https://…", "title": "…", "content": "main text", "html": "<main content markup>" /* optional, ≤ 400k */, "siteName": "…", "lang": "en" }
     | { "type": "pdf", "uploadKey": "uploads/…", "filename": "x.pdf", "sourceUrl": "https://…" | null }
     | { "type": "text", "text": "…", "title": "…" },
   "language": "auto" | "en" | "zh-Hans" | "zh-Hant" | "ja" | "ko" | "es" | "fr" | "de",   // output language
   "imageStyle": "graphic" | "illustration",   // default "graphic"
   "ttlDays": 7 | null,                          // default DEFAULT_TTL_DAYS
-  "visibility": "public" | "private"            // default "public"
+  "visibility": "public" | "private",           // default "public"
+  "deviceReader": true,                         // optional: the client can read pages in an on-device web view
+  "followLinks": false,                         // optional: summarise `text` as-is, never read a link inside it
+  "keepSourceText": true                        // optional: also keep a local file's text (as Markdown); links and text are always kept
 }
 ```
 
 `webpage.content` is truncated client-side to 60 000 characters.
+
+**Reading links.** A `url` source is read on the server: platform extractor, plain fetch, then
+Cloudflare Browser Rendering. A `text` source that contains a URL is first judged by the evaluation
+model (`AI_EVALUATION_MODEL`); a share snippet is read the same way as a `url`, anything else is
+summarised as text. When the server cannot read the page (`SOURCE_HTTP_ERROR`, `SOURCE_UNREACHABLE`,
+`SOURCE_TIMEOUT`, `URL_UNREACHABLE`, `URL_NOT_ALLOWED`, `NO_CONTENT`) and the request has `deviceReader: true`, it answers
+`422 SOURCE_NEEDS_DEVICE` with `details: { url, cause }`. The app then loads that URL in an
+off-screen `WKWebView` (`WebPageReader`) and resubmits it as a `webpage` source. If the device
+can't read it either, the client throws `UnreadablePageError` and the creation flow shows
+`OpenInSafariSheet`: a diagram of Safari → Share → Chippy, an **Open in Safari** button, Cancel and,
+for pasted text, **Summarise the text instead** (resubmits with `followLinks: false`).
+Without `deviceReader`, a `url` source returns the original error and a `text` source falls back to the text.
 
 ### Chat stream (what iOS must parse)
 

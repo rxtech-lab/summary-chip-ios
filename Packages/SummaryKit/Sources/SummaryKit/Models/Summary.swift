@@ -236,6 +236,10 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var sourceTitle: String?
     public var siteName: String?
     public var sourceFileUrl: URL?
+    /// The source was kept as Markdown; read it with `SummaryAPIClient.sourceMarkdown(id:)`.
+    public var hasSourceMarkdown: Bool
+    /// The server is still formatting the source; refresh the summary until `hasSourceMarkdown`.
+    public var sourceMarkdownPending: Bool
     public var title: String
     public var summary: String
     public var highlights: [String]
@@ -258,14 +262,15 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public init(
         id: String, slug: String, shareUrl: URL, ogImageUrl: URL?, artImageUrl: URL? = nil, sourceType: SummarySourceType,
         source: SummaryOrigin? = nil, sourceUrl: URL?, sourceTitle: String?, siteName: String?, sourceFileUrl: URL?,
-        title: String, summary: String, highlights: [String], category: String, tags: [String],
+        hasSourceMarkdown: Bool = false, sourceMarkdownPending: Bool = false, title: String, summary: String, highlights: [String], category: String, tags: [String],
         keywords: [String], language: String, theme: Theme, imageStyle: ImageStyle,
         visibility: SummaryVisibility, ttlDays: Int?, expiresAt: Date?, viewCount: Int,
         isOwner: Bool, viewedAt: Date? = nil, createdAt: Date, updatedAt: Date
     ) {
         self.id = id; self.slug = slug; self.shareUrl = shareUrl; self.ogImageUrl = ogImageUrl; self.artImageUrl = artImageUrl
         self.sourceType = sourceType; self.source = source ?? SummaryOrigin(sourceType); self.sourceUrl = sourceUrl; self.sourceTitle = sourceTitle
-        self.siteName = siteName; self.sourceFileUrl = sourceFileUrl; self.title = title
+        self.siteName = siteName; self.sourceFileUrl = sourceFileUrl; self.hasSourceMarkdown = hasSourceMarkdown
+        self.sourceMarkdownPending = sourceMarkdownPending; self.title = title
         self.summary = summary; self.highlights = highlights; self.category = category
         self.tags = tags; self.keywords = keywords; self.language = language; self.theme = theme
         self.imageStyle = imageStyle; self.visibility = visibility; self.ttlDays = ttlDays
@@ -288,6 +293,8 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         sourceTitle = try c.decodeIfPresent(String.self, forKey: .sourceTitle)
         siteName = try c.decodeIfPresent(String.self, forKey: .siteName)
         sourceFileUrl = try c.decodeLenientURL(forKey: .sourceFileUrl)
+        hasSourceMarkdown = try c.decodeIfPresent(Bool.self, forKey: .hasSourceMarkdown) ?? false
+        sourceMarkdownPending = try c.decodeIfPresent(Bool.self, forKey: .sourceMarkdownPending) ?? false
         title = try c.decode(String.self, forKey: .title)
         summary = try c.decodeIfPresent(String.self, forKey: .summary) ?? ""
         highlights = try c.decodeIfPresent([String].self, forKey: .highlights) ?? []
@@ -337,6 +344,13 @@ extension KeyedDecodingContainer {
               !raw.isEmpty else { return nil }
         return URL(string: raw)
     }
+}
+
+/// `{markdown}` from `GET /api/v1/summaries/:id/markdown`.
+public struct SourceMarkdown: Codable, Sendable, Hashable {
+    public var markdown: String
+
+    public init(markdown: String) { self.markdown = markdown }
 }
 
 /// `{items:[Summary], nextCursor}` from `GET /api/v1/summaries`.

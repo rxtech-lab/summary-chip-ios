@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
 import * as summaryRoute from "@/app/api/v1/summaries/[id]/route";
 import * as imageRoute from "@/app/api/v1/summaries/[id]/image/route";
+import * as markdownRoute from "@/app/api/v1/summaries/[id]/markdown/route";
 import * as uploadsRoute from "@/app/api/v1/uploads/route";
 import * as facetsRoute from "@/app/api/v1/facets/route";
 import * as publicRoute from "@/app/api/public/summaries/[slug]/route";
@@ -87,7 +88,7 @@ describe("POST /api/v1/summaries", () => {
     expect(summary.theme).toEqual({ colors: expect.any(Array), mode: "dark", emoji: "🧪", accent: "#f59e0b" });
     expect(Object.keys(summary)).toEqual([
       "id", "slug", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
-      "title", "summary", "highlights", "category", "tags", "keywords", "language", "theme", "imageStyle", "visibility",
+      "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "keywords", "language", "theme", "imageStyle", "visibility",
       "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "createdAt", "updatedAt",
     ]);
     // Readability extracted the article, not the nav/footer chrome.
@@ -283,9 +284,120 @@ describe("POST /api/v1/summaries", () => {
     expect((await empty.json()).sourceTitle).toBe("Other");
   });
 
+  describe("source markdown", () => {
+    const markdownOf = async (id: string, token = env.tokens.alice) =>
+      markdownRoute.GET(apiRequest("GET", `/api/v1/summaries/${id}/markdown`, { token }), params({ id }));
+    /** The document agent finishes after the response; poll until its document is saved. */
+    const savedMarkdown = (id: string) => vi.waitFor(async () => {
+      const response = await markdownOf(id);
+      expect(response.status).toBe(200);
+      return (await response.json()).markdown as string;
+    });
+
+    it("has the document agent write a link's page from its markup, for anyone who can open the summary", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE_HTML, { headers: { "content-type": "text/html; charset=utf-8" } })));
+      const summary = await (await create({ source: { type: "url", url: "https://news.example.com/widgets" } })).json();
+      // Created pending: the document is written after the response.
+      expect(summary).toMatchObject({ hasSourceMarkdown: false, sourceMarkdownPending: true });
+      const markdown = await savedMarkdown(summary.id);
+      const sent = env.ai.calls.formatMarkdown[0];
+      expect(sent).toMatchObject({ format: "html", title: "Quantum widgets explained", sourceUrl: "https://news.example.com/widgets" });
+      expect(sent.content).toMatch(/^<p>Paragraph 0: [^\n]+<\/p>\n<p>Paragraph 1: /);
+      expect(sent.content).not.toMatch(/<nav|Copyright/);
+      expect(markdown).toMatch(/^# Quantum widgets explained\n\n/);
+      expect(await (await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${summary.id}`, { token: env.tokens.alice }), params({ id: summary.id }))).json())
+        .toMatchObject({ hasSourceMarkdown: true, sourceMarkdownPending: false });
+      expect((await markdownOf(summary.id, env.tokens.bob)).status).toBe(200);
+    });
+
+    it("sends the device's page markup to the agent", async () => {
+      const summary = await (await create({ source: {
+        type: "webpage", url: "https://blog.example.com/post", title: "Post",
+        content: "A long enough body of text about tide pools and the creatures living in them.",
+        html: '<article><p>About <a href="/tides">tide pools</a>.</p><img src="/crab.jpg" alt="Crab"></article>',
+      } })).json();
+      await savedMarkdown(summary.id);
+      expect(env.ai.calls.formatMarkdown[0].content).toBe('<p>About <a href="https://blog.example.com/tides">tide pools</a>.</p>\n<img alt="Crab" src="https://blog.example.com/crab.jpg">');
+    });
+
+    it("keeps the plain text when the document agent fails", async () => {
+      env.ai.markdown = () => null;
+      const summary = await createText("Plain notes about the migration of monarch butterflies across North America every autumn.");
+      expect(await savedMarkdown(summary.id)).toBe("Plain notes about the migration of monarch butterflies across North America every autumn.");
+      expect(env.ai.calls.formatMarkdown[0].format).toBe("text");
+    });
+
+    it("keeps a local file only when asked, and only for its owner", async () => {
+      const local = (keepSourceText?: boolean) => create({
+        source: { type: "local", kind: "text", text: "Lighthouse keepers trimmed lamp wicks every few hours through the night.", filename: "Keepers.txt" },
+        keepSourceText,
+      }).then((response) => response.json());
+      const discarded = await local();
+      expect(discarded).toMatchObject({ hasSourceMarkdown: false, sourceMarkdownPending: false });
+      expect(env.ai.calls.formatMarkdown).toHaveLength(0);
+      const notKept = await markdownOf(discarded.id);
+      expect(notKept.status).toBe(404);
+      expect((await notKept.json()).error.code).toBe("SOURCE_NOT_KEPT");
+
+      const kept = await local(true);
+      expect(await savedMarkdown(kept.id)).toContain("Lighthouse keepers");
+      expect((await markdownOf(kept.id, env.tokens.bob)).status).toBe(404);
+    });
+  });
+
   it("summarises text sources", async () => {
     const summary = await createText("Plain notes about the migration of monarch butterflies across North America every autumn.", { title: "Notes" });
     expect(summary).toMatchObject({ sourceType: "text", source: "text", sourceUrl: null, siteName: null, sourceTitle: "Notes" });
+  });
+
+  describe("pages the server cannot read", () => {
+    const SHARE = "国庆档的冷，不仅仅是宣发节奏问题... https://news.example.com/widgets 先复制文字，再进【小红书】看看这篇笔记~";
+    const blocked = () => vi.stubGlobal("fetch", vi.fn(async () => new Response("blocked", { status: 403 })));
+
+    it("asks a device reader to read a url source on the device", async () => {
+      blocked();
+      const response = await create({ source: { type: "url", url: "https://news.example.com/widgets" }, deviceReader: true });
+      expect(response.status).toBe(422);
+      expect((await response.json()).error).toMatchObject({
+        code: "SOURCE_NEEDS_DEVICE",
+        details: { url: "https://news.example.com/widgets", cause: "SOURCE_HTTP_ERROR" },
+      });
+    });
+
+    it("hands hosts the server refuses to fetch to a device reader, without fetching them", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const refused = await create({ source: { type: "url", url: "http://198.18.33.82/o/1RVs1hjAwxb" }, deviceReader: true });
+      expect((await refused.json()).error).toMatchObject({ code: "SOURCE_NEEDS_DEVICE", details: { cause: "URL_NOT_ALLOWED" } });
+      const legacy = await create({ source: { type: "url", url: "http://198.18.33.82/o/1RVs1hjAwxb" } });
+      expect((await legacy.json()).error.code).toBe("URL_NOT_ALLOWED");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps the original error for clients without a device reader", async () => {
+      blocked();
+      const response = await create({ source: { type: "url", url: "https://news.example.com/widgets" } });
+      expect((await response.json()).error.code).toBe("SOURCE_HTTP_ERROR");
+    });
+
+    it("reads the link in shared text, asking a device reader when the server cannot", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } })));
+      expect(await createText(SHARE)).toMatchObject({ sourceType: "text", source: "web", sourceUrl: "https://news.example.com/widgets" });
+
+      blocked();
+      const response = await create({ source: { type: "text", text: SHARE }, deviceReader: true });
+      expect((await response.json()).error).toMatchObject({ code: "SOURCE_NEEDS_DEVICE", details: { url: "https://news.example.com/widgets" } });
+    });
+
+    it("summarises shared text when its link cannot be read or followLinks is off", async () => {
+      blocked();
+      expect(await createText(SHARE)).toMatchObject({ source: "text", sourceUrl: null });
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const response = await create({ source: { type: "text", text: SHARE }, deviceReader: true, followLinks: false });
+      expect(response.status).toBe(201);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   it("creates pdf summaries from an owned upload and rejects foreign or scanned uploads", async () => {

@@ -5,7 +5,7 @@ set -euo pipefail
 : "${APPLE_ID_PWD:?APPLE_ID_PWD is required}"
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required}"
 
-APP_PATH="./output/output.xcarchive/Products/Applications/summary-chip.app"
+APP_PATH="./output/output.xcarchive/Products/Applications/Chippy.app"
 DMG_NAME="SummaryChip.dmg"
 
 if [ ! -d "$APP_PATH" ]; then

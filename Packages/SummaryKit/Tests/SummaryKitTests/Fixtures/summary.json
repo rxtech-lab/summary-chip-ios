@@ -7,6 +7,7 @@
   "sourceUrl": "https://example.com/article",
   "sourceTitle": "Example article", "siteName": "Example",
   "sourceFileUrl": null,
+  "hasSourceMarkdown": true,
   "title": "Apple ships a new chip", "summary": "A short summary.", "highlights": ["One", "Two"],
   "category": "Technology", "tags": ["ai", "apple"], "keywords": ["chip"],
   "language": "en",

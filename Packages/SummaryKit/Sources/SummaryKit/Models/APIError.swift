@@ -1,15 +1,17 @@
 import Foundation
 
-/// `{ "error": { "code", "message", "requestId" } }` body of any non-2xx response.
+/// `{ "error": { "code", "message", "requestId", "details"? } }` body of any non-2xx response.
 public struct APIErrorBody: Codable, Sendable, Hashable {
     public var code: String
     public var message: String
     public var requestId: String?
+    public var details: JSONValue?
 
-    public init(code: String, message: String, requestId: String? = nil) {
+    public init(code: String, message: String, requestId: String? = nil, details: JSONValue? = nil) {
         self.code = code
         self.message = message
         self.requestId = requestId
+        self.details = details
     }
 }
 
@@ -60,8 +62,17 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
         return nil
     }
 
+    /// The page the server could not read and asks the device to read (`SOURCE_NEEDS_DEVICE`).
+    public var deviceReadURL: URL? {
+        guard case .server(_, let body) = self, body.code == "SOURCE_NEEDS_DEVICE",
+              let value = body.details?["url"]?.stringValue,
+              let url = URL(string: value), url.scheme == "http" || url.scheme == "https" else { return nil }
+        return url
+    }
+
     public var isNotFound: Bool { statusCode == 404 }
-    public var needsTopUp: Bool { statusCode == 402 && code == "SUMMARY_ALLOWANCE_EXHAUSTED" }
+    /// Out of free summaries or points (`SUMMARY_ALLOWANCE_EXHAUSTED`), or out of points to chat (`CHAT_POINTS_EXHAUSTED`).
+    public var needsTopUp: Bool { statusCode == 402 && (code == "SUMMARY_ALLOWANCE_EXHAUSTED" || code == "CHAT_POINTS_EXHAUSTED") }
     public var isUnauthorized: Bool { statusCode == 401 || self == .notSignedIn }
 }
 
@@ -94,5 +105,24 @@ public enum SummaryJSON {
             return date
         }
         return try? Date(value, strategy: Date.ISO8601FormatStyle())
+    }
+}
+
+/// Neither the server (fetch and headless browser) nor the device's web view could read a link.
+/// Safari can usually open it; sharing the open page to Chippy sends its text directly.
+public struct UnreadablePageError: Error, LocalizedError, Sendable, Hashable, Identifiable {
+    public let url: URL
+    /// Why the on-device read failed.
+    public let reason: String
+
+    public var id: URL { url }
+
+    public init(url: URL, reason: String) {
+        self.url = url
+        self.reason = reason
+    }
+
+    public var errorDescription: String? {
+        "Chippy couldn't read this page. Open it in Safari, then share it to Chippy from the Share menu."
     }
 }

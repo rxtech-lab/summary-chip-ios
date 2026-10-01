@@ -1,4 +1,5 @@
-import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
+import { randomUUID } from "node:crypto";
+import { convertToModelMessages, stepCountIs, streamText, tool, type LanguageModelUsage, type UIMessage } from "ai";
 import { z } from "zod";
 import { CATEGORIES, MAX_TEXT_LENGTH } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
@@ -7,6 +8,9 @@ import { truncateForModel } from "@/lib/extract";
 import { ApiError } from "@/lib/http/errors";
 import { getSummaryForViewer } from "@/lib/services/summaries";
 import { getSummaryForChat, searchForChat } from "@/lib/services/views";
+import { runAfter } from "@/lib/http/after";
+import { reserveChatPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
+import type { BillingEnvironment } from "@/lib/subscription/config";
 import { LOCAL_INLINE_LIMIT, localFileTools, splitLines } from "./local-file";
 import { getAiProvider, type AiProvider } from "./provider";
 
@@ -138,18 +142,30 @@ export function chatTools(db: Database, userId: string, ai?: AiProvider) {
   };
 }
 
+export interface StreamChatOptions {
+  summaryId?: string;
+  localContent?: string;
+  billingEnvironment?: BillingEnvironment;
+  /** The request's signal: a client that hangs up still pays for the steps already run. */
+  abortSignal?: AbortSignal;
+}
+
 export async function streamChat(
   db: Database,
   userId: string,
   messages: UIMessage[],
-  summaryId?: string,
-  localContent?: string,
+  options: StreamChatOptions = {},
 ): Promise<Response> {
   // Resolved before streaming so an inaccessible summary is a plain 404 rather than a stream error.
-  const focused = summaryId ? await getSummaryForViewer(db, summaryId, userId) : undefined;
+  const focused = options.summaryId ? await getSummaryForViewer(db, options.summaryId, userId) : undefined;
   // Only the owner links a local file to their summary.
-  const local = focused?.ownerId === userId ? localContent : undefined;
+  const local = focused?.ownerId === userId ? options.localContent : undefined;
   const ai = await getAiProvider();
+  const model = ai.chatModelId();
+  const turnId = randomUUID();
+  // Refuses an empty balance (402) before the model runs.
+  const charge = await reserveChatPoints(userId, turnId, model, options.billingEnvironment);
+  const billing = charge ? chatBilling(ai, charge) : undefined;
   const tools = { ...chatTools(db, userId, ai), ...(local?.trim() ? localFileTools(local) : {}) };
   const result = streamText({
     model: ai.chatModel(),
@@ -159,6 +175,11 @@ export async function streamChat(
     // Reading a long local file takes a few grep/read rounds.
     stopWhen: stepCountIs(local ? 10 : 6),
     maxRetries: 1,
+    abortSignal: options.abortSignal,
+    onStepFinish: (step) => billing?.add(step.usage),
+    onFinish: () => billing?.finish("finished"),
+    onError: () => billing?.finish("error"),
+    onAbort: () => billing?.finish("aborted"),
   });
   return result.toUIMessageStreamResponse({
     headers: { "cache-control": "no-store" },
@@ -168,3 +189,35 @@ export async function streamChat(
     },
   });
 }
+
+/**
+ * Prices a turn at the model's API list price: every step's tokens (tool rounds included) are
+ * added up and charged once, however the stream ends.
+ */
+function chatBilling(ai: AiProvider, charge: ChatCharge) {
+  const steps: LanguageModelUsage[] = [];
+  let settled: Promise<void> | undefined;
+  const finish = (outcome: "finished" | "error" | "aborted" | "timeout") => {
+    settled ??= settleUsage(charge, ai, steps, { outcome });
+    return settled;
+  };
+  let ended!: () => void;
+  const end = new Promise<void>((resolve) => { ended = resolve; });
+  // Registered while the request is in scope so the function outlives the stream until the charge lands;
+  // a stream that never reports an end is settled when the route's time budget runs out.
+  runAfter(() => new Promise<void>((resolve) => {
+    const deadline = setTimeout(resolve, CHAT_SETTLE_DEADLINE_MS);
+    void end.then(() => { clearTimeout(deadline); resolve(); });
+  }).then(() => finish("timeout")));
+  return {
+    add(usage: LanguageModelUsage) {
+      steps.push(usage);
+    },
+    finish(outcome: "finished" | "error" | "aborted") {
+      void finish(outcome).finally(ended);
+    },
+  };
+}
+
+/** Just under the chat route's `maxDuration` (120 s). */
+const CHAT_SETTLE_DEADLINE_MS = 115_000;

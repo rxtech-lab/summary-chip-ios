@@ -2,7 +2,7 @@
 set -euo pipefail
 
 : "${SIGNING_CERTIFICATE_NAME:?SIGNING_CERTIFICATE_NAME is required}"
-APP_PATH="${APP_PATH:-output/output.xcarchive/Products/Applications/summary-chip.app}"
+APP_PATH="${APP_PATH:-output/output.xcarchive/Products/Applications/Chippy.app}"
 FRAMEWORK="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/B"
 
 retry_codesign() {

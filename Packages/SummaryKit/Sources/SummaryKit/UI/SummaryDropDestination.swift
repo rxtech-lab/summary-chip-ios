@@ -21,7 +21,7 @@ public struct DroppedSummaryFile: Sendable, Hashable {
 }
 
 extension View {
-    /// Accepts a dropped PDF, text or Markdown file, and on macOS a dropped web link.
+    /// Accepts a dropped PDF, document, text, Markdown or code file, and on macOS a dropped web link.
     /// Only the first item of a multi-item drop is used.
     public func summaryDropDestination(
         isEnabled: Bool = true,
@@ -76,7 +76,11 @@ struct DroppedLocalFile: Transferable {
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(importedContentType: .pdf, importing: stage)
         FileRepresentation(importedContentType: UTType(filenameExtension: "md") ?? .plainText, importing: stage)
+        FileRepresentation(importedContentType: .rtf, importing: stage)
+        FileRepresentation(importedContentType: .flatRTFD, importing: stage)
+        FileRepresentation(importedContentType: .sourceCode, importing: stage)
         FileRepresentation(importedContentType: .plainText, importing: stage)
+        FileRepresentation(importedContentType: .text, importing: stage)
     }
 
     private static func stage(_ received: ReceivedTransferredFile) throws -> DroppedLocalFile {

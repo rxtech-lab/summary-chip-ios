@@ -11,7 +11,7 @@ public enum LocalDocumentError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .unsupported: "Choose a PDF, plain text or Markdown file."
+        case .unsupported: "Choose a PDF, document, text, Markdown or code file."
         case .empty: "This file is empty."
         case .noPDFText: "This PDF has no selectable text. Scanned PDFs can't be read on this device."
         case .textTooLong: "Text files must contain at most 200,000 characters."
@@ -34,19 +34,78 @@ public struct LocalFileSource: Sendable, Hashable {
         self.kind = kind
         self.text = text
     }
+
+    /// What the file is, for display: "Markdown", "Swift source", "Word document"…
+    public var typeLabel: String {
+        if kind == .pdf { return "PDF" }
+        let ext = URL(fileURLWithPath: filename).pathExtension.lowercased()
+        if LocalDocument.markdownExtensions.contains(ext) { return "Markdown" }
+        guard let type = UTType(filenameExtension: ext) else { return "Text file" }
+        if LocalDocument.richTextTypes.contains(where: type.conforms(to:)) {
+            return type.localizedDescription ?? "Document"
+        }
+        if type.conforms(to: .sourceCode) || LocalDocument.codeExtensions.contains(ext) {
+            return type.localizedDescription ?? "Code"
+        }
+        return type.conforms(to: .plainText) ? "Text file" : type.localizedDescription ?? "Text file"
+    }
 }
 
 /// Coordinates reads from Files providers, including iCloud downloads, while access is held.
 public enum LocalDocument {
     public static var contentTypes: [UTType] {
-        [.pdf, .plainText, UTType(filenameExtension: "md") ?? .plainText]
+        var types: [UTType] = [.pdf, .text, .sourceCode, .json, .yaml, .commaSeparatedText, .tabSeparatedText, .log]
+        types += richTextTypes
+        // Code that the system doesn't type as text (or types as something else, like `.ts`).
+        types += (markdownExtensions + codeExtensions).compactMap { UTType(filenameExtension: $0) }
+        var seen = Set<UTType>()
+        return types.filter { seen.insert($0).inserted }
     }
 
     /// The server's JavaScript limit counts UTF-16 code units.
     public static let maxTextLength = 200_000
 
+    static let markdownExtensions = ["md", "markdown", "mdown", "mkd", "mdx"]
+    static let codeExtensions = [
+        "swift", "m", "mm", "h", "hpp", "c", "cc", "cpp", "cs", "java", "kt", "kts", "scala", "go", "rs",
+        "py", "rb", "php", "pl", "lua", "r", "dart", "js", "jsx", "mjs", "cjs", "ts", "tsx", "vue", "svelte",
+        "css", "scss", "sass", "less", "html", "htm", "xml", "json", "jsonc", "yaml", "yml", "toml", "ini",
+        "cfg", "conf", "env", "sql", "graphql", "gql", "proto", "sh", "bash", "zsh", "fish", "ps1", "bat",
+        "gradle", "cmake", "make", "mk", "dockerfile", "tf", "hcl", "ex", "exs", "erl", "hs", "clj", "elm",
+        "zig", "nim", "jl", "tex", "bib", "rst", "adoc", "org", "txt", "text", "log", "csv", "tsv", "srt", "vtt",
+        "ipynb", "patch", "diff",
+    ]
+
+    /// Formats `NSAttributedString` converts to text on this device.
+    static var richTextTypes: [UTType] {
+        var types: [UTType] = [.rtf, .rtfd, .flatRTFD]
+        #if os(macOS)
+        // AppKit's text system also reads Word and OpenDocument files.
+        types += ["org.openxmlformats.wordprocessingml.document", "com.microsoft.word.doc",
+                  "org.oasis-open.opendocument.text", "com.microsoft.word.wordml"].compactMap { UTType($0) }
+        types.append(.webArchive)
+        #endif
+        return types
+    }
+
+    /// Types that are never text, rejected without reading them.
+    private static let binaryTypes: [UTType] = [.archive, .image, .audiovisualContent, .executable, .font, .diskImage]
+
     public static func input(fileURL: URL, filename: String? = nil) throws -> SummaryInput {
         .localFile(try read(fileURL: fileURL, filename: filename))
+    }
+
+    /// Whether a file of this type identifier may be read by `read(fileURL:)`, for share and drop providers.
+    public static func isReadable(typeIdentifier: String) -> Bool {
+        guard let type = UTType(typeIdentifier) else { return false }
+        return type.conforms(to: .pdf) || type.conforms(to: .text) || richTextTypes.contains(where: type.conforms(to:))
+    }
+
+    /// Whether a file with this extension is one `read(fileURL:)` reads.
+    public static func isReadable(extension ext: String) -> Bool {
+        let ext = ext.lowercased()
+        if ext == "pdf" || markdownExtensions.contains(ext) || codeExtensions.contains(ext) { return true }
+        return UTType(filenameExtension: ext).map { isReadable(typeIdentifier: $0.identifier) } ?? false
     }
 
     /// Reads a file that is already accessible (a staged copy, or inside a security scope).
@@ -54,10 +113,11 @@ public enum LocalDocument {
         let name = filename ?? fileURL.lastPathComponent
         let ext = fileURL.pathExtension.lowercased()
         let type = UTType(filenameExtension: ext)
-        guard ext == "pdf" || ext == "md" || ext == "markdown" || type?.conforms(to: .plainText) == true else {
+        let isKnownText = markdownExtensions.contains(ext) || codeExtensions.contains(ext) || type?.conforms(to: .text) == true
+        if !isKnownText, ext != "pdf", let type, binaryTypes.contains(where: type.conforms(to:)) {
             throw LocalDocumentError.unsupported
         }
-        let size = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        let size = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? directorySize(fileURL)
         guard size > 0 else { throw LocalDocumentError.empty }
         guard size <= SummaryAPIClient.maxUploadBytes else {
             throw SummaryAPIError.fileTooLarge(maxBytes: SummaryAPIClient.maxUploadBytes)
@@ -69,11 +129,47 @@ public enum LocalDocument {
             // Long PDFs are summarised from their opening, as the server would after extraction.
             return LocalFileSource(filename: name, kind: .pdf, text: prefix(text, utf16Length: maxTextLength))
         }
-        var encoding = String.Encoding.utf8
-        let text = try String(contentsOf: fileURL, usedEncoding: &encoding).trimmingCharacters(in: .whitespacesAndNewlines)
+        // HTML is read as its source: AppKit/UIKit HTML import needs WebKit on the main thread.
+        if let type, type.conforms(to: .html) == false, richTextTypes.contains(where: type.conforms(to:)) {
+            let document = try? NSAttributedString(url: fileURL, options: [:], documentAttributes: nil)
+            guard let document else { throw LocalDocumentError.unsupported }
+            let text = document.string
+                .replacingOccurrences(of: "\u{FFFC}", with: "") // attachment placeholders
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { throw LocalDocumentError.empty }
+            // Like PDFs, long documents are summarised from their opening.
+            return LocalFileSource(filename: name, kind: .text, text: prefix(text, utf16Length: maxTextLength))
+        }
+        let text = try decodeText(at: fileURL, trusted: isKnownText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw LocalDocumentError.empty }
         guard text.utf16.count <= maxTextLength else { throw LocalDocumentError.textTooLong }
         return LocalFileSource(filename: name, kind: .text, text: text)
+    }
+
+    /// Decodes a text file. Files of unknown type (no or an unregistered extension) are read only
+    /// when they look like text, so arbitrary binaries are rejected rather than summarised as noise.
+    static func decodeText(at url: URL, trusted: Bool) throws -> String {
+        let data = try Data(contentsOf: url)
+        if !trusted, !looksLikeText(data) { throw LocalDocumentError.unsupported }
+        var encoding = String.Encoding.utf8
+        if let text = try? String(contentsOf: url, usedEncoding: &encoding) { return text }
+        if let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .utf16) { return text }
+        guard trusted, looksLikeText(data) else { throw LocalDocumentError.unsupported }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Text has no NUL bytes and few control characters other than tab, newline and form feed.
+    static func looksLikeText(_ data: Data) -> Bool {
+        let sample = data.prefix(8_192)
+        guard !sample.isEmpty, !sample.contains(0) else { return false }
+        let controls = sample.filter { $0 < 0x20 && ![0x09, 0x0A, 0x0C, 0x0D, 0x1B].contains($0) }.count
+        return controls * 100 <= sample.count
+    }
+
+    /// The size of a package document such as `.rtfd`, which has no file size of its own.
+    private static func directorySize(_ url: URL) -> Int {
+        guard let files = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        return files.compactMap { ($0 as? URL).flatMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize } }.reduce(0, +)
     }
 
     /// Reads the file linked to a summary on this device, e.g. to ground a chat about it.
