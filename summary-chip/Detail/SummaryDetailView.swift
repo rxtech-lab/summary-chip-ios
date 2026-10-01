@@ -11,10 +11,8 @@ struct SummaryDetailView: View {
     @State private var showsEditSharing = false
     @State private var showsRegenerate = false
     @State private var confirmsDelete = false
-    @State private var isDeleting = false
     @State private var didDelete = false
     @State private var savedCount = 0
-    @State private var errorMessage: String?
     @State private var showsNavigationTitle = false
     @Environment(\.dismiss) private var dismiss
 
@@ -33,7 +31,7 @@ struct SummaryDetailView: View {
                 .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.summaryGroupedBackground)
         // The content carries a large title; show it in the bar once the hero and title scroll away.
         .onScrollGeometryChange(for: Bool.self) { geometry in
             let width = min(geometry.containerSize.width, 760) - 32
@@ -43,11 +41,11 @@ struct SummaryDetailView: View {
             withAnimation(.easeInOut(duration: 0.2)) { showsNavigationTitle = isPast }
         }
         .navigationTitle(showsNavigationTitle ? summary.title : "")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .summaryInlineNavigationTitle()
+        .summaryHideTabBar()
         .toolbar {
             if allowsChat {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .summaryTrailing) {
                     Button {
                         showsChat = true
                     } label: {
@@ -56,7 +54,7 @@ struct SummaryDetailView: View {
                     .accessibilityIdentifier("ask-summary")
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .summaryTrailing) {
                 Button {
                     showsShare = true
                 } label: {
@@ -65,7 +63,7 @@ struct SummaryDetailView: View {
                 .accessibilityIdentifier("share-summary")
             }
             if summary.isOwner {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .summaryTrailing) {
                     Menu {
                         Button {
                             showsEditSharing = true
@@ -86,7 +84,6 @@ struct SummaryDetailView: View {
                     } label: {
                         Label("More", systemImage: "ellipsis")
                     }
-                    .disabled(isDeleting)
                 }
             }
         }
@@ -102,19 +99,15 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsRegenerate) {
             RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
-        .confirmationDialog("Delete this summary?", isPresented: $confirmsDelete, titleVisibility: .visible) {
-            Button("Delete Summary", role: .destructive) { Task { await delete() } }
-        } message: {
-            Text("The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead.")
-        }
-        .alert("Something went wrong", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
+        .sheet(isPresented: $confirmsDelete) {
+            DeleteSummarySheet(api: environment.api, summary: summary) {
+                environment.library.remove(id: summary.id)
+                didDelete = true
+                dismiss()
+            }
         }
         .sensoryFeedback(.success, trigger: savedCount)
         .sensoryFeedback(.success, trigger: didDelete) { _, new in new }
-        .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         .task(id: summary.id) { await refresh() }
     }
 
@@ -134,18 +127,6 @@ struct SummaryDetailView: View {
         apply(fresh)
     }
 
-    private func delete() async {
-        isDeleting = true
-        defer { isDeleting = false }
-        do {
-            try await environment.api.deleteSummary(id: summary.id)
-            environment.library.remove(id: summary.id)
-            didDelete = true
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
 }
 
 /// Loads a summary by id, then shows its detail (chat result cards, "Open in app").

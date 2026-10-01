@@ -59,7 +59,11 @@ struct LibraryFilterSheet: View {
                             .tag(String?.some(facet.name))
                         }
                     }
+                    #if os(macOS)
+                    .pickerStyle(.menu)
+                    #else
                     .pickerStyle(.navigationLink)
+                    #endif
                 }
 
                 Section("Tag") {
@@ -78,7 +82,11 @@ struct LibraryFilterSheet: View {
                                 .tag(String?.some(facet.name))
                             }
                         }
+                        #if os(macOS)
+                        .pickerStyle(.menu)
+                        #else
                         .pickerStyle(.navigationLink)
+                        #endif
                     }
                 }
 
@@ -92,8 +100,9 @@ struct LibraryFilterSheet: View {
                 // Viewed summaries are always public; a visibility filter would only hide them.
                 if scope == .viewed { draft.visibility = nil }
             }
+            .formStyle(.grouped)
             .navigationTitle("Filter")
-            .navigationBarTitleDisplayMode(.inline)
+            .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -108,6 +117,7 @@ struct LibraryFilterSheet: View {
             }
             .task { await model.loadFacets() }
         }
+        .summarySheetSize()
     }
 
     /// Server facets first (with counts), then the rest of the closed category list.

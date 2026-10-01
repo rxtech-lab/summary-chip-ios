@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const SOURCE_TYPES = ["url", "webpage", "pdf", "text"] as const;
 /** What kind of content a summary was made from, independent of how it was submitted. Extend as new kinds land. */
@@ -90,6 +90,21 @@ export const summaryViews = sqliteTable("summary_views", {
   primaryKey({ columns: [table.userId, table.summaryId] }),
   index("summary_views_user_viewed_idx").on(table.userId, table.viewedAt),
   index("summary_views_summary_idx").on(table.summaryId),
+]);
+
+/**
+ * One embedding per summary for natural-language search. Kept out of `summaries` so list queries
+ * never load the vectors. `embedding` holds a libSQL `vector32` blob and is only compared to
+ * vectors of the same `model` (dimensions differ between models). Searched exactly with
+ * `vector_distance_cos` — no vector index, since Turso Cloud's MVCC mode rejects virtual tables.
+ */
+export const summaryEmbeddings = sqliteTable("summary_embeddings", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  embedding: blob("embedding", { mode: "buffer" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  index("summary_embeddings_model_idx").on(table.model),
 ]);
 
 /** Presigned PDF uploads. Rows never attached to a summary are swept by the cleanup cron. */

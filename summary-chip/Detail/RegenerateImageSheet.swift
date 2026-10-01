@@ -48,8 +48,9 @@ struct RegenerateImageSheet: View {
                     Section { Text(errorMessage).foregroundStyle(.red) }
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Regenerate Image")
-            .navigationBarTitleDisplayMode(.inline)
+            .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -64,6 +65,7 @@ struct RegenerateImageSheet: View {
             .interactiveDismissDisabled(isWorking)
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
+        .summarySheetSize()
     }
 
     private func regenerate() async {

@@ -34,8 +34,8 @@ struct LegalDocumentView: View {
             }
         }
         .navigationTitle(document.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .summaryInlineNavigationTitle()
+        .summaryHideTabBar()
         .task(id: document) { await load() }
         .accessibilityIdentifier("legal-document-view")
     }

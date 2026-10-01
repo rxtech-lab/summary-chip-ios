@@ -74,10 +74,20 @@
                ReferencedContainer = "container:Packages/SummaryKit">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C0651936607A35879DCDFE3F"
+               BuildableName = "summary-chipUITests.xctest"
+               BlueprintName = "summary-chipUITests"
+               ReferencedContainer = "container:summary-chip.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"

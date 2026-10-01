@@ -1,7 +1,13 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import LinkPresentation
 import SwiftUI
+#if os(iOS)
 import UIKit
+#else
+import AppKit
+#endif
+
+#if os(iOS)
 
 /// `UIActivityViewController` for SwiftUI sheets (works inside app extensions too).
 public struct ActivityView: UIViewControllerRepresentable {
@@ -51,6 +57,33 @@ private struct ActivityPresenterAnchor: UIViewRepresentable {
 
     func updateUIView(_ view: UIView, context: Context) { presenter.anchor = view }
 }
+
+#else
+@MainActor
+final class ActivityPresenter {
+    weak var anchor: NSView?
+    private var picker: NSSharingServicePicker?
+
+    func present(_ items: [Any]) {
+        guard let anchor, anchor.window != nil else { return }
+        let picker = NSSharingServicePicker(items: items)
+        self.picker = picker
+        picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+    }
+}
+
+private struct ActivityPresenterAnchor: NSViewRepresentable {
+    let presenter: ActivityPresenter
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        presenter.anchor = view
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) { presenter.anchor = view }
+}
+#endif
 
 /// Pending share, presented as a sheet.
 public struct ShareRequest: Identifiable {
@@ -122,6 +155,7 @@ public enum ShareCaption {
 /// Activity items for the "Everything" mode. Every app gets the link with rich metadata; apps that
 /// take text or images also get the full summary and the preview image. Messages and the
 /// clipboard only get the link, since they build their own preview card from it.
+#if os(iOS)
 enum RichShareItems {
     static func make(for summary: Summary, imageFile: URL?) -> [Any] {
         var items: [Any] = [LinkItemSource(summary: summary, imageFile: imageFile)]
@@ -206,6 +240,16 @@ enum RichShareItems {
         }
     }
 }
+
+#else
+enum RichShareItems {
+    static func make(for summary: Summary, imageFile: URL?) -> [Any] {
+        var items: [Any] = [summary.shareUrl, ShareCaption.fullText(for: summary)]
+        if let imageFile { items.append(imageFile) }
+        return items
+    }
+}
+#endif
 
 /// Share mode picker plus a single share button. Reused by the share sheet, the new-summary
 /// result screen and the share extension's result screen.
@@ -301,7 +345,12 @@ public struct ShareActionsSection: View {
                 errorMessage = "Couldn't download the preview image. \(error.localizedDescription)"
             }
         case .copy:
+            #if os(iOS)
             UIPasteboard.general.url = summary.shareUrl
+            #else
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(summary.shareUrl.absoluteString, forType: .string)
+            #endif
             copied = true
             try? await Task.sleep(for: .seconds(2))
             copied = false
@@ -330,7 +379,7 @@ public struct ShareModeSheet: View {
                 ShareActionsSection(summary: summary)
             }
             .navigationTitle("Share")
-            .navigationBarTitleDisplayMode(.inline)
+            .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -338,6 +387,7 @@ public struct ShareModeSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .summarySheetSize()
     }
 }
 #endif

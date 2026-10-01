@@ -6,6 +6,7 @@ options:
   bundleIdPrefix: com.rxlab
   deploymentTarget:
     iOS: "26.0"
+    macOS: "26.0"
   developmentLanguage: en
   createIntermediateGroups: true
   groupSortPosition: top
@@ -17,8 +18,9 @@ configFiles:
 
 settings:
   base:
-    DEVELOPMENT_TEAM: P9KK452K8P
+    DEVELOPMENT_TEAM: T7GYB573Y6
     CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: Apple Development
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     TARGETED_DEVICE_FAMILY: "1,2"
     SWIFT_VERSION: "6.0"
@@ -63,11 +65,92 @@ x-shared-entitlements: &sharedEntitlements
     - group.com.rxlab.summary-chip
 
 targets:
+  MacSmartShare:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: MacSmartShare
+        excludes:
+          - Info.plist
+          - MacSmartShare.entitlements
+      - path: SmartShare/ShareRootView.swift
+    dependencies:
+      - package: SummaryKit
+    info:
+      path: MacSmartShare/Info.plist
+      properties:
+        <<: *configInfo
+        CFBundleDisplayName: Summary Chip
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule: >-
+              SUBQUERY (
+                extensionItems, $extensionItem,
+                SUBQUERY (
+                  $extensionItem.attachments, $attachment,
+                  ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.adobe.pdf"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text"
+                ).@count >= 1
+              ).@count == 1
+    entitlements:
+      path: MacSmartShare/MacSmartShare.entitlements
+      properties:
+        <<: *sharedEntitlements
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.files.user-selected.read-only: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.MacSmartShare
+        PRODUCT_NAME: MacSmartShare
+        APPLICATION_EXTENSION_API_ONLY: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
+        REGISTER_APP_GROUPS: YES
+
+  summary-chip-macOSTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: summary-chipTests
+    dependencies:
+      - target: summary-chip
+      - package: SummaryKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.macOSTests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/summary-chip.app/Contents/MacOS/summary-chip
+        GENERATE_INFOPLIST_FILE: YES
+
+  summary-chip-macOSUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: summary-chipMacUITests
+    dependencies:
+      - target: summary-chip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.macOSUITests
+        GENERATE_INFOPLIST_FILE: YES
+
   summary-chip:
     type: application
-    platform: iOS
+    platform: auto
+    supportedDestinations: [iOS, macOS]
     sources:
       - path: summary-chip
+        excludes:
+          - Info.plist
+          - summary-chip.entitlements
+    groups:
+      - summary-chip-macOS
     dependencies:
       - package: SummaryKit
       - package: RxAuthSwift
@@ -76,9 +159,14 @@ targets:
         product: RxAuthSwiftUI
       - package: RxAgentSDK
         product: RxAgentSDK
+      - target: MacSmartShare
+        destinationFilters: [macOS]
       - target: SmartShare
+        destinationFilters: [iOS]
       - target: SummaryMessages
+        destinationFilters: [iOS]
       - target: SummaryClip
+        destinationFilters: [iOS]
     info:
       path: summary-chip/Info.plist
       properties:
@@ -113,9 +201,19 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip
+        CODE_SIGN_IDENTITY: Apple Development
         PRODUCT_NAME: summary-chip
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        "INFOPLIST_FILE[sdk=macosx*]": summary-chip-macOS/Info.plist
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": summary-chip-macOS/summary-chip-macOS.entitlements
+        "ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]": MacAppIcon
+        "ENABLE_HARDENED_RUNTIME[sdk=macosx*]": YES
+        "ENABLE_APP_SANDBOX[sdk=macosx*]": YES
+        "ENABLE_OUTGOING_NETWORK_CONNECTIONS[sdk=macosx*]": YES
+        "REGISTER_APP_GROUPS[sdk=macosx*]": YES
+        "CODE_SIGN_IDENTITY[sdk=macosx*]": Apple Development
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"
 
   SmartShare:
     type: app-extension
@@ -246,7 +344,36 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chipTests
         GENERATE_INFOPLIST_FILE: YES
 
+  summary-chipUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: summary-chipUITests
+    dependencies:
+      - target: summary-chip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chipUITests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
+  summary-chip-macOS:
+    build:
+      targets:
+        summary-chip: all
+        summary-chip-macOSTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - summary-chip-macOSTests
+        - summary-chip-macOSUITests
+        - package: SummaryKit/SummaryKitTests
+    profile:
+      config: Release
+    archive:
+      config: Release
   summary-chip:
     build:
       targets:
@@ -259,6 +386,7 @@ schemes:
       gatherCoverageData: true
       targets:
         - summary-chipTests
+        - summary-chipUITests
         - package: SummaryKit/SummaryKitTests
     profile:
       config: Release

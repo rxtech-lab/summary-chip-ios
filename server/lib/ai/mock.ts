@@ -48,6 +48,33 @@ export class MockAiProvider implements AiProvider {
   chatModel(): LanguageModel {
     return createMockChatModel();
   }
+
+  embeddingModelId(): string | null {
+    return MOCK_EMBEDDING_MODEL;
+  }
+
+  async embed(values: string[]): Promise<number[][]> {
+    return values.map(mockEmbedding);
+  }
+}
+
+export const MOCK_EMBEDDING_MODEL = "mock/bag-of-words";
+const MOCK_EMBEDDING_DIMENSIONS = 4096;
+
+/**
+ * Hashed set of words: texts sharing words point the same way, unrelated texts are near
+ * orthogonal. Not semantic, but enough to exercise vector ranking deterministically.
+ */
+export function mockEmbedding(text: string): number[] {
+  const vector = Array.from({ length: MOCK_EMBEDDING_DIMENSIONS }, () => 0);
+  for (const word of text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) {
+    let hash = 2166136261;
+    for (const char of word) hash = Math.imul(hash ^ char.codePointAt(0)!, 16777619);
+    vector[(hash >>> 0) % MOCK_EMBEDDING_DIMENSIONS] = 1;
+  }
+  // An all-zero vector has no direction; give empty texts a constant one instead.
+  if (!vector.includes(1)) vector[0] = 1;
+  return vector;
 }
 
 function lastUserText(options: LanguageModelV4CallOptions): string {

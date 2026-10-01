@@ -33,7 +33,7 @@ struct ShareRootView: View {
                 NavigationStack {
                     SignedOutNotice()
                         .navigationTitle("Summary Chip")
-                        .navigationBarTitleDisplayMode(.inline)
+                        .summaryInlineNavigationTitle()
                         .toolbar { cancelItem }
                 }
             case .failed(let message):

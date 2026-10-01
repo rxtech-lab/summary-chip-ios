@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { normalizeDraft } from "@/lib/ai/summary-schema";
@@ -10,7 +10,7 @@ import {
   type PatchSummaryInput,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { summaries, summaryTags, summaryViews, uploads, type ImageStyle, type SummaryRow } from "@/lib/db/schema";
+import { summaries, summaryEmbeddings, summaryTags, summaryViews, uploads, type ImageStyle, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -26,7 +26,8 @@ import { ApiError, notFound } from "@/lib/http/errors";
 import { generateOgImages, type OgImages } from "@/lib/og/generate";
 import { generateSlug } from "@/lib/slug";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
-import { decodeCursor, encodeCursor, isPublicAndLive, searchCondition } from "./search";
+import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding } from "./embeddings";
+import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, isPublicAndLive, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
 
 export interface ServiceDeps {
@@ -180,6 +181,9 @@ export async function createSummary(
   const id = crypto.randomUUID();
   const draft = normalizeDraft(raw, { requestedLanguage: input.language, seed: id, fallbackTitle: content.sourceTitle });
 
+  // Embedded alongside the image generation; stored once the row exists.
+  const embedding = embedSummary(ai, { ...draft, siteName: content.siteName, sourceTitle: content.sourceTitle, contentText: content.text });
+
   const createdAt = now();
   let imageKeys: ImageKeys = { ogImageKey: null, artImageKey: null };
   try {
@@ -240,6 +244,7 @@ export async function createSummary(
           ? [db.update(uploads).set({ attachedAt: createdAt, summaryId: id }).where(eq(uploads.key, uploadKey))]
           : []),
       ]);
+      await saveSummaryEmbedding(db, id, await embedding);
       return toSummaryJson(row, principal.sub);
     } catch (error) {
       if (isSlugConflict(error) && attempt < 3) continue;
@@ -258,7 +263,7 @@ export async function createSummary(
  * The library: the caller's own summaries plus other people's public summaries they opened, as one
  * feed ordered by activity (created for your own, last viewed for others'). `scope` narrows it.
  */
-export async function listSummaries(db: Database, userId: string, query: ListQuery) {
+export async function listSummaries(db: Database, userId: string, query: ListQuery, deps: Pick<ServiceDeps, "ai"> = {}) {
   const view = and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId));
   const mine = eq(summaries.ownerId, userId);
   const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), isPublicAndLive())!;
@@ -266,12 +271,12 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const activity = sql<number>`(CASE WHEN ${summaries.ownerId} = ${userId} THEN ${summaries.createdAt} ELSE ${summaryViews.viewedAt} END)`;
 
   const conditions = [scope];
-  if (query.q) conditions.push(searchCondition(query.q));
   if (query.category) conditions.push(eq(summaries.category, query.category));
   if (query.visibility) conditions.push(eq(summaries.visibility, query.visibility));
   if (query.tag) {
     conditions.push(inArray(summaries.id, db.select({ id: summaryTags.summaryId }).from(summaryTags).where(eq(summaryTags.tag, query.tag))));
   }
+  if (query.q) return searchLibrary(db, userId, { ...query, q: query.q }, conditions, activity, deps);
   const cursor = decodeCursor(query.cursor);
   if (cursor) {
     const at = cursor.time.getTime();
@@ -288,6 +293,35 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   return {
     items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt)),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
+  };
+}
+
+/**
+ * Natural-language library search: matches by meaning (vector distance) or keywords, ranked by
+ * relevance, then activity. Paged with an offset cursor since a relevance order has no keyset.
+ */
+async function searchLibrary(
+  db: Database,
+  userId: string,
+  query: ListQuery & { q: string },
+  conditions: SQL[],
+  activity: SQL<number>,
+  deps: Pick<ServiceDeps, "ai">,
+) {
+  const offset = decodeOffsetCursor(query.cursor);
+  const vector = await embedQuery(deps.ai ?? await getAiProvider(), query.q);
+  const match = relevance(query.q, vector);
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt })
+    .from(summaries)
+    .leftJoin(summaryViews, and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId)))
+    .where(and(...conditions, match.where))
+    .orderBy(...(match.score ? [asc(match.score)] : []), desc(activity), desc(summaries.id))
+    .limit(query.limit + 1)
+    .offset(offset);
+  const page = rows.slice(0, query.limit);
+  return {
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt)),
+    nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }
 
@@ -315,7 +349,7 @@ export async function patchSummary(
   ownerId: string,
   id: string,
   patch: PatchSummaryInput,
-  deps: Pick<ServiceDeps, "now" | "store"> = {},
+  deps: Pick<ServiceDeps, "ai" | "now" | "store"> = {},
 ): Promise<SummaryJson> {
   const existing = await getOwnedSummary(db, id, ownerId);
   const now = deps.now?.() ?? new Date();
@@ -349,7 +383,9 @@ export async function patchSummary(
   ] as const;
   await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
   await deleteObjects(store, retiredKeys);
-  return toSummaryJson({ ...existing, ...changes }, ownerId);
+  const updated = { ...existing, ...changes };
+  if (patch.title !== undefined || patch.tags !== undefined) await indexSummary(db, deps.ai ?? await getAiProvider(), updated);
+  return toSummaryJson(updated, ownerId);
 }
 
 type ImageKeys = Pick<SummaryRow, "ogImageKey" | "artImageKey">;
@@ -422,6 +458,7 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
   await db.batch([
     db.delete(summaryTags).where(inArray(summaryTags.summaryId, ids)),
     db.delete(summaryViews).where(inArray(summaryViews.summaryId, ids)),
+    db.delete(summaryEmbeddings).where(inArray(summaryEmbeddings.summaryId, ids)),
     db.delete(summaries).where(inArray(summaries.id, ids)),
     ...(fileKeys.length ? [db.delete(uploads).where(inArray(uploads.key, fileKeys))] : []),
   ]);

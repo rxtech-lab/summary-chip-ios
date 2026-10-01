@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun scripts/migrate.ts",
+    "db:backfill-embeddings": "bun scripts/backfill-embeddings.ts",
     "smoke:illustration": "bun --env-file=.env scripts/smoke-illustration.ts"
   },
   "dependencies": {

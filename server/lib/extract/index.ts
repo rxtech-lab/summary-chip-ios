@@ -1,7 +1,8 @@
 import type { SummarySource } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
-import { decodeText, fetchPublicDocument } from "./fetch";
-import { extractHtml, normalizeWhitespace } from "./html";
+import { renderWithBrowser } from "./browser";
+import { decodeText, fetchPublicDocument, type FetchedDocument } from "./fetch";
+import { extractHtml, normalizeWhitespace, type HtmlExtraction } from "./html";
 import { extractPdfText } from "./pdf";
 
 export interface ExtractedContent {
@@ -32,15 +33,49 @@ export function hostOf(url: string | null | undefined): string | null {
   }
 }
 
+function hasEnoughText(text: string): boolean {
+  return text.replace(/\s/g, "").length >= MIN_TEXT_LENGTH;
+}
+
 function assertEnoughText(text: string): void {
-  if (text.replace(/\s/g, "").length < MIN_TEXT_LENGTH) {
+  if (!hasEnoughText(text)) {
     throw new ApiError(422, "NO_CONTENT", "Not enough readable text was found to summarise");
   }
 }
 
-/** Fetches and extracts a web page (HTML, PDF or plain text responses). */
+/** Plain-fetch failures worth retrying in a real browser (bot walls, slow or JS-gated pages). */
+const BROWSER_RETRY_CODES = new Set(["SOURCE_HTTP_ERROR", "SOURCE_UNREACHABLE", "SOURCE_TIMEOUT"]);
+
+function fromHtml(page: HtmlExtraction, url: string, finalUrl: string): ExtractedContent {
+  assertEnoughText(page.text);
+  return {
+    source: "web",
+    text: page.text,
+    sourceUrl: url,
+    sourceTitle: page.title,
+    siteName: page.siteName ?? hostOf(finalUrl),
+    lang: page.lang,
+    imageUrl: page.imageUrl,
+  };
+}
+
+/**
+ * Fetches and extracts a web page (HTML, PDF or plain text responses). HTML pages are rendered with
+ * Cloudflare Browser Rendering when it is configured, so JavaScript-built content is captured; the
+ * static HTML remains the fallback and fills in any metadata the rendered DOM lacks.
+ */
 export async function extractFromUrl(url: string): Promise<ExtractedContent> {
-  const document = await fetchPublicDocument(url, { maxBytes: 10 * 1024 * 1024 });
+  let document: FetchedDocument;
+  try {
+    document = await fetchPublicDocument(url, { maxBytes: 10 * 1024 * 1024 });
+  } catch (error) {
+    // The URL already passed the SSRF check; only upstream failures are retried in the browser.
+    if (!(error instanceof ApiError) || !BROWSER_RETRY_CODES.has(error.code)) throw error;
+    const rendered = await renderWithBrowser(url);
+    if (!rendered) throw error;
+    if (process.env.NODE_ENV !== "test") console.info(`[extract] browser run: plain fetch failed (${error.code}), using rendered page for ${url}`);
+    return fromHtml(extractHtml(rendered, url), url, url);
+  }
   const finalUrl = document.url.toString();
   if (document.contentType === "application/pdf" || document.contentType === "application/x-pdf") {
     const pdf = await extractPdfText(document.bytes);
@@ -54,17 +89,20 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   if (!document.contentType.includes("html") && !document.contentType.includes("xml")) {
     throw new ApiError(422, "UNSUPPORTED_CONTENT", `Pages of type ${document.contentType} cannot be summarised`);
   }
-  const html = extractHtml(decodeText(document.bytes, document.charset), finalUrl);
-  assertEnoughText(html.text);
-  return {
-    source: "web",
-    text: html.text,
-    sourceUrl: url,
-    sourceTitle: html.title,
-    siteName: html.siteName ?? hostOf(finalUrl),
-    lang: html.lang,
-    imageUrl: html.imageUrl,
-  };
+  const staticPage = extractHtml(decodeText(document.bytes, document.charset), finalUrl);
+  const renderedHtml = await renderWithBrowser(finalUrl);
+  const renderedPage = renderedHtml ? extractHtml(renderedHtml, finalUrl) : null;
+  if (!renderedPage || !hasEnoughText(renderedPage.text)) {
+    if (renderedHtml && process.env.NODE_ENV !== "test") console.info(`[extract] browser run: rendered page had no readable text, using static HTML for ${finalUrl}`);
+    return fromHtml(staticPage, url, finalUrl);
+  }
+  return fromHtml({
+    text: renderedPage.text,
+    title: renderedPage.title ?? staticPage.title,
+    siteName: renderedPage.siteName ?? staticPage.siteName,
+    lang: renderedPage.lang ?? staticPage.lang,
+    imageUrl: renderedPage.imageUrl ?? staticPage.imageUrl,
+  }, url, finalUrl);
 }
 
 export async function extractFromWebpage(input: {

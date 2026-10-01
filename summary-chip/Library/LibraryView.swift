@@ -7,9 +7,10 @@ struct LibraryView: View {
     @State private var showsNewSummary = false
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
-    @State private var errorMessage: String?
     @State private var deletedCount = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openSummarySearch) private var openSearch
+    @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
     private var model: LibraryModel { environment.library }
 
@@ -28,7 +29,7 @@ struct LibraryView: View {
                     Task { await model.reload() }
                 }
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .summaryTrailing) {
                         Button {
                             showsFilters = true
                         } label: {
@@ -38,15 +39,17 @@ struct LibraryView: View {
                         }
                         .badge(model.filter.activeCount)
                         .accessibilityIdentifier("library-filter")
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             showsNewSummary = true
                         } label: {
                             Label("New Summary", systemImage: "plus")
                         }
                         .accessibilityIdentifier("new-summary")
+                        if let openSearch {
+                            SummarySearchButton(action: openSearch)
+                        }
                     }
+                    ChatPanelToolbarContent(isVisible: chatPanelVisibility)
                 }
                 .sheet(isPresented: $showsFilters) {
                     LibraryFilterSheet(model: model) { newFilter in
@@ -60,23 +63,13 @@ struct LibraryView: View {
                 .sheet(item: $sharingSummary) { summary in
                     ShareModeSheet(summary: summary)
                 }
-                .confirmationDialog(
-                    "Delete this summary?",
-                    isPresented: Binding(get: { deletingSummary != nil }, set: { if !$0 { deletingSummary = nil } }),
-                    titleVisibility: .visible,
-                    presenting: deletingSummary
-                ) { summary in
-                    Button("Delete Summary", role: .destructive) { Task { await delete(summary) } }
-                } message: { _ in
-                    Text("The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead.")
+                .sheet(item: $deletingSummary) { summary in
+                    DeleteSummarySheet(api: environment.api, summary: summary) {
+                        withAnimation { model.remove(id: summary.id) }
+                        deletedCount += 1
+                    }
                 }
                 .sensoryFeedback(.success, trigger: deletedCount)
-                .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
-                .alert("Something went wrong", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(errorMessage ?? "")
-                }
         }
     }
 
@@ -88,7 +81,7 @@ struct LibraryView: View {
         } else if model.items.isEmpty {
             emptyState
         } else {
-            SummaryCardFeed(entries: model.entries, onReachEnd: {
+            SummaryCardFeed(entries: model.entries, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
                 Task { await model.loadMore() }
             }, menuItems: { summary in
                 Button {
@@ -116,17 +109,7 @@ struct LibraryView: View {
                     Text(error).font(.footnote).foregroundStyle(.red).padding()
                 }
             }
-            .background(Color(.systemGroupedBackground))
-        }
-    }
-
-    private func delete(_ summary: Summary) async {
-        do {
-            try await environment.api.deleteSummary(id: summary.id)
-            withAnimation { model.remove(id: summary.id) }
-            deletedCount += 1
-        } catch {
-            errorMessage = error.localizedDescription
+            .background(Color.summaryGroupedBackground)
         }
     }
 

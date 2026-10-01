@@ -40,8 +40,9 @@ struct EditSharingSheet: View {
                     }
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Edit Sharing")
-            .navigationBarTitleDisplayMode(.inline)
+            .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -59,6 +60,7 @@ struct EditSharingSheet: View {
             .interactiveDismissDisabled(isSaving)
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
+        .summarySheetSize()
     }
 
     private var currentStatus: some View {

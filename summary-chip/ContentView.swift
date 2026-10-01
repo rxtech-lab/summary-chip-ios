@@ -5,6 +5,10 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var environment: AppEnvironment
+    @State private var onboarding = SummaryOnboardingStore()
+    @State private var presentation: RootPresentation?
+    @State private var checkedLaunchEducation = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         Group {
@@ -28,10 +32,76 @@ struct ContentView: View {
                 )
                 .accessibilityIdentifier("rxauth-sign-in")
             case .signedIn:
-                MainTabView(environment: environment)
+                #if os(macOS)
+                SidebarMainView(environment: environment)
+                #else
+                if horizontalSizeClass == .regular {
+                    SidebarMainView(environment: environment)
+                } else {
+                    MainTabView(environment: environment)
+                }
+                #endif
             }
         }
         .tint(.indigo)
+        .sheet(item: presentationBinding, onDismiss: presentNext) { presentation in
+            switch presentation {
+            case .education(let flow):
+                EducationSheet(pages: flow.pages, onAcknowledged: onboarding.acknowledge) {
+                    self.presentation = nil
+                }
+            case .summary(let route):
+                DeepLinkSheet(environment: environment, route: route)
+                    .summarySheetSize()
+            }
+        }
+        .task { presentNext() }
+        .onChange(of: environment.authenticationState) { _, state in
+            if state == .signedIn {
+                presentNext()
+            } else {
+                presentation = nil
+            }
+        }
+        .onChange(of: environment.pendingRoute) { _, route in
+            if route != nil { presentNext() }
+        }
+    }
+
+    // A single root sheet keeps launch education and incoming summary links from competing.
+    private var presentationBinding: Binding<RootPresentation?> {
+        Binding(get: { presentation }, set: { value in
+            if value == nil, case .summary(let route) = presentation,
+               environment.pendingRoute == route {
+                environment.pendingRoute = nil
+            }
+            presentation = value
+        })
+    }
+
+    private func presentNext() {
+        guard environment.authenticationState == .signedIn, presentation == nil else { return }
+        if let route = environment.pendingRoute {
+            presentation = .summary(route)
+        } else if !checkedLaunchEducation {
+            checkedLaunchEducation = true
+            let pages = onboarding.launchPages
+            if !pages.isEmpty {
+                presentation = .education(EducationPresentation(pages: pages))
+            }
+        }
+    }
+}
+
+private enum RootPresentation: Identifiable {
+    case education(EducationPresentation)
+    case summary(AppRoute)
+
+    var id: String {
+        switch self {
+        case .education(let flow): "education:\(flow.id)"
+        case .summary(let route): route.id
+        }
     }
 }
 
@@ -39,9 +109,9 @@ enum MainTab: Hashable {
     case library
     case chat
     case settings
-    case search
 }
 
+/// Compact-width (iPhone) layout; larger screens use `SidebarMainView` with chat as a column.
 struct MainTabView: View {
     @Bindable var environment: AppEnvironment
     @State private var selection: MainTab = .library
@@ -57,12 +127,7 @@ struct MainTabView: View {
             Tab("Settings", systemImage: "gearshape", value: MainTab.settings) {
                 SettingsView(environment: environment)
             }
-            Tab(value: MainTab.search, role: .search) {
-                SearchView(environment: environment)
-            }
         }
-        .sheet(item: $environment.pendingRoute) { route in
-            DeepLinkSheet(environment: environment, route: route)
-        }
+        .summarySearchPresentation(environment: environment)
     }
 }

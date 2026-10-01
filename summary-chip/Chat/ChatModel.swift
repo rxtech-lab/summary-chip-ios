@@ -3,12 +3,21 @@ import AgentMessageListUI
 import Observation
 import SummaryKit
 
+/// One agent tool call, shown as a card in the transcript. The optional fields were added later;
+/// transcripts saved before them still decode.
 nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable, Codable {
     let id: String
     let toolName: String
     var label: String
     var isRunning: Bool
     var references: [SummaryReference]
+    /// What the call was made with, e.g. the search query and filters.
+    var detail: String? = nil
+    /// Set once the tool returned; `nil` when the call was cut off.
+    var finished: Bool? = nil
+    /// The search matched by meaning (vector search), not only keywords.
+    var isSemantic: Bool? = nil
+    var errorText: String? = nil
 }
 
 /// Row model for the RxAgentSDK `MessageList`.
@@ -118,17 +127,21 @@ final class ChatModel {
                     toolName: name,
                     label: ChatToolOutput.activityLabel(toolName: name, input: input),
                     isRunning: true,
-                    references: []
+                    references: [],
+                    detail: ChatToolOutput.detail(toolName: name, input: input)
                 ))
             }
         case .toolOutputAvailable(let callID, let output):
             update(id) { entry in
-                if let index = entry.tools.firstIndex(where: { $0.id == callID }) {
-                    entry.tools[index].isRunning = false
-                    entry.tools[index].references = ChatToolOutput.references(from: output)
-                } else {
-                    entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: ChatToolOutput.references(from: output)))
-                }
+                let index = entry.tools.firstIndex(where: { $0.id == callID }) ?? {
+                    entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: []))
+                    return entry.tools.count - 1
+                }()
+                entry.tools[index].isRunning = false
+                entry.tools[index].finished = true
+                entry.tools[index].references = ChatToolOutput.references(from: output)
+                entry.tools[index].isSemantic = ChatToolOutput.isSemantic(output)
+                entry.tools[index].errorText = ChatToolOutput.errorText(from: output)
             }
         case .error(let message):
             update(id) { $0.errorText = message }

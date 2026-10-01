@@ -76,6 +76,15 @@ public enum ShareClassifier {
         return nil
     }
 
+    /// What the user typed or dictated: a lone web link is read by the server, anything else is
+    /// summarised as text. Blank input is `nil`.
+    public static func classify(typed text: String) -> SummaryInput? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let url = singleURL(in: trimmed) { return .url(url) }
+        return .text(trimmed, title: nil)
+    }
+
     /// Returns the URL when `text` is nothing but one http(s) link.
     public static func singleURL(in text: String) -> URL? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

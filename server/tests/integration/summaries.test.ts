@@ -111,6 +111,53 @@ describe("POST /api/v1/summaries", () => {
     expect(await response.json()).toMatchObject({ sourceType: "url", source: "pdf", sourceUrl: "https://corp.example.com/outlook.pdf", sourceFileUrl: null });
   });
 
+  describe("with Cloudflare Browser Rendering configured", () => {
+    const BROWSER_ENDPOINT = "https://api.cloudflare.com/client/v4/accounts/acct-123/browser-rendering/content";
+    const RENDERED_HTML = ARTICLE_HTML.replace(/quantum widgets are tiny devices/g, "rendered widgets are tiny devices");
+
+    beforeEach(() => {
+      vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "acct-123");
+      vi.stubEnv("CLOUDFLARE_API_TOKEN", "cf-token");
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("summarises the browser-rendered page and keeps static metadata as a fallback", async () => {
+      const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === BROWSER_ENDPOINT) {
+          expect(new Headers(init?.headers).get("authorization")).toBe("Bearer cf-token");
+          expect(JSON.parse(String(init?.body))).toMatchObject({ url: "https://news.example.com/widgets" });
+          return Response.json({ success: true, result: RENDERED_HTML.replace(/<meta property="og:site_name"[^>]*>/, "") });
+        }
+        return new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const response = await create({ source: { type: "url", url: "https://news.example.com/widgets" } });
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ source: "web", siteName: "Widget Weekly", sourceTitle: "Quantum widgets explained" });
+      expect(env.ai.calls.summarize[0].text).toContain("rendered widgets are tiny devices");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries pages that block plain fetches in the browser", async () => {
+      vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) =>
+        String(input) === BROWSER_ENDPOINT ? Response.json({ success: true, result: RENDERED_HTML }) : new Response("Forbidden", { status: 403 })));
+      const response = await create({ source: { type: "url", url: "https://news.example.com/widgets" } });
+      expect(response.status).toBe(201);
+      expect(env.ai.calls.summarize[0].text).toContain("rendered widgets are tiny devices");
+    });
+
+    it("falls back to the static page when rendering fails", async () => {
+      vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) =>
+        String(input) === BROWSER_ENDPOINT ? new Response("nope", { status: 500 }) : new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } })));
+      const response = await create({ source: { type: "url", url: "https://news.example.com/widgets" } });
+      expect(response.status).toBe(201);
+      expect(env.ai.calls.summarize[0].text).toContain("quantum widgets are tiny devices");
+    });
+  });
+
   it("refuses private network URLs (SSRF)", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

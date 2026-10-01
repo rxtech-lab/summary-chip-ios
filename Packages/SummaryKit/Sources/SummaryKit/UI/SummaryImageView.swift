@@ -1,7 +1,6 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import Kingfisher
 import SwiftUI
-import UIKit
 
 public extension EnvironmentValues {
     /// Loader used for OG images and source files. Inject an authorised one in the app and

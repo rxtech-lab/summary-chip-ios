@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import QuickLook
 import SwiftUI
 
@@ -214,7 +214,7 @@ struct DetailTile: ViewModifier {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: Self.shape)
+            .background(Color.summaryCardBackground, in: Self.shape)
             .overlay { Self.shape.strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5) }
             .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
     }

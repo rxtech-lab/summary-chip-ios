@@ -47,6 +47,19 @@ import Testing
         #expect(ChatToolOutput.references(from: .string("nope")).isEmpty)
     }
 
+    @Test func describesToolCallsForCards() throws {
+        let input = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"query":" sleep better ","category":"Health","tag":"habits","scope":"all"}"#.utf8))
+        #expect(ChatToolOutput.detail(toolName: "searchSummaries", input: input) == "“sleep better” · Health · #habits")
+        #expect(ChatToolOutput.detail(toolName: "searchSummaries", input: .object(["query": .string("")])) == nil)
+        #expect(ChatToolOutput.detail(toolName: "getSummary", input: .object(["id": .string("x")])) == nil)
+
+        let semantic = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"query":"sleep","semantic":true,"results":[]}"#.utf8))
+        #expect(ChatToolOutput.isSemantic(semantic))
+        #expect(!ChatToolOutput.isSemantic(.object(["results": .array([])])))
+        #expect(ChatToolOutput.errorText(from: .object(["error": .string("Summary not found or not accessible.")])) == "Summary not found or not accessible.")
+        #expect(ChatToolOutput.errorText(from: semantic) == nil)
+    }
+
     @Test func encodesUIMessages() throws {
         let body = ChatRequestBody(messages: [ChatUIMessage(id: "1", role: .user, text: "hi")])
         let json = String(decoding: try SummaryJSON.encoder().encode(body), as: UTF8.self)

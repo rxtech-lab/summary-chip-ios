@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import SwiftUI
 
 /// A shared summary as a card: OG image, title, two-line excerpt, category chip,
@@ -167,7 +167,7 @@ public struct SummaryTileView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: shape)
+        .background(Color.summaryCardBackground, in: shape)
         .clipShape(shape)
         .overlay { shape.strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5) }
         .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
@@ -271,68 +271,205 @@ public struct SummaryTileView: View {
     }
 }
 
+/// Coordinate space of the feed's scroll content, used to place cards on the timeline.
+private let summaryFeedContentSpace = "summary-feed-content"
+
 /// Scrolling masonry feed of `SummaryTileView`s, newest first. Two columns on compact widths,
 /// three on regular (iPad). Cards push `Summary` values; register
 /// `.navigationDestination(for: Summary.self)` on the enclosing stack. `menuItems` builds each
-/// card's long-press context menu.
+/// card's long-press context menu. `showsDateHeaders` groups cards by their local activity day.
+/// With `showsTimeline`, macOS adds a date scrubber beside the feed;
+/// use it only for feeds sorted newest first.
 public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let entries: [SummaryFeedEntry]
     let onReachEnd: () -> Void
     let menuItems: (Summary) -> MenuItems
     let footer: Footer
+    let showsTimeline: Bool
+    let showsDateHeaders: Bool
 
+    #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
+    #else
+    @State private var availableWidth: CGFloat = 800
+    @State private var timeline = SummaryTimelineMetrics()
+    @State private var scrollPosition = ScrollPosition()
+    #endif
 
     private static var spacing: CGFloat { 14 }
+    private static var horizontalPadding: CGFloat { 16 }
+    private static var topPadding: CGFloat { 8 }
 
     public init(
         entries: [SummaryFeedEntry],
+        showsTimeline: Bool = false,
+        showsDateHeaders: Bool = false,
         onReachEnd: @escaping () -> Void = {},
         @ViewBuilder menuItems: @escaping (Summary) -> MenuItems,
         @ViewBuilder footer: () -> Footer
     ) {
         self.entries = entries
+        self.showsTimeline = showsTimeline
+        self.showsDateHeaders = showsDateHeaders
         self.onReachEnd = onReachEnd
         self.menuItems = menuItems
         self.footer = footer()
     }
 
     public var body: some View {
+        #if os(macOS)
+        HStack(spacing: 0) {
+            feed
+            if showsTimeline {
+                SummaryTimelineScrubber(metrics: timeline)
+            }
+        }
+        #else
+        feed
+        #endif
+    }
+
+    private var feed: some View {
+        #if os(macOS)
+        let columnCount = max(2, min(5, Int(availableWidth / 260)))
+        #else
         let columnCount = sizeClass == .regular ? 3 : 2
-        let columns = Self.distribute(entries, into: columnCount)
+        #endif
+        let sections = feedSections(columnCount: columnCount)
         // Columns end at different entries, so any of the final few appearing means we're at the end.
         let tail = Set(entries.suffix(columnCount).map(\.id))
-        ScrollView {
-            VStack(spacing: Self.spacing) {
-                HStack(alignment: .top, spacing: Self.spacing) {
-                    ForEach(columns.indices, id: \.self) { index in
-                        LazyVStack(spacing: Self.spacing) {
-                            ForEach(columns[index]) { entry in
-                                NavigationLink(value: entry.summary) {
-                                    SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind)
-                                }
-                                .buttonStyle(TilePressStyle())
-                                .contentShape(
-                                    .contextMenuPreview,
-                                    RoundedRectangle(cornerRadius: SummaryTileView.cornerRadius, style: .continuous)
-                                )
-                                .contextMenu { menuItems(entry.summary) }
-                                .transition(.scale(scale: 0.9).combined(with: .opacity))
-                                .onAppear {
-                                    if tail.contains(entry.id) { onReachEnd() }
-                                }
-                            }
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: showsDateHeaders ? 28 : Self.spacing) {
+                ForEach(sections) { section in
+                    VStack(alignment: .leading, spacing: Self.spacing) {
+                        if showsDateHeaders {
+                            dateHeader(for: section)
                         }
-                        .frame(maxWidth: .infinity, alignment: .top)
+                        masonryColumns(section.columns, tail: tail)
                     }
                 }
                 footer.frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.horizontal, Self.horizontalPadding)
+            .padding(.top, Self.topPadding)
             .padding(.bottom, 24)
+            .coordinateSpace(.named(summaryFeedContentSpace))
+        }
+        #if os(macOS)
+        .scrollPosition($scrollPosition)
+        // The timeline rail replaces the system scroller.
+        .scrollIndicators(showsTimeline ? .never : .automatic)
+        .onScrollGeometryChange(for: SummaryTimelineMetrics.Value.self) { geometry in
+            let top = geometry.contentInsets.top
+            let visibleHeight = geometry.containerSize.height - top - geometry.contentInsets.bottom
+            return SummaryTimelineMetrics.Value(
+                offset: geometry.contentOffset.y + top,
+                maxOffset: max(0, geometry.contentSize.height - visibleHeight),
+                topInset: top
+            )
+        } action: { _, value in
+            if showsTimeline { timeline.value = value }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+        .onChange(of: TimelineLayout(entries: entries, columnCount: columnCount, width: availableWidth), initial: true) { _, layout in
+            guard showsTimeline else { return }
+            let gaps = Self.spacing * CGFloat(layout.columnCount - 1)
+            timeline.setLayout(
+                groups: sections.map(\.columns),
+                columnWidth: max(0, (layout.width - Self.horizontalPadding * 2 - gaps) / CGFloat(layout.columnCount)),
+                topPadding: Self.topPadding,
+                spacing: Self.spacing,
+                headerHeight: showsDateHeaders ? 24 : 0,
+                sectionSpacing: showsDateHeaders ? 28 : Self.spacing
+            )
+        }
+        .onAppear {
+            timeline.scrollHandler = { offset in
+                scrollPosition.scrollTo(y: offset - timeline.value.topInset)
+            }
+        }
+        #endif
+    }
+
+    private struct FeedSection: Identifiable {
+        var id: Date
+        var entries: [SummaryFeedEntry]
+        var columns: [[SummaryFeedEntry]]
+    }
+
+    private func feedSections(columnCount: Int) -> [FeedSection] {
+        guard showsDateHeaders else {
+            return [FeedSection(id: .distantPast, entries: entries, columns: Self.distribute(entries, into: columnCount))]
+        }
+        let grouped = Dictionary(grouping: entries) { Calendar.current.startOfDay(for: $0.date) }
+        return grouped.keys.sorted(by: >).map { day in
+            let items = grouped[day] ?? []
+            return FeedSection(id: day, entries: items, columns: Self.distribute(items, into: columnCount))
         }
     }
+
+    private func dateHeader(for section: FeedSection) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(Calendar.current.isDateInToday(section.id) ? "Today" : SummaryDateFormatter.tile(section.id))
+                .font(.headline)
+            Text(section.entries.count == 1 ? "1 summary" : "\(section.entries.count) summaries")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("feed-date-header")
+        #if os(macOS)
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named(summaryFeedContentSpace))
+        } action: { frame in
+            if showsTimeline { timeline.recordHeader(day: section.id, frame: frame) }
+        }
+        #endif
+    }
+
+    private func masonryColumns(_ columns: [[SummaryFeedEntry]], tail: Set<String>) -> some View {
+        HStack(alignment: .top, spacing: Self.spacing) {
+            ForEach(columns.indices, id: \.self) { index in
+                LazyVStack(spacing: Self.spacing) {
+                    ForEach(columns[index]) { entry in
+                        NavigationLink(value: entry.summary) {
+                            SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind)
+                        }
+                        .buttonStyle(TilePressStyle())
+                        #if os(iOS)
+                        .contentShape(
+                            .contextMenuPreview,
+                            RoundedRectangle(cornerRadius: SummaryTileView.cornerRadius, style: .continuous)
+                        )
+                        #endif
+                        .contextMenu { menuItems(entry.summary) }
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                        .onAppear {
+                            if tail.contains(entry.id) { onReachEnd() }
+                        }
+                        #if os(macOS)
+                        .onGeometryChange(for: CGRect.self) {
+                            $0.frame(in: .named(summaryFeedContentSpace))
+                        } action: { frame in
+                            if showsTimeline { timeline.record(id: entry.id, frame: frame) }
+                        }
+                        #endif
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .top)
+            }
+        }
+    }
+
+    #if os(macOS)
+    private struct TimelineLayout: Equatable {
+        var entries: [SummaryFeedEntry]
+        var columnCount: Int
+        var width: CGFloat
+    }
+    #endif
 
     /// Greedy masonry: each entry goes to the currently shortest column, preserving feed order
     /// row by row.

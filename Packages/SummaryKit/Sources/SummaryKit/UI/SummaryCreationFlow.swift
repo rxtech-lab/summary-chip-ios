@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -45,13 +45,15 @@ public struct SummaryCreationFlow<Result: View>: View {
         NavigationStack {
             content
                 .navigationTitle(navigationTitle)
-                .navigationBarTitleDisplayMode(.inline)
+                .summaryInlineNavigationTitle()
                 .toolbar { toolbar }
                 .navigationDestination(for: OptionsRoute.self) { _ in
                     Form { GenerationOptionsSections(options: $options) }
+                        .formStyle(.grouped)
                         .navigationTitle("Options")
                 }
         }
+        .summarySheetSize()
         .interactiveDismissDisabled(session.isGenerating)
         .sensoryFeedback(trigger: session.state) { old, new in
             switch new {
@@ -114,13 +116,15 @@ public struct SummaryCreationFlow<Result: View>: View {
                 } else {
                     TextField("Paste a link or some text", text: $draft, axis: .vertical)
                         .lineLimit(3...10)
-                        .textInputAutocapitalization(.never)
+                        .summaryInputCapitalization()
                         .autocorrectionDisabled()
                         .accessibilityIdentifier("new-summary-input")
+                    #if os(iOS)
                     PasteButton(payloadType: String.self) { strings in
                         if let first = strings.first { draft = first }
                     }
                     .buttonBorderShape(.capsule)
+                    #endif
                     if allowsFilePicking {
                         Button {
                             isImporting = true
@@ -144,6 +148,7 @@ public struct SummaryCreationFlow<Result: View>: View {
                 }
             }
 
+            #if os(iOS)
             Section {
                 Button {
                     generate()
@@ -159,7 +164,9 @@ public struct SummaryCreationFlow<Result: View>: View {
                 .listRowInsets(EdgeInsets())
                 .accessibilityIdentifier("generate-summary")
             }
+            #endif
         }
+        .formStyle(.grouped)
         .fileImporter(isPresented: $isImporting, allowedContentTypes: [.pdf]) { result in
             importPDF(result)
         }
@@ -186,7 +193,24 @@ public struct SummaryCreationFlow<Result: View>: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", role: .cancel) { onCancel() }
             }
+            #if os(macOS)
+            ToolbarItem(placement: .confirmationAction) {
+                Button {
+                    generate()
+                } label: {
+                    Label(generationActionTitle, systemImage: "sparkles")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(currentInput == nil)
+                .accessibilityIdentifier("generate-summary")
+            }
+            #endif
         }
+    }
+
+    private var generationActionTitle: String {
+        if case .failed = session.state { return "Try again" }
+        return "Generate summary"
     }
 
     private var optionsSummary: String {
@@ -207,10 +231,7 @@ public struct SummaryCreationFlow<Result: View>: View {
     private var currentInput: SummaryInput? {
         if let fixedInput { return fixedInput }
         if let pickedPDF { return pickedPDF }
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        if let url = ShareClassifier.singleURL(in: trimmed) { return .url(url) }
-        return .text(trimmed, title: nil)
+        return ShareClassifier.classify(typed: draft)
     }
 
     private func generate() {
