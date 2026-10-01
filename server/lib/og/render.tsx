@@ -82,7 +82,7 @@ function renderCard(input: OgCardInput, fontFamily: string | undefined) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: mutedColor, fontSize: 26 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               {brandMark(accent, textColor)}
-              <span style={{ color: textColor, fontWeight: 700 }}>Summary Chip</span>
+              <span style={{ color: textColor, fontWeight: 700 }}>Chippy</span>
             </div>
             {input.siteLabel ? <span>{input.siteLabel}</span> : null}
           </div>
@@ -99,7 +99,7 @@ async function toPng(element: React.ReactElement, fonts: Awaited<ReturnType<type
 
 /** Renders the 1200×630 card. Retries once with the plain card if satori fails. */
 export async function renderOgPng(input: OgCardInput): Promise<Uint8Array> {
-  const text = `${input.headline}${input.category.toLocaleUpperCase(input.language)}${input.siteLabel ?? ""}Summary Chip`;
+  const text = `${input.headline}${input.category.toLocaleUpperCase(input.language)}${input.siteLabel ?? ""}Chippy`;
   const fonts = await loadOgFonts(text, input.language);
   try {
     return await toPng(renderCard(input, fonts[0]?.name), fonts);

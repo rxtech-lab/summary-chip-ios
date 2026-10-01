@@ -72,7 +72,7 @@ struct DeleteAccountSheet: View {
             }
             .sensoryFeedback(trigger: state.pendingDeletion) { _, pending in pending ? .warning : .success }
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
-            .confirmationDialog("Delete your Summary Chip account?", isPresented: $confirmsDeletion, titleVisibility: .visible) {
+            .confirmationDialog("Delete your Chippy account?", isPresented: $confirmsDeletion, titleVisibility: .visible) {
                 Button("Delete My Account", role: .destructive) {
                     perform { try await environment.api.requestAccountDeletion() }
                 }

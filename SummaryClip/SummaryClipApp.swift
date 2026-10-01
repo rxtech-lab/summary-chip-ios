@@ -76,7 +76,7 @@ struct ClipRootView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Summary Chip")
+                .navigationTitle("Chippy")
                 .navigationBarTitleDisplayMode(.inline)
         }
         .appStoreOverlay(isPresented: $showsAppOverlay) {
@@ -109,7 +109,7 @@ struct ClipRootView: View {
             } description: {
                 Text("Its owner made it private, or the link has expired.")
             } actions: {
-                Button("Get Summary Chip") { showsAppOverlay = true }
+                Button("Get Chippy") { showsAppOverlay = true }
                     .buttonStyle(.borderedProminent)
             }
         case .failed(let message):
@@ -128,7 +128,7 @@ struct ClipRootView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Make your own summaries", systemImage: "sparkles")
                 .font(.headline)
-            Text("Summary Chip turns any web page, PDF or text into a short summary with a beautiful link preview.")
+            Text("Chippy turns any web page, PDF or text into a short summary with a beautiful link preview.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button {

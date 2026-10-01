@@ -26,7 +26,7 @@ python3 - "$WORK_DIR" <<'PY'
 import html, pathlib, sys
 p = pathlib.Path(sys.argv[1])
 notes = html.escape((p / "notes.txt").read_text())
-(p / "SummaryChip.html").write_text('<!DOCTYPE html><html lang="en"><meta charset="utf-8"><title>Summary Chip release notes</title><body><pre style="white-space:pre-wrap">' + notes + '</pre></body></html>')
+(p / "SummaryChip.html").write_text('<!DOCTYPE html><html lang="en"><meta charset="utf-8"><title>Chippy release notes</title><body><pre style="white-space:pre-wrap">' + notes + '</pre></body></html>')
 PY
 
 # Pass the signing key over stdin; never put it in argv or in published artifacts.

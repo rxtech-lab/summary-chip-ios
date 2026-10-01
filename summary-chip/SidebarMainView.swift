@@ -19,7 +19,7 @@ struct SidebarMainView: View {
                     .accessibilityIdentifier("mac-settings")
             }
             .listStyle(.sidebar)
-            .navigationTitle("Summary Chip")
+            .navigationTitle("Chippy")
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
             .accessibilityIdentifier("mac-sidebar")
         } detail: {

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="sparkle" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FAF5FF"/><stop offset="1" stop-color="#C5B5EC"/></linearGradient></defs>
+  <path d="M695 303 C701 303 703 313 710 331 C716 347 727 356 744 363 C763 371 773 374 773 381 C773 388 762 391 744 399 C727 406 716 417 709 434 C702 453 699 463 692 463 C685 463 682 452 675 434 C668 417 657 407 640 400 C621 392 611 389 611 382 C611 375 622 372 640 364 C657 357 668 346 675 329 C683 311 686 303 695 303 Z" fill="url(#sparkle)" transform="translate(-22 0) scale(1 0.82) translate(0 74)"/>
+</svg>

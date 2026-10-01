@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       type: "article",
       url: shareUrl,
-      siteName: "Summary Chip",
+      siteName: "Chippy",
       title: row.title,
       description: row.summary,
       images: [image],
@@ -89,7 +89,7 @@ export default async function SummaryPage({ params }: Props) {
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[420px] opacity-25 blur-3xl dark:opacity-30" style={{ backgroundImage: gradient }} />
       <article lang={row.language} className="relative mx-auto max-w-3xl px-5 pb-16 pt-8 sm:px-8 sm:pt-14">
         <header className="flex items-center justify-between text-sm">
-          <Link href="/" className="font-semibold tracking-wide text-slate-700 hover:underline dark:text-slate-300">Summary Chip</Link>
+          <Link href="/" className="font-semibold tracking-wide text-slate-700 hover:underline dark:text-slate-300">Chippy</Link>
           <span className="text-slate-500 dark:text-slate-400">{formatDate(row.createdAt)}</span>
         </header>
 
@@ -146,7 +146,7 @@ export default async function SummaryPage({ params }: Props) {
 
         <footer className="mt-14 border-t border-slate-200 pt-6 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
           <p>
-            Summarised by <Link href="/" className="font-semibold text-slate-700 hover:underline dark:text-slate-200">Summary Chip</Link>
+            Summarised by <Link href="/" className="font-semibold text-slate-700 hover:underline dark:text-slate-200">Chippy</Link>
             {row.sourceTitle && row.sourceTitle !== row.title ? <> from “{row.sourceTitle}”</> : null}. AI summaries can contain mistakes — check the original.
           </p>
           <p className="mt-2">

@@ -83,7 +83,7 @@ struct EducationSheet: View {
                 .padding(.bottom, 24)
             }
             .background(Color.summaryGroupedBackground)
-            .navigationTitle(current?.kind == .feature ? "What’s new" : "Welcome to Summary Chip")
+            .navigationTitle(current?.kind == .feature ? "What’s new" : "Welcome to Chippy")
             .summaryInlineNavigationTitle()
             .toolbar {
                 if allowsDismissal {

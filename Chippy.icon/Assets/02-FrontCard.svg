@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="coral" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFB29B"/><stop offset="0.55" stop-color="#FF987F"/><stop offset="1" stop-color="#F57F6B"/></linearGradient></defs>
+  <rect x="294" y="229" width="500" height="510" rx="82" fill="url(#coral)" transform="rotate(6 544 484)"/>
+</svg>

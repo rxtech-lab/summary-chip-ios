@@ -1,7 +1,7 @@
 #if os(macOS)
 import AppKit
 
-/// "Summarize with Summary Chip" in the system Services menu (right-click › Services in any app).
+/// "Summarize with Chippy" in the system Services menu (right-click › Services in any app).
 /// Takes the selected text or link and opens the New Summary sheet with it filled in.
 /// The menu item itself is declared under `NSServices` in the macOS Info.plist.
 @MainActor

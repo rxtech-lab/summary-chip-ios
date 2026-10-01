@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Summary Chip",
+  title: "Chippy",
   description: "Summarise any web page, PDF or note into a beautiful card you can share as a link or an image.",
 };
 
@@ -16,13 +16,13 @@ export default function Home() {
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col px-6 py-16 sm:py-24">
       <div className="flex items-center gap-3 text-sm font-semibold tracking-wide text-slate-500 dark:text-slate-400">
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-lg text-white">S</span>
-        Summary Chip
+        Chippy
       </div>
       <h1 className="mt-10 text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
         Read less. <span className="bg-gradient-to-r from-indigo-500 to-sky-400 bg-clip-text text-transparent">Share more.</span>
       </h1>
       <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-        Summary Chip turns long articles, PDFs and notes into short, beautiful summary cards — then lets you share them as a link or an image.
+        Chippy turns long articles, PDFs and notes into short, beautiful summary cards — then lets you share them as a link or an image.
       </p>
       <ul className="mt-14 grid gap-4 sm:grid-cols-3">
         {features.map((feature) => (

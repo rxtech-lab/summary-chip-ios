@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// The one OAuth token bundle every Summary Chip process shares via the keychain access group.
+/// The one OAuth token bundle every Chippy process shares via the keychain access group.
 public struct SharedTokenBundle: Codable, Equatable, Sendable {
     public var accessToken: String
     public var refreshToken: String?
