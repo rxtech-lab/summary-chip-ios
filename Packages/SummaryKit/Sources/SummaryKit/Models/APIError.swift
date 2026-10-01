@@ -61,6 +61,7 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
     }
 
     public var isNotFound: Bool { statusCode == 404 }
+    public var needsTopUp: Bool { statusCode == 402 && code == "SUMMARY_ALLOWANCE_EXHAUSTED" }
     public var isUnauthorized: Bool { statusCode == 401 || self == .notSignedIn }
 }
 

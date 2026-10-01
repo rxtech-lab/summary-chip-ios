@@ -276,7 +276,8 @@ private let summaryFeedContentSpace = "summary-feed-content"
 
 /// Scrolling masonry feed of `SummaryTileView`s, newest first. Two columns on compact widths,
 /// three on regular (iPad). Cards push `Summary` values; register
-/// `.navigationDestination(for: Summary.self)` on the enclosing stack. `menuItems` builds each
+/// `.navigationDestination(for: Summary.self)` on the enclosing stack, or pass `onSelect` to
+/// handle taps yourself. `menuItems` builds each
 /// card's long-press context menu. `showsDateHeaders` groups cards by their local activity day.
 /// With `showsTimeline`, macOS adds a date scrubber beside the feed;
 /// use it only for feeds sorted newest first.
@@ -287,6 +288,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let footer: Footer
     let showsTimeline: Bool
     let showsDateHeaders: Bool
+    let onSelect: ((Summary) -> Void)?
 
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -305,6 +307,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         showsTimeline: Bool = false,
         showsDateHeaders: Bool = false,
         onReachEnd: @escaping () -> Void = {},
+        onSelect: ((Summary) -> Void)? = nil,
         @ViewBuilder menuItems: @escaping (Summary) -> MenuItems,
         @ViewBuilder footer: () -> Footer
     ) {
@@ -312,6 +315,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         self.showsTimeline = showsTimeline
         self.showsDateHeaders = showsDateHeaders
         self.onReachEnd = onReachEnd
+        self.onSelect = onSelect
         self.menuItems = menuItems
         self.footer = footer()
     }
@@ -434,9 +438,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             ForEach(columns.indices, id: \.self) { index in
                 LazyVStack(spacing: Self.spacing) {
                     ForEach(columns[index]) { entry in
-                        NavigationLink(value: entry.summary) {
-                            SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind)
-                        }
+                        tileLink(for: entry)
                         .buttonStyle(TilePressStyle())
                         #if os(iOS)
                         .contentShape(
@@ -460,6 +462,17 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
             }
+        }
+    }
+
+    /// Pushes onto the enclosing `NavigationStack`, or hands the summary to `onSelect` when set.
+    @ViewBuilder
+    private func tileLink(for entry: SummaryFeedEntry) -> some View {
+        let tile = SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind)
+        if let onSelect {
+            Button { onSelect(entry.summary) } label: { tile }
+        } else {
+            NavigationLink(value: entry.summary) { tile }
         }
     }
 

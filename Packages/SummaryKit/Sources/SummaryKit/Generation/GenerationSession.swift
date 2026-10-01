@@ -55,6 +55,7 @@ public final class GenerationSession {
 
     public private(set) var state: State = .idle
     public private(set) var stages: [GenerationStage] = []
+    public private(set) var needsTopUp = false
     private var task: Task<Void, Never>?
 
     public init() {}
@@ -71,6 +72,7 @@ public final class GenerationSession {
 
     public func start(input: SummaryInput, options: GenerationOptions, api: SummaryAPIClient, onFinish: (@MainActor (Summary) -> Void)? = nil) {
         task?.cancel()
+        needsTopUp = false
         let isPDF: Bool = if case .pdf = input { true } else { false }
         stages = isPDF ? GenerationStage.allCases : GenerationStage.allCases.filter { $0 != .uploading }
         state = .generating(stages[0])
@@ -93,6 +95,7 @@ public final class GenerationSession {
             } catch {
                 guard !Task.isCancelled else { return }
                 self.state = .failed(error.localizedDescription)
+                self.needsTopUp = (error as? SummaryAPIError)?.needsTopUp == true
             }
         }
     }
@@ -101,6 +104,7 @@ public final class GenerationSession {
         task?.cancel()
         task = nil
         state = .idle
+        needsTopUp = false
     }
 
     public func reset() { cancel() }

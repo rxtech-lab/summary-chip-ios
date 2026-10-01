@@ -53,6 +53,13 @@ export const sourceSchema = z.discriminatedUnion("type", [
     text: z.string().max(MAX_TEXT_LENGTH).refine((value) => value.trim().length > 0, "must not be empty"),
     title: z.string().max(1000).nullish(),
   }),
+  /** Text the device read from a local file. Summarised, then discarded: the file stays on the device. */
+  z.object({
+    type: z.literal("local"),
+    kind: z.enum(["pdf", "text"]),
+    text: z.string().max(MAX_TEXT_LENGTH).refine((value) => value.trim().length > 0, "must not be empty"),
+    filename: z.string().trim().min(1).max(300),
+  }),
 ]);
 export type SourceInput = z.infer<typeof sourceSchema>;
 

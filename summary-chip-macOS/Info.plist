@@ -6,6 +6,23 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Summary Chip</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Summarisable Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.adobe.pdf</string>
+				<string>public.plain-text</string>
+				<string>net.daringfireball.markdown</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -40,6 +57,27 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Summarize with Summary Chip</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>summarize</string>
+			<key>NSPortName</key>
+			<string>Summary Chip</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+				<string>public.url</string>
+			</array>
+		</dict>
+	</array>
 	<key>SummaryChipAPIBaseURL</key>
 	<string>$(SUMMARY_CHIP_API_BASE_URL)</string>
 	<key>SummaryChipAuthTokenURL</key>
@@ -54,5 +92,15 @@
 	<string>$(SUMMARY_CHIP_OAUTH_REDIRECT_URI)</string>
 	<key>SummaryChipSiteHost</key>
 	<string>$(SUMMARY_CHIP_SITE_HOST)</string>
+	<key>SUFeedURL</key>
+	<string>https://update.summary.rxlab.app/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>OOJs50Q9V9lpqBgeRi0ow0YBdiAlmc9uJ3B9hABDsqQ=</string>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
 </dict>
 </plist>

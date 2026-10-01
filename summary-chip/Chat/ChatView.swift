@@ -123,9 +123,10 @@ struct ChatView: View {
     }
 
     private var transcript: some View {
-        // `isStreaming` stays false: `MessageList` would otherwise snap to the bottom on
-        // every layout pass (every token). `followStream()` scrolls on a debounce instead.
-        // `.onSend` still pins each sent question to the top while its answer fills in below.
+        // `isStreaming` lets `MessageList` pin each sent question to the top while its answer
+        // fills in below: `send()` appends the answer placeholder right after the question, so
+        // without it the list just scrolls to the bottom. Once the answer outgrows the
+        // viewport, `followStream()` keeps following it on a debounce.
         messageList
             .onChange(of: model.entries.count) { old, new in
                 if new > old { pulseScrollToBottom() }
@@ -138,10 +139,9 @@ struct ChatView: View {
             // AppKit hosts each row separately. Give it the viewport's width so a
             // horizontal result strip cannot determine the width of the whole row.
             let rowWidth = max(0, geometry.size.width - 32)
-            #if os(macOS)
             MessageList(
                 messages: model.entries,
-                isStreaming: false,
+                isStreaming: model.isStreaming,
                 shouldScrollToBottom: shouldScrollToBottom,
                 isAtBottom: $isAtBottom
             ) { entry in
@@ -150,20 +150,6 @@ struct ChatView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             }
-            #else
-            MessageList(
-                messages: model.entries,
-                isStreaming: false,
-                shouldScrollToBottom: shouldScrollToBottom,
-                userMessagePinning: .onSend,
-                isAtBottom: $isAtBottom
-            ) { entry in
-                ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
-                    .frame(width: rowWidth, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-            }
-            #endif
         }
     }
 
@@ -360,6 +346,8 @@ private struct ChatToolCallCard: View {
         switch tool.toolName {
         case "searchSummaries": return tool.isSemantic == true ? "sparkle.magnifyingglass" : "magnifyingglass"
         case "getSummary": return "doc.text.magnifyingglass"
+        case "grepLocalFile": return "text.magnifyingglass"
+        case "readLocalFile": return "doc.plaintext"
         default: return "wrench.and.screwdriver"
         }
     }
@@ -372,6 +360,12 @@ private struct ChatToolCallCard: View {
         case "getSummary":
             if tool.isRunning { return "Reading summary…" }
             return tool.finished == true ? "Read summary" : "Reading stopped"
+        case "grepLocalFile":
+            if tool.isRunning { return "Searching the file…" }
+            return tool.finished == true ? "Searched the file" : "Search stopped"
+        case "readLocalFile":
+            if tool.isRunning { return "Reading the file…" }
+            return tool.finished == true ? "Read the file" : "Reading stopped"
         default:
             if tool.isRunning { return tool.label.isEmpty ? "Working…" : tool.label }
             return tool.toolName.isEmpty ? "Used a tool" : "Used \(tool.toolName)"
@@ -385,6 +379,7 @@ private struct ChatToolCallCard: View {
     }
 
     private var status: String? {
+        if let status = tool.status { return status }
         guard isSearch, tool.finished == true else { return nil }
         let count = tool.references.count
         let results = count == 0 ? "No matches" : count == 1 ? "1 result" : "\(count) results"

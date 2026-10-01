@@ -84,6 +84,7 @@ public enum SummarySource: Sendable, Hashable {
     case webpage(WebpageSource)
     case pdf(uploadKey: String, filename: String, sourceUrl: URL?)
     case text(String, title: String?)
+    case local(LocalFileSource)
 
     public var type: SummarySourceType {
         switch self {
@@ -91,13 +92,14 @@ public enum SummarySource: Sendable, Hashable {
         case .webpage: .webpage
         case .pdf: .pdf
         case .text: .text
+        case .local: .local
         }
     }
 }
 
 extension SummarySource: Codable {
     private enum CodingKeys: String, CodingKey {
-        case type, url, title, content, siteName, lang, uploadKey, filename, sourceUrl, text
+        case type, url, title, content, siteName, lang, uploadKey, filename, sourceUrl, text, kind
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -124,6 +126,10 @@ extension SummarySource: Codable {
         case .text(let text, let title):
             try c.encode(text, forKey: .text)
             try c.encodeIfPresent(title, forKey: .title)
+        case .local(let file):
+            try c.encode(file.kind, forKey: .kind)
+            try c.encode(file.text, forKey: .text)
+            try c.encode(file.filename, forKey: .filename)
         }
     }
 
@@ -149,6 +155,12 @@ extension SummarySource: Codable {
             )
         case .text:
             self = .text(try c.decode(String.self, forKey: .text), title: try c.decodeIfPresent(String.self, forKey: .title))
+        case .local:
+            self = .local(LocalFileSource(
+                filename: try c.decode(String.self, forKey: .filename),
+                kind: try c.decode(LocalFileSource.Kind.self, forKey: .kind),
+                text: try c.decode(String.self, forKey: .text)
+            ))
         }
     }
 }

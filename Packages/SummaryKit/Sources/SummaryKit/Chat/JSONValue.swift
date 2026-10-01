@@ -42,6 +42,11 @@ public enum JSONValue: Codable, Sendable, Hashable {
         return nil
     }
 
+    public var intValue: Int? {
+        if case .number(let n) = self { return Int(exactly: n.rounded()) }
+        return nil
+    }
+
     /// Re-decodes this value into a Decodable type.
     public func decode<T: Decodable>(_ type: T.Type) throws -> T {
         let data = try JSONEncoder().encode(self)

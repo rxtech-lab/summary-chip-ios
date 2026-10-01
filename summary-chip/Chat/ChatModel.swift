@@ -18,6 +18,8 @@ nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable, Codable {
     /// The search matched by meaning (vector search), not only keywords.
     var isSemantic: Bool? = nil
     var errorText: String? = nil
+    /// Result line for the local-file tools, e.g. "3 matches".
+    var status: String? = nil
 }
 
 /// Row model for the RxAgentSDK `MessageList`.
@@ -100,7 +102,8 @@ final class ChatModel {
 
     private func stream(_ messages: [ChatUIMessage], into id: String) async {
         do {
-            for try await event in client.stream(messages: messages, summaryID: summaryID) {
+            let localContent = await Self.localContent(summaryID: summaryID)
+            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent) {
                 apply(event, to: id)
             }
             finish(id)
@@ -112,6 +115,15 @@ final class ChatModel {
             update(id) { $0.errorText = error.localizedDescription }
             finish(id)
         }
+    }
+
+    /// The summary's linked local file, read fresh for each question so edits are picked up.
+    /// The server never stores it; without it, answers fall back to the summary itself.
+    private static func localContent(summaryID: String?) async -> String? {
+        guard let summaryID, LocalFileStore().link(summaryID: summaryID) != nil else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            try? LocalDocument.readLinked(summaryID: summaryID).text
+        }.value
     }
 
     private func apply(_ event: ChatStreamEvent, to id: String) {
@@ -142,6 +154,7 @@ final class ChatModel {
                 entry.tools[index].references = ChatToolOutput.references(from: output)
                 entry.tools[index].isSemantic = ChatToolOutput.isSemantic(output)
                 entry.tools[index].errorText = ChatToolOutput.errorText(from: output)
+                entry.tools[index].status = ChatToolOutput.localFileStatus(toolName: entry.tools[index].toolName, output: output)
             }
         case .error(let message):
             update(id) { $0.errorText = message }

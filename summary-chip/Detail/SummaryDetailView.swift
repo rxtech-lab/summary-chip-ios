@@ -10,6 +10,7 @@ struct SummaryDetailView: View {
     @State private var showsShare = false
     @State private var showsEditSharing = false
     @State private var showsRegenerate = false
+    @State private var showsLocalFile = false
     @State private var confirmsDelete = false
     @State private var didDelete = false
     @State private var savedCount = 0
@@ -53,6 +54,12 @@ struct SummaryDetailView: View {
                     }
                     .accessibilityIdentifier("ask-summary")
                 }
+            }
+            ToolbarItem(placement: .summaryTrailing) {
+                Button { showsLocalFile = true } label: {
+                    Label("Local File", systemImage: "doc.badge.gearshape")
+                }
+                .accessibilityIdentifier("summary-local-file")
             }
             ToolbarItem(placement: .summaryTrailing) {
                 Button {
@@ -99,8 +106,12 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsRegenerate) {
             RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
+        .sheet(isPresented: $showsLocalFile) {
+            LocalFileSheet(summaryID: summary.id)
+        }
         .sheet(isPresented: $confirmsDelete) {
             DeleteSummarySheet(api: environment.api, summary: summary) {
+                try? LocalFileStore().remove(summaryID: summary.id)
                 environment.library.remove(id: summary.id)
                 didDelete = true
                 dismiss()

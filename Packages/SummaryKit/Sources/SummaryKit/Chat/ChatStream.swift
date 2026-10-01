@@ -28,9 +28,12 @@ public struct ChatRequestBody: Codable, Sendable {
     public var messages: [ChatUIMessage]
     /// Focuses the agent on one summary; the server grounds answers in its original text.
     public var summaryId: String?
-    public init(messages: [ChatUIMessage], summaryId: String? = nil) {
+    /// The text of the summary's linked local file, read on this device for this request only.
+    public var localContent: String?
+    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil) {
         self.messages = messages
         self.summaryId = summaryId
+        self.localContent = localContent
     }
 }
 
@@ -98,12 +101,12 @@ public final class ChatStreamClient: Sendable {
 
     public init(api: SummaryAPIClient) { self.api = api }
 
-    public func stream(messages: [ChatUIMessage], summaryID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
+    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
         let api = self.api
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
         let task = Task {
             do {
-                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID))
+                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent))
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 300
                 let bytes = try await Self.openStream(api: api, request: request)
@@ -226,6 +229,26 @@ public enum ChatToolOutput {
             let filters = [input["category"]?.stringValue, input["tag"]?.stringValue.map { "#\($0)" }].compactMap { $0 }
             let parts = (query.isEmpty ? [] : ["“\(query)”"]) + filters
             return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        case "grepLocalFile":
+            return input["pattern"]?.stringValue.map { "“\($0)”" }
+        case "readLocalFile":
+            guard let start = input["startLine"]?.intValue else { return nil }
+            return input["endLine"]?.intValue.map { "Lines \(start)–\($0)" } ?? "From line \(start)"
+        default:
+            return nil
+        }
+    }
+
+    /// A short result line for the local-file tools, e.g. "3 matches" or "Lines 10–40 of 120".
+    public static func localFileStatus(toolName: String, output: JSONValue) -> String? {
+        switch toolName {
+        case "grepLocalFile":
+            guard let total = output["totalMatches"]?.intValue else { return nil }
+            return total == 0 ? "No matches" : total == 1 ? "1 match" : "\(total) matches"
+        case "readLocalFile":
+            guard let start = output["startLine"]?.intValue, let end = output["endLine"]?.intValue,
+                  let total = output["totalLines"]?.intValue else { return nil }
+            return "Lines \(start)–\(end) of \(total)"
         default:
             return nil
         }
@@ -250,6 +273,10 @@ public enum ChatToolOutput {
             return "Searching summaries…"
         case "getSummary":
             return "Reading summary…"
+        case "grepLocalFile":
+            return "Searching the file…"
+        case "readLocalFile":
+            return "Reading the file…"
         default:
             return "Working…"
         }

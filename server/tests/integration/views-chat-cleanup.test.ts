@@ -6,6 +6,7 @@ import * as uploadsRoute from "@/app/api/v1/uploads/route";
 import * as viewsRoute from "@/app/api/v1/views/route";
 import * as chatRoute from "@/app/api/v1/chat/route";
 import * as cronRoute from "@/app/api/cron/cleanup/route";
+import { focusedSummaryInstructions } from "@/lib/ai/chat";
 import { summaries, summaryViews, uploads } from "@/lib/db/schema";
 import { apiRequest, buildPdf, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -136,6 +137,29 @@ describe("chat", () => {
     const secret = await createText("A private note about quarterly planning and team goals for the next season.", "Private plan", env.tokens.alice, { visibility: "private" });
     expect((await ask(env.tokens.bob, secret.id)).status).toBe(404);
     expect((await ask(env.tokens.alice, "missing")).status).toBe(404);
+  });
+
+  it("summarises a local file without storing it and grounds the owner's chat in the device's copy", async () => {
+    const original = "Lighthouse keepers trimmed lamp wicks every few hours to keep the beam bright through the night.";
+    const response = await summariesRoute.POST(apiRequest("POST", "/api/v1/summaries", {
+      token: env.tokens.alice, body: { source: { type: "local", kind: "pdf", text: original, filename: "Keepers.pdf" } },
+    }));
+    expect(response.status).toBe(201);
+    const created = await response.json();
+    expect(created).toMatchObject({ sourceType: "local", source: "pdf", sourceTitle: "Keepers", sourceFileUrl: null });
+    const [row] = await env.handle.db.select().from(summaries).where(eq(summaries.id, created.id));
+    expect(row.contentText).toBe("");
+    expect(row.contentExcerpt).toBe("");
+    expect(row.sourceFileKey).toBeNull();
+
+    expect(focusedSummaryInstructions(row, original)).toContain(original);
+    expect(focusedSummaryInstructions(row)).toContain("file on the user's device");
+
+    const ask = (token: string) => chatRoute.POST(apiRequest("POST", "/api/v1/chat", {
+      token, body: { summaryId: created.id, localContent: original, messages: [{ id: "1", role: "user", parts: [{ type: "text", text: "how often?" }] }] },
+    }));
+    expect((await ask(env.tokens.alice)).status).toBe(200);
+    expect((await ask(env.tokens.bob)).status).toBe(200);
   });
 
   it("rejects invalid conversations", async () => {

@@ -1,0 +1,152 @@
+name: macOS Build & Release
+
+concurrency:
+  group: summary-chip-macos-release
+  cancel-in-progress: false
+
+on:
+  push:
+  release:
+    types:
+      - published
+
+jobs:
+  build:
+    name: Build macOS App
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: [self-hosted, macOS]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install create-dmg
+        run: npm install --global create-dmg
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Install signature verification dependency
+        run: python3 -m pip install cryptography
+
+      - name: Verify signature validation rejects tampered updates
+        run: python3 scripts/ci/test_validate_appcast.py
+
+      - name: Import code signing certificate
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+
+      - name: Install provisioning profiles
+        env:
+          MACOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.MACOS_PROVISIONING_PROFILE_BASE64 }}
+          MACOS_SHARE_EXTENSION_PROVISIONING_PROFILE_BASE64: ${{ secrets.MACOS_SHARE_EXTENSION_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          APP_PROFILE_SPECIFIER=$(./scripts/ci/install-provisioning-profile.sh MACOS_PROVISIONING_PROFILE_BASE64)
+          EXTENSION_PROFILE_SPECIFIER=$(./scripts/ci/install-provisioning-profile.sh MACOS_SHARE_EXTENSION_PROVISIONING_PROFILE_BASE64)
+          APP_PROFILE_SPECIFIER="$APP_PROFILE_SPECIFIER" \
+          EXTENSION_PROFILE_SPECIFIER="$EXTENSION_PROFILE_SPECIFIER" \
+            ./scripts/ci/set-provisioning-profiles.sh
+
+      - name: Bump version (release only)
+        if: github.event_name == 'release'
+        run: |
+          # Strip leading 'v' from release tag (v1.2.3 -> 1.2.3) — Apple's
+          # MARKETING_VERSION must be numeric.
+          RELEASE_VERSION="${GITHUB_REF_NAME#v}"
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          ./scripts/update-ios-version.sh "${RELEASE_VERSION}"
+
+      - name: Build archive
+        run: |
+          gem install xcpretty
+          ./scripts/ci/build-archive.sh
+        env:
+          SIGNING_CERTIFICATE_NAME: ${{ secrets.SIGNING_CERTIFICATE_NAME }}
+          CURRENT_PROJECT_VERSION: ${{ github.run_number }}
+
+      - name: Sign Sparkle helpers and preserve app entitlements
+        run: ./scripts/ci/sign-sparkle.sh
+        env:
+          SIGNING_CERTIFICATE_NAME: ${{ secrets.SIGNING_CERTIFICATE_NAME }}
+
+      - name: Notarize
+        run: ./scripts/ci/notary.sh
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Generate and verify signed update feed
+        if: github.event_name == 'release'
+        run: ./scripts/ci/generate-appcast.sh
+        env:
+          SPARKLE_KEY: ${{ secrets.SPARKLE_KEY }}
+          VERSION: ${{ github.event.release.tag_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE_NOTE: ${{ github.event.release.body }}
+
+      # Keep the notarized DMG from branch pushes around briefly for testing
+      - name: Upload DMG artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SummaryChip-${{ github.sha }}
+          path: SummaryChip.dmg
+          retention-days: 1
+
+      - name: Upload DMG to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: SummaryChip.dmg
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload update site for deployment
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-chip-update-site
+          path: output/pages
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Publish update feed to GitHub Pages
+    needs: build
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download verified update site
+        uses: actions/download-artifact@v8
+        with:
+          name: summary-chip-update-site
+          path: pages
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

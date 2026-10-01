@@ -181,6 +181,14 @@ Tools the agent exposes (outputs are shown as cards on iOS):
   `{ results: [ {id, slug, title, summary, category, tags, siteName, sourceUrl, shareUrl, ogImageUrl, createdAt, viewedAt?} ] }`
 * `getSummary({id})` → `{ summary: Summary-like object incl. contentExcerpt }`
 
+When the owner chats about a local-file summary, the app reads the linked file on device and sends
+its text as `localContent` (never stored). Files up to 20,000 characters are inlined in full,
+longer ones as an opening preview, and the agent also gets:
+
+* `grepLocalFile({pattern, regex?, caseSensitive?, contextLines?, maxMatches?})` →
+  `{ totalLines, matches: [ {line, text, before?, after?} ], totalMatches, truncated }` (or `{error}`)
+* `readLocalFile({startLine, endLine?})` → `{ startLine, endLine, totalLines, text: "N: …" lines, truncated }` (or `{error}`)
+
 ## Public website
 
 * `GET /s/[slug]` — summary page: OG image hero, title, summary, highlights, tags,

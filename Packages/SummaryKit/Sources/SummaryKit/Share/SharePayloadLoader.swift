@@ -21,13 +21,21 @@ public struct RawShareContents: Sendable, Equatable {
     public var pdfFilename: String?
     public var url: URL?
     public var text: String?
+    /// A staged copy of a shared local file, kept on the device with the summary.
+    public var localFile: URL?
+    public var localFilename: String?
+    /// What was read from `localFile` on the device.
+    public var localDocument: LocalFileSource?
 
-    public init(preprocessing: [String: String]? = nil, pdfFile: URL? = nil, pdfFilename: String? = nil, url: URL? = nil, text: String? = nil) {
+    public init(preprocessing: [String: String]? = nil, pdfFile: URL? = nil, pdfFilename: String? = nil, url: URL? = nil, text: String? = nil, localFile: URL? = nil, localFilename: String? = nil, localDocument: LocalFileSource? = nil) {
         self.preprocessing = preprocessing
         self.pdfFile = pdfFile
         self.pdfFilename = pdfFilename
         self.url = url
         self.text = text
+        self.localFile = localFile
+        self.localFilename = localFilename
+        self.localDocument = localDocument
     }
 }
 
@@ -45,7 +53,7 @@ public enum ShareClassifier {
            let urlString = results["url"], let pageURL = URL(string: urlString).flatMap(webOnly) {
             let content = (results["content"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             // A PDF opened in Safari runs the script against the PDF viewer: prefer the file.
-            if raw.pdfFile == nil {
+            if raw.pdfFile == nil, raw.localFile == nil {
                 if content.count >= minimumWebpageContent {
                     return .webpage(WebpageSource(
                         url: pageURL,
@@ -65,6 +73,10 @@ public enum ShareClassifier {
             let sourceURL = webURL ?? preprocessedURL
             let filename = nonEmpty(raw.pdfFilename) ?? pdf.lastPathComponent
             return .pdf(fileURL: pdf, filename: filename.lowercased().hasSuffix(".pdf") ? filename : filename + ".pdf", sourceURL: sourceURL)
+        }
+
+        if raw.localFile != nil, let document = raw.localDocument {
+            return .localFile(document)
         }
 
         if let webURL { return .url(webURL) }
@@ -118,6 +130,13 @@ public enum SharePayloadLoader {
             .compactMap { $0 as? NSExtensionItem }
             .flatMap { $0.attachments ?? [] }
         var raw = RawShareContents()
+        var completed = false
+        defer {
+            if !completed {
+                if let file = raw.pdfFile { LocalDocument.discardCopy(file) }
+                if let file = raw.localFile { LocalDocument.discardCopy(file) }
+            }
+        }
 
         for provider in providers {
             if raw.preprocessing == nil, provider.hasItemConformingToTypeIdentifier(UTType.propertyList.identifier) {
@@ -125,7 +144,30 @@ public enum SharePayloadLoader {
             }
             if raw.pdfFile == nil, provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
                 raw.pdfFile = try await copyFile(from: provider, typeIdentifier: UTType.pdf.identifier)
-                raw.pdfFilename = provider.suggestedName
+                raw.pdfFilename = provider.suggestedName ?? raw.pdfFile?.lastPathComponent
+            }
+            if raw.pdfFile == nil, raw.localFile == nil {
+                let textType = provider.registeredTypeIdentifiers.first {
+                    UTType($0)?.conforms(to: .plainText) == true || $0 == UTType(filenameExtension: "md")?.identifier
+                }
+                let suggestedExtension = provider.suggestedName.map { URL(fileURLWithPath: $0).pathExtension.lowercased() }
+                if let textType, provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) || textType != UTType.plainText.identifier || ["txt", "md", "markdown"].contains(suggestedExtension ?? "") {
+                    let file = try await copyFile(from: provider, typeIdentifier: textType)
+                    raw.localFile = file
+                    raw.localFilename = provider.suggestedName ?? file.lastPathComponent
+                    raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)
+                } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
+                          let url = await loadURL(from: provider, typeIdentifier: UTType.fileURL.identifier), url.isFileURL {
+                    let file = try LocalDocument.copyForReading(url)
+                    do {
+                        raw.localDocument = try LocalDocument.read(fileURL: file, filename: url.lastPathComponent)
+                        raw.localFile = file
+                        raw.localFilename = url.lastPathComponent
+                    } catch {
+                        LocalDocument.discardCopy(file)
+                        throw error
+                    }
+                }
             }
             if raw.url == nil, provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
                !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
@@ -136,6 +178,29 @@ public enum SharePayloadLoader {
                 raw.text = await loadText(from: provider)
             }
         }
+        if let file = raw.pdfFile {
+            if let textFile = raw.localFile {
+                LocalDocument.discardCopy(textFile)
+                raw.localFile = nil
+                raw.localFilename = nil
+                raw.localDocument = nil
+            }
+            let preprocessedURL = raw.preprocessing?["url"].flatMap(URL.init(string:)).flatMap(ShareClassifier.webOnly)
+            if raw.url.flatMap(ShareClassifier.webOnly) == nil, preprocessedURL == nil {
+                // Not from the web (Files, Mail…): read it here instead of uploading it.
+                raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.pdfFilename)
+                raw.localFile = file
+                raw.localFilename = raw.pdfFilename
+                raw.pdfFile = nil
+                raw.pdfFilename = nil
+            } else {
+                let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard size <= SummaryAPIClient.maxUploadBytes else {
+                    throw SummaryAPIError.fileTooLarge(maxBytes: SummaryAPIClient.maxUploadBytes)
+                }
+            }
+        }
+        completed = true
         return raw
     }
 
@@ -156,9 +221,9 @@ public enum SharePayloadLoader {
         }
     }
 
-    private static func loadURL(from provider: NSItemProvider) async -> URL? {
+    private static func loadURL(from provider: NSItemProvider, typeIdentifier: String = UTType.url.identifier) async -> URL? {
         await withCheckedContinuation { continuation in
-            provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { value, _ in
+            provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { value, _ in
                 var url: URL?
                 if let value = value as? URL { url = value }
                 else if let value = value as? NSURL { url = value as URL }
@@ -197,11 +262,8 @@ public enum SharePayloadLoader {
                     return
                 }
                 do {
-                    let directory = FileManager.default.temporaryDirectory
-                        .appending(path: "SummaryChipShare", directoryHint: .isDirectory)
-                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                    let destination = directory.appending(path: "\(UUID().uuidString)-\(source.lastPathComponent)")
-                    try FileManager.default.copyItem(at: source, to: destination)
+                    // The provider removes its file when this callback returns.
+                    let destination = try LocalDocument.copyForReading(source)
                     continuation.resume(returning: destination)
                 } catch {
                     continuation.resume(throwing: error)

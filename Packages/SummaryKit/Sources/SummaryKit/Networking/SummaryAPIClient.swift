@@ -1,4 +1,5 @@
 import Foundation
+import StoreKit
 
 /// A source the user picked before it has been uploaded (PDFs still live on disk).
 public enum SummaryInput: Sendable, Hashable {
@@ -6,6 +7,8 @@ public enum SummaryInput: Sendable, Hashable {
     case webpage(WebpageSource)
     case pdf(fileURL: URL, filename: String, sourceURL: URL?)
     case text(String, title: String?)
+    /// Read on the device; only its text is sent, and the server doesn't keep it.
+    case localFile(LocalFileSource)
 
     public var displayTitle: String {
         switch self {
@@ -13,6 +16,7 @@ public enum SummaryInput: Sendable, Hashable {
         case .webpage(let page): page.title ?? page.url.host() ?? page.url.absoluteString
         case .pdf(_, let filename, _): filename
         case .text(let text, let title): title ?? String(text.prefix(80))
+        case .localFile(let file): file.filename
         }
     }
 
@@ -21,8 +25,14 @@ public enum SummaryInput: Sendable, Hashable {
         case .url, .webpage: "safari"
         case .pdf: "doc.richtext"
         case .text: "text.alignleft"
+        case .localFile(let file): file.kind == .pdf ? "doc.richtext" : "doc.text"
         }
     }
+}
+
+enum StoreKitBillingProof: Sendable {
+    case xcode
+    case appleSigned(String)
 }
 
 /// Bearer-authenticated client for `/api/v1/*`.
@@ -33,11 +43,30 @@ public final class SummaryAPIClient: Sendable {
     public let baseURL: URL
     let tokenProvider: any AccessTokenProvider
     let session: URLSession
+    private let billingProofProvider: @Sendable () async -> StoreKitBillingProof?
 
-    public init(baseURL: URL, tokenProvider: any AccessTokenProvider, session: URLSession = .shared) {
+    public convenience init(baseURL: URL, tokenProvider: any AccessTokenProvider, session: URLSession = .shared) {
+        self.init(baseURL: baseURL, tokenProvider: tokenProvider, session: session, billingProofProvider: Self.liveBillingProof)
+    }
+
+    init(baseURL: URL, tokenProvider: any AccessTokenProvider, session: URLSession, billingProofProvider: @escaping @Sendable () async -> StoreKitBillingProof?) {
         self.baseURL = baseURL
         self.tokenProvider = tokenProvider
         self.session = session
+        self.billingProofProvider = billingProofProvider
+    }
+
+    private static func liveBillingProof() async -> StoreKitBillingProof? {
+        guard let proof = try? await AppTransaction.shared,
+              case .verified(let transaction) = proof else { return nil }
+        if transaction.environment == .xcode {
+            #if DEBUG
+            return .xcode
+            #else
+            return nil
+            #endif
+        }
+        return .appleSigned(proof.jwsRepresentation)
     }
 
     // MARK: Summaries
@@ -76,6 +105,10 @@ public final class SummaryAPIClient: Sendable {
 
     // MARK: Account
 
+    public func billingConnection() async throws -> BillingConnection {
+        try await send(get("/api/v1/billing"))
+    }
+
     public func accountDeletionState() async throws -> AccountDeletionState {
         try await send(get("/api/v1/account/deletion"))
     }
@@ -108,6 +141,7 @@ public final class SummaryAPIClient: Sendable {
         case .url(let url): source = .url(url)
         case .webpage(let page): source = .webpage(page)
         case .text(let text, let title): source = .text(text, title: title)
+        case .localFile(let file): source = .local(file)
         case .pdf(let fileURL, let filename, let sourceURL):
             let key = try await uploadPDF(fileURL: fileURL, filename: filename)
             onUploaded?()
@@ -209,6 +243,17 @@ public final class SummaryAPIClient: Sendable {
             throw SummaryAPIError.notSignedIn
         }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if request.url?.path == "/api/v1/billing" ||
+            (request.url?.path == "/api/v1/summaries" && request.httpMethod == "POST"),
+           let proof = await billingProofProvider() {
+            switch proof {
+            case .xcode:
+                // Xcode signs locally; the server authorizes the authenticated test account.
+                request.setValue("xcode", forHTTPHeaderField: "x-storekit-environment")
+            case .appleSigned(let signature):
+                request.setValue(signature, forHTTPHeaderField: "x-storekit-app-transaction")
+            }
+        }
         let label = request.logDescription
         let clock = ContinuousClock.now
         SummaryLog.api.debug("→ \(label, privacy: .public)\(forceRefresh ? " (retry after token refresh)" : "", privacy: .public)")
