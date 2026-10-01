@@ -8,9 +8,10 @@ struct LibraryFilter: Hashable {
     var category: String?
     var tag: String?
     var visibility: SummaryVisibility?
+    var source: SummaryOrigin?
 
     var isActive: Bool { activeCount > 0 }
-    var activeCount: Int { [scope != .all, category != nil, tag != nil, visibility != nil].filter { $0 }.count }
+    var activeCount: Int { [scope != .all, category != nil, tag != nil, visibility != nil, source != nil].filter { $0 }.count }
 }
 
 /// The library (`GET /api/v1/summaries`): your own summaries plus others' you opened from shared
@@ -18,7 +19,7 @@ struct LibraryFilter: Hashable {
 /// the offline store, which backs the feed until (or whenever) the network answers.
 @Observable
 final class LibraryModel {
-    private let api: SummaryAPIClient
+    let api: SummaryAPIClient
     let offline: OfflineSummaryStore
     static let pageSize = 20
 
@@ -27,7 +28,6 @@ final class LibraryModel {
     private(set) var isLoading = false
     private(set) var isLoadingMore = false
     private(set) var hasLoaded = false
-    private(set) var facets = Facets()
     /// The last load failed to reach the server, so `items` come from the offline store.
     private(set) var isOffline = false
     var errorMessage: String?
@@ -51,6 +51,7 @@ final class LibraryModel {
             category: filter.category,
             tag: filter.tag,
             visibility: filter.visibility,
+            source: filter.source,
             cursor: cursor,
             limit: Self.pageSize
         )
@@ -110,10 +111,6 @@ final class LibraryModel {
         }
     }
 
-    func loadFacets() async {
-        if let facets = try? await api.facets() { self.facets = facets }
-    }
-
     func insert(_ summary: Summary) {
         items.removeAll { $0.id == summary.id }
         items.insert(summary, at: 0)
@@ -140,7 +137,6 @@ final class LibraryModel {
         nextCursor = nil
         hasLoaded = false
         filter = LibraryFilter()
-        facets = Facets()
         errorMessage = nil
         isOffline = false
         offline.clear()

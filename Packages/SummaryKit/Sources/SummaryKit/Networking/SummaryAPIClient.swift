@@ -99,6 +99,14 @@ public final class SummaryAPIClient: Sendable {
         try await send(get("/api/v1/facets"))
     }
 
+    /// One facet list whose names contain `query`, paged.
+    public func facets(kind: FacetKind, query: String? = nil, cursor: String? = nil, limit: Int = 10) async throws -> FacetPage {
+        var items = [URLQueryItem(name: "kind", value: kind.rawValue), URLQueryItem(name: "limit", value: String(limit))]
+        if let query = query?.trimmingCharacters(in: .whitespaces), !query.isEmpty { items.append(URLQueryItem(name: "q", value: query)) }
+        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await send(get("/api/v1/facets", query: items))
+    }
+
     public func recordView(slug: String) async throws -> Summary {
         try await send(json("/api/v1/views", method: "POST", body: RecordViewRequest(slug: slug)))
     }

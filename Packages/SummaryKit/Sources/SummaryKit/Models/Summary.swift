@@ -25,18 +25,32 @@ public enum SummarySourceType: String, Codable, Sendable, CaseIterable {
 }
 
 /// What kind of content a summary was made from. Mirrors `source` in the contract; a `url`
-/// submission that served a PDF is `.pdf`. Unknown future kinds decode as `.other`.
-public enum SummaryOrigin: Codable, Sendable, Hashable {
+/// submission that served a PDF is `.pdf`, and a page on X, Facebook, YouTube or GitHub is labelled
+/// with that platform. Unknown future kinds decode as `.other`.
+public enum SummaryOrigin: Codable, Sendable, Hashable, Identifiable {
     case web
     case pdf
     case text
+    case x
+    case facebook
+    case youtube
+    case github
     case other(String)
+
+    /// Every kind the server knows, in the order the library's source filter lists them.
+    public static let known: [SummaryOrigin] = [.web, .x, .facebook, .youtube, .github, .pdf, .text]
+
+    public var id: String { rawValue }
 
     public init(rawValue: String) {
         switch rawValue {
         case "web": self = .web
         case "pdf": self = .pdf
         case "text": self = .text
+        case "x": self = .x
+        case "facebook": self = .facebook
+        case "youtube": self = .youtube
+        case "github": self = .github
         default: self = .other(rawValue)
         }
     }
@@ -46,6 +60,10 @@ public enum SummaryOrigin: Codable, Sendable, Hashable {
         case .web: "web"
         case .pdf: "pdf"
         case .text: "text"
+        case .x: "x"
+        case .facebook: "facebook"
+        case .youtube: "youtube"
+        case .github: "github"
         case .other(let raw): raw
         }
     }
@@ -73,6 +91,10 @@ public enum SummaryOrigin: Codable, Sendable, Hashable {
         case .web: "Web"
         case .pdf: "PDF"
         case .text: "Text"
+        case .x: "X"
+        case .facebook: "Facebook"
+        case .youtube: "YouTube"
+        case .github: "GitHub"
         case .other(let raw): raw.capitalized
         }
     }
@@ -82,6 +104,10 @@ public enum SummaryOrigin: Codable, Sendable, Hashable {
         case .web: "safari"
         case .pdf: "doc.richtext"
         case .text: "text.alignleft"
+        case .x: "bubble.left"
+        case .facebook: "person.2"
+        case .youtube: "play.rectangle"
+        case .github: "chevron.left.forwardslash.chevron.right"
         case .other: "doc"
         }
     }
@@ -332,6 +358,22 @@ public struct Facets: Codable, Sendable, Hashable {
     public init(categories: [FacetCount] = [], tags: [FacetCount] = []) {
         self.categories = categories
         self.tags = tags
+    }
+}
+
+/// Which facet list `GET /api/v1/facets?kind=…` searches.
+public enum FacetKind: String, Sendable, Hashable {
+    case category, tag
+}
+
+/// `GET /api/v1/facets?kind=…&q=…`: one page of a facet list, most used first.
+public struct FacetPage: Codable, Sendable, Hashable {
+    public var items: [FacetCount]
+    public var nextCursor: String?
+
+    public init(items: [FacetCount] = [], nextCursor: String? = nil) {
+        self.items = items
+        self.nextCursor = nextCursor
     }
 }
 

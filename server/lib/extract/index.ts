@@ -4,6 +4,7 @@ import { renderWithBrowser } from "./browser";
 import { decodeText, fetchPublicDocument, type FetchedDocument } from "./fetch";
 import { extractHtml, normalizeWhitespace, type HtmlExtraction } from "./html";
 import { extractPdfText } from "./pdf";
+import { extractFromPlatform, platformOf } from "./platforms";
 
 export interface ExtractedContent {
   source: SummarySource;
@@ -46,10 +47,15 @@ function assertEnoughText(text: string): void {
 /** Plain-fetch failures worth retrying in a real browser (bot walls, slow or JS-gated pages). */
 const BROWSER_RETRY_CODES = new Set(["SOURCE_HTTP_ERROR", "SOURCE_UNREACHABLE", "SOURCE_TIMEOUT"]);
 
+/** Web content from X, Facebook, YouTube or GitHub is labelled with that platform. */
+function webSource(url: string, finalUrl = url): SummarySource {
+  return platformOf(url) ?? platformOf(finalUrl) ?? "web";
+}
+
 function fromHtml(page: HtmlExtraction, url: string, finalUrl: string): ExtractedContent {
   assertEnoughText(page.text);
   return {
-    source: "web",
+    source: webSource(url, finalUrl),
     text: page.text,
     sourceUrl: url,
     sourceTitle: page.title,
@@ -65,6 +71,8 @@ function fromHtml(page: HtmlExtraction, url: string, finalUrl: string): Extracte
  * static HTML remains the fallback and fills in any metadata the rendered DOM lacks.
  */
 export async function extractFromUrl(url: string): Promise<ExtractedContent> {
+  const platform = await extractPlatformContent(url);
+  if (platform) return platform;
   let document: FetchedDocument;
   try {
     document = await fetchPublicDocument(url, { maxBytes: 10 * 1024 * 1024 });
@@ -84,7 +92,7 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   if (document.contentType.startsWith("text/plain")) {
     const text = normalizeWhitespace(decodeText(document.bytes, document.charset));
     assertEnoughText(text);
-    return { source: "web", text, sourceUrl: url, sourceTitle: null, siteName: hostOf(finalUrl), lang: null, imageUrl: null };
+    return { source: webSource(url, finalUrl), text, sourceUrl: url, sourceTitle: null, siteName: hostOf(finalUrl), lang: null, imageUrl: null };
   }
   if (!document.contentType.includes("html") && !document.contentType.includes("xml")) {
     throw new ApiError(422, "UNSUPPORTED_CONTENT", `Pages of type ${document.contentType} cannot be summarised`);
@@ -105,6 +113,26 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   }, url, finalUrl);
 }
 
+/** A platform's dedicated extractor; any failure falls back to reading the page like any other. */
+async function extractPlatformContent(url: string): Promise<ExtractedContent | null> {
+  try {
+    const content = await extractFromPlatform(url);
+    if (!content || !hasEnoughText(content.text)) return null;
+    return {
+      source: webSource(url),
+      text: content.text,
+      sourceUrl: url,
+      sourceTitle: content.title,
+      siteName: content.siteName,
+      lang: null,
+      imageUrl: content.imageUrl,
+    };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "test") console.info(`[extract] platform extractor failed for ${url}, reading the page instead`, error);
+    return null;
+  }
+}
+
 export async function extractFromWebpage(input: {
   url: string; title?: string | null; content?: string | null; siteName?: string | null; lang?: string | null;
 }): Promise<ExtractedContent> {
@@ -120,7 +148,7 @@ export async function extractFromWebpage(input: {
   }
   assertEnoughText(content);
   return {
-    source: "web",
+    source: webSource(input.url),
     text: content,
     sourceUrl: input.url,
     sourceTitle: input.title?.trim() || null,

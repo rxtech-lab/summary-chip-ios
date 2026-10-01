@@ -27,4 +27,4 @@ retry_codesign --preserve-metadata=entitlements "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 codesign -d --entitlements - --xml "$APP_PATH" 2>/dev/null |
-  python3 -c 'import plistlib,sys; e=plistlib.load(sys.stdin.buffer); assert e.get("com.apple.security.app-sandbox"); assert e.get("com.apple.security.application-groups"); assert "com.rxlab.summary-chip-spki" in e.get("com.apple.security.temporary-exception.mach-lookup.global-name", [])'
+  python3 -c 'import plistlib,sys; e=plistlib.loads(sys.stdin.buffer.read()); assert e.get("com.apple.security.app-sandbox"); assert e.get("com.apple.security.application-groups"); assert "com.rxlab.summary-chip-spki" in e.get("com.apple.security.temporary-exception.mach-lookup.global-name", [])'

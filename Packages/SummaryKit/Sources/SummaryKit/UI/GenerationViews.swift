@@ -148,6 +148,9 @@ public struct GenerationProgressView: View {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                         } else if stage == current {
                             ProgressView()
+                                #if os(macOS)
+                                .controlSize(.small)
+                                #endif
                         } else {
                             Image(systemName: "circle").foregroundStyle(.tertiary)
                         }

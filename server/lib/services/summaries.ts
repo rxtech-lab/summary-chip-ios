@@ -5,7 +5,9 @@ import { normalizeDraft } from "@/lib/ai/summary-schema";
 import { defaultTtlDays, expiresAtFor } from "@/lib/config";
 import {
   MAX_UPLOAD_BYTES,
+  CATEGORIES,
   type CreateSummaryInput,
+  type FacetQuery,
   type ListQuery,
   type PatchSummaryInput,
 } from "@/lib/contracts/api";
@@ -29,7 +31,7 @@ import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding } from "./embeddings";
-import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, isPublicAndLive, relevance } from "./search";
+import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
 
 export interface ServiceDeps {
@@ -284,6 +286,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const conditions = [scope];
   if (query.category) conditions.push(eq(summaries.category, query.category));
   if (query.visibility) conditions.push(eq(summaries.visibility, query.visibility));
+  if (query.source) conditions.push(eq(summaries.source, query.source));
   if (query.tag) {
     conditions.push(inArray(summaries.id, db.select({ id: summaryTags.summaryId }).from(summaryTags).where(eq(summaryTags.tag, query.tag))));
   }
@@ -336,10 +339,14 @@ async function searchLibrary(
   };
 }
 
-export async function getFacets(db: Database, ownerId: string) {
-  // Same universe as the library: own summaries plus viewed public ones.
+/** Same universe as the library: own summaries plus viewed public ones. */
+function facetUniverse(db: Database, ownerId: string): SQL {
   const viewedIds = db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, ownerId));
-  const live = or(eq(summaries.ownerId, ownerId), and(inArray(summaries.id, viewedIds), isPublicAndLive()))!;
+  return or(eq(summaries.ownerId, ownerId), and(inArray(summaries.id, viewedIds), isPublicAndLive()))!;
+}
+
+export async function getFacets(db: Database, ownerId: string) {
+  const live = facetUniverse(db, ownerId);
   const count = sql<number>`count(*)`.mapWith(Number);
   const [categories, tags] = await Promise.all([
     db.select({ name: summaries.category, count }).from(summaries).where(live)
@@ -349,6 +356,39 @@ export async function getFacets(db: Database, ownerId: string) {
       .where(live).groupBy(summaryTags.tag).orderBy(desc(count), summaryTags.tag).limit(200),
   ]);
   return { categories, tags };
+}
+
+/**
+ * One facet list for the filter combobox: names containing `q` (case-insensitive), most used first,
+ * paged with an offset cursor. Categories are the closed list, so unused ones come back with count 0.
+ */
+export async function searchFacets(db: Database, ownerId: string, kind: "category" | "tag", query: FacetQuery) {
+  const live = facetUniverse(db, ownerId);
+  const offset = decodeOffsetCursor(query.cursor);
+  const needle = query.q?.toLowerCase();
+  const count = sql<number>`count(*)`.mapWith(Number);
+  let items: { name: string; count: number }[];
+  let more: boolean;
+  if (kind === "category") {
+    const rows = await db.select({ name: summaries.category, count }).from(summaries).where(live).groupBy(summaries.category);
+    const counts = new Map(rows.map((row) => [row.name, row.count]));
+    const all = [...new Set<string>([...CATEGORIES, ...counts.keys()])]
+      .filter((name) => !needle || name.toLowerCase().includes(needle))
+      .map((name) => ({ name, count: counts.get(name) ?? 0 }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    items = all.slice(offset, offset + query.limit);
+    more = all.length > offset + query.limit;
+  } else {
+    const conditions = [live];
+    if (needle) conditions.push(sql`lower(${summaryTags.tag}) LIKE ${`%${escapeLike(needle)}%`} ESCAPE '\\'`);
+    const rows = await db.select({ name: summaryTags.tag, count }).from(summaryTags)
+      .innerJoin(summaries, eq(summaries.id, summaryTags.summaryId))
+      .where(and(...conditions)).groupBy(summaryTags.tag).orderBy(desc(count), summaryTags.tag)
+      .limit(query.limit + 1).offset(offset);
+    items = rows.slice(0, query.limit);
+    more = rows.length > query.limit;
+  }
+  return { items, nextCursor: more ? encodeOffsetCursor(offset + query.limit) : null };
 }
 
 /* ------------------------------------------------------------------------------------------------

@@ -190,6 +190,76 @@ describe("POST /api/v1/summaries", () => {
     expect(summary.artImageUrl).toContain("/art.png");
   });
 
+  describe("platform sources", () => {
+    it("reads X posts through oEmbed and labels them x", async () => {
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        expect(url.origin + url.pathname).toBe("https://publish.twitter.com/oembed");
+        expect(url.searchParams.get("url")).toBe("https://x.com/widgets/status/12345");
+        return Response.json({
+          author_name: "Widget Weekly",
+          html: "<blockquote class=\"twitter-tweet\"><p lang=\"en\">Quantum widgets entangle gears across the lab.<br>They could transform manufacturing.</p>&mdash; Widget Weekly</blockquote>",
+        });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const response = await create({ source: { type: "url", url: "https://x.com/widgets/status/12345" } });
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ source: "x", siteName: "X", sourceTitle: "Widget Weekly on X" });
+      expect(env.ai.calls.summarize[0].text).toBe("Post by Widget Weekly:\n\nQuantum widgets entangle gears across the lab.\nThey could transform manufacturing.");
+    });
+
+    it("reads a YouTube video's details from the watch page and labels it youtube", async () => {
+      const player = {
+        videoDetails: { title: "Quantum widgets explained", author: "Widget Weekly", shortDescription: "How quantum widgets entangle gears across the lab.", thumbnail: { thumbnails: [{ url: "https://i.ytimg.com/vi/abcdefghijk/hq.jpg" }] } },
+        captions: { playerCaptionsTracklistRenderer: { captionTracks: [{ baseUrl: "https://www.youtube.com/api/timedtext?v=abcdefghijk", kind: "asr" }] } },
+      };
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("https://www.youtube.com/api/timedtext")) {
+          return Response.json({ events: [{ segs: [{ utf8: "Today we look at " }, { utf8: "widgets {and} gears." }] }] });
+        }
+        expect(url).toBe("https://www.youtube.com/watch?v=abcdefghijk&hl=en");
+        return new Response(`<html><script>var ytInitialPlayerResponse = ${JSON.stringify(player)};var meta = {};</script></html>`, { headers: { "content-type": "text/html" } });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const response = await create({ source: { type: "url", url: "https://youtu.be/abcdefghijk?si=share" } });
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ source: "youtube", siteName: "YouTube", sourceTitle: "Quantum widgets explained" });
+      const sent = env.ai.calls.summarize[0].text;
+      expect(sent).toContain("Channel: Widget Weekly");
+      expect(sent).toContain("How quantum widgets entangle gears");
+      expect(sent).toContain("Transcript:\nToday we look at widgets {and} gears.");
+    });
+
+    it("falls back to the page when a platform extractor fails, keeping the platform label", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } })));
+      const video = await create({ source: { type: "url", url: "https://www.youtube.com/watch?v=abcdefghijk" } });
+      expect(video.status).toBe(201);
+      expect(await video.json()).toMatchObject({ source: "youtube", sourceTitle: "Quantum widgets explained" });
+    });
+
+    it("labels GitHub and Facebook pages by their URL", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } })));
+      const repo = await create({ source: { type: "url", url: "https://github.com/widgets/quantum" } });
+      expect(await repo.json()).toMatchObject({ source: "github" });
+      const post = await create({ source: { type: "webpage", url: "https://m.facebook.com/widgets/posts/1", content: "Provided main text about quantum widgets. ".repeat(5) } });
+      expect(await post.json()).toMatchObject({ sourceType: "webpage", source: "facebook" });
+    });
+
+    it("filters the library by source", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } })));
+      const repo = await (await create({ source: { type: "url", url: "https://github.com/widgets/quantum" } })).json();
+      await create({ source: { type: "url", url: "https://news.example.com/widgets" } });
+      await createText("A plain text note about baking sourdough bread at home.");
+      const list = async (query: string) => (await summariesRoute.GET(apiRequest("GET", `/api/v1/summaries?${query}`, { token: env.tokens.alice }))).json();
+      expect((await list("source=github")).items.map((item: { id: string }) => item.id)).toEqual([repo.id]);
+      expect((await list("source=web")).items).toHaveLength(1);
+      expect((await list("source=text")).items).toHaveLength(1);
+      expect((await list("source=youtube")).items).toHaveLength(0);
+      expect((await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?source=tiktok", { token: env.tokens.alice }))).status).toBe(400);
+    });
+  });
+
   it("uses provided webpage content, falling back to fetching when it is empty", async () => {
     const fetchMock = vi.fn(async () => new Response(ARTICLE_HTML, { headers: { "content-type": "text/html" } }));
     vi.stubGlobal("fetch", fetchMock);
@@ -303,6 +373,20 @@ describe("list, search, facets", () => {
     expect(facets.categories).toEqual([{ name: "Technology", count: 3 }]);
     expect(facets.tags.length).toBeGreaterThan(0);
     expect(facets.tags[0]).toEqual({ name: expect.any(String), count: expect.any(Number) });
+
+    const categoryPage = await (await facetsRoute.GET(apiRequest("GET", "/api/v1/facets?kind=category&limit=10", { token: env.tokens.alice }))).json();
+    expect(categoryPage.items).toHaveLength(10);
+    expect(categoryPage.items[0]).toEqual({ name: "Technology", count: 3 });
+    expect(categoryPage.nextCursor).toEqual(expect.any(String));
+    const categoryRest = await (await facetsRoute.GET(apiRequest("GET", `/api/v1/facets?kind=category&limit=10&cursor=${categoryPage.nextCursor}`, { token: env.tokens.alice }))).json();
+    expect(categoryRest.items.length + 10).toBe(17);
+    expect(categoryRest.nextCursor).toBeNull();
+    const categorySearch = await (await facetsRoute.GET(apiRequest("GET", "/api/v1/facets?kind=category&q=sci", { token: env.tokens.alice }))).json();
+    expect(categorySearch.items).toEqual([{ name: "Science", count: 0 }]);
+    const tagSearch = await (await facetsRoute.GET(apiRequest("GET", `/api/v1/facets?kind=tag&q=${encodeURIComponent(tag.slice(0, 3))}`, { token: env.tokens.alice }))).json();
+    expect(tagSearch.items.map((item: { name: string }) => item.name)).toContain(tag);
+    const noTags = await (await facetsRoute.GET(apiRequest("GET", "/api/v1/facets?kind=tag&q=%25%25", { token: env.tokens.alice }))).json();
+    expect(noTags).toEqual({ items: [], nextCursor: null });
   });
 
   it("searches CJK text with the LIKE fallback", async () => {

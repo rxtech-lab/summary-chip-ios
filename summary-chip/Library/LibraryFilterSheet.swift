@@ -1,7 +1,7 @@
 import SummaryKit
 import SwiftUI
 
-/// Dedicated sheet for choosing what the library shows: created vs viewed, category, tag, visibility.
+/// Dedicated sheet for choosing what the library shows: created vs viewed, source, category, tag, visibility.
 struct LibraryFilterSheet: View {
     let model: LibraryModel
     let onApply: (LibraryFilter) -> Void
@@ -47,47 +47,36 @@ struct LibraryFilterSheet: View {
                     }
                 }
 
-                Section("Category") {
-                    Picker("Category", selection: $draft.category) {
-                        Text("Any category").tag(String?.none)
-                        ForEach(categories, id: \.name) { facet in
-                            HStack {
-                                Text(facet.name)
-                                Spacer()
-                                if facet.count > 0 { Text("\(facet.count)").foregroundStyle(.secondary) }
-                            }
-                            .tag(String?.some(facet.name))
+                Section {
+                    Picker("Source", selection: $draft.source) {
+                        Text("Any source").tag(SummaryOrigin?.none)
+                        ForEach(SummaryOrigin.known) { origin in
+                            Label(origin.title, systemImage: origin.systemImage).tag(SummaryOrigin?.some(origin))
                         }
                     }
-                    #if os(macOS)
-                    .pickerStyle(.menu)
-                    #else
-                    .pickerStyle(.navigationLink)
-                    #endif
+                    .accessibilityIdentifier("library-filter-source")
+                } footer: {
+                    Text("Where the summarized content came from: a web page, a post or video, a GitHub page, a PDF, or text.")
                 }
 
-                Section("Tag") {
-                    if model.facets.tags.isEmpty {
-                        Text("Tags appear here once your library has summaries.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Picker("Tag", selection: $draft.tag) {
-                            Text("Any tag").tag(String?.none)
-                            ForEach(model.facets.tags) { facet in
-                                HStack {
-                                    Text("#\(facet.name)")
-                                    Spacer()
-                                    Text("\(facet.count)").foregroundStyle(.secondary)
-                                }
-                                .tag(String?.some(facet.name))
-                            }
-                        }
-                        #if os(macOS)
-                        .pickerStyle(.menu)
-                        #else
-                        .pickerStyle(.navigationLink)
-                        #endif
-                    }
+                Section {
+                    FacetComboBox(
+                        "Category",
+                        anyTitle: "Any category",
+                        emptyMessage: "No categories",
+                        kind: .category,
+                        api: model.api,
+                        selection: $draft.category
+                    )
+                    FacetComboBox(
+                        "Tag",
+                        anyTitle: "Any tag",
+                        emptyMessage: "Tags appear here once your library has summaries.",
+                        kind: .tag,
+                        api: model.api,
+                        selection: $draft.tag,
+                        label: { "#\($0)" }
+                    )
                 }
 
                 if draft.isActive {
@@ -115,15 +104,7 @@ struct LibraryFilterSheet: View {
                     .fontWeight(.semibold)
                 }
             }
-            .task { await model.loadFacets() }
         }
         .summarySheetSize()
-    }
-
-    /// Server facets first (with counts), then the rest of the closed category list.
-    private var categories: [FacetCount] {
-        let known = model.facets.categories
-        let names = Set(known.map(\.name))
-        return known + SummaryCategory.all.filter { !names.contains($0) }.map { FacetCount(name: $0, count: 0) }
     }
 }

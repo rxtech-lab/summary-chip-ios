@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ALLOWED_TTL_DAYS } from "@/lib/config";
-import { IMAGE_STYLES, VISIBILITIES } from "@/lib/db/schema";
+import { IMAGE_STYLES, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 
 export const CATEGORIES = [
   "Technology", "Science", "Business", "Finance", "Politics", "World", "Health", "Sports",
@@ -104,10 +104,21 @@ export const listQuerySchema = z.object({
   category: z.enum(CATEGORIES).optional(),
   tag: optionalString(40).transform((value) => value?.toLowerCase()),
   visibility: z.enum(VISIBILITIES).optional(),
+  /** What the summary was made from: a web page, PDF, text, or a post/video/repo on a platform. */
+  source: z.enum(SUMMARY_SOURCES).optional(),
   cursor: optionalString(200),
   limit: limitSchema,
 });
 export type ListQuery = z.infer<typeof listQuerySchema>;
+
+/** `GET /api/v1/facets?kind=…` — one facet list, filtered by `q` and paged (offset cursor). */
+export const facetQuerySchema = z.object({
+  kind: z.enum(["category", "tag"]).optional(),
+  q: optionalString(40),
+  cursor: optionalString(200),
+  limit: limitSchema,
+});
+export type FacetQuery = z.infer<typeof facetQuerySchema>;
 
 export function queryObject(request: Request): Record<string, string> {
   const params = new URL(request.url).searchParams;

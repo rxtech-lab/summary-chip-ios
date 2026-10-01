@@ -5,6 +5,7 @@ struct LibraryView: View {
     @Bindable var environment: AppEnvironment
     @State private var showsFilters = false
     @State private var showsNewSummary = false
+    @State private var showsCredits = false
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
     @State private var deletedCount = 0
@@ -16,6 +17,10 @@ struct LibraryView: View {
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
     private var model: LibraryModel { environment.library }
+
+    private var pointsTitle: String {
+        environment.credits.points.map { $0.formatted() } ?? "–"
+    }
 
     var body: some View {
         NavigationStack(path: path ?? $localPath) {
@@ -32,6 +37,21 @@ struct LibraryView: View {
                     Task { await model.reload() }
                 }
                 .toolbar {
+                    ToolbarItem(placement: .summaryLeading) {
+                        Button {
+                            showsCredits = true
+                        } label: {
+                            // Toolbars collapse `Label` to its icon, so lay out the count explicitly.
+                            HStack(spacing: 4) {
+                                Image(systemName: "sparkles")
+                                Text("\(pointsTitle) pts")
+                                    .monospacedDigit()
+                                    .fixedSize()
+                            }
+                        }
+                        .accessibilityLabel("Points: \(pointsTitle)")
+                        .accessibilityIdentifier("library-points")
+                    }
                     ToolbarItemGroup(placement: .summaryTrailing) {
                         Button {
                             showsFilters = true
@@ -62,6 +82,9 @@ struct LibraryView: View {
                 }
                 .sheet(isPresented: $showsNewSummary) {
                     NewSummarySheet(environment: environment)
+                }
+                .sheet(isPresented: $showsCredits) {
+                    SummaryCreditsSheet(environment: environment)
                 }
                 .sheet(item: $sharingSummary) { summary in
                     ShareModeSheet(summary: summary)
