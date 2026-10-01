@@ -51,7 +51,7 @@ struct LibraryFilterSheet: View {
                     Picker("Source", selection: $draft.source) {
                         Text("Any source").tag(SummaryOrigin?.none)
                         ForEach(SummaryOrigin.known) { origin in
-                            Label(origin.title, systemImage: origin.systemImage).tag(SummaryOrigin?.some(origin))
+                            Label { Text(origin.title) } icon: { origin.image }.tag(SummaryOrigin?.some(origin))
                         }
                     }
                     .accessibilityIdentifier("library-filter-source")

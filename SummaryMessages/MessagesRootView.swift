@@ -129,6 +129,7 @@ private struct MessagesSendView: View {
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             }
         }
+        .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
     }
 
     private func sendImage() async {

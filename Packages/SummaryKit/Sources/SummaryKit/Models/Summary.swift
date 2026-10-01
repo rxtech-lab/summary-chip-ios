@@ -111,6 +111,17 @@ public enum SummaryOrigin: Codable, Sendable, Hashable, Identifiable {
         case .other: "doc"
         }
     }
+
+    /// Name of the bundled brand logo for platform sources; `nil` falls back to `systemImage`.
+    public var brandImage: String? {
+        switch self {
+        case .x: "source.x"
+        case .facebook: "source.facebook"
+        case .youtube: "source.youtube"
+        case .github: "source.github"
+        default: nil
+        }
+    }
 }
 
 public enum ImageStyle: String, Codable, Sendable, CaseIterable, Identifiable {

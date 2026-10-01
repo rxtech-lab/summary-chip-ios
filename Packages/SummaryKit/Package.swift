@@ -19,6 +19,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Kingfisher", package: "Kingfisher"),
             ],
+            resources: [.process("Resources")],
             swiftSettings: [
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
                 .enableUpcomingFeature("InferIsolatedConformances"),

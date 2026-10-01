@@ -27,6 +27,38 @@ export function platformOf(url: string | null | undefined): Platform | null {
   return null;
 }
 
+/** Social platforms credited by company name ("X", "YouTube") rather than by host or page-supplied site name. */
+const COMPANY_HOSTS: [company: string, domains: string[]][] = [
+  ["X", PLATFORM_HOSTS.x],
+  ["Threads", ["threads.net", "threads.com"]],
+  ["Facebook", PLATFORM_HOSTS.facebook],
+  ["YouTube", PLATFORM_HOSTS.youtube],
+];
+
+/** The company a social-platform URL belongs to (subdomains included), or `null` for any other site. */
+export function companyOf(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  for (const [company, domains] of COMPANY_HOSTS) {
+    if (domains.some((domain) => host === domain || host.endsWith(`.${domain}`))) return company;
+  }
+  return null;
+}
+
+/** The source label to store and show: the platform's company for social links, else the site name or host. */
+export function siteNameFor(siteName: string | null | undefined, ...urls: (string | null | undefined)[]): string | null {
+  for (const url of urls) {
+    const company = companyOf(url);
+    if (company) return company;
+  }
+  return siteName?.trim() || null;
+}
+
 export interface PlatformExtraction {
   text: string;
   title: string | null;

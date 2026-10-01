@@ -3,6 +3,7 @@ import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import type { Category } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
+import { siteNameFor } from "@/lib/extract/platforms";
 import { notFound } from "@/lib/http/errors";
 import { embedQuery } from "./embeddings";
 import { isPublicAndLive, relevance } from "./search";
@@ -60,7 +61,7 @@ function toResult(row: SummaryRow, viewedAt?: Date): ChatSearchResult {
     summary: row.summary,
     category: row.category,
     tags: row.tags,
-    siteName: row.siteName,
+    siteName: siteNameFor(row.siteName, row.sourceUrl),
     sourceUrl: row.sourceUrl,
     shareUrl: shareUrlFor(row.slug),
     ogImageUrl: publicOgImageUrl(row),

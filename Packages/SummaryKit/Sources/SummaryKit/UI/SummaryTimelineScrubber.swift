@@ -132,6 +132,8 @@ struct SummaryTimelineScrubber: View {
     /// location drives the indicator directly.
     @State private var dragY: CGFloat?
     @State private var hoverY: CGFloat?
+    /// Day under the finger while dragging; each change ticks a selection haptic.
+    @State private var scrubbedDay: Date?
 
     private var isDragging: Bool { dragY != nil }
 
@@ -199,14 +201,19 @@ struct SummaryTimelineScrubber: View {
                     .onChanged { value in
                         dragY = value.location.y
                         scrub(to: value.location.y, trackHeight: trackHeight)
+                        let trackY = clampedTrackY(value.location.y, trackHeight: trackHeight) - Self.verticalInset
+                        scrubbedDay = marker(atTrackY: trackY, trackHeight: trackHeight)?.id
                     }
                     .onEnded { value in
                         dragY = nil
+                        scrubbedDay = nil
                         // The pointer is still over the rail; keep the pill where it was
                         // released instead of the pre-drag hover.
                         hoverY = value.location.y
                     }
             )
+            // Tick as the pill passes each day, but not on grab or release.
+            .sensoryFeedback(.selection, trigger: scrubbedDay) { old, new in old != nil && new != nil }
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let location): hoverY = location.y

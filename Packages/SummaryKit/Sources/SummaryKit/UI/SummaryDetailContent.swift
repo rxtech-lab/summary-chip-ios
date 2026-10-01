@@ -68,7 +68,7 @@ public struct SummaryDetailContent: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 ChipLabel(summary.category, tint: summary.theme.accentColor)
-                ChipLabel(summary.source.title, systemImage: summary.source.systemImage)
+                ChipLabel(summary.source.title, image: summary.source.image)
                     .accessibilityLabel("Source: \(summary.source.title)")
                 Text(summary.createdAt.formatted(date: .abbreviated, time: .omitted))
                     .font(.subheadline.weight(.medium))
@@ -81,7 +81,7 @@ public struct SummaryDetailContent: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
                 .accessibilityAddTraits(.isHeader)
-            Label(summary.sourceLabel, systemImage: summary.source.systemImage)
+            Label { Text(summary.sourceLabel) } icon: { summary.source.image }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -149,7 +149,7 @@ public struct SummaryDetailContent: View {
                 Task { await openOriginal() }
             } label: {
                 HStack(spacing: 14) {
-                    Image(systemName: summary.source.systemImage)
+                    summary.source.image
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(summary.theme.foreground)
                         .frame(width: 44, height: 44)
