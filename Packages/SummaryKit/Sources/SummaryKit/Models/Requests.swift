@@ -271,15 +271,17 @@ public struct SummaryListQuery: Hashable, Sendable {
     public var category: String?
     public var tag: String?
     public var visibility: SummaryVisibility?
+    public var source: SummaryOrigin?
     public var cursor: String?
     public var limit: Int?
 
-    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, cursor: String? = nil, limit: Int? = nil) {
+    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, cursor: String? = nil, limit: Int? = nil) {
         self.scope = scope
         self.q = q
         self.category = category
         self.tag = tag
         self.visibility = visibility
+        self.source = source
         self.cursor = cursor
         self.limit = limit
     }
@@ -296,6 +298,7 @@ public struct SummaryListQuery: Hashable, Sendable {
         add("category", category)
         add("tag", tag)
         add("visibility", visibility?.rawValue)
+        add("source", source?.rawValue)
         add("cursor", cursor)
         add("limit", limit.map(String.init))
         return items

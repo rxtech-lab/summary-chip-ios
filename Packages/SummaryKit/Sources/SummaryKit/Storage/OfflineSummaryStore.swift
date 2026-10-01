@@ -47,6 +47,7 @@ public final class OfflineSummaryStore {
             if let category = query.category, summary.category != category { return false }
             if let tag = query.tag, !summary.tags.contains(tag) { return false }
             if let visibility = query.visibility, summary.visibility != visibility { return false }
+            if let source = query.source, summary.source != source { return false }
             guard !terms.isEmpty else { return true }
             let haystack = ([summary.title, summary.summary, summary.sourceLabel] + summary.highlights + summary.tags + summary.keywords)
             return haystack.contains { $0.localizedStandardContains(terms) }

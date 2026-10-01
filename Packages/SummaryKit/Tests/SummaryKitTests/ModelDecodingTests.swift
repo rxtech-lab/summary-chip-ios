@@ -43,10 +43,21 @@ func fixture(_ name: String) throws -> Data {
 
     @Test func decodesUnknownSourceWithoutFailing() throws {
         var json = String(decoding: try fixture("summary.json"), as: UTF8.self)
-        json = json.replacingOccurrences(of: "\"source\": \"web\"", with: "\"source\": \"youtube\"")
+        json = json.replacingOccurrences(of: "\"source\": \"web\"", with: "\"source\": \"tiktok\"")
         let summary = try SummaryJSON.decoder().decode(Summary.self, from: Data(json.utf8))
-        #expect(summary.source == .other("youtube"))
-        #expect(summary.source.rawValue == "youtube")
+        #expect(summary.source == .other("tiktok"))
+        #expect(summary.source.rawValue == "tiktok")
+    }
+
+    @Test func decodesPlatformSources() throws {
+        let json = String(decoding: try fixture("summary.json"), as: UTF8.self)
+        for origin in SummaryOrigin.known {
+            let data = Data(json.replacingOccurrences(of: "\"source\": \"web\"", with: "\"source\": \"\(origin.rawValue)\"").utf8)
+            let summary = try SummaryJSON.decoder().decode(Summary.self, from: data)
+            #expect(summary.source == origin)
+            #expect(SummaryOrigin(rawValue: origin.rawValue) == origin)
+        }
+        #expect(SummaryListQuery(source: .youtube).queryItems == [URLQueryItem(name: "source", value: "youtube")])
     }
 
     @Test func decodesPagesFacetsViewedAtAndErrors() throws {

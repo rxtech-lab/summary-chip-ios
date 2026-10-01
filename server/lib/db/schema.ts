@@ -4,7 +4,7 @@ import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from
 /** `local`: a file on the user's device; its text is summarised but never stored. */
 export const SOURCE_TYPES = ["url", "webpage", "pdf", "text", "local"] as const;
 /** What kind of content a summary was made from, independent of how it was submitted. Extend as new kinds land. */
-export const SUMMARY_SOURCES = ["web", "pdf", "text"] as const;
+export const SUMMARY_SOURCES = ["web", "pdf", "text", "x", "facebook", "youtube", "github"] as const;
 export const IMAGE_STYLES = ["graphic", "illustration"] as const;
 export const VISIBILITIES = ["public", "private"] as const;
 

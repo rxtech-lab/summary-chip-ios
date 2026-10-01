@@ -134,6 +134,7 @@ Food, Opinion, Research, Other`.
 | `DELETE /api/v1/summaries/:id` | – | `204` |
 | `POST /api/v1/summaries/:id/image` | `{imageStyle}` | `Summary` (regenerated OG image) |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
+| `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
 | `POST /api/v1/views` | `{slug}` | `Summary` — records that the signed-in user viewed a public summary |
 | `POST /api/v1/chat` | `{messages: UIMessage[], summaryId?}` (AI SDK UI message format; `summaryId` focuses the chat on one summary the caller can open, grounded in its original text — 404 otherwise) | AI SDK UI message stream (SSE) |
 | `GET /api/v1/account/deletion` | – | `{pendingDeletion, deletionScheduledAt, deletionRequestedAt}` (ISO dates or null) |

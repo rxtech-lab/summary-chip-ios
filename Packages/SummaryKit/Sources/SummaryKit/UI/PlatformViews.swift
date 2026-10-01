@@ -26,6 +26,14 @@ public extension ToolbarItemPlacement {
         .topBarTrailing
         #endif
     }
+
+    static var summaryLeading: ToolbarItemPlacement {
+        #if os(macOS)
+        .navigation
+        #else
+        .topBarLeading
+        #endif
+    }
 }
 
 public extension View {

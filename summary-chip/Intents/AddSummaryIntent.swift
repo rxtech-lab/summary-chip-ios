@@ -38,11 +38,15 @@ struct AddSummaryIntent: AppIntent, ProgressReportingIntent {
         let api = environment.api
         let progress = progress
         let summary: SummaryKit.Summary
+        #if compiler(>=6.4) // Xcode 27 SDK; CI may still build with Xcode 26.
         if #available(iOS 27.0, macOS 27.0, *) {
             summary = try await performBackgroundTask { @Sendable in try await Self.createSummary(from: input, api: api, progress: progress) }
         } else {
             summary = try await Self.createSummary(from: input, api: api, progress: progress)
         }
+        #else
+        summary = try await Self.createSummary(from: input, api: api, progress: progress)
+        #endif
         environment.library.insert(summary)
 
         return .result(
@@ -81,8 +85,10 @@ struct AddSummaryIntent: AppIntent, ProgressReportingIntent {
     }
 }
 
+#if compiler(>=6.4)
 @available(iOS 27.0, macOS 27.0, *)
 extension AddSummaryIntent: LongRunningIntent {}
+#endif
 
 enum AddSummaryIntentError: Error, CustomLocalizedStringResourceConvertible {
     case notSignedIn
