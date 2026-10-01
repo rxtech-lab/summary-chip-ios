@@ -49,6 +49,11 @@ export const summaries = sqliteTable("summaries", {
   contentExcerpt: text("content_excerpt").notNull().default(""),
   /** The full extracted source text (capped at `SOURCE_TEXT_LIMIT`); grounds the per-summary chat. */
   contentText: text("content_text").notNull().default(""),
+  /**
+   * The source rewritten as clean Markdown by the model, for reading in the app. Kept for links,
+   * shared pages and text; for local files only when the owner opted in. Null when not kept.
+   */
+  contentMarkdown: text("content_markdown"),
   title: text("title").notNull(),
   summary: text("summary").notNull(),
   highlights: text("highlights", { mode: "json" }).$type<string[]>().notNull(),

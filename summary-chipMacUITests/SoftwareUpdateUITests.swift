@@ -19,7 +19,7 @@ nonisolated final class SoftwareUpdateUITests: XCTestCase {
         app.launchArguments = ["--preview-mac", "--test-update-feed=http://127.0.0.1:\(port)/appcast.xml"]
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10))
-        app.menuBars.menuBarItems["summary-chip"].click()
+        app.menuBars.menuBarItems["Chippy"].click()
         app.menuItems["Check for Updates…"].click()
         let sheet = app.sheets.firstMatch
         XCTAssertTrue(sheet.staticTexts["Update Available"].waitForExistence(timeout: 10))
@@ -37,7 +37,7 @@ nonisolated final class SoftwareUpdateUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10))
         for _ in 0..<2 {
-            app.menuBars.menuBarItems["summary-chip"].click()
+            app.menuBars.menuBarItems["Chippy"].click()
             app.menuItems["Software Update Settings…"].click()
             let sheet = app.sheets.firstMatch
             XCTAssertTrue(sheet.waitForExistence(timeout: 5))
@@ -56,7 +56,7 @@ nonisolated final class SoftwareUpdateUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10))
         for _ in 0..<2 {
-            app.menuBars.menuBarItems["summary-chip"].click()
+            app.menuBars.menuBarItems["Chippy"].click()
             app.menuItems["Check for Updates…"].click()
             let sheet = app.sheets.firstMatch
             XCTAssertTrue(sheet.waitForExistence(timeout: 5))

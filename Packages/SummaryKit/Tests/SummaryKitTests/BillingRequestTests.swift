@@ -36,6 +36,20 @@ import Testing
         #expect(requests[1].value(forHTTPHeaderField: "x-storekit-environment") == nil)
     }
 
+    @Test func chatSpendsPointsFromTheSameEnvironmentAndAsksForATopUp() async throws {
+        BillingRequestProtocol.requests.clear()
+        let chat = ChatStreamClient(api: client(proof: .appleSigned("signed-app-transaction")))
+        do {
+            for try await _ in chat.stream(messages: [ChatUIMessage(role: .user, text: "hello")]) {}
+            Issue.record("Expected the fixture's empty balance")
+        } catch let error as SummaryAPIError {
+            #expect(error.needsTopUp)
+        }
+        let requests = BillingRequestProtocol.requests.values
+        #expect(requests.count == 1)
+        #expect(requests.first?.value(forHTTPHeaderField: "x-storekit-app-transaction") == "signed-app-transaction")
+    }
+
     private func client(proof: StoreKitBillingProof) -> SummaryAPIClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [BillingRequestProtocol.self]
@@ -69,6 +83,11 @@ private final class BillingRequestProtocol: URLProtocol, @unchecked Sendable {
             status = 200
             json = """
             {"serverURL":"https://subscription.test","publishableKey":"rxs_pk_xcode_test","usageItem":"daily_summary_generation","balanceUnit":"points"}
+            """
+        } else if request.url?.path == "/api/v1/chat" {
+            status = 402
+            json = """
+            {"error":{"code":"CHAT_POINTS_EXHAUSTED","message":"Top up to keep chatting."}}
             """
         } else if request.httpMethod == "POST" {
             status = 402

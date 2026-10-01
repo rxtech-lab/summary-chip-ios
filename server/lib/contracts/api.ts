@@ -13,6 +13,8 @@ export type OutputLanguage = (typeof OUTPUT_LANGUAGES)[number];
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAX_WEBPAGE_CONTENT = 60_000;
+/** The page's main-content markup from the device, so the kept document has its links and images. */
+export const MAX_WEBPAGE_HTML = 400_000;
 export const MAX_TEXT_LENGTH = 200_000;
 
 const httpUrl = z.string().trim().max(4096).refine((value) => {
@@ -39,6 +41,7 @@ export const sourceSchema = z.discriminatedUnion("type", [
     title: z.string().max(1000).nullish(),
     // Clients truncate to 60k; allow a little slack for multi-byte counting differences.
     content: z.string().max(MAX_WEBPAGE_CONTENT + 5_000).nullish(),
+    html: z.string().max(MAX_WEBPAGE_HTML).nullish(),
     siteName: z.string().max(300).nullish(),
     lang: z.string().max(35).nullish(),
   }),
@@ -69,6 +72,19 @@ export const createSummarySchema = z.object({
   imageStyle: z.enum(IMAGE_STYLES).default("graphic"),
   ttlDays: ttlDaysSchema.optional(),
   visibility: z.enum(VISIBILITIES).default("public"),
+  /**
+   * The client can read pages in an on-device web view. A page the server cannot read then fails
+   * with `SOURCE_NEEDS_DEVICE` (`details.url`) so the client resubmits it as a `webpage`, instead of
+   * erroring (`url`) or falling back to the shared text (`text`).
+   */
+  deviceReader: z.boolean().optional(),
+  /** `text` sources judged to be a shared link read that page instead (default). False after the device failed to read it too. */
+  followLinks: z.boolean().optional(),
+  /**
+   * Local files (`local`, and `pdf` uploads without a `sourceUrl`) are not kept by default; true
+   * keeps their text, rewritten as Markdown, for reading later. Links and text are always kept.
+   */
+  keepSourceText: z.boolean().optional(),
 });
 export type CreateSummaryInput = z.infer<typeof createSummarySchema>;
 

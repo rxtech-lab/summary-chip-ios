@@ -15,6 +15,7 @@ func fixture(_ name: String) throws -> Data {
         #expect(summary.sourceType == .url)
         #expect(summary.source == .web)
         #expect(summary.sourceFileUrl == nil)
+        #expect(summary.hasSourceMarkdown)
         #expect(summary.highlights == ["One", "Two"])
         #expect(summary.theme.mode == .dark)
         #expect(summary.theme.colors.count == 3)
@@ -29,6 +30,7 @@ func fixture(_ name: String) throws -> Data {
     @Test func decodesPublicSummaryWithoutOwnerFields() throws {
         let summary = try SummaryJSON.decoder().decode(Summary.self, from: fixture("public-summary.json"))
         #expect(summary.isOwner == false)
+        #expect(summary.hasSourceMarkdown == false) // absent → not kept
         #expect(summary.artImageUrl == nil)
         #expect(summary.tileImageUrl == summary.ogImageUrl)
         #expect(summary.visibility == .public)
@@ -99,6 +101,10 @@ func fixture(_ name: String) throws -> Data {
         #expect(url["language"] as? String == "auto")
         #expect(url["imageStyle"] as? String == "graphic")
         #expect(url["visibility"] as? String == "public")
+        #expect(url["keepSourceText"] == nil)
+
+        let kept = try json(CreateSummaryRequest(source: .local(LocalFileSource(filename: "a.md", kind: .text, text: "# A")), options: .init(keepsSourceText: true)))
+        #expect(kept["keepSourceText"] as? Bool == true)
 
         let never = try json(CreateSummaryRequest(source: .text("hi", title: nil), options: .init(language: .zhHans, ttl: .never, visibility: .private)))
         #expect(never["ttlDays"] is NSNull)
@@ -110,6 +116,12 @@ func fixture(_ name: String) throws -> Data {
         let source = try #require(web["source"] as? [String: Any])
         #expect(source["type"] as? String == "webpage")
         #expect((source["content"] as? String)?.count == 60_000)
+        #expect(source["html"] == nil)
+
+        let rich = try json(CreateSummaryRequest(source: .webpage(WebpageSource(url: URL(string: "https://a.com")!, title: nil, content: "c", html: "<p><a href=\"https://a.com/x\">x</a></p>", siteName: nil, lang: nil))))
+        #expect((rich["source"] as? [String: Any])?["html"] as? String == "<p><a href=\"https://a.com/x\">x</a></p>")
+        let huge = WebpageSource(url: URL(string: "https://a.com")!, title: nil, content: "c", html: String(repeating: "a", count: WebpageSource.maxHTMLLength + 1), siteName: nil, lang: nil)
+        #expect(huge.html == nil)
 
         let pdf = try json(CreateSummaryRequest(source: .pdf(uploadKey: "uploads/k", filename: "x.pdf", sourceUrl: nil)))
         let pdfSource = try #require(pdf["source"] as? [String: Any])

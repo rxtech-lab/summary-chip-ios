@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "2700"
-   version = "1.7">
+   version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
-      runPostActionsOnFailure = "NO">
+      buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -16,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
-               BuildableName = "summary-chip.app"
+               BuildableName = "Chippy.app"
                BlueprintName = "summary-chip"
                ReferencedContainer = "container:summary-chip.xcodeproj">
             </BuildableReference>
@@ -42,13 +41,12 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      codeCoverageEnabled = "YES"
-      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      codeCoverageEnabled = "YES">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
-            BuildableName = "summary-chip.app"
+            BuildableName = "Chippy.app"
             BlueprintName = "summary-chip"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
@@ -66,8 +64,7 @@
             </BuildableReference>
          </TestableReference>
          <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
+            skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C0651936607A35879DCDFE3F"
@@ -88,8 +85,6 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -106,13 +101,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
-            BuildableName = "summary-chip.app"
+            BuildableName = "Chippy.app"
             BlueprintName = "summary-chip"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -125,13 +118,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "074725B14DD9F84392B5AC8E"
-            BuildableName = "summary-chip.app"
+            BuildableName = "Chippy.app"
             BlueprintName = "summary-chip"
             ReferencedContainer = "container:summary-chip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

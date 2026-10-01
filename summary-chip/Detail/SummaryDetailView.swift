@@ -11,6 +11,7 @@ struct SummaryDetailView: View {
     @State private var showsEditSharing = false
     @State private var showsRegenerate = false
     @State private var showsLocalFile = false
+    @State private var showsSourceText = false
     @State private var confirmsDelete = false
     @State private var didDelete = false
     @State private var savedCount = 0
@@ -53,6 +54,22 @@ struct SummaryDetailView: View {
                         Label("Ask About This", systemImage: "sparkles")
                     }
                     .accessibilityIdentifier("ask-summary")
+                }
+            }
+            if summary.hasSourceMarkdown {
+                ToolbarItem(placement: .summaryTrailing) {
+                    Button { showsSourceText = true } label: {
+                        Label("Source Text", systemImage: "doc.plaintext")
+                    }
+                    .accessibilityIdentifier("summary-source-text")
+                }
+            } else if summary.sourceMarkdownPending {
+                ToolbarItem(placement: .summaryTrailing) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .help("Formatting the source text…")
+                        .accessibilityLabel("Formatting the source text")
+                        .accessibilityIdentifier("summary-source-text-pending")
                 }
             }
             ToolbarItem(placement: .summaryTrailing) {
@@ -106,6 +123,9 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsRegenerate) {
             RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
+        .sheet(isPresented: $showsSourceText) {
+            SourceMarkdownSheet(api: environment.api, summary: summary)
+        }
         .sheet(isPresented: $showsLocalFile) {
             LocalFileSheet(summaryID: summary.id)
         }
@@ -117,9 +137,12 @@ struct SummaryDetailView: View {
                 dismiss()
             }
         }
+        .sensoryFeedback(.impact(weight: .light), trigger: showsSourceText) { _, new in new }
         .sensoryFeedback(.success, trigger: savedCount)
         .sensoryFeedback(.success, trigger: didDelete) { _, new in new }
         .task(id: summary.id) { await refresh() }
+        .task(id: summary.sourceMarkdownPending) { await pollSourceMarkdown() }
+        .sensoryFeedback(.success, trigger: summary.hasSourceMarkdown) { old, new in !old && new }
     }
 
     private func apply(_ updated: Summary) {
@@ -131,6 +154,14 @@ struct SummaryDetailView: View {
     private func saved(_ updated: Summary) {
         apply(updated)
         savedCount += 1
+    }
+
+    /// The server writes the source document after the summary is returned; check back until it lands.
+    private func pollSourceMarkdown() async {
+        while summary.isOwner, summary.sourceMarkdownPending, !summary.hasSourceMarkdown {
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            await refresh()
+        }
     }
 
     private func refresh() async {

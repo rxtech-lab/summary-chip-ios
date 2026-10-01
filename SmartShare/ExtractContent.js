@@ -5,6 +5,7 @@ var ExtractContent = function () {};
 
 ExtractContent.prototype = {
     MAX_LENGTH: 60000,
+    MAX_HTML_LENGTH: 400000,
 
     meta: function (selectors) {
         for (var i = 0; i < selectors.length; i++) {
@@ -28,6 +29,31 @@ ExtractContent.prototype = {
         }
         var text = clone.innerText || clone.textContent || "";
         return text.replace(/[ \t ]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+    },
+
+    // The element's markup with absolute link and image URLs and without scripts or page chrome,
+    // so the kept document has the page's links, images and structure.
+    markupOf: function (root) {
+        var clone = root.cloneNode(true);
+        // Resolve URLs while the clone still mirrors the live tree element for element.
+        var live = root.querySelectorAll("a[href], img");
+        var copies = clone.querySelectorAll("a[href], img");
+        for (var i = 0; i < copies.length; i++) {
+            if (copies[i].tagName === "A") {
+                copies[i].setAttribute("href", live[i].href);
+            } else if (live[i].currentSrc || live[i].src) {
+                copies[i].setAttribute("src", live[i].currentSrc || live[i].src);
+            }
+        }
+        var junk = clone.querySelectorAll(
+            "script, style, noscript, template, svg, canvas, iframe, form, button, nav, aside, footer, " +
+            "[role=navigation], [role=complementary], [aria-hidden=true], .advertisement, .ads, .share, .social, .comments"
+        );
+        for (var j = 0; j < junk.length; j++) {
+            if (junk[j].parentNode) { junk[j].parentNode.removeChild(junk[j]); }
+        }
+        var html = clone.innerHTML || "";
+        return html.length > this.MAX_HTML_LENGTH ? "" : html;
     },
 
     // Picks <article>, [role=main] or <main>; otherwise the element with the most paragraph text.
@@ -67,11 +93,15 @@ ExtractContent.prototype = {
 
     run: function (arguments) {
         var content = "";
+        var html = "";
         try {
-            content = this.textOf(this.mainRoot());
+            var root = this.mainRoot();
+            content = this.textOf(root);
             if (content.length < 200 && document.body) {
-                content = this.textOf(document.body);
+                root = document.body;
+                content = this.textOf(root);
             }
+            html = this.markupOf(root);
         } catch (e) {
             content = document.body ? (document.body.innerText || "") : "";
         }
@@ -84,7 +114,8 @@ ExtractContent.prototype = {
             siteName: this.meta(["meta[property='og:site_name']", "meta[name='application-name']"]),
             lang: (document.documentElement.getAttribute("lang") || "").trim(),
             description: this.meta(["meta[property='og:description']", "meta[name='description']"]),
-            content: content
+            content: content,
+            html: html
         });
     },
 

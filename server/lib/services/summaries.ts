@@ -1,6 +1,8 @@
+import type { LanguageModelUsage } from "ai";
 import { and, asc, desc, eq, inArray, isNotNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
+import { linkToFollow } from "@/lib/ai/shared-link";
 import { normalizeDraft } from "@/lib/ai/summary-schema";
 import { defaultTtlDays, expiresAtFor } from "@/lib/config";
 import {
@@ -25,15 +27,17 @@ import {
   type ExtractedContent,
 } from "@/lib/extract";
 import { extractPdfText } from "@/lib/extract/pdf";
+import { runAfter } from "@/lib/http/after";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateOgImages, type OgImages } from "@/lib/og/generate";
 import { generateSlug } from "@/lib/slug";
+import { reserveDocumentPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
 import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
-import { toSummaryJson, type SummaryJson } from "./serialize";
+import { sourceMarkdownFor, toSummaryJson, type SummaryJson } from "./serialize";
 
 export interface ServiceDeps {
   ai?: AiProvider;
@@ -144,15 +148,76 @@ async function extractPdfUpload(
   };
 }
 
-async function extractSource(db: Database, ownerId: string, input: CreateSummaryInput, store: ObjectStore) {
+/**
+ * Server-side read failures a web view on the user's device may get past: bot walls, geo blocks,
+ * JS-gated pages, and hosts the server refuses to fetch (`URL_NOT_ALLOWED`, e.g. a proxy's fake-IP
+ * DNS). The device loads those on its own network and only sends back the page text.
+ */
+const DEVICE_RETRY_CODES = new Set([
+  "SOURCE_HTTP_ERROR",
+  "SOURCE_UNREACHABLE",
+  "SOURCE_TIMEOUT",
+  "URL_UNREACHABLE",
+  "URL_NOT_ALLOWED",
+  "NO_CONTENT",
+]);
+
+function deviceRetryable(error: unknown): error is ApiError {
+  return error instanceof ApiError && DEVICE_RETRY_CODES.has(error.code);
+}
+
+/** Asks a `deviceReader` client to read the page in its web view and resubmit it as a `webpage` source. */
+function needsDevice(url: string, cause: ApiError): ApiError {
+  return new ApiError(422, "SOURCE_NEEDS_DEVICE", `The page could not be read on the server (${cause.code}); read it on the device`, {
+    url,
+    cause: cause.code,
+  });
+}
+
+/** A URL source: platform extractor, plain fetch and the browser run on the server; the device's web view last. */
+async function extractLink(url: string, deviceReader: boolean): Promise<ExtractedContent> {
+  try {
+    return await extractFromUrl(url);
+  } catch (error) {
+    if (deviceReader && deviceRetryable(error)) throw needsDevice(url, error);
+    throw error;
+  }
+}
+
+/**
+ * Shared text is often a link in disguise ("teaser… https://xhslink.cn/… copy this and open the app").
+ * The evaluation model decides; a link is read like a URL source. When the server cannot read it, a
+ * `deviceReader` client is asked to read it on the device; other clients get the text summarised.
+ */
+async function extractSharedText(
+  ai: AiProvider,
+  source: Extract<CreateSummaryInput["source"], { type: "text" }>,
+  options: { deviceReader: boolean; followLinks: boolean },
+): Promise<ExtractedContent> {
+  const url = options.followLinks ? await linkToFollow(ai, source.text) : null;
+  if (url) {
+    try {
+      return await extractFromUrl(url);
+    } catch (error) {
+      if (options.deviceReader && deviceRetryable(error)) throw needsDevice(url, error);
+      console.warn("[summaries] shared link could not be read; summarising the text instead", error);
+    }
+  }
+  return extractFromText(source);
+}
+
+async function extractSource(db: Database, ownerId: string, input: CreateSummaryInput, store: ObjectStore, ai: AiProvider) {
   const source = input.source;
   switch (source.type) {
     case "url":
-      return { content: await extractFromUrl(source.url), uploadKey: null };
+      return { content: await extractLink(source.url, input.deviceReader === true), uploadKey: null };
     case "webpage":
       return { content: await extractFromWebpage(source), uploadKey: null };
     case "text":
-      return { content: extractFromText(source), uploadKey: null };
+      return { content: await extractSharedText(ai, source, {
+        deviceReader: input.deviceReader === true,
+        followLinks: input.followLinks !== false,
+      }), uploadKey: null };
     case "local":
       return {
         content: { ...extractFromText({ text: source.text, title: source.filename.replace(/\.[^.]+$/, "") }), source: source.kind },
@@ -160,6 +225,73 @@ async function extractSource(db: Database, ownerId: string, input: CreateSummary
       };
     case "pdf":
       return extractPdfUpload(db, ownerId, source, store);
+  }
+}
+
+/** Links, shared pages and text keep their source as Markdown; files from the device only when the owner opts in. */
+export function keepsSourceMarkdown(input: CreateSummaryInput): boolean {
+  switch (input.source.type) {
+    case "url":
+    case "webpage":
+    case "text":
+      return true;
+    case "pdf":
+      return Boolean(input.source.sourceUrl) || input.keepSourceText === true;
+    case "local":
+      return input.keepSourceText === true;
+  }
+}
+
+interface DocumentBilling {
+  userId: string;
+  summaryId: string;
+  environment?: BillingEnvironment;
+  /** The summary came out of the free allowance, which then covers its document too. */
+  coveredByAllowance: boolean;
+}
+
+/**
+ * The source as a formatted Markdown document written by the document agent from the page's markup
+ * (or its text). Billed like the summary it belongs to: free while the summary came out of the free
+ * allowance; past it, points are held first and the agent's tokens charged at the model's API price.
+ * Without points, or when the agent fails (charged nothing), the plain text is kept instead —
+ * plain text is valid Markdown.
+ */
+async function sourceDocument(ai: AiProvider, content: ExtractedContent, billing: DocumentBilling): Promise<string | null> {
+  const text = content.text.trim();
+  if (!text) return null;
+  const plain = text.slice(0, SOURCE_TEXT_LIMIT);
+  let charge: ChatCharge | null = null;
+  try {
+    if (!billing.coveredByAllowance) {
+      charge = await reserveDocumentPoints(billing.userId, billing.summaryId, ai.chatModelId(), billing.environment);
+    }
+  } catch (error) {
+    console.info("[summaries] source document not formatted; keeping the plain text", error instanceof ApiError ? error.code : error);
+    return plain;
+  }
+  const steps: LanguageModelUsage[] = [];
+  const formatted = await ai.formatMarkdown({
+    content: content.html || text,
+    format: content.html ? "html" : "text",
+    title: content.sourceTitle,
+    siteName: content.siteName,
+    sourceUrl: content.sourceUrl,
+    imageUrl: content.imageUrl,
+  }, { onUsage: (usage) => steps.push(usage) });
+  // Only a delivered document is charged; a failed run releases the hold.
+  if (charge) await settleUsage(charge, ai, formatted ? steps : [], { outcome: formatted ? "finished" : "failed" });
+  return formatted ? formatted.slice(0, SOURCE_TEXT_LIMIT) : plain;
+}
+
+/** Runs after the response: the summary is saved and returned before the document is written. */
+async function saveSourceDocument(db: Database, ai: AiProvider, content: ExtractedContent, billing: DocumentBilling): Promise<void> {
+  let contentMarkdown: string | null = null;
+  try {
+    contentMarkdown = await sourceDocument(ai, content, billing);
+  } finally {
+    // Never leave the row pending: no document becomes "not kept".
+    await db.update(summaries).set({ contentMarkdown }).where(eq(summaries.id, billing.summaryId));
   }
 }
 
@@ -179,9 +311,9 @@ export async function createSummary(
   deps?: ServiceDeps,
 ): Promise<SummaryJson> {
   const { ai, store, now } = await resolveDeps(deps);
-  const { content, uploadKey } = await extractSource(db, principal.sub, input, store);
+  const { content, uploadKey } = await extractSource(db, principal.sub, input, store, ai);
   const id = crypto.randomUUID();
-  await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
+  const usage = await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
   const raw = await ai.summarize({
     text: truncateForModel(content.text),
@@ -228,6 +360,8 @@ export async function createSummary(
     sourceFileKey: uploadKey,
     contentExcerpt: storedText.slice(0, EXCERPT_LIMIT),
     contentText: storedText.slice(0, SOURCE_TEXT_LIMIT),
+    // "" = the document agent is writing it (see `isSourceMarkdownPending`); null = not kept.
+    contentMarkdown: keepsSourceMarkdown(input) ? "" : null,
     title: draft.title,
     summary: draft.summary,
     highlights: draft.highlights,
@@ -259,6 +393,15 @@ export async function createSummary(
           : []),
       ]);
       await saveSummaryEmbedding(db, id, await embedding);
+      // The document agent works after the response: free with an allowance summary, else on points.
+      if (keepsSourceMarkdown(input)) {
+        runAfter(() => saveSourceDocument(db, ai, content, {
+          userId: principal.sub,
+          summaryId: id,
+          environment: deps?.billingEnvironment,
+          coveredByAllowance: usage.chargedUnits === 0,
+        }));
+      }
       return toSummaryJson(row, principal.sub);
     } catch (error) {
       if (isSlugConflict(error) && attempt < 3) continue;
@@ -553,6 +696,12 @@ export async function regenerateImage(
   await db.update(summaries).set(changes).where(eq(summaries.id, existing.id));
   await deleteObjects(store, [existing.ogImageKey, existing.artImageKey].filter((key) => key !== keys.ogImageKey && key !== keys.artImageKey));
   return toSummaryJson({ ...existing, ...changes }, ownerId);
+}
+
+export async function getSourceMarkdown(db: Database, id: string, viewerId: string): Promise<{ markdown: string }> {
+  const markdown = sourceMarkdownFor(await getSummaryForViewer(db, id, viewerId), viewerId);
+  if (markdown === null) throw new ApiError(404, "SOURCE_NOT_KEPT", "The source text was not kept for this summary");
+  return { markdown };
 }
 
 export async function incrementViewCount(db: Database, id: string): Promise<void> {

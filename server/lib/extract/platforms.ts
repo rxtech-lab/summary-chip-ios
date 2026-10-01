@@ -64,6 +64,8 @@ export interface PlatformExtraction {
   title: string | null;
   siteName: string;
   imageUrl: string | null;
+  /** Markup with the content's links and images, when the platform provides it. */
+  html?: string | null;
 }
 
 /**
@@ -90,6 +92,8 @@ async function extractXPost(url: string): Promise<PlatformExtraction | null> {
   const embed = await fetchJson(endpoint) as { html?: string; author_name?: string };
   if (!embed.html) return null;
   const { document } = parseHTML(`<html><body>${embed.html}</body></html>`) as unknown as { document: Document };
+  // The embed's blockquote: the post with its links, then "— Author (@handle) date" linking to it.
+  const html = document.querySelector("blockquote")?.innerHTML ?? null;
   const post = document.querySelector("blockquote p");
   for (const br of post?.querySelectorAll("br") ?? []) br.replaceWith("\n");
   const text = normalizeWhitespace(post?.textContent ?? "");
@@ -100,6 +104,7 @@ async function extractXPost(url: string): Promise<PlatformExtraction | null> {
     title: author ? `${author} on X` : null,
     siteName: "X",
     imageUrl: null,
+    html,
   };
 }
 

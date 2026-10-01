@@ -210,7 +210,7 @@ public struct SummaryInputPreview: View {
         case .text(let text, _):
             return "\(text.count.formatted()) characters of text"
         case .localFile(let file):
-            return "\(file.kind == .pdf ? "PDF" : "Text file") · \(file.text.count.formatted()) characters read on this device"
+            return "\(file.typeLabel) · \(file.text.count.formatted()) characters read on this device"
         }
     }
 }

@@ -1,5 +1,6 @@
 import { createGateway, type GatewayProvider } from "@ai-sdk/gateway";
-import type { EmbeddingModel, ImageModel, LanguageModel } from "ai";
+import type { ModelPricing } from "./provider";
+import type { EmbeddingModel, Experimental_EvaluationModel, ImageModel, LanguageModel } from "ai";
 
 let provider: GatewayProvider | undefined;
 
@@ -18,6 +19,46 @@ export function textModelId(): string {
 
 export function textModel(): LanguageModel {
   return gateway()(textModelId());
+}
+
+const PRICING_TTL_MS = 60 * 60 * 1000;
+let pricingCache: { at: number; prices: Map<string, ModelPricing> } | undefined;
+
+/** A language model's API list price from the Gateway catalog (cached for an hour), or null when unlisted. */
+export async function textModelPricing(id: string): Promise<ModelPricing | null> {
+  if (!pricingCache || Date.now() - pricingCache.at > PRICING_TTL_MS) {
+    const { models } = await gateway().getAvailableModels();
+    const prices = new Map<string, ModelPricing>();
+    for (const model of models) {
+      const input = Number(model.pricing?.input);
+      const output = Number(model.pricing?.output);
+      if (!Number.isFinite(input) || !Number.isFinite(output)) continue;
+      const cachedInput = Number(model.pricing?.cachedInputTokens);
+      const cacheWrite = Number(model.pricing?.cacheCreationInputTokens);
+      prices.set(model.id, {
+        input,
+        output,
+        ...(Number.isFinite(cachedInput) && model.pricing?.cachedInputTokens ? { cachedInput } : {}),
+        ...(Number.isFinite(cacheWrite) && model.pricing?.cacheCreationInputTokens ? { cacheWrite } : {}),
+      });
+    }
+    pricingCache = { at: Date.now(), prices };
+  }
+  return pricingCache.prices.get(id) ?? null;
+}
+
+/** Default evaluation model that decides whether shared text is really a link (AI Gateway id). */
+export const DEFAULT_EVALUATION_MODEL = "typesafe-ai/jev";
+
+/** Evaluation model id (`AI_EVALUATION_MODEL`); `off` disables it, so text that mixes prose and a URL is summarised as text. */
+export function evaluationModelId(): string | null {
+  const configured = process.env.AI_EVALUATION_MODEL?.trim();
+  if (configured && /^(off|none|false)$/i.test(configured)) return null;
+  return configured || DEFAULT_EVALUATION_MODEL;
+}
+
+export function evaluationModel(id: string): Experimental_EvaluationModel {
+  return gateway().evaluationModel(id);
 }
 
 /** Default embedding model for natural-language search (AI Gateway id). */

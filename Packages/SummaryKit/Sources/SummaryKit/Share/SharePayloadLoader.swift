@@ -59,6 +59,7 @@ public enum ShareClassifier {
                         url: pageURL,
                         title: nonEmpty(results["title"]),
                         content: content,
+                        html: nonEmpty(results["html"]),
                         siteName: nonEmpty(results["siteName"]),
                         lang: nonEmpty(results["lang"])
                     ))
@@ -153,6 +154,13 @@ public enum SharePayloadLoader {
                 let suggestedExtension = provider.suggestedName.map { URL(fileURLWithPath: $0).pathExtension.lowercased() }
                 if let textType, provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) || textType != UTType.plainText.identifier || ["txt", "md", "markdown"].contains(suggestedExtension ?? "") {
                     let file = try await copyFile(from: provider, typeIdentifier: textType)
+                    raw.localFile = file
+                    raw.localFilename = provider.suggestedName ?? file.lastPathComponent
+                    raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)
+                } else if let suggestedExtension, LocalDocument.isReadable(extension: suggestedExtension),
+                          let documentType = provider.registeredTypeIdentifiers.first(where: { LocalDocument.isReadable(typeIdentifier: $0) }) {
+                    // A named attachment (Mail, Messages…) such as an RTF, Word or code file.
+                    let file = try await copyFile(from: provider, typeIdentifier: documentType)
                     raw.localFile = file
                     raw.localFilename = provider.suggestedName ?? file.lastPathComponent
                     raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)

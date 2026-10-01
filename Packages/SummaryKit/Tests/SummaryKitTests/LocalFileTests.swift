@@ -152,6 +152,46 @@ struct LocalFileTests {
         #expect(throws: LocalDocumentError.self) { try LocalDocument.read(fileURL: blank) }
     }
 
+    @Test func readsCodeAndStructuredTextFiles() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        for (name, contents) in [
+            ("main.swift", "print(\"hello\")"), ("app.ts", "export const a = 1"), ("config.yaml", "key: value"),
+            ("data.json", "{\"a\": 1}"), ("table.csv", "a,b\n1,2"), ("Makefile", "all:\n\techo hi"),
+        ] {
+            let file = root.appending(path: name)
+            try Data(contents.utf8).write(to: file)
+            let document = try LocalDocument.read(fileURL: file)
+            #expect(document.kind == .text)
+            #expect(document.text == contents)
+        }
+        #expect(LocalDocument.isReadable(extension: "ts"))
+        #expect(!LocalDocument.isReadable(extension: "zip"))
+    }
+
+    @Test func readsRichTextAsPlainText() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appending(path: "Letter.rtf")
+        let rich = NSAttributedString(string: "Dear team, the launch moved to Friday.")
+        let data = try rich.data(from: NSRange(location: 0, length: rich.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
+        try data.write(to: file)
+        let document = try LocalDocument.read(fileURL: file)
+        #expect(document.text == "Dear team, the launch moved to Friday.")
+        #expect(!document.typeLabel.isEmpty)
+    }
+
+    @Test func rejectsBinaryFilesWithoutAKnownType() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let binary = root.appending(path: "blob.bin")
+        try Data([0x89, 0x00, 0x01, 0x02, 0xFF]).write(to: binary)
+        #expect(throws: LocalDocumentError.self) { try LocalDocument.read(fileURL: binary) }
+        let notes = root.appending(path: "NOTES")
+        try Data("Plain notes without an extension".utf8).write(to: notes)
+        #expect(try LocalDocument.read(fileURL: notes).text == "Plain notes without an extension")
+    }
+
     @Test func readsTheLinkedFileForChat() throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

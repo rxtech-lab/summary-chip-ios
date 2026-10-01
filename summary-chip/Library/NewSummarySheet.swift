@@ -37,6 +37,7 @@ private struct NewSummaryResult: View {
     let environment: AppEnvironment
     let summary: Summary
     let onDone: () -> Void
+    @State private var showsDiscard = false
 
     var body: some View {
         List {
@@ -50,6 +51,20 @@ private struct NewSummaryResult: View {
                 NavigationLink(value: summary) {
                     Label("View summary", systemImage: "doc.text")
                 }
+            }
+            Section {
+                Button(role: .destructive) {
+                    showsDiscard = true
+                } label: {
+                    Label("Not right? Discard…", systemImage: "trash")
+                }
+                .accessibilityIdentifier("discard-new-summary")
+            }
+        }
+        .sheet(isPresented: $showsDiscard) {
+            DiscardSummarySheet(api: environment.api, summary: summary, offersSafari: true) {
+                environment.library.remove(id: summary.id)
+                onDone()
             }
         }
         .navigationDestination(for: Summary.self) { summary in

@@ -74,6 +74,35 @@ a new user retry is a new attempt.
 Unconfigured local development may skip metering. Production and partially
 configured servers fail closed, as do service outages and unknown usage items.
 
+### Chat points
+
+Chat (`POST /api/v1/chat`) has no free allowance; every turn spends `points` at the
+chat model's **API list price**. Before the model runs, the server reserves 1 point
+(`POST /api/v1/balances/reserve`); an empty balance is refused with
+`402 CHAT_POINTS_EXHAUSTED`, which the app answers with its top-up sheet. When the
+stream ends (finished, failed or the client hung up), the input, cached-input and
+output tokens of every step, tool rounds included, are priced from the AI Gateway
+model catalog. That cost is converted at `CHAT_POINTS_PER_USD` (default **50**, which
+matches 100 points for US$1.99), rounded up to whole points, and settled against the
+reservation. The model id is the ledger description. Cost above the hold is taken from
+the free balance; whatever that can't cover is logged as a shortfall, not an error.
+A model with no listed price is charged the 1-point minimum. Embedding calls made by
+the search tool are not charged. Chat uses the same billing environment headers as
+generation. Unconfigured local development skips chat billing.
+
+### Source document points
+
+Keeping a summary's source (links, shared text, opted-in local files) runs the document
+agent, which reformats the source as a Markdown document. It is billed like the summary
+it belongs to: the free allowance is used first, then points. While the summary comes
+out of the free allowance (`chargedUnits: 0` from the usage API) the document is
+included at no cost. Past the allowance, once the summary is saved, the server reserves
+1 point under `document:<summaryId>`, runs the agent after the response, and settles
+every agent step's tokens at the text model's API price (`CHAT_POINTS_PER_USD`).
+With an empty balance (or billing unreachable) the agent does not run and the plain
+extracted text is kept instead; the summary itself never fails for this. A failed
+agent run releases the hold (0 points).
+
 ## Layout
 
 ```
@@ -154,6 +183,12 @@ have `sub`, `exp` and a `client_id` in `IOS_OAUTH_CLIENT_ID` / `RXLAB_ALLOWED_CL
 
 `AI_MODEL` defaults to `openai/gpt-5-mini` through the Vercel AI Gateway. On Vercel, OIDC authenticates
 the gateway automatically; elsewhere set `AI_GATEWAY_API_KEY` (`AI_GATEWAY_KEY` is accepted too).
+
+Text sources that contain a URL first go through an evaluation model (`AI_EVALUATION_MODEL`, default
+`typesafe-ai/jev`) that decides whether the text is really a shared link — e.g. a Xiaohongshu share
+snippet "teaser… https://xhslink.cn/… 先复制文字，再进【小红书】…". Links are fetched like a `url` source
+(falling back to the text if the page cannot be read); everything else is summarised as text. Text
+without a URL skips the evaluation, and `AI_EVALUATION_MODEL=off` always summarises the text.
 
 Set `AI_IMAGE_MODEL` (e.g. `google/gemini-3.1-flash-lite-image`) to enable `imageStyle: "illustration"`.
 Gemini image models are language models on the Gateway, so they are called with `generateText` and the

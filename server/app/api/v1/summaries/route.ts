@@ -6,7 +6,8 @@ import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 /** Extraction + two model calls + OG rendering; the contract allows up to ~90 s. */
-export const maxDuration = 120;
+/** The summary is returned within ~90 s; the document agent keeps the function alive after the response (`after`). */
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   return withApiAuth(request, async ({ principal, db }) => {

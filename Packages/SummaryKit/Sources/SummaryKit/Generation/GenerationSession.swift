@@ -56,6 +56,8 @@ public final class GenerationSession {
     public private(set) var state: State = .idle
     public private(set) var stages: [GenerationStage] = []
     public private(set) var needsTopUp = false
+    /// Set when neither the server nor the device could read the link; the UI offers Safari + the share extension.
+    public var unreadablePage: UnreadablePageError?
     private var task: Task<Void, Never>?
 
     public init() {}
@@ -70,9 +72,16 @@ public final class GenerationSession {
         return false
     }
 
-    public func start(input: SummaryInput, options: GenerationOptions, api: SummaryAPIClient, onFinish: (@MainActor (Summary) -> Void)? = nil) {
+    public func start(
+        input: SummaryInput,
+        options: GenerationOptions,
+        api: SummaryAPIClient,
+        followLinks: Bool = true,
+        onFinish: (@MainActor (Summary) -> Void)? = nil
+    ) {
         task?.cancel()
         needsTopUp = false
+        unreadablePage = nil
         let isPDF: Bool = if case .pdf = input { true } else { false }
         stages = isPDF ? GenerationStage.allCases : GenerationStage.allCases.filter { $0 != .uploading }
         state = .generating(stages[0])
@@ -82,7 +91,7 @@ public final class GenerationSession {
             }
             defer { ticker.cancel() }
             do {
-                let summary = try await api.createSummary(from: input, options: options) {
+                let summary = try await api.createSummary(from: input, options: options, followLinks: followLinks) {
                     Task { @MainActor in self.uploadFinished() }
                 }
                 guard !Task.isCancelled else { return }
@@ -92,6 +101,10 @@ public final class GenerationSession {
                 self.state = .idle
             } catch let error as URLError where error.code == .cancelled {
                 self.state = .idle
+            } catch let error as UnreadablePageError {
+                guard !Task.isCancelled else { return }
+                self.state = .idle
+                self.unreadablePage = error
             } catch {
                 guard !Task.isCancelled else { return }
                 self.state = .failed(error.localizedDescription)
@@ -105,6 +118,7 @@ public final class GenerationSession {
         task = nil
         state = .idle
         needsTopUp = false
+        unreadablePage = nil
     }
 
     public func reset() { cancel() }

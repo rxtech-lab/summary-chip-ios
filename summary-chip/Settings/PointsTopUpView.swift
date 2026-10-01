@@ -57,6 +57,10 @@ struct PointsTopUpView: View {
         return Form {
             Section {
                 balance
+                NavigationLink(value: CreditsRoute.usage) {
+                    Label("Usage & Activity", systemImage: "chart.bar.doc.horizontal")
+                }
+                .accessibilityIdentifier("topup-usage")
             }
             Section {
                 if available.isEmpty {

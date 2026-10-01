@@ -47,6 +47,8 @@ final class ChatModel {
     let summaryID: String?
     private(set) var entries: [ChatEntry] = []
     private(set) var isStreaming = false
+    /// The last turn was refused because the points balance is empty.
+    var needsTopUp = false
     var draft = ""
     private var task: Task<Void, Never>?
 
@@ -113,6 +115,7 @@ final class ChatModel {
             finish(id)
         } catch {
             update(id) { $0.errorText = error.localizedDescription }
+            needsTopUp = (error as? SummaryAPIError)?.needsTopUp == true
             finish(id)
         }
     }

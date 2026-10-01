@@ -11,7 +11,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SPARKLE_BIN="${SPARKLE_BIN:-output/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin}"
-APP_PATH="${APP_PATH:-output/output.xcarchive/Products/Applications/summary-chip.app}"
+APP_PATH="${APP_PATH:-output/output.xcarchive/Products/Applications/Chippy.app}"
 ARCHIVE="${ARCHIVE:-SummaryChip.dmg}"
 PAGES_DIR="${PAGES_DIR:-output/pages}"
 DOWNLOAD_PREFIX="https://github.com/rxtech-lab/summary-chip-ios/releases/download/$VERSION/"
