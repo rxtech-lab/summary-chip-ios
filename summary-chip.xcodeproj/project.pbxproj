@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
 		07AC26FBE6AFDDDD4A9309E0 /* ChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4588BFD6242B1A98762EE95A /* ChatModel.swift */; };
 		09C2FBBB2E256DC3F02926E6 /* NewSummarySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5037737C6041899B8B79A7 /* NewSummarySheet.swift */; };
 		0FA006E202C2548060232A91 /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 11A91FEC1A6F21A06E07AA2E /* SummaryKit */; };
@@ -15,37 +16,53 @@
 		1909FE48CBED1DE162A19E88 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC562F4A3D8B71669C2B33C1 /* SettingsView.swift */; };
 		19B7243C5CEB2A7D0242155D /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = F555DBD78086D9C62E285E87 /* SummaryKit */; };
 		21E2195D46C3BF1735DF6D8B /* SearchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C721ECFE4AC6D1EF900AB9 /* SearchModel.swift */; };
+		22F7D6FDADECC8171085859D /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4388AC2CF0362595F12AEC13 /* SummaryKit */; };
 		24C9CECA4D726593173DCFBE /* SummaryClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B84E923A855F2411ED924CCF /* SummaryClipApp.swift */; };
 		3E0FE6EEC3187F91C800BD86 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8ABE31F705BC142E5E1193 /* SearchView.swift */; };
 		424A12D0163ACF77D58CABAB /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E23BC2AD4A0B46589FE56D /* ShareViewController.swift */; };
 		48ADE2311CA187EBF26B3CF2 /* RegenerateImageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE0F86CDD1B888CD6C1286CC /* RegenerateImageSheet.swift */; };
 		495765FDE07A3224145D93F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48C15FBF5AEB32C5AFB00F46 /* Assets.xcassets */; };
 		50EFF8AAC646DB16E7B14324 /* DeleteAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8990A30BA1DCA8C0ECC64696 /* DeleteAccountSheet.swift */; };
+		534BD288187C9377E60840BF /* ShareRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB98BA73AD0207559C1B2880 /* ShareRootView.swift */; };
 		54FD4F89EB16B939F19753F2 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C5A7BD4177CFC47C1133D8 /* AppEnvironment.swift */; };
-		56BCE2626B1299876784CC29 /* SmartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8A7EB71A4033CCF6F9924D43 /* SmartShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		56BCE2626B1299876784CC29 /* SmartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8A7EB71A4033CCF6F9924D43 /* SmartShare.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		5A25BAE3EAA4F6550594912B /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 63CDA77E22315A3ADD826569 /* SummaryKit */; };
 		5C8670F5BF85C9C6B4C43746 /* ShareRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB98BA73AD0207559C1B2880 /* ShareRootView.swift */; };
+		60A2000FA31ED016A852F1AA /* AddSummaryIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43AF207A8CA79F42701645A5 /* AddSummaryIntent.swift */; };
 		6245E7659A7B669FF924F01E /* RxAgentSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 0FE3F13DD96921ABCB95E616 /* RxAgentSDK */; };
 		63ED9CADB337F3F1B731BF21 /* RxAuthSwift in Frameworks */ = {isa = PBXBuildFile; productRef = C3E053CEEE6458CFBB73CF5F /* RxAuthSwift */; };
 		6465045F3A723809A6034763 /* MessagesState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB6D008DA55CA83DC9BC51D7 /* MessagesState.swift */; };
+		64EECC83B53693A3DB863401 /* OnboardingPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B38F74CB6F8F78C4208382A3 /* OnboardingPreviewHost.swift */; };
+		65EB62242191EC7963D963BB /* SummaryEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2B653216E19F14C5C929DE /* SummaryEntity.swift */; };
 		6804B7866B54BD10DD228349 /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6822ED2109A78D8B28A3FC64 /* SummaryKit */; };
-		6813F9AAB7C910B54CCBD206 /* SummaryMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD3F719D42564B011442D1ED /* SummaryMessages.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		6813F9AAB7C910B54CCBD206 /* SummaryMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD3F719D42564B011442D1ED /* SummaryMessages.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6D261F0E31550608C2D7E2AF /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */; };
+		6DC4FB5B68F8F16C4946EC96 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
+		6F18E52153EF0996C902F591 /* SidebarMainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3BEF1E33587044768939C6 /* SidebarMainView.swift */; };
 		79A04458D9B574AFAF37B4AC /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2719F635F4138E9669D90258 /* MessagesViewController.swift */; };
+		7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */; };
 		7E9967902150357183A256C2 /* RxAuthTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3649A0D60A27E6BD17E2B7C9 /* RxAuthTokenStorage.swift */; };
 		893B5871A8F982BCFD40F967 /* ExtractContent.js in Resources */ = {isa = PBXBuildFile; fileRef = 9AC23984BF62F18E1422516D /* ExtractContent.js */; };
 		8976A186C3D9EB8EC5D89CE0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 461F7DAA9C01959AA9C1DEA7 /* Assets.xcassets */; };
-		8BD88CA121DFAC4A493DB0F8 /* SummaryClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 78E978AC841B95E739942449 /* SummaryClip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8A5DC833C29F1812C18023E6 /* DeleteSummarySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */; };
+		8BD88CA121DFAC4A493DB0F8 /* SummaryClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 78E978AC841B95E739942449 /* SummaryClip.app */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9A2556677B57023C7F0F31B0 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FF456F2C5EBA0F4D915B8D /* LegalDocumentView.swift */; };
 		9C543B84D7077B898C8F8BEF /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6EDD0A7C7072436E8022984E /* SummaryKit */; };
 		A40212A0F93F0C25157C5FE2 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BDDEFD839800D2C35B62FE /* ChatView.swift */; };
+		AC2DE7F7EDCB47315AD79606 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */; };
+		B1BC6022D2C4D620A1231FEC /* MacNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D792DE88E3418D7C22711EFD /* MacNavigationUITests.swift */; };
+		BAAAEC84F2D3164611AC1E52 /* MacSmartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 207AD4DD35A45CC6AB7F07BE /* MacSmartShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C07D0758570700338E8522EC /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834E013F2DE722C876CEECE6 /* LibraryView.swift */; };
 		D1D89311EAABA67AD85C8E08 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E609377E0001FA5CE8BCF217 /* ContentView.swift */; };
 		D1FB09FBAFDC7C6777F9FDCE /* RxAuthSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 06D2168CDC6040D086418B16 /* RxAuthSwiftUI */; };
+		D510AA3203CABD08A01F4A44 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D3FE4C76685F4031C0720C1 /* ShareViewController.swift */; };
 		D617A241D43F8BBD1AE22B28 /* AppRouteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966BD9AAC4D5E170088B47FB /* AppRouteTests.swift */; };
+		D68A99185E64B4485E123128 /* AppRouteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966BD9AAC4D5E170088B47FB /* AppRouteTests.swift */; };
 		DD67A328AA32E34C1E031B7E /* EditSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */; };
 		DF2971619974BD0EC0DC35BC /* LibraryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23C89ED2552FEF380370664 /* LibraryModel.swift */; };
 		E96DD2B37FEB0C38ACD0CCDE /* MessagesRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A141BAA3550BC60119519E0 /* MessagesRootView.swift */; };
+		EDAE4DEC11C7A9045FA20F8A /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1A04265F3EF7F1DB32E291B8 /* SummaryKit */; };
+		EFCF987D16C9284E32F118D9 /* SummaryOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E2F173E5CB0115A6D21263 /* SummaryOnboarding.swift */; };
 		F591706DAEF2D2F359DF9AA5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5420C0D585DD5D87099BD561 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -63,6 +80,34 @@
 			proxyType = 1;
 			remoteGlobalIDString = 3DA1D3483E4E2D149FFD9C33;
 			remoteInfo = SmartShare;
+		};
+		4D6A68E715FBC8566FE89FB4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 801A963E414959C846475E9C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 074725B14DD9F84392B5AC8E;
+			remoteInfo = "summary-chip";
+		};
+		75C40E569C5DAA1455341656 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 801A963E414959C846475E9C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 074725B14DD9F84392B5AC8E;
+			remoteInfo = "summary-chip";
+		};
+		86FBC921E29A255BDF1634D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 801A963E414959C846475E9C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 074725B14DD9F84392B5AC8E;
+			remoteInfo = "summary-chip";
+		};
+		9B8F14E661A827A6EC9A011E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 801A963E414959C846475E9C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 57BFD918634C4CD6F5E68E9A;
+			remoteInfo = MacSmartShare;
 		};
 		F25354611A6E53FBB8085863 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -87,6 +132,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				BAAAEC84F2D3164611AC1E52 /* MacSmartShare.appex in Embed Foundation Extensions */,
 				56BCE2626B1299876784CC29 /* SmartShare.appex in Embed Foundation Extensions */,
 				6813F9AAB7C910B54CCBD206 /* SummaryMessages.appex in Embed Foundation Extensions */,
 			);
@@ -107,49 +153,62 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		05E60C2FF964AEEACE0C60B0 /* summary-chip.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "summary-chip.entitlements"; sourceTree = "<group>"; };
+		096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		15EC783A2AE36D6B2435F648 /* SummaryClip.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SummaryClip.entitlements; sourceTree = "<group>"; };
+		1D3FE4C76685F4031C0720C1 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		206F644FC8C1A8EC90F71BAB /* summary-chipUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "summary-chipUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		207AD4DD35A45CC6AB7F07BE /* MacSmartShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacSmartShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		2719F635F4138E9669D90258 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
 		30BDDEFD839800D2C35B62FE /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		34E23BC2AD4A0B46589FE56D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		3649A0D60A27E6BD17E2B7C9 /* RxAuthTokenStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RxAuthTokenStorage.swift; sourceTree = "<group>"; };
 		3B5037737C6041899B8B79A7 /* NewSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSummarySheet.swift; sourceTree = "<group>"; };
+		43AF207A8CA79F42701645A5 /* AddSummaryIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSummaryIntent.swift; sourceTree = "<group>"; };
 		4588BFD6242B1A98762EE95A /* ChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModel.swift; sourceTree = "<group>"; };
 		461F7DAA9C01959AA9C1DEA7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		48C15FBF5AEB32C5AFB00F46 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49DEBDFA453941E2776E7D5C /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		5420C0D585DD5D87099BD561 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5552B84AE3E5A171F08537D7 /* summary-chip-macOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "summary-chip-macOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5782EBFD2551E11B613425D7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5A141BAA3550BC60119519E0 /* MessagesRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesRootView.swift; sourceTree = "<group>"; };
+		68429BF50AB673F99BD22181 /* summary-chip-macOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "summary-chip-macOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		69E2F173E5CB0115A6D21263 /* SummaryOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryOnboarding.swift; sourceTree = "<group>"; };
 		6BD9E4F3CA762BE9EAB67977 /* SmartShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SmartShare.entitlements; sourceTree = "<group>"; };
-		78E978AC841B95E739942449 /* SummaryClip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SummaryClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		78E978AC841B95E739942449 /* SummaryClip.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SummaryClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79E0B144D599007182517D3F /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
 		811FEE4196320CFF19F89016 /* SummaryKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SummaryKit; path = Packages/SummaryKit; sourceTree = SOURCE_ROOT; };
 		82FF456F2C5EBA0F4D915B8D /* LegalDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocumentView.swift; sourceTree = "<group>"; };
 		834E013F2DE722C876CEECE6 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		886A9B63B05F64D3BB5CD9C7 /* SummaryChipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryChipApp.swift; sourceTree = "<group>"; };
 		8990A30BA1DCA8C0ECC64696 /* DeleteAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountSheet.swift; sourceTree = "<group>"; };
-		8A7EB71A4033CCF6F9924D43 /* SmartShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SmartShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A7EB71A4033CCF6F9924D43 /* SmartShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SmartShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8C2B653216E19F14C5C929DE /* SummaryEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryEntity.swift; sourceTree = "<group>"; };
 		966BD9AAC4D5E170088B47FB /* AppRouteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouteTests.swift; sourceTree = "<group>"; };
 		99C5A7BD4177CFC47C1133D8 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		9AC23984BF62F18E1422516D /* ExtractContent.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ExtractContent.js; sourceTree = "<group>"; };
 		A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
-		A99C70DDA9BAB2EBE1AA3AE8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EducationSheet.swift; sourceTree = "<group>"; };
+		A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteSummarySheet.swift; sourceTree = "<group>"; };
 		AB6D008DA55CA83DC9BC51D7 /* MessagesState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesState.swift; sourceTree = "<group>"; };
-		AD3F719D42564B011442D1ED /* SummaryMessages.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SummaryMessages.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AD3F719D42564B011442D1ED /* SummaryMessages.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SummaryMessages.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B38F74CB6F8F78C4208382A3 /* OnboardingPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPreviewHost.swift; sourceTree = "<group>"; };
 		B3C721ECFE4AC6D1EF900AB9 /* SearchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModel.swift; sourceTree = "<group>"; };
 		B84E923A855F2411ED924CCF /* SummaryClipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryClipApp.swift; sourceTree = "<group>"; };
 		BB98BA73AD0207559C1B2880 /* ShareRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareRootView.swift; sourceTree = "<group>"; };
 		BFFF385C09123668D86580C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		CB465ADF91B8E1FFEEE5481E /* summary-chip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "summary-chip.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB465ADF91B8E1FFEEE5481E /* summary-chip.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "summary-chip.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEB5132C7978ED27932F184E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		D2712A65E7CF363EB34301B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D6EBCB13481C544DB8725F26 /* SummaryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryDetailView.swift; sourceTree = "<group>"; };
+		D792DE88E3418D7C22711EFD /* MacNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacNavigationUITests.swift; sourceTree = "<group>"; };
 		D9A5E8F073526687A02D6056 /* SummaryMessages.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SummaryMessages.entitlements; sourceTree = "<group>"; };
 		DE0F86CDD1B888CD6C1286CC /* RegenerateImageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegenerateImageSheet.swift; sourceTree = "<group>"; };
 		E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditSharingSheet.swift; sourceTree = "<group>"; };
 		E23C89ED2552FEF380370664 /* LibraryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryModel.swift; sourceTree = "<group>"; };
-		E5C7A50B0BADA166520D08F2 /* summary-chipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "summary-chipTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5C7A50B0BADA166520D08F2 /* summary-chipTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "summary-chipTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E609377E0001FA5CE8BCF217 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		EF3BEF1E33587044768939C6 /* SidebarMainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarMainView.swift; sourceTree = "<group>"; };
 		FA8ABE31F705BC142E5E1193 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		FC562F4A3D8B71669C2B33C1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -198,6 +257,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C612CA151A6D0CD79C01E510 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				22F7D6FDADECC8171085859D /* SummaryKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D3387D9A43DB06DE2A5014EB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EDAE4DEC11C7A9045FA20F8A /* SummaryKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -207,14 +282,15 @@
 				31FC35F51217D5667A87C453 /* Auth */,
 				DE26DEEE8B39F0D3F83D53CA /* Chat */,
 				94B8E5BCE68F97A5C8C6520A /* Detail */,
+				9D8331A74A3CA96AFA643D09 /* Intents */,
 				AC6E376587C95424EC5E504B /* Library */,
+				E3BD2A42BFABD5159A700B4A /* Onboarding */,
 				5DC5FB6857E837DA55909EF3 /* Search */,
 				17E58B455690B814026BF8CE /* Settings */,
 				99C5A7BD4177CFC47C1133D8 /* AppEnvironment.swift */,
 				48C15FBF5AEB32C5AFB00F46 /* Assets.xcassets */,
 				E609377E0001FA5CE8BCF217 /* ContentView.swift */,
-				A99C70DDA9BAB2EBE1AA3AE8 /* Info.plist */,
-				05E60C2FF964AEEACE0C60B0 /* summary-chip.entitlements */,
+				EF3BEF1E33587044768939C6 /* SidebarMainView.swift */,
 				886A9B63B05F64D3BB5CD9C7 /* SummaryChipApp.swift */,
 			);
 			path = "summary-chip";
@@ -265,9 +341,13 @@
 		442BC7D43A97E82892DFF194 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				207AD4DD35A45CC6AB7F07BE /* MacSmartShare.appex */,
 				8A7EB71A4033CCF6F9924D43 /* SmartShare.appex */,
+				68429BF50AB673F99BD22181 /* summary-chip-macOSTests.xctest */,
+				5552B84AE3E5A171F08537D7 /* summary-chip-macOSUITests.xctest */,
 				CB465ADF91B8E1FFEEE5481E /* summary-chip.app */,
 				E5C7A50B0BADA166520D08F2 /* summary-chipTests.xctest */,
+				206F644FC8C1A8EC90F71BAB /* summary-chipUITests.xctest */,
 				78E978AC841B95E739942449 /* SummaryClip.app */,
 				AD3F719D42564B011442D1ED /* SummaryMessages.appex */,
 			);
@@ -287,14 +367,25 @@
 			isa = PBXGroup;
 			children = (
 				84AE61106DC79CB5969E6DEE /* Configuration */,
+				825F45802CE2D3382A42C2E3 /* MacSmartShare */,
 				FBC87D14208A22C2023D7405 /* Packages */,
 				EB7BEBAC3E125F94007AFA10 /* SmartShare */,
 				16EB25BDCB72CDE2E5336ED2 /* summary-chip */,
+				A932AE420A5952EA0BFE1939 /* summary-chipMacUITests */,
 				F4D6C2F4F8C2BBDBBF47482A /* summary-chipTests */,
+				FBD585CEDFA780533EBA7281 /* summary-chipUITests */,
 				3C0E0CDD5D6264019F8B438E /* SummaryClip */,
 				1D73C008D42357D07364455E /* SummaryMessages */,
 				442BC7D43A97E82892DFF194 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		825F45802CE2D3382A42C2E3 /* MacSmartShare */ = {
+			isa = PBXGroup;
+			children = (
+				1D3FE4C76685F4031C0720C1 /* ShareViewController.swift */,
+			);
+			path = MacSmartShare;
 			sourceTree = "<group>";
 		};
 		84AE61106DC79CB5969E6DEE /* Configuration */ = {
@@ -309,11 +400,29 @@
 		94B8E5BCE68F97A5C8C6520A /* Detail */ = {
 			isa = PBXGroup;
 			children = (
+				A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */,
 				E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */,
 				DE0F86CDD1B888CD6C1286CC /* RegenerateImageSheet.swift */,
 				D6EBCB13481C544DB8725F26 /* SummaryDetailView.swift */,
 			);
 			path = Detail;
+			sourceTree = "<group>";
+		};
+		9D8331A74A3CA96AFA643D09 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				43AF207A8CA79F42701645A5 /* AddSummaryIntent.swift */,
+				8C2B653216E19F14C5C929DE /* SummaryEntity.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
+		A932AE420A5952EA0BFE1939 /* summary-chipMacUITests */ = {
+			isa = PBXGroup;
+			children = (
+				D792DE88E3418D7C22711EFD /* MacNavigationUITests.swift */,
+			);
+			path = "summary-chipMacUITests";
 			sourceTree = "<group>";
 		};
 		AC6E376587C95424EC5E504B /* Library */ = {
@@ -336,6 +445,16 @@
 			path = Chat;
 			sourceTree = "<group>";
 		};
+		E3BD2A42BFABD5159A700B4A /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */,
+				B38F74CB6F8F78C4208382A3 /* OnboardingPreviewHost.swift */,
+				69E2F173E5CB0115A6D21263 /* SummaryOnboarding.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
 		EB7BEBAC3E125F94007AFA10 /* SmartShare */ = {
 			isa = PBXGroup;
 			children = (
@@ -352,6 +471,7 @@
 			isa = PBXGroup;
 			children = (
 				966BD9AAC4D5E170088B47FB /* AppRouteTests.swift */,
+				79E0B144D599007182517D3F /* OnboardingTests.swift */,
 			);
 			path = "summary-chipTests";
 			sourceTree = "<group>";
@@ -362,6 +482,14 @@
 				811FEE4196320CFF19F89016 /* SummaryKit */,
 			);
 			path = Packages;
+			sourceTree = "<group>";
+		};
+		FBD585CEDFA780533EBA7281 /* summary-chipUITests */ = {
+			isa = PBXGroup;
+			children = (
+				096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */,
+			);
+			path = "summary-chipUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -380,6 +508,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				B4EB0B1E077B285841DE3306 /* PBXTargetDependency */,
 				9760181997D9D6CBEA45144A /* PBXTargetDependency */,
 				E98CA9F73B723DFF2373E56A /* PBXTargetDependency */,
 				6287B595E29B348FB507A3BC /* PBXTargetDependency */,
@@ -414,6 +543,24 @@
 			productName = SummaryClip;
 			productReference = 78E978AC841B95E739942449 /* SummaryClip.app */;
 			productType = "com.apple.product-type.application.on-demand-install-capable";
+		};
+		28181D97369996ECDE0B7C3C /* summary-chip-macOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8F4D3F76CD4D2542133DD212 /* Build configuration list for PBXNativeTarget "summary-chip-macOSUITests" */;
+			buildPhases = (
+				4ACFC6D763F0DD1E899F3A59 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				93134E75FA294339A0210241 /* PBXTargetDependency */,
+			);
+			name = "summary-chip-macOSUITests";
+			packageProductDependencies = (
+			);
+			productName = "summary-chip-macOSUITests";
+			productReference = 5552B84AE3E5A171F08537D7 /* summary-chip-macOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		3DA1D3483E4E2D149FFD9C33 /* SmartShare */ = {
 			isa = PBXNativeTarget;
@@ -455,6 +602,63 @@
 			productReference = AD3F719D42564B011442D1ED /* SummaryMessages.appex */;
 			productType = "com.apple.product-type.app-extension.messages";
 		};
+		57BFD918634C4CD6F5E68E9A /* MacSmartShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC73E93EBE6C508B33A1BBEA /* Build configuration list for PBXNativeTarget "MacSmartShare" */;
+			buildPhases = (
+				7B19F328132A78AEF1C1D7F1 /* Sources */,
+				D3387D9A43DB06DE2A5014EB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MacSmartShare;
+			packageProductDependencies = (
+				1A04265F3EF7F1DB32E291B8 /* SummaryKit */,
+			);
+			productName = MacSmartShare;
+			productReference = 207AD4DD35A45CC6AB7F07BE /* MacSmartShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		7D10FEEBA393B83F9AA814C6 /* summary-chip-macOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E4DBB83E9A70E540D35B7A5B /* Build configuration list for PBXNativeTarget "summary-chip-macOSTests" */;
+			buildPhases = (
+				1FEC77B45E8838F194D45BBB /* Sources */,
+				C612CA151A6D0CD79C01E510 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F6C72BB540C0D7FAF79E36E9 /* PBXTargetDependency */,
+			);
+			name = "summary-chip-macOSTests";
+			packageProductDependencies = (
+				4388AC2CF0362595F12AEC13 /* SummaryKit */,
+			);
+			productName = "summary-chip-macOSTests";
+			productReference = 68429BF50AB673F99BD22181 /* summary-chip-macOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C0651936607A35879DCDFE3F /* summary-chipUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7FBEBC95C111E0EEC383C4A0 /* Build configuration list for PBXNativeTarget "summary-chipUITests" */;
+			buildPhases = (
+				5772E5C123A27DCD2D4CFB0D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5AF971BF1761C6709E22DBC4 /* PBXTargetDependency */,
+			);
+			name = "summary-chipUITests";
+			packageProductDependencies = (
+			);
+			productName = "summary-chipUITests";
+			productReference = 206F644FC8C1A8EC90F71BAB /* summary-chipUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		EBCF72BEDEDD15754929155B /* summary-chipTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8D6055E06622EADA0AEAEEEB /* Build configuration list for PBXNativeTarget "summary-chipTests" */;
@@ -490,11 +694,26 @@
 					16051289248ECB79E5777385 = {
 						ProvisioningStyle = Automatic;
 					};
+					28181D97369996ECDE0B7C3C = {
+						DevelopmentTeam = T7GYB573Y6;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 074725B14DD9F84392B5AC8E;
+					};
 					3DA1D3483E4E2D149FFD9C33 = {
 						ProvisioningStyle = Automatic;
 					};
 					4B992468D1120CE3D5F2890A = {
 						ProvisioningStyle = Automatic;
+					};
+					57BFD918634C4CD6F5E68E9A = {
+						ProvisioningStyle = Automatic;
+					};
+					7D10FEEBA393B83F9AA814C6 = {
+						ProvisioningStyle = Automatic;
+					};
+					C0651936607A35879DCDFE3F = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 074725B14DD9F84392B5AC8E;
 					};
 					EBCF72BEDEDD15754929155B = {
 						ProvisioningStyle = Automatic;
@@ -511,7 +730,7 @@
 			mainGroup = 68546E3B450A81985F60232F;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				BB181AF148447E7B79BFAF8B /* XCLocalSwiftPackageReference "../RxAgentSDK" */,
+				BB181AF148447E7B79BFAF8B /* XCRemoteSwiftPackageReference "RxAgentSDK" */,
 				0EA51AD10B46E2E65972955D /* XCRemoteSwiftPackageReference "RxAuthSwift" */,
 				B6BE33D51E4AB2C1E574E014 /* XCLocalSwiftPackageReference "Packages/SummaryKit" */,
 			);
@@ -520,11 +739,15 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				57BFD918634C4CD6F5E68E9A /* MacSmartShare */,
 				3DA1D3483E4E2D149FFD9C33 /* SmartShare */,
 				16051289248ECB79E5777385 /* SummaryClip */,
 				4B992468D1120CE3D5F2890A /* SummaryMessages */,
 				074725B14DD9F84392B5AC8E /* summary-chip */,
+				7D10FEEBA393B83F9AA814C6 /* summary-chip-macOSTests */,
+				28181D97369996ECDE0B7C3C /* summary-chip-macOSUITests */,
 				EBCF72BEDEDD15754929155B /* summary-chipTests */,
+				C0651936607A35879DCDFE3F /* summary-chipUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -565,6 +788,15 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1FEC77B45E8838F194D45BBB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D68A99185E64B4485E123128 /* AppRouteTests.swift in Sources */,
+				6DC4FB5B68F8F16C4946EC96 /* OnboardingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2CC7172A67A6669E010DCE22 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -573,21 +805,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4ACFC6D763F0DD1E899F3A59 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1BC6022D2C4D620A1231FEC /* MacNavigationUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5675A5A5F3DACF9281681E7D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				60A2000FA31ED016A852F1AA /* AddSummaryIntent.swift in Sources */,
 				54FD4F89EB16B939F19753F2 /* AppEnvironment.swift in Sources */,
 				07AC26FBE6AFDDDD4A9309E0 /* ChatModel.swift in Sources */,
 				A40212A0F93F0C25157C5FE2 /* ChatView.swift in Sources */,
 				D1D89311EAABA67AD85C8E08 /* ContentView.swift in Sources */,
 				50EFF8AAC646DB16E7B14324 /* DeleteAccountSheet.swift in Sources */,
+				8A5DC833C29F1812C18023E6 /* DeleteSummarySheet.swift in Sources */,
 				DD67A328AA32E34C1E031B7E /* EditSharingSheet.swift in Sources */,
+				7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */,
 				9A2556677B57023C7F0F31B0 /* LegalDocumentView.swift in Sources */,
 				6D261F0E31550608C2D7E2AF /* LibraryFilterSheet.swift in Sources */,
 				DF2971619974BD0EC0DC35BC /* LibraryModel.swift in Sources */,
 				C07D0758570700338E8522EC /* LibraryView.swift in Sources */,
+				6F18E52153EF0996C902F591 /* SidebarMainView.swift in Sources */,
 				09C2FBBB2E256DC3F02926E6 /* NewSummarySheet.swift in Sources */,
+				64EECC83B53693A3DB863401 /* OnboardingPreviewHost.swift in Sources */,
 				48ADE2311CA187EBF26B3CF2 /* RegenerateImageSheet.swift in Sources */,
 				7E9967902150357183A256C2 /* RxAuthTokenStorage.swift in Sources */,
 				21E2195D46C3BF1735DF6D8B /* SearchModel.swift in Sources */,
@@ -595,6 +840,25 @@
 				1909FE48CBED1DE162A19E88 /* SettingsView.swift in Sources */,
 				15B1056B11B85B147B35E133 /* SummaryChipApp.swift in Sources */,
 				1579CAC416F08503897B5675 /* SummaryDetailView.swift in Sources */,
+				65EB62242191EC7963D963BB /* SummaryEntity.swift in Sources */,
+				EFCF987D16C9284E32F118D9 /* SummaryOnboarding.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5772E5C123A27DCD2D4CFB0D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC2DE7F7EDCB47315AD79606 /* OnboardingUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B19F328132A78AEF1C1D7F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				534BD288187C9377E60840BF /* ShareRootView.swift in Sources */,
+				D510AA3203CABD08A01F4A44 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -603,6 +867,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D617A241D43F8BBD1AE22B28 /* AppRouteTests.swift in Sources */,
+				0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -628,8 +893,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		5AF971BF1761C6709E22DBC4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 074725B14DD9F84392B5AC8E /* summary-chip */;
+			targetProxy = 4D6A68E715FBC8566FE89FB4 /* PBXContainerItemProxy */;
+		};
 		6287B595E29B348FB507A3BC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+			);
 			target = 16051289248ECB79E5777385 /* SummaryClip */;
 			targetProxy = FE3FCA11C172C2F1B25D35CA /* PBXContainerItemProxy */;
 		};
@@ -638,35 +911,117 @@
 			target = 074725B14DD9F84392B5AC8E /* summary-chip */;
 			targetProxy = F25354611A6E53FBB8085863 /* PBXContainerItemProxy */;
 		};
+		93134E75FA294339A0210241 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 074725B14DD9F84392B5AC8E /* summary-chip */;
+			targetProxy = 75C40E569C5DAA1455341656 /* PBXContainerItemProxy */;
+		};
 		9760181997D9D6CBEA45144A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+			);
 			target = 3DA1D3483E4E2D149FFD9C33 /* SmartShare */;
 			targetProxy = 333C1BA28FC557E07B226DAA /* PBXContainerItemProxy */;
 		};
+		B4EB0B1E077B285841DE3306 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = 57BFD918634C4CD6F5E68E9A /* MacSmartShare */;
+			targetProxy = 9B8F14E661A827A6EC9A011E /* PBXContainerItemProxy */;
+		};
 		E98CA9F73B723DFF2373E56A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+			);
 			target = 4B992468D1120CE3D5F2890A /* SummaryMessages */;
 			targetProxy = 2E56D3FA214D444104ED5DD0 /* PBXContainerItemProxy */;
+		};
+		F6C72BB540C0D7FAF79E36E9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 074725B14DD9F84392B5AC8E /* summary-chip */;
+			targetProxy = 86FBC921E29A255BDF1634D6 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0779E2DDF89B637A38E7BDB8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = MacSmartShare/MacSmartShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T7GYB573Y6;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				INFOPLIST_FILE = MacSmartShare/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.MacSmartShare";
+				PRODUCT_NAME = MacSmartShare;
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		1A8032C4AAF36A5F9802A3D1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T7GYB573Y6;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.macOSTests";
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/summary-chip.app/Contents/MacOS/summary-chip";
+			};
+			name = Release;
+		};
 		207C99B4F0E6B37F3C2BB897 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]" = MacAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "summary-chip/summary-chip.entitlements";
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "summary-chip-macOS/summary-chip-macOS.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				DEVELOPMENT_TEAM = T7GYB573Y6;
+				ENABLE_APP_SANDBOX = YES;
+				"ENABLE_APP_SANDBOX[sdk=macosx*]" = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				"ENABLE_OUTGOING_NETWORK_CONNECTIONS[sdk=macosx*]" = YES;
 				INFOPLIST_FILE = "summary-chip/Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "summary-chip-macOS/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip";
 				PRODUCT_NAME = "summary-chip";
-				SDKROOT = iphoneos;
+				REGISTER_APP_GROUPS = YES;
+				"REGISTER_APP_GROUPS[sdk=macosx*]" = YES;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -725,10 +1080,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = P9KK452K8P;
+				DEVELOPMENT_TEAM = T7GYB573Y6;
 				ENABLE_MODULE_VERIFIER = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -749,6 +1105,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -781,9 +1138,48 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.Clip";
 				PRODUCT_NAME = SummaryClip;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		6E70B6747F5B4085B54543DF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = T7GYB573Y6;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chipUITests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "summary-chip";
+			};
+			name = Release;
+		};
+		70A2D0D0685CC1B230517880 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T7GYB573Y6;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.macOSTests";
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/summary-chip.app/Contents/MacOS/summary-chip";
+			};
+			name = Debug;
 		};
 		7179663AB195ADDD8FC8A6D7 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -802,6 +1198,41 @@
 				PRODUCT_NAME = SummaryMessages;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		736673E8B4C2B57C96B4FC2B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.macOSUITests";
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = "summary-chip";
+			};
+			name = Debug;
+		};
+		8BE78D85D199AA0BDD4F0490 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = T7GYB573Y6;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chipUITests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "summary-chip";
 			};
 			name = Debug;
 		};
@@ -860,10 +1291,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = P9KK452K8P;
+				DEVELOPMENT_TEAM = T7GYB573Y6;
 				ENABLE_MODULE_VERIFIER = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -878,6 +1310,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -933,25 +1366,82 @@
 			};
 			name = Release;
 		};
+		C6B9F4F5114B13AF68F1F66B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = MacSmartShare/MacSmartShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = T7GYB573Y6;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				INFOPLIST_FILE = MacSmartShare/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.MacSmartShare";
+				PRODUCT_NAME = MacSmartShare;
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
 		CF34430A36DF34A91077A7DA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]" = MacAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "summary-chip/summary-chip.entitlements";
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "summary-chip-macOS/summary-chip-macOS.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				DEVELOPMENT_TEAM = T7GYB573Y6;
+				ENABLE_APP_SANDBOX = YES;
+				"ENABLE_APP_SANDBOX[sdk=macosx*]" = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				"ENABLE_OUTGOING_NETWORK_CONNECTIONS[sdk=macosx*]" = YES;
 				INFOPLIST_FILE = "summary-chip/Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "summary-chip-macOS/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip";
 				PRODUCT_NAME = "summary-chip";
-				SDKROOT = iphoneos;
+				REGISTER_APP_GROUPS = YES;
+				"REGISTER_APP_GROUPS[sdk=macosx*]" = YES;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		EB4599857C8C586D3AB8FD12 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.macOSUITests";
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = "summary-chip";
+			};
+			name = Release;
 		};
 		ED3F499165B7604FDB88995F /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -968,6 +1458,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.rxlab.summary-chip.Clip";
 				PRODUCT_NAME = SummaryClip;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -1029,11 +1522,29 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		7FBEBC95C111E0EEC383C4A0 /* Build configuration list for PBXNativeTarget "summary-chipUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8BE78D85D199AA0BDD4F0490 /* Debug */,
+				6E70B6747F5B4085B54543DF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		8D6055E06622EADA0AEAEEEB /* Build configuration list for PBXNativeTarget "summary-chipTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FB8380909CBBDFC8F078896A /* Debug */,
 				2265012F7E894685446220F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8F4D3F76CD4D2542133DD212 /* Build configuration list for PBXNativeTarget "summary-chip-macOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				736673E8B4C2B57C96B4FC2B /* Debug */,
+				EB4599857C8C586D3AB8FD12 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -1047,16 +1558,30 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		DC73E93EBE6C508B33A1BBEA /* Build configuration list for PBXNativeTarget "MacSmartShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C6B9F4F5114B13AF68F1F66B /* Debug */,
+				0779E2DDF89B637A38E7BDB8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E4DBB83E9A70E540D35B7A5B /* Build configuration list for PBXNativeTarget "summary-chip-macOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70A2D0D0685CC1B230517880 /* Debug */,
+				1A8032C4AAF36A5F9802A3D1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		B6BE33D51E4AB2C1E574E014 /* XCLocalSwiftPackageReference "Packages/SummaryKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/SummaryKit;
-		};
-		BB181AF148447E7B79BFAF8B /* XCLocalSwiftPackageReference "../RxAgentSDK" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RxAgentSDK;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1069,6 +1594,14 @@
 				minimumVersion = 1.3.1;
 			};
 		};
+		BB181AF148447E7B79BFAF8B /* XCRemoteSwiftPackageReference "RxAgentSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rxtech-lab/RxAgentSDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.8;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1079,10 +1612,18 @@
 		};
 		0FE3F13DD96921ABCB95E616 /* RxAgentSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = BB181AF148447E7B79BFAF8B /* XCLocalSwiftPackageReference "../RxAgentSDK" */;
+			package = BB181AF148447E7B79BFAF8B /* XCRemoteSwiftPackageReference "RxAgentSDK" */;
 			productName = RxAgentSDK;
 		};
 		11A91FEC1A6F21A06E07AA2E /* SummaryKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SummaryKit;
+		};
+		1A04265F3EF7F1DB32E291B8 /* SummaryKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SummaryKit;
+		};
+		4388AC2CF0362595F12AEC13 /* SummaryKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SummaryKit;
 		};

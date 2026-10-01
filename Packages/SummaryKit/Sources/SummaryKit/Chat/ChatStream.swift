@@ -218,6 +218,30 @@ public enum ChatToolOutput {
         return []
     }
 
+    /// The query or id a tool call was made with, shown on its card (`nil` when there's nothing to show).
+    public static func detail(toolName: String, input: JSONValue) -> String? {
+        switch toolName {
+        case "searchSummaries":
+            let query = input["query"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let filters = [input["category"]?.stringValue, input["tag"]?.stringValue.map { "#\($0)" }].compactMap { $0 }
+            let parts = (query.isEmpty ? [] : ["“\(query)”"]) + filters
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        default:
+            return nil
+        }
+    }
+
+    /// Whether a `searchSummaries` output was ranked by meaning (vector search) rather than keywords alone.
+    public static func isSemantic(_ output: JSONValue) -> Bool {
+        if case .bool(true)? = output["semantic"] { return true }
+        return false
+    }
+
+    /// The error a tool reported in its output (e.g. `getSummary` on an inaccessible id).
+    public static func errorText(from output: JSONValue) -> String? {
+        output["error"]?.stringValue
+    }
+
     /// Human readable label for an in-flight tool call.
     public static func activityLabel(toolName: String, input: JSONValue) -> String {
         switch toolName {

@@ -32,7 +32,7 @@ public enum GenerationStage: Int, CaseIterable, Sendable, Comparable {
     }
 
     /// Seconds after upload at which the UI enters this stage (server gives no progress).
-    var estimatedSeconds: Double {
+    public var estimatedSeconds: Double {
         switch self {
         case .uploading: 0
         case .reading: 0

@@ -1,9 +1,11 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import type { Category } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
 import { notFound } from "@/lib/http/errors";
-import { isPublicAndLive, searchCondition } from "./search";
+import { embedQuery } from "./embeddings";
+import { isPublicAndLive, relevance } from "./search";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
 import { findPublicSummaryBySlug, isLinkLive } from "./summaries";
 
@@ -67,37 +69,52 @@ function toResult(row: SummaryRow, viewedAt?: Date): ChatSearchResult {
   };
 }
 
-export async function searchForChat(db: Database, userId: string, input: ChatSearchInput): Promise<{ results: ChatSearchResult[] }> {
+/**
+ * The agent's search tool. `query` is natural language: summaries match by meaning (vector
+ * distance) or keywords and come back most relevant first; without a query, newest first.
+ */
+export async function searchForChat(
+  db: Database,
+  userId: string,
+  input: ChatSearchInput,
+  ai?: AiProvider,
+): Promise<{ query?: string; semantic: boolean; results: ChatSearchResult[] }> {
   const limit = Math.min(Math.max(input.limit ?? 8, 1), 20);
-  const filters = [];
+  const filters: SQL[] = [];
   const query = input.query?.trim();
-  if (query) filters.push(searchCondition(query));
+  const vector = query ? await embedQuery(ai ?? await getAiProvider(), query) : null;
+  const match = query ? relevance(query, vector) : null;
+  if (match) filters.push(match.where);
   if (input.category) filters.push(eq(summaries.category, input.category));
   if (input.tag) {
     filters.push(inArray(summaries.id, db.select({ id: summaryTags.summaryId }).from(summaryTags).where(eq(summaryTags.tag, input.tag.toLowerCase()))));
   }
+  // Without a vector every match ranks the same; a bare `0` would read as a column ordinal in ORDER BY.
+  const score = match?.score ?? null;
+  const rank = score ? [asc(score)] : [];
+  const scoreColumn = (score ?? sql<number>`(0)`).mapWith(Number);
   const [mine, viewed] = await Promise.all([
-    input.scope === "viewed" ? Promise.resolve([]) : db.select().from(summaries)
+    input.scope === "viewed" ? Promise.resolve([]) : db.select({ summary: summaries, score: scoreColumn }).from(summaries)
       .where(and(eq(summaries.ownerId, userId), ...filters))
-      .orderBy(desc(summaries.createdAt)).limit(limit),
-    input.scope === "mine" ? Promise.resolve([]) : db.select({ summary: summaries, viewedAt: summaryViews.viewedAt })
+      .orderBy(...rank, desc(summaries.createdAt)).limit(limit),
+    input.scope === "mine" ? Promise.resolve([]) : db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, score: scoreColumn })
       .from(summaryViews)
       .innerJoin(summaries, eq(summaries.id, summaryViews.summaryId))
       .where(and(eq(summaryViews.userId, userId), isPublicAndLive(), ...filters))
-      .orderBy(desc(summaryViews.viewedAt)).limit(limit),
+      .orderBy(...rank, desc(summaryViews.viewedAt)).limit(limit),
   ]);
-  const merged = new Map<string, { row: SummaryRow; viewedAt?: Date; sortKey: number }>();
-  for (const row of mine) merged.set(row.id, { row, sortKey: row.createdAt.getTime() });
+  const merged = new Map<string, { row: SummaryRow; viewedAt?: Date; score: number; time: number }>();
+  for (const { summary, score } of mine) merged.set(summary.id, { row: summary, score, time: summary.createdAt.getTime() });
   for (const entry of viewed) {
     if (!merged.has(entry.summary.id)) {
-      merged.set(entry.summary.id, { row: entry.summary, viewedAt: entry.viewedAt, sortKey: entry.viewedAt.getTime() });
+      merged.set(entry.summary.id, { row: entry.summary, viewedAt: entry.viewedAt, score: entry.score, time: entry.viewedAt.getTime() });
     }
   }
   const results = [...merged.values()]
-    .sort((a, b) => b.sortKey - a.sortKey)
+    .sort((a, b) => a.score - b.score || b.time - a.time)
     .slice(0, limit)
     .map((entry) => toResult(entry.row, entry.viewedAt));
-  return { results };
+  return { ...(query ? { query } : {}), semantic: vector !== null, results };
 }
 
 /** A summary the caller owns, or a public one they have viewed; includes the content excerpt. */

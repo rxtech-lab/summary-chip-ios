@@ -7,7 +7,7 @@ import { truncateForModel } from "@/lib/extract";
 import { ApiError } from "@/lib/http/errors";
 import { getSummaryForViewer } from "@/lib/services/summaries";
 import { getSummaryForChat, searchForChat } from "@/lib/services/views";
-import { getAiProvider } from "./provider";
+import { getAiProvider, type AiProvider } from "./provider";
 
 export const MAX_CHAT_MESSAGES = 30;
 const MAX_TEXT_PER_MESSAGE = 8_000;
@@ -51,7 +51,7 @@ export function sanitizeChatMessages(input: z.infer<typeof chatRequestSchema>["m
 export function chatInstructions(now = new Date()): string {
   return `You are the Summary Chip assistant. Summary Chip turns web pages, PDFs and notes into short summary cards.
 You help the user find and discuss content they have saved (their own summaries) or viewed (summaries others shared with them).
-- Use searchSummaries to find relevant items before answering questions about their content; try a few different keywords if the first search finds nothing.
+- Use searchSummaries to find relevant items before answering questions about their content. It matches by meaning, so pass a short natural-language description of what the user wants (e.g. "ways to sleep better", "the PDF about solar panel costs"); if nothing comes back, rephrase or broaden it once or twice.
 - Use getSummary to read an item's details and excerpt before discussing it in depth.
 - Only rely on what the tools return; if nothing relevant is found, say so plainly. Never invent summaries or links.
 - Mention titles so the user can recognise items; the app shows tool results as cards, so do not paste long URLs.
@@ -85,18 +85,18 @@ ${original ? truncateForModel(original) : "(The original text was not stored for
 </original_content>`;
 }
 
-export function chatTools(db: Database, userId: string) {
+export function chatTools(db: Database, userId: string, ai?: AiProvider) {
   return {
     searchSummaries: tool({
-      description: "Search the user's own summaries and the summaries they have viewed. Returns up to `limit` matches, newest first.",
+      description: "Semantic search over the user's own summaries and the summaries they have viewed. Matches by meaning as well as keywords and returns up to `limit` matches, most relevant first (newest first when the query is empty).",
       inputSchema: z.object({
-        query: z.string().max(200).describe("Keywords to search for. Use an empty string to list recent items."),
+        query: z.string().max(200).describe("What to look for, in natural language (any language). Use an empty string to list recent items."),
         category: z.enum(CATEGORIES).optional().describe("Optional category filter."),
         tag: z.string().max(40).optional().describe("Optional tag filter (lowercase)."),
         scope: z.enum(["all", "mine", "viewed"]).default("all").describe("mine = created by the user, viewed = opened from others, all = both."),
         limit: z.number().int().min(1).max(20).optional(),
       }),
-      execute: async (input) => searchForChat(db, userId, input),
+      execute: async (input) => searchForChat(db, userId, input, ai),
     }),
     getSummary: tool({
       description: "Get one summary (by id from searchSummaries) including an excerpt of the original content.",
@@ -117,7 +117,7 @@ export async function streamChat(db: Database, userId: string, messages: UIMessa
   // Resolved before streaming so an inaccessible summary is a plain 404 rather than a stream error.
   const focused = summaryId ? await getSummaryForViewer(db, summaryId, userId) : undefined;
   const ai = await getAiProvider();
-  const tools = chatTools(db, userId);
+  const tools = chatTools(db, userId, ai);
   const result = streamText({
     model: ai.chatModel(),
     instructions: chatInstructions() + (focused ? focusedSummaryInstructions(focused) : ""),

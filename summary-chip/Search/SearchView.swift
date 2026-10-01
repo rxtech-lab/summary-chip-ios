@@ -1,60 +1,83 @@
 import SummaryKit
 import SwiftUI
 
-/// The dedicated Search tab (`Tab(role: .search)`): its own navigation stack and results, so the
-/// Library feed stays untouched while searching.
+/// Search has its own navigation and results, preserving the screen underneath it.
 struct SearchView: View {
     @Bindable var environment: AppEnvironment
     @State private var model: SearchModel
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
-    @State private var errorMessage: String?
+    @FocusState private var inputFocused: Bool
+    let onClose: () -> Void
 
-    init(environment: AppEnvironment) {
+    init(environment: AppEnvironment, onClose: @escaping () -> Void) {
+        self.onClose = onClose
         self.environment = environment
         _model = State(initialValue: SearchModel(api: environment.api, offline: environment.library.offline))
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
-                .overlay {
-                    if model.isSearching {
-                        searchingOverlay
-                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+        VStack(spacing: 0) {
+            searchField
+            Divider()
+            NavigationStack {
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.summaryGroupedBackground)
+                    .overlay {
+                        if model.isSearching {
+                            searchingOverlay
+                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        }
                     }
-                }
-                .animation(.easeInOut(duration: 0.18), value: model.isSearching)
-                .navigationTitle("Search")
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationDestination(for: Summary.self) { summary in
-                    SummaryDetailView(environment: environment, summary: summary)
-                }
-                .sheet(item: $sharingSummary) { summary in
-                    ShareModeSheet(summary: summary)
-                }
-                .confirmationDialog(
-                    "Delete this summary?",
-                    isPresented: Binding(get: { deletingSummary != nil }, set: { if !$0 { deletingSummary = nil } }),
-                    titleVisibility: .visible,
-                    presenting: deletingSummary
-                ) { summary in
-                    Button("Delete Summary", role: .destructive) { Task { await delete(summary) } }
-                } message: { _ in
-                    Text("The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead.")
-                }
-                .alert("Something went wrong", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(errorMessage ?? "")
-                }
+                    .animation(.easeInOut(duration: 0.18), value: model.isSearching)
+                    .navigationTitle("Search")
+                    .summaryInlineNavigationTitle()
+                    .navigationDestination(for: Summary.self) { summary in
+                        SummaryDetailView(environment: environment, summary: summary)
+                            .onAppear { inputFocused = false }
+                    }
+                    .sheet(item: $sharingSummary) { summary in
+                        ShareModeSheet(summary: summary)
+                    }
+                    .sheet(item: $deletingSummary) { summary in
+                        DeleteSummarySheet(api: environment.api, summary: summary) {
+                            withAnimation {
+                                model.remove(id: summary.id)
+                                environment.library.remove(id: summary.id)
+                            }
+                        }
+                    }
+            }
         }
-        .searchable(text: $model.searchText, prompt: "Search your summaries")
-        .autocorrectionDisabled(true)
-        .textInputAutocapitalization(.never)
+        .background(Color.summaryGroupedBackground)
+        .onAppear { inputFocused = true }
+        #if os(macOS)
+        .onExitCommand(perform: onClose)
+        #endif
         .task(id: model.searchText) { await model.search() }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search your summaries", text: $model.searchText)
+                .textFieldStyle(.plain)
+                .focused($inputFocused)
+                .autocorrectionDisabled(true)
+                .summaryInputCapitalization()
+                .accessibilityIdentifier("search-input")
+            Button(action: onClose) {
+                Label("Close Search", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("close-search")
+            .help("Close Search")
+        }
+        .padding(16)
+        .background(.bar)
     }
 
     @ViewBuilder
@@ -119,15 +142,102 @@ struct SearchView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
 
-    private func delete(_ summary: Summary) async {
-        do {
-            try await environment.api.deleteSummary(id: summary.id)
-            withAnimation {
-                model.remove(id: summary.id)
-                environment.library.remove(id: summary.id)
-            }
-        } catch {
-            errorMessage = error.localizedDescription
+}
+
+private struct OpenSummarySearchKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var openSummarySearch: (() -> Void)? {
+        get { self[OpenSummarySearchKey.self] }
+        set { self[OpenSummarySearchKey.self] = newValue }
+    }
+}
+
+struct SummarySearchButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label("Search", systemImage: "magnifyingglass")
         }
+        .accessibilityIdentifier("open-search")
+        .help("Search summaries")
+    }
+}
+
+private struct SummarySearchToolbar: ViewModifier {
+    @Environment(\.openSummarySearch) private var openSearch
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if isEnabled, let openSearch {
+                ToolbarItem(placement: .summaryTrailing) {
+                    SummarySearchButton(action: openSearch)
+                }
+            }
+        }
+    }
+}
+
+private struct SummarySearchPresentation: ViewModifier {
+    let environment: AppEnvironment
+    @State private var showsSearch = false
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.openSummarySearch, { showsSearch = true })
+            #if os(macOS)
+            .disabled(showsSearch)
+            .accessibilityHidden(showsSearch)
+            .overlay {
+                if showsSearch {
+                    GeometryReader { geometry in
+                        ZStack {
+                            Color.black.opacity(0.3)
+                                .ignoresSafeArea()
+                                .onTapGesture { showsSearch = false }
+                                .accessibilityLabel("Dismiss Search")
+                            SearchView(environment: environment) { showsSearch = false }
+                                .frame(
+                                    width: min(720, max(0, geometry.size.width - 48)),
+                                    height: min(560, max(0, geometry.size.height - 48))
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 20))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .strokeBorder(.quaternary, lineWidth: 0.5)
+                                }
+                                .shadow(color: .black.opacity(0.2), radius: 24, y: 6)
+                                .transition(.scale(scale: 0.97).combined(with: .opacity))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+            }
+            .animation(.spring(response: 0.25, dampingFraction: 0.9), value: showsSearch)
+            .background {
+                Button("Search") { showsSearch = true }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .hidden()
+            }
+            #else
+            .sheet(isPresented: $showsSearch) {
+                SearchView(environment: environment) { showsSearch = false }
+                    .presentationDragIndicator(.visible)
+            }
+            #endif
+    }
+}
+
+extension View {
+    func summarySearchToolbar(isEnabled: Bool = true) -> some View {
+        modifier(SummarySearchToolbar(isEnabled: isEnabled))
+    }
+
+    func summarySearchPresentation(environment: AppEnvironment) -> some View {
+        modifier(SummarySearchPresentation(environment: environment))
     }
 }

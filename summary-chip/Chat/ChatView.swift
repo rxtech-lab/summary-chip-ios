@@ -5,14 +5,15 @@ import SwiftUI
 
 struct ChatSummaryRoute: Hashable { let id: String }
 
-/// The library-wide agent (Chat tab), or — with `summary` — a chat about one summary,
-/// presented as a sheet from its detail screen.
+/// The library-wide agent (Chat tab, or the trailing chat column on large screens), or —
+/// with `summary` — a chat about one summary, presented as a sheet from its detail screen.
 struct ChatView: View {
     let environment: AppEnvironment
     let summary: Summary?
+    /// Shown as a column beside other content rather than as its own page or sheet.
+    let isPanel: Bool
     @State private var model: ChatModel
     @State private var path: [ChatSummaryRoute] = []
-    @State private var inputBarHeight: CGFloat = 0
     @State private var shouldScrollToBottom = false
     @State private var isAtBottom = true
     @State private var scrollRequest: Task<Void, Never>?
@@ -20,36 +21,36 @@ struct ChatView: View {
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    init(environment: AppEnvironment, summary: Summary? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, isPanel: Bool = false) {
         self.environment = environment
         self.summary = summary
+        self.isPanel = isPanel
         self._model = State(initialValue: ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id))
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            Group {
-                if model.entries.isEmpty {
-                    emptyState
-                } else {
-                    transcript
-                }
-            }
-            // The input floats over the transcript; `MessageList` gets its height as
-            // `bottomInset` so the last row still rests just above it.
-            .overlay(alignment: .bottom) {
-                inputBar
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                        guard abs(height - inputBarHeight) > 0.5 else { return }
-                        inputBarHeight = height
+            VStack(spacing: 0) {
+                Group {
+                    if model.entries.isEmpty {
+                        emptyState
+                    } else {
+                        transcript
                     }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Reserve space for the composer, including when its draft grows.
+                // Native hosted message rows must never render underneath it.
+                inputBar
+                    .background(.bar)
             }
             .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
                 if isStreaming { return .impact(weight: .light) }
                 return model.entries.last?.errorText == nil ? .impact(flexibility: .soft) : .error
             }
             .navigationTitle(summary == nil ? "Chat" : "Ask About This")
-            .navigationBarTitleDisplayMode(.inline)
+            .summaryInlineNavigationTitle()
+            .summarySearchToolbar(isEnabled: summary == nil && !isPanel)
             .navigationDestination(for: ChatSummaryRoute.self) { route in
                 // Already inside a summary chat sheet: don't offer another one on top.
                 SummaryLoaderView(environment: environment, id: route.id, allowsChat: summary == nil)
@@ -60,7 +61,10 @@ struct ChatView: View {
                         Button("Close") { dismiss() }
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                if summary == nil && !isPanel {
+                    ToolbarSpacer(.fixed, placement: .summaryTrailing)
+                }
+                ToolbarItem(placement: .summaryTrailing) {
                     Button {
                         model.newChat()
                     } label: {
@@ -70,6 +74,7 @@ struct ChatView: View {
                 }
             }
         }
+        .modifier(SheetSizeUnlessPanel(isPanel: isPanel))
     }
 
     private var emptyState: some View {
@@ -114,7 +119,6 @@ struct ChatView: View {
             }
             .padding()
         }
-        .safeAreaPadding(.bottom, inputBarHeight)
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -122,22 +126,45 @@ struct ChatView: View {
         // `isStreaming` stays false: `MessageList` would otherwise snap to the bottom on
         // every layout pass (every token). `followStream()` scrolls on a debounce instead.
         // `.onSend` still pins each sent question to the top while its answer fills in below.
-        MessageList(
-            messages: model.entries,
-            isStreaming: false,
-            shouldScrollToBottom: shouldScrollToBottom,
-            userMessagePinning: .onSend,
-            bottomInset: inputBarHeight,
-            isAtBottom: $isAtBottom
-        ) { entry in
-            ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+        messageList
+            .onChange(of: model.entries.count) { old, new in
+                if new > old { pulseScrollToBottom() }
+            }
+            .onChange(of: model.entries.last) { followStream() }
+    }
+
+    private var messageList: some View {
+        GeometryReader { geometry in
+            // AppKit hosts each row separately. Give it the viewport's width so a
+            // horizontal result strip cannot determine the width of the whole row.
+            let rowWidth = max(0, geometry.size.width - 32)
+            #if os(macOS)
+            MessageList(
+                messages: model.entries,
+                isStreaming: false,
+                shouldScrollToBottom: shouldScrollToBottom,
+                isAtBottom: $isAtBottom
+            ) { entry in
+                ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
+                    .frame(width: rowWidth, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+            }
+            #else
+            MessageList(
+                messages: model.entries,
+                isStreaming: false,
+                shouldScrollToBottom: shouldScrollToBottom,
+                userMessagePinning: .onSend,
+                isAtBottom: $isAtBottom
+            ) { entry in
+                ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
+                    .frame(width: rowWidth, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+            }
+            #endif
         }
-        .onChange(of: model.entries.count) { old, new in
-            if new > old { pulseScrollToBottom() }
-        }
-        .onChange(of: model.entries.last) { followStream() }
     }
 
     /// Coalesces streamed updates into at most one scroll per interval, and only while
@@ -164,11 +191,17 @@ struct ChatView: View {
         }
     }
 
+    private var canSend: Bool {
+        !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 10) {
             TextField(summary == nil ? "Ask about your summaries" : "Ask about this summary", text: $model.draft, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($inputFocused)
+                // The glass capsule is the field's only outline; drop the platform border.
+                .textFieldStyle(.plain)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -181,6 +214,8 @@ struct ChatView: View {
                 } label: {
                     Image(systemName: "stop.circle.fill").font(.system(size: 34))
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
                 .accessibilityLabel("Stop")
             } else {
                 Button {
@@ -188,12 +223,26 @@ struct ChatView: View {
                 } label: {
                     Image(systemName: "arrow.up.circle.fill").font(.system(size: 34))
                 }
-                .disabled(model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(.plain)
+                .foregroundStyle(canSend ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                .disabled(!canSend)
                 .accessibilityLabel("Send")
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+    }
+}
+
+private struct SheetSizeUnlessPanel: ViewModifier {
+    let isPanel: Bool
+
+    func body(content: Content) -> some View {
+        if isPanel {
+            content
+        } else {
+            content.summarySheetSize()
+        }
     }
 }
 
@@ -216,13 +265,14 @@ private struct ChatEntryView: View {
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(entry.tools) { tool in
-                    ChatToolView(tool: tool, openSummary: openSummary)
+                    ChatToolCallCard(tool: tool, openSummary: openSummary)
                 }
                 if !entry.text.isEmpty {
                     MarkdownView(text: entry.text, fadeNewText: entry.isStreaming)
                         .textSelection(.enabled)
                 }
-                if entry.isStreaming {
+                // A running tool card already pulses; don't stack a second status under it.
+                if entry.isStreaming, !entry.tools.contains(where: \.isRunning) {
                     ChatStatusChip(text: "Thinking…")
                 }
                 if let error = entry.errorText {
@@ -236,31 +286,109 @@ private struct ChatEntryView: View {
     }
 }
 
-private struct ChatToolView: View {
+/// One agent tool call as a card: what the agent did and with which query, its state, and the
+/// summaries it found (tappable). Running calls pulse instead of showing a spinner.
+private struct ChatToolCallCard: View {
     let tool: ChatToolActivity
     let openSummary: (String) -> Void
 
     var body: some View {
-        if tool.isRunning {
-            ChatStatusChip(text: tool.label.isEmpty ? "Searching…" : tool.label)
-        } else if !tool.references.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(tool.references) { reference in
-                        // Rows live in a UICollectionView cell, outside the NavigationStack's
-                        // reach, so navigation goes through the view's path instead of a link.
-                        Button {
-                            openSummary(reference.id)
-                        } label: {
-                            ChatReferenceCard(reference: reference)
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            if !tool.references.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(tool.references) { reference in
+                            // Rows live in a UICollectionView cell, outside the NavigationStack's
+                            // reach, so navigation goes through the view's path instead of a link.
+                            Button {
+                                openSummary(reference.id)
+                            } label: {
+                                ChatReferenceCard(reference: reference)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
-            .scrollClipDisabled()
         }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.quaternary) }
+    }
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(tool.errorText == nil ? AnyShapeStyle(.tint) : AnyShapeStyle(.orange))
+                .frame(width: 32, height: 32)
+                .background(.tint.opacity(0.12), in: Circle())
+                .symbolEffect(.pulse, options: .repeating, isActive: tool.isRunning)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                if let detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                if let status {
+                    Text(status)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.quaternary.opacity(0.6), in: Capsule())
+                        .padding(.top, 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var isSearch: Bool { tool.toolName == "searchSummaries" }
+
+    private var symbol: String {
+        if tool.errorText != nil { return "exclamationmark.magnifyingglass" }
+        switch tool.toolName {
+        case "searchSummaries": return tool.isSemantic == true ? "sparkle.magnifyingglass" : "magnifyingglass"
+        case "getSummary": return "doc.text.magnifyingglass"
+        default: return "wrench.and.screwdriver"
+        }
+    }
+
+    private var title: String {
+        switch tool.toolName {
+        case "searchSummaries":
+            if tool.isRunning { return "Searching your library…" }
+            return tool.finished == true ? "Searched your library" : "Search stopped"
+        case "getSummary":
+            if tool.isRunning { return "Reading summary…" }
+            return tool.finished == true ? "Read summary" : "Reading stopped"
+        default:
+            if tool.isRunning { return tool.label.isEmpty ? "Working…" : tool.label }
+            return tool.toolName.isEmpty ? "Used a tool" : "Used \(tool.toolName)"
+        }
+    }
+
+    private var detail: String? {
+        if let error = tool.errorText { return error }
+        if tool.toolName == "getSummary" { return tool.references.first?.title }
+        return tool.detail
+    }
+
+    private var status: String? {
+        guard isSearch, tool.finished == true else { return nil }
+        let count = tool.references.count
+        let results = count == 0 ? "No matches" : count == 1 ? "1 result" : "\(count) results"
+        return tool.isSemantic == true ? "\(results) · by meaning" : results
     }
 }
 

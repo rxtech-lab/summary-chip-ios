@@ -1,10 +1,12 @@
-import { generateImage, generateText, Output, type LanguageModel } from "ai";
+import { embedMany, generateImage, generateText, Output, type LanguageModel } from "ai";
 import type { OutputLanguage } from "@/lib/contracts/api";
 import { ApiError } from "@/lib/http/errors";
 import { mockServicesEnabled } from "@/lib/storage/r2";
 import { fitGeneratedOg } from "@/lib/og/generated";
 import {
   dedicatedImageModel,
+  embeddingModel,
+  embeddingModelId,
   imageLanguageModel,
   imageModelId,
   imageTimeoutMs,
@@ -43,6 +45,10 @@ export interface AiProvider {
   /** Text-free 1200×630 artwork drawn by the image model, or null when unconfigured or it failed. */
   illustrate(input: DesignInput): Promise<Uint8Array | null>;
   chatModel(): LanguageModel;
+  /** Id of the embedding model `embed` uses, or null when semantic search is disabled. */
+  embeddingModelId(): string | null;
+  /** One embedding per value, in order. Throws when the model is unavailable. */
+  embed(values: string[]): Promise<number[][]>;
 }
 
 function languageInstruction(language: OutputLanguage, sourceLang: string | null): string {
@@ -121,6 +127,22 @@ export class GatewayAiProvider implements AiProvider {
 
   chatModel(): LanguageModel {
     return textModel();
+  }
+
+  embeddingModelId(): string | null {
+    return embeddingModelId();
+  }
+
+  async embed(values: string[]): Promise<number[][]> {
+    const id = embeddingModelId();
+    if (!id) throw new Error("Embeddings are disabled (AI_EMBEDDING_MODEL=off)");
+    const { embeddings } = await embedMany({
+      model: embeddingModel(id),
+      values,
+      maxRetries: 1,
+      abortSignal: AbortSignal.timeout(20_000),
+    });
+    return embeddings;
   }
 }
 

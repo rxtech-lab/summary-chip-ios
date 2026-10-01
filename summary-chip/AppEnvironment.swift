@@ -3,7 +3,7 @@ import Observation
 import RxAuthSwift
 import SummaryKit
 
-nonisolated enum AuthenticationPresentationState: Sendable { case checking, signedOut, signedIn }
+nonisolated enum AuthenticationPresentationState: Sendable, Equatable { case checking, signedOut, signedIn }
 
 /// Something opened from outside the app: a shared summary link or "Open in app".
 enum AppRoute: Identifiable, Hashable {

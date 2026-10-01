@@ -1,5 +1,5 @@
 import { createGateway, type GatewayProvider } from "@ai-sdk/gateway";
-import type { ImageModel, LanguageModel } from "ai";
+import type { EmbeddingModel, ImageModel, LanguageModel } from "ai";
 
 let provider: GatewayProvider | undefined;
 
@@ -18,6 +18,20 @@ export function textModelId(): string {
 
 export function textModel(): LanguageModel {
   return gateway()(textModelId());
+}
+
+/** Default embedding model for natural-language search (AI Gateway id). */
+export const DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-small";
+
+/** Embedding model id (`AI_EMBEDDING_MODEL`); `off` disables semantic search (keyword search only). */
+export function embeddingModelId(): string | null {
+  const configured = process.env.AI_EMBEDDING_MODEL?.trim();
+  if (configured && /^(off|none|false)$/i.test(configured)) return null;
+  return configured || DEFAULT_EMBEDDING_MODEL;
+}
+
+export function embeddingModel(id: string): EmbeddingModel {
+  return gateway().embeddingModel(id);
 }
 
 /** Configured illustration model id (`AI_IMAGE_MODEL`), e.g. `google/gemini-3.1-flash-lite-image`; null disables "illustration". */

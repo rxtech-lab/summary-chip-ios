@@ -32,4 +32,11 @@ import Testing
         #expect(ShareClassifier.classify(RawShareContents(url: URL(string: "file:///tmp/x")!)) == nil)
         #expect(ShareClassifier.classify(RawShareContents(text: "   ")) == nil)
     }
+
+    @Test func typedTextMatchesComposeRules() {
+        #expect(ShareClassifier.classify(typed: " https://example.com/post\n") == .url(page))
+        #expect(ShareClassifier.classify(typed: "  Notes from the meeting  ") == .text("Notes from the meeting", title: nil))
+        #expect(ShareClassifier.classify(typed: "ftp://example.com/file") == .text("ftp://example.com/file", title: nil))
+        #expect(ShareClassifier.classify(typed: " \n ") == nil)
+    }
 }

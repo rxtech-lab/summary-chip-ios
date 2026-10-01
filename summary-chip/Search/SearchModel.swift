@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 import SummaryKit
 
-/// Backs the dedicated Search tab: server-side `q` search over the whole library, kept apart from
+/// Backs the search presentation: server-side `q` search over the whole library, kept apart from
 /// the Library feed so searching never disturbs it. Falls back to the offline store when the
 /// server can't be reached.
 @Observable

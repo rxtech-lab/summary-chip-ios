@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import SwiftUI
 
 /// Form sections for language, image style, link lifetime and visibility.
@@ -15,7 +15,11 @@ public struct GenerationOptionsSections: View {
                     Text(language.title).tag(language)
                 }
             }
+            #if os(macOS)
+            .pickerStyle(.menu)
+            #else
             .pickerStyle(.navigationLink)
+            #endif
         } header: {
             Text("Summary")
         } footer: {
@@ -98,7 +102,11 @@ public struct SharingOptionsSections: View {
                 } label: {
                     Label("Expires after", systemImage: "hourglass")
                 }
+                #if os(macOS)
+                .pickerStyle(.menu)
+                #else
                 .pickerStyle(.navigationLink)
+                #endif
             } header: {
                 Text("Link expiry")
             } footer: {

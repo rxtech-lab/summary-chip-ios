@@ -62,8 +62,9 @@ struct DeleteAccountSheet: View {
                 }
                 .disabled(isWorking)
             }
+            .formStyle(.grouped)
             .navigationTitle("Delete Account")
-            .navigationBarTitleDisplayMode(.inline)
+            .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
@@ -79,6 +80,7 @@ struct DeleteAccountSheet: View {
                 Text("Your account and everything in it will be permanently deleted in 7 days. You can cancel any time before then.")
             }
         }
+        .summarySheetSize()
     }
 
     private var summary: String {
