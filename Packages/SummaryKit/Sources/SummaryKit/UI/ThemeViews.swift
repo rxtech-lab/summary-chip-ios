@@ -163,21 +163,32 @@ public struct ThemePlaceholderCard: View {
     }
 }
 
+/// The source's icon: its brand logo for platform sources, otherwise the SF Symbol.
+public extension SummaryOrigin {
+    var image: Image {
+        if let brandImage { Image(brandImage, bundle: .module) } else { Image(systemName: systemImage) }
+    }
+}
+
 /// Small rounded label ("Technology", "#ai").
 public struct ChipLabel: View {
     let text: String
-    let systemImage: String?
+    let image: Image?
     let tint: Color
 
     public init(_ text: String, systemImage: String? = nil, tint: Color = .secondary) {
+        self.init(text, image: systemImage.map { Image(systemName: $0) }, tint: tint)
+    }
+
+    public init(_ text: String, image: Image?, tint: Color = .secondary) {
         self.text = text
-        self.systemImage = systemImage
+        self.image = image
         self.tint = tint
     }
 
     public var body: some View {
         HStack(spacing: 4) {
-            if let systemImage { Image(systemName: systemImage).imageScale(.small) }
+            if let image { image.imageScale(.small) }
             Text(text).lineLimit(1)
         }
         .font(.caption.weight(.semibold))

@@ -40,6 +40,7 @@ struct DeleteSummarySheet: View {
             }
         }
         .interactiveDismissDisabled(isDeleting)
+        .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
     }
 
     private var deletingOverlay: some View {

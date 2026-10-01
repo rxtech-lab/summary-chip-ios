@@ -4,7 +4,9 @@ import { renderWithBrowser } from "./browser";
 import { decodeText, fetchPublicDocument, type FetchedDocument } from "./fetch";
 import { extractHtml, normalizeWhitespace, type HtmlExtraction } from "./html";
 import { extractPdfText } from "./pdf";
-import { extractFromPlatform, platformOf } from "./platforms";
+import { extractFromPlatform, platformOf, siteNameFor } from "./platforms";
+
+export { siteNameFor } from "./platforms";
 
 export interface ExtractedContent {
   source: SummarySource;
@@ -59,7 +61,7 @@ function fromHtml(page: HtmlExtraction, url: string, finalUrl: string): Extracte
     text: page.text,
     sourceUrl: url,
     sourceTitle: page.title,
-    siteName: page.siteName ?? hostOf(finalUrl),
+    siteName: siteNameFor(page.siteName ?? hostOf(finalUrl), url, finalUrl),
     lang: page.lang,
     imageUrl: page.imageUrl,
   };
@@ -92,7 +94,7 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   if (document.contentType.startsWith("text/plain")) {
     const text = normalizeWhitespace(decodeText(document.bytes, document.charset));
     assertEnoughText(text);
-    return { source: webSource(url, finalUrl), text, sourceUrl: url, sourceTitle: null, siteName: hostOf(finalUrl), lang: null, imageUrl: null };
+    return { source: webSource(url, finalUrl), text, sourceUrl: url, sourceTitle: null, siteName: siteNameFor(hostOf(finalUrl), url, finalUrl), lang: null, imageUrl: null };
   }
   if (!document.contentType.includes("html") && !document.contentType.includes("xml")) {
     throw new ApiError(422, "UNSUPPORTED_CONTENT", `Pages of type ${document.contentType} cannot be summarised`);
@@ -142,7 +144,7 @@ export async function extractFromWebpage(input: {
     return {
       ...fetched,
       sourceTitle: input.title?.trim() || fetched.sourceTitle,
-      siteName: input.siteName?.trim() || fetched.siteName,
+      siteName: siteNameFor(input.siteName?.trim() || fetched.siteName, input.url),
       lang: input.lang?.trim() || fetched.lang,
     };
   }
@@ -152,7 +154,7 @@ export async function extractFromWebpage(input: {
     text: content,
     sourceUrl: input.url,
     sourceTitle: input.title?.trim() || null,
-    siteName: input.siteName?.trim() || hostOf(input.url),
+    siteName: siteNameFor(input.siteName?.trim() || hostOf(input.url), input.url),
     lang: input.lang?.trim() || null,
     imageUrl: null,
   };

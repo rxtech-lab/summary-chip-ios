@@ -11,6 +11,8 @@ struct LocalFileSheet: View {
     @State private var isPicking = false
     @State private var isWorking = false
     @State private var status: String?
+    @State private var changedCount = 0
+    @State private var failedCount = 0
     @State private var preview: URL?
     @State private var previewCopy: URL?
     @State private var path = NavigationPath()
@@ -83,6 +85,8 @@ struct LocalFileSheet: View {
             if isWorking { ActionStatusOverlay("Opening file…", isWorking: true) }
         }
         .statusAlert("Local File", message: status) { status = nil }
+        .sensoryFeedback(.success, trigger: changedCount)
+        .sensoryFeedback(.error, trigger: failedCount)
         .interactiveDismissDisabled(isWorking)
         .fileImporter(isPresented: $isPicking, allowedContentTypes: LocalDocument.contentTypes) { result in
             linkFile(result)
@@ -98,7 +102,7 @@ struct LocalFileSheet: View {
     private func linkFile(_ result: Result<URL, any Error>) {
         guard case .success(let url) = result else {
             if case .failure(let error) = result, (error as NSError).code != NSUserCancelledError {
-                status = error.localizedDescription
+                fail(error)
             }
             return
         }
@@ -117,7 +121,13 @@ struct LocalFileSheet: View {
             try action()
             link = store.link(summaryID: summaryID)
             status = message
-        } catch { status = error.localizedDescription }
+            changedCount += 1
+        } catch { fail(error) }
+    }
+
+    private func fail(_ error: any Error) {
+        status = error.localizedDescription
+        failedCount += 1
     }
 
     private func openFile() {
@@ -131,7 +141,7 @@ struct LocalFileSheet: View {
                 cleanPreview()
                 previewCopy = copy
                 preview = copy
-            } catch { status = error.localizedDescription }
+            } catch { fail(error) }
         }
     }
 

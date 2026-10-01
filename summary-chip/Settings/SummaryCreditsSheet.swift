@@ -11,6 +11,8 @@ struct SummaryCreditsSheet: View {
     @State private var path: [CreditsRoute] = []
     @State private var isRestoring = false
     @State private var status: String?
+    @State private var restoredCount = 0
+    @State private var restoreFailedCount = 0
     @State private var lastReportedConnectionError: String?
 
     private var store: SummaryCreditsStore { environment.credits }
@@ -41,6 +43,8 @@ struct SummaryCreditsSheet: View {
             }
         }
         .statusAlert("Summary Points", message: status) { status = nil }
+        .sensoryFeedback(.success, trigger: restoredCount)
+        .sensoryFeedback(.error, trigger: restoreFailedCount)
     }
 
     private var account: some View {
@@ -133,7 +137,11 @@ struct SummaryCreditsSheet: View {
             _ = try await client.restoreApplePurchases()
             await refresh()
             status = "Purchases restored. Consumable top-ups are saved in your account balance."
-        } catch { status = error.localizedDescription }
+            restoredCount += 1
+        } catch {
+            status = error.localizedDescription
+            restoreFailedCount += 1
+        }
     }
 
     private enum CreditsRoute: Hashable { case topUps }

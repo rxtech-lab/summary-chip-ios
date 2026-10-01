@@ -8,7 +8,7 @@ import { isBotUserAgent } from "@/lib/bots";
 import { APP_CLIP_BUNDLE_ID } from "@/lib/config";
 import { getDatabase } from "@/lib/db/client";
 import type { SummaryRow } from "@/lib/db/schema";
-import { hostOf } from "@/lib/extract";
+import { hostOf, siteNameFor } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { isValidSlug } from "@/lib/slug";
 import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
@@ -80,7 +80,7 @@ export default async function SummaryPage({ params }: Props) {
 
   const { colors, accent, emoji } = row.theme;
   const accentText = luminance(accent) > 0.45 ? "#0f172a" : "#ffffff";
-  const site = row.siteName ?? hostOf(row.sourceUrl);
+  const site = siteNameFor(row.siteName ?? hostOf(row.sourceUrl), row.sourceUrl);
   const href = originalHref(row);
   const gradient = `linear-gradient(135deg, ${colors.join(", ")})`;
 

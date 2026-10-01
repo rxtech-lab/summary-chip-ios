@@ -19,6 +19,7 @@ import {
   extractFromUrl,
   extractFromWebpage,
   hostOf,
+  siteNameFor,
   SOURCE_TEXT_LIMIT,
   truncateForModel,
   type ExtractedContent,
@@ -168,7 +169,7 @@ function isSlugConflict(error: unknown): boolean {
 }
 
 export function siteLabelFor(row: Pick<SummaryRow, "siteName" | "sourceUrl">): string | null {
-  return row.siteName ?? hostOf(row.sourceUrl);
+  return siteNameFor(row.siteName ?? hostOf(row.sourceUrl), row.sourceUrl);
 }
 
 export async function createSummary(

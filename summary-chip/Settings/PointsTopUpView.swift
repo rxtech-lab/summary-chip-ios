@@ -15,6 +15,13 @@ struct PointsTopUpView: View {
     @State private var loadError: String?
     @State private var purchasingID: String?
     @State private var status: String?
+    @State private var purchaseFeedback: PurchaseFeedback?
+
+    /// Purchase outcome for the haptic; a fresh id lets a repeated outcome fire again.
+    private struct PurchaseFeedback: Equatable {
+        let id = UUID()
+        let feedback: SensoryFeedback
+    }
 
     var body: some View {
         content
@@ -25,6 +32,7 @@ struct PointsTopUpView: View {
                 }
             }
             .statusAlert("Top Up Points", message: status) { status = nil }
+            .sensoryFeedback(trigger: purchaseFeedback) { _, new in new?.feedback }
     }
 
     @ViewBuilder
@@ -178,8 +186,10 @@ struct PointsTopUpView: View {
                 case .completed:
                     await onPurchased()
                     status = "\(topUp.amount.formatted()) \(topUp.unit ?? "points") added to your balance."
+                    purchaseFeedback = PurchaseFeedback(feedback: .success)
                 case .pending:
                     status = "Your purchase is waiting for approval. Points will be added once it's approved."
+                    purchaseFeedback = PurchaseFeedback(feedback: .warning)
                 case .cancelled:
                     break
                 }
@@ -188,6 +198,7 @@ struct PointsTopUpView: View {
             }
         } catch {
             status = error.localizedDescription
+            purchaseFeedback = PurchaseFeedback(feedback: .error)
         }
     }
 }

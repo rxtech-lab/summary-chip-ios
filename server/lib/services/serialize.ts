@@ -1,4 +1,5 @@
 import { siteUrl } from "@/lib/config";
+import { siteNameFor } from "@/lib/extract/platforms";
 import { publicObjectUrl } from "@/lib/storage/r2";
 import type { ImageStyle, SourceType, SummaryRow, SummarySource, SummaryTheme, Visibility } from "@/lib/db/schema";
 
@@ -79,7 +80,7 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     source: row.source,
     sourceUrl: row.sourceUrl,
     sourceTitle: row.sourceTitle,
-    siteName: row.siteName,
+    siteName: siteNameFor(row.siteName, row.sourceUrl),
     sourceFileUrl: row.sourceType === "pdf" && row.sourceFileKey ? `${shareUrl}/source` : null,
     title: row.title,
     summary: row.summary,
