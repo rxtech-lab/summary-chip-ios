@@ -34,8 +34,8 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install signature verification dependency
-        run: python3 -m pip install cryptography
+      - name: Install update feed dependencies
+        run: python3 -m pip install cryptography markdown
 
       - name: Verify signature validation rejects tampered updates
         run: python3 scripts/ci/test_validate_appcast.py

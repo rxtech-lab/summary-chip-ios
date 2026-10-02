@@ -23,10 +23,20 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 cp "$ARCHIVE" "$WORK_DIR/SummaryChip.dmg"
 printf '%s' "${RELEASE_NOTE:-}" > "$WORK_DIR/notes.txt"
 python3 - "$WORK_DIR" <<'PY'
-import html, pathlib, sys
+import pathlib, sys
+import markdown
 p = pathlib.Path(sys.argv[1])
-notes = html.escape((p / "notes.txt").read_text())
-(p / "SummaryChip.html").write_text('<!DOCTYPE html><html lang="en"><meta charset="utf-8"><title>Chippy release notes</title><body><pre style="white-space:pre-wrap">' + notes + '</pre></body></html>')
+# GitHub release bodies are Markdown; Sparkle's release notes view renders HTML.
+notes = markdown.markdown((p / "notes.txt").read_text(), extensions=["extra", "sane_lists"])
+style = """
+:root { color-scheme: light dark; }
+body { font: 13px -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 1.3em; } h2, h3 { font-size: 1.1em; margin-top: 1.2em; }
+a { color: -apple-system-control-accent; text-decoration: none; }
+ul { padding-left: 1.4em; } li { margin: 0.2em 0; }
+code { font: 12px ui-monospace, Menlo, monospace; }
+"""
+(p / "SummaryChip.html").write_text('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Chippy release notes</title><style>' + style + '</style></head><body>' + notes + '</body></html>')
 PY
 
 # Pass the signing key over stdin; never put it in argv or in published artifacts.
