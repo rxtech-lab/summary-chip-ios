@@ -6,7 +6,12 @@ import SwiftUI
 struct SidebarMainView: View {
     let environment: AppEnvironment
     @State private var selection: MainTab? = .library
+    #if os(macOS)
+    /// Remembered across launches so the chat panel reopens the way the user left it.
+    @AppStorage("chatPanelVisible") private var showsChat = true
+    #else
     @State private var showsChat = true
+    #endif
     @State private var showsNewSummary = false
     @State private var libraryPath: [Summary] = []
 
