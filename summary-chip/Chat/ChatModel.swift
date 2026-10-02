@@ -103,6 +103,12 @@ final class ChatModel {
     }
 
     private func stream(_ messages: [ChatUIMessage], into id: String) async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
+            await previewStream(into: id)
+            return
+        }
+        #endif
         do {
             let localContent = await Self.localContent(summaryID: summaryID)
             for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent) {
@@ -119,6 +125,36 @@ final class ChatModel {
             finish(id)
         }
     }
+
+    #if DEBUG
+    /// Exercises the real row updates without an account, network, or persisted chat.
+    private func previewStream(into id: String) async {
+        let chunks = [
+            "# Streaming layout check\n\n",
+            "The first paragraph stays in place while the answer grows.\n\n",
+            "```swift\n", "let count = 1\n", "let next = count + 1\n", "print(next)\n", "```\n\n",
+            "| Item | Value |\n| --- | --- |\n", "| First | One |\n", "| Second | Two |\n",
+        ]
+        do {
+            for chunk in chunks {
+                try await Task.sleep(for: .milliseconds(500))
+                try Task.checkCancellation()
+                apply(.textDelta(id: "preview", delta: chunk), to: id)
+            }
+            // Keep extending one paragraph beyond the viewport to check following
+            // and the reader's ability to scroll back during an active stream.
+            apply(.textDelta(id: "preview", delta: "\n\n"), to: id)
+            for index in 0..<20 {
+                // Gaps let XCUITest interact without waiting for the whole turn
+                // to finish; each burst still goes through the text-delta path.
+                try await Task.sleep(for: .seconds(2))
+                try Task.checkCancellation()
+                apply(.textDelta(id: "preview", delta: String(repeating: "More streamed text fills the answer. ", count: index == 0 ? 24 : 8)), to: id)
+            }
+        } catch {}
+        finish(id)
+    }
+    #endif
 
     /// The summary's linked local file, read fresh for each question so edits are picked up.
     /// The server never stores it; without it, answers fall back to the summary itself.

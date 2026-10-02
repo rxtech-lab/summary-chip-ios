@@ -1,0 +1,9 @@
+{
+  "id" : "e4ada2d5-b1cb-4ab1-8858-2f5b26d6ae32",
+  "targets" : [
+    {
+      "id" : "4795cb23-078c-4383-a8a2-b32f018e4cc8",
+      "name" : "summary-chip"
+    }
+  ]
+}

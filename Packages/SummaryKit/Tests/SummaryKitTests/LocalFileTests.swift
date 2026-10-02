@@ -23,6 +23,38 @@ struct LocalFileTests {
         #expect(FileManager.default.fileExists(atPath: file.path))
     }
 
+    private func fixture(_ name: String) throws -> URL {
+        try #require(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"))
+    }
+
+    @Test func readsExcelSheetsAsTabSeparatedRows() throws {
+        let file = try LocalDocument.read(fileURL: try fixture("Budget.xlsx"))
+        #expect(file.kind == .text)
+        #expect(file.text == "## Q3 Budget\nItem\tCost\nCloud hosting\t\t1200.5\nTotal\tTRUE\n\n## Notes\nApproved by finance")
+    }
+
+    @Test func readsPowerPointSlidesInOrder() throws {
+        let file = try LocalDocument.read(fileURL: try fixture("Roadmap.pptx"))
+        #expect(file.text == "## Slide 1\nWelcome\n\n## Slide 2\nRoadmap 2026\nShip the Mac app\n\n## Slide 3\nLaunch")
+    }
+
+    @Test func readsOpenDocumentSpreadsheets() throws {
+        let file = try LocalDocument.read(fileURL: try fixture("Inventory.ods"))
+        #expect(file.text == "Apples\t12\nPears  green")
+    }
+
+    @Test func acceptsOfficeDocumentsForPickingAndSharing() throws {
+        #expect(LocalDocument.isReadable(extension: "xlsx"))
+        #expect(LocalDocument.isReadable(extension: "pptx"))
+        #expect(LocalDocument.isReadable(typeIdentifier: "org.openxmlformats.spreadsheetml.sheet"))
+        #expect(LocalDocument.contentTypes.contains(try #require(UTType(filenameExtension: "xlsx"))))
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let corrupt = root.appending(path: "Broken.xlsx")
+        try Data("not a zip".utf8).write(to: corrupt)
+        #expect(throws: LocalDocumentError.self) { try LocalDocument.read(fileURL: corrupt) }
+    }
+
     @Test func discardingADroppedFileRemovesOnlyStagedCopies() throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

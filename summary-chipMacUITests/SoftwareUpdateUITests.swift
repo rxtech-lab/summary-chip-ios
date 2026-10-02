@@ -3,7 +3,7 @@ import Foundation
 
 nonisolated final class SoftwareUpdateUITests: XCTestCase {
     @MainActor
-    func testUpdateDownloadUsesOverlayAndRejectsUnsignedArchive() async throws {
+    func testUpdateDownloadUsesSparkleWindowAndRejectsUnsignedArchive() async throws {
         // The test runner cannot listen for HTTP inside its sandbox. Start the
         // local fixture with scripts/tests/update-fixture-server.py first.
         do {
@@ -21,13 +21,16 @@ nonisolated final class SoftwareUpdateUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10))
         app.menuBars.menuBarItems["Chippy"].click()
         app.menuItems["Check for Updates…"].click()
-        let sheet = app.sheets.firstMatch
-        XCTAssertTrue(sheet.staticTexts["Update Available"].waitForExistence(timeout: 10))
-        sheet.buttons["Install Update"].click()
-        XCTAssertTrue(sheet.descendants(matching: .any)["software-update-progress"].waitForExistence(timeout: 5))
-        XCTAssertTrue(sheet.staticTexts["Update Failed"].waitForExistence(timeout: 15))
-        sheet.buttons["Close"].click()
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        // Sparkle's built-in update window replaces the custom sheet.
+        let install = app.buttons["Install Update"]
+        XCTAssertTrue(install.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Remind Me Later"].exists)
+        install.click()
+        // The unsigned fixture archive is rejected and reported in Sparkle's own alert.
+        let ok = app.dialogs.buttons["OK"]
+        XCTAssertTrue(ok.waitForExistence(timeout: 20))
+        ok.click()
+        XCTAssertTrue(ok.waitForNonExistence(timeout: 5))
     }
 
     @MainActor
@@ -49,7 +52,7 @@ nonisolated final class SoftwareUpdateUITests: XCTestCase {
     }
 
     @MainActor
-    func testManualCheckShowsFailureInSheetAndCanBeRetried() {
+    func testManualCheckShowsSparkleFailureAlertAndCanBeRetried() {
         let app = XCUIApplication()
         // A closed loopback port exercises Sparkle's real network failure callback.
         app.launchArguments = ["--preview-mac", "--test-update-feed=http://127.0.0.1:1/appcast.xml"]
@@ -58,11 +61,10 @@ nonisolated final class SoftwareUpdateUITests: XCTestCase {
         for _ in 0..<2 {
             app.menuBars.menuBarItems["Chippy"].click()
             app.menuItems["Check for Updates…"].click()
-            let sheet = app.sheets.firstMatch
-            XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-            XCTAssertTrue(sheet.staticTexts["Update Failed"].waitForExistence(timeout: 10))
-            sheet.buttons["Close"].click()
-            XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+            let ok = app.dialogs.buttons["OK"]
+            XCTAssertTrue(ok.waitForExistence(timeout: 10))
+            ok.click()
+            XCTAssertTrue(ok.waitForNonExistence(timeout: 5))
         }
     }
 }
