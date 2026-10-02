@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { siteUrl } from "@/lib/config";
 import "./globals.css";
+import "./material.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -8,20 +9,25 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: "Chippy", template: "%s · Chippy" },
     description: "Summarise any web page, PDF or note into a shareable card.",
     applicationName: "Chippy",
+    openGraph: {
+      type: "website",
+      siteName: "Chippy",
+      title: "Chippy",
+      description: "Summarise any web page, PDF or note into a shareable card.",
+    },
+    twitter: { card: "summary_large_image" },
   };
 }
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0f19" },
-  ],
+  themeColor: "#fff8f5",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-dvh bg-white text-slate-900 dark:bg-[#0b0f19] dark:text-slate-100 font-sans">
+      <body className="min-h-dvh">
         {children}
       </body>
     </html>

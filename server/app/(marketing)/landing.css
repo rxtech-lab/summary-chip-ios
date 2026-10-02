@@ -1,0 +1,264 @@
+/*
+ * Landing page scroll effects. Everything is pure CSS scroll-driven animation
+ * (animation-timeline), so the page stays a server component with no JS.
+ * Browsers without support — or users who prefer reduced motion — get the
+ * static layout: nothing is hidden or offset outside the @supports block.
+ */
+
+.landing-page { timeline-scope: --assembly; }
+.brand-intro { min-height: 100svh; }
+.intro-pin {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 88px 24px 32px;
+}
+.intro-scene { width: 100%; text-align: center; }
+.intro-art { width: min(100%, 600px); margin-inline: auto; }
+.intro-art svg { display: block; width: 100%; height: min(42svh, 380px); overflow: visible; }
+.intro-title { font-size: clamp(48px, 7vw, 80px); font-weight: 500; line-height: 1.1; letter-spacing: -2px; }
+.intro-tagline { margin-top: 16px; font-size: clamp(22px, 3.5vw, 40px); line-height: 1.25; }
+.intro-tagline span { color: var(--md-sys-color-primary); }
+.intro-scroll-hint { margin-top: 32px; color: var(--md-sys-color-on-surface-variant); font-size: 13px; }
+
+@keyframes assemble-back {
+  from { transform: translate(-280px, 12px) rotate(-8deg); }
+  85% { transform: translate(8px, 0) rotate(1deg); }
+  to { transform: translate(0, 0) rotate(0); }
+}
+@keyframes assemble-front {
+  from { transform: translate(280px, -12px) rotate(8deg); }
+  85% { transform: translate(-8px, 0) rotate(-1deg); }
+  to { transform: translate(0, 0) rotate(0); }
+}
+@keyframes assembly-sparkle {
+  from { opacity: 0; scale: 0.5; }
+  70% { opacity: 1; scale: 1.15; }
+  to { opacity: 1; scale: 1; }
+}
+@keyframes intro-exit {
+  from { visibility: visible; opacity: 1; }
+  to { visibility: hidden; opacity: 0; }
+}
+@keyframes brand-to-header {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(calc(max(42px, 50vw - 534px) - 50vw), -33svh) scale(0.18); }
+}
+@keyframes overview-enter {
+  from { visibility: hidden; opacity: 0; translate: 0 -70svh; }
+  to { visibility: visible; opacity: 1; translate: 0 0; }
+}
+@keyframes intro-header-enter {
+  from { visibility: hidden; opacity: 0; translate: 0 -16px; }
+  to { visibility: visible; opacity: 1; translate: 0 0; }
+}
+
+.summary-sample { width: 288px; max-width: 100%; }
+.hero-gallery .summary-sample { width: 100%; }
+.hero-gallery { background: var(--md-sys-color-surface-container); }
+.feature-row:nth-child(even) { background: var(--md-sys-color-secondary-container); }
+.feature-row .parallax { max-width: 100%; }
+.feature-demo {
+  display: flex;
+  width: 320px;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 24px;
+  background: var(--md-sys-color-surface-container-lowest);
+  text-align: center;
+}
+.feature-drop-demo {
+  border: 2px dashed var(--md-sys-color-primary);
+  background: var(--md-sys-color-surface);
+}
+.steps { background: var(--md-sys-color-surface-container); }
+.steps h2 { font-size: clamp(28px, 4vw, 48px); line-height: 1.15; }
+.steps-pin { padding-block: 64px; }
+.cta-surface {
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: var(--md-sys-color-secondary);
+  color: white;
+}
+
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  height: 3px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: var(--md-sys-color-primary);
+}
+
+/* Fallback: the steps track is a plain horizontal scroller. */
+.steps-viewport {
+  container-type: inline-size;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.steps-viewport > * > * {
+  scroll-snap-align: center;
+}
+
+@keyframes progress-grow {
+  to { transform: scaleX(1); }
+}
+
+@keyframes parallax-shift {
+  from { translate: 0 calc(var(--depth, 0.3) * 90px); }
+  to { translate: 0 calc(var(--depth, 0.3) * -90px); }
+}
+
+@keyframes hero-lift {
+  to { translate: 0 calc(var(--depth, 0.3) * -70vh); }
+}
+
+@keyframes hero-fade {
+  to { opacity: 0; translate: 0 -12vh; scale: 0.96; }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; translate: 0 48px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes reveal-scale {
+  from { opacity: 0; scale: 0.88; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes track-slide {
+  to { translate: calc(-100% + 100cqw) 0; }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-progress {
+      animation: progress-grow linear both;
+      animation-timeline: scroll(root block);
+    }
+
+    .site-header {
+      animation: intro-header-enter linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 75% contain 100%;
+      background: var(--md-sys-color-surface-container);
+      box-shadow: var(--md-sys-elevation-2);
+    }
+
+    /* The cards join first, then the assembled brand holds before the handoff. */
+    .brand-intro {
+      height: 380svh;
+      view-timeline: --assembly block;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .intro-pin { position: sticky; top: 0; height: 100svh; }
+    .intro-scene { pointer-events: auto; }
+    .intro-back-card, .intro-front-card {
+      transform-box: view-box;
+      transform-origin: 512px 512px;
+      animation: assemble-back linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 0% contain 40%;
+    }
+    .intro-front-card { animation-name: assemble-front; }
+    .intro-sparkle {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: assembly-sparkle linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 32% contain 42%;
+    }
+    .intro-scene {
+      animation: intro-exit linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 85% contain 100%;
+    }
+    .intro-title, .intro-tagline, .intro-cue {
+      animation: intro-exit linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 68% contain 75%;
+    }
+    .intro-cue { animation-range: contain 55% contain 65%; }
+    .intro-art {
+      animation: brand-to-header linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 65% contain 100%;
+    }
+    /* The overview holds the same viewport during the crossfade, then rejoins
+       normal page flow. 70svh = the final 25% of the 280svh pinned scroll. */
+    #overview {
+      margin-top: -100svh;
+      animation: overview-enter linear both;
+      animation-timeline: --assembly;
+      animation-range: contain 75% contain 100%;
+    }
+
+    /* Hero: the copy fades away and the cards drift up at different speeds. */
+    .hero {
+      view-timeline: --hero block;
+    }
+    .hero-copy {
+      animation: hero-fade linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 80%;
+    }
+    .hero-layer {
+      animation: hero-lift linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 100%;
+    }
+
+    /* Generic in-view helpers used by the feature rows. */
+    .parallax {
+      animation: parallax-shift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+    .reveal {
+      animation: reveal-up ease-out both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 35%;
+    }
+    .reveal-scale {
+      animation: reveal-scale ease-out both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+
+    /* "How it works": vertical scroll pins the section and slides the track sideways. */
+    @media (min-height: 760px) {
+      .steps {
+        height: 320vh;
+        view-timeline: --steps block;
+      }
+      .steps-pin {
+        position: sticky;
+        top: 80px;
+        height: calc(100svh - 80px);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .steps-viewport {
+        overflow: clip;
+        scroll-snap-type: none;
+      }
+      .steps-track {
+        animation: track-slide linear both;
+        animation-timeline: --steps;
+        animation-range: contain 5% contain 95%;
+      }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-scroll-hint { display: none; }
+}

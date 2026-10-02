@@ -86,14 +86,14 @@ export default async function SummaryPage({ params }: Props) {
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[420px] opacity-25 blur-3xl dark:opacity-30" style={{ backgroundImage: gradient }} />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[420px] opacity-25 blur-3xl" style={{ backgroundImage: gradient }} />
       <article lang={row.language} className="relative mx-auto max-w-3xl px-5 pb-16 pt-8 sm:px-8 sm:pt-14">
         <header className="flex items-center justify-between text-sm">
-          <Link href="/" className="font-semibold tracking-wide text-slate-700 hover:underline dark:text-slate-300">Chippy</Link>
-          <span className="text-slate-500 dark:text-slate-400">{formatDate(row.createdAt)}</span>
+          <Link href="/" className="md-brand-link text-lg font-semibold">Chippy</Link>
+          <span className="text-slate-500">{formatDate(row.createdAt)}</span>
         </header>
 
-        <div className="mt-6 overflow-hidden rounded-3xl shadow-xl ring-1 ring-black/5 dark:ring-white/10" style={{ backgroundImage: gradient }}>
+        <div className="md-card mt-6 overflow-hidden" style={{ backgroundImage: gradient }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- served from our own route with its own caching */}
           <img src={publicOgImageUrl(row)} alt={row.title} width={1200} height={630} className="block aspect-[1200/630] w-full object-cover" />
         </div>
@@ -103,18 +103,18 @@ export default async function SummaryPage({ params }: Props) {
           <span className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider" style={{ backgroundColor: accent, color: accentText }}>
             {row.category}
           </span>
-          {site ? <span className="text-sm text-slate-500 dark:text-slate-400">{site}</span> : null}
+          {site ? <span className="text-sm text-slate-500">{site}</span> : null}
         </div>
 
-        <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{row.title}</h1>
-        <p className="mt-5 text-lg leading-relaxed text-slate-700 dark:text-slate-300">{row.summary}</p>
+        <h1 className="mt-4 text-3xl font-normal leading-tight tracking-tight sm:text-4xl">{row.title}</h1>
+        <p className="md-text-secondary mt-5 text-lg leading-relaxed">{row.summary}</p>
 
         {row.highlights.length ? (
           <section className="mt-10">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Highlights</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Highlights</h2>
             <ul className="mt-4 space-y-3">
               {row.highlights.map((highlight, index) => (
-                <li key={index} className="flex gap-3 rounded-2xl bg-slate-50 p-4 leading-relaxed dark:bg-white/5">
+                <li key={index} className="md-card-outlined flex gap-3 p-4 leading-relaxed">
                   <span className="mt-2 h-2 w-2 flex-none rounded-full" style={{ backgroundColor: accent }} aria-hidden />
                   <span>{highlight}</span>
                 </li>
@@ -126,7 +126,7 @@ export default async function SummaryPage({ params }: Props) {
         {row.tags.length ? (
           <ul className="mt-8 flex flex-wrap gap-2" aria-label="Tags">
             {row.tags.map((tag) => (
-              <li key={tag} className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">#{tag}</li>
+              <li key={tag} className="md-chip">#{tag}</li>
             ))}
           </ul>
         ) : null}
@@ -136,7 +136,7 @@ export default async function SummaryPage({ params }: Props) {
             href={href}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            className="mt-10 inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-lg transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="md-button mt-10"
             style={{ backgroundColor: accent, color: accentText }}
           >
             Read the original
@@ -144,9 +144,9 @@ export default async function SummaryPage({ params }: Props) {
           </a>
         ) : null}
 
-        <footer className="mt-14 border-t border-slate-200 pt-6 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+        <footer className="mt-14 border-t border-slate-200 pt-6 text-sm text-slate-500">
           <p>
-            Summarised by <Link href="/" className="font-semibold text-slate-700 hover:underline dark:text-slate-200">Chippy</Link>
+            Summarised by <Link href="/" className="font-semibold text-slate-700 hover:underline">Chippy</Link>
             {row.sourceTitle && row.sourceTitle !== row.title ? <> from “{row.sourceTitle}”</> : null}. AI summaries can contain mistakes — check the original.
           </p>
           <p className="mt-2">
