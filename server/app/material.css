@@ -1,0 +1,151 @@
+/* Material 3 roles, shapes, elevation and interaction states, in Chippy colours. */
+:root {
+  --md-sys-color-primary: #8d3d2e;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffdad0;
+  --md-sys-color-on-primary-container: #3a0b03;
+  --md-sys-color-secondary: #454e72;
+  --md-sys-color-secondary-container: #dfe3ff;
+  --md-sys-color-on-secondary-container: #17213f;
+  --md-sys-color-surface: #fff8f5;
+  --md-sys-color-surface-container-low: #fff1ec;
+  --md-sys-color-surface-container: #f8e9e3;
+  --md-sys-color-surface-container-high: #f0e1dc;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-on-surface: #251a17;
+  --md-sys-color-on-surface-variant: #59423c;
+  --md-sys-color-outline: #8c7169;
+  --md-sys-color-outline-variant: #ddc1b8;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-elevation-1: 0 1px 3px rgb(37 26 23 / 12%), 0 1px 2px rgb(37 26 23 / 8%);
+  --md-sys-elevation-2: 0 2px 6px rgb(37 26 23 / 12%), 0 2px 4px rgb(37 26 23 / 8%);
+  --md-sys-motion-standard: cubic-bezier(0.2, 0, 0, 1);
+  --page-bg: var(--md-sys-color-surface);
+}
+
+body {
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+}
+
+.md-appbar {
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-button {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0.1px;
+  text-align: center;
+  text-decoration: none;
+  transition: box-shadow 200ms var(--md-sys-motion-standard);
+}
+
+.md-button::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: currentColor;
+  content: "";
+  opacity: 0;
+  transition: opacity 200ms var(--md-sys-motion-standard);
+}
+.md-button:hover::before { opacity: 0.08; }
+.md-button:active::before,
+.md-button:focus-visible::before { opacity: 0.12; }
+.md-button:focus-visible,
+.md-brand-link:focus-visible {
+  outline: 3px solid var(--md-sys-color-primary);
+  outline-offset: 4px;
+}
+.md-button-filled {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+.md-button-filled:hover { box-shadow: var(--md-sys-elevation-1); }
+.md-button-tonal {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+.md-button-text { color: var(--md-sys-color-primary); }
+.md-button-outline {
+  border-color: var(--md-sys-color-outline);
+  color: var(--md-sys-color-primary);
+}
+.md-button-inverse {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+.md-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  border-radius: 999px;
+  padding: 10px 20px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.md-card {
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-lowest);
+  box-shadow: var(--md-sys-elevation-1);
+}
+.md-card-outlined {
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface);
+}
+.md-surface {
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+.md-text-secondary { color: var(--md-sys-color-on-surface-variant); }
+.md-text-primary { color: var(--md-sys-color-primary); }
+.md-eyebrow {
+  color: var(--md-sys-color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.md-chip {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  padding: 4px 10px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+@media (max-width: 639px) {
+  .md-nav-secondary { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-button, .md-button::before { transition: none; }
+}

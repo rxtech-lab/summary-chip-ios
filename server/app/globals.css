@@ -1,7 +1,19 @@
 @import "tailwindcss";
 
+/* Brand colours from the app icon (Chippy.icon): coral card + navy summary lines. */
+@theme {
+  --color-coral-50: #fff6f3;
+  --color-coral-100: #ffe1d8;
+  --color-coral-300: #ffb29b;
+  --color-coral-400: #ff987f;
+  --color-coral-500: #f57f6b;
+  --color-coral-600: #e0654f;
+  --color-ink: #17213f;
+}
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+  --page-bg: #ffffff;
 }
 
 body {
