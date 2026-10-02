@@ -35,3 +35,12 @@ export const APP_CLIP_BUNDLE_ID = "com.rxlab.summary-chip.Clip";
 export function appleTeamId(): string {
   return process.env.APPLE_TEAM_ID || APPLE_TEAM_ID_DEFAULT;
 }
+
+/** Always resolves to the DMG attached to the newest published GitHub release. */
+export const MAC_DOWNLOAD_URL = "https://github.com/rxtech-lab/summary-chip-ios/releases/latest/download/SummaryChip.dmg";
+
+/** App Store listing for the iOS app, or null until `APP_STORE_ID` is configured. */
+export function appStoreUrl(): string | null {
+  const appId = process.env.APP_STORE_ID?.trim();
+  return appId && /^\d+$/.test(appId) ? `https://apps.apple.com/app/id${appId}` : null;
+}
