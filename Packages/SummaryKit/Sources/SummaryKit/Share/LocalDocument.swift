@@ -11,7 +11,7 @@ public enum LocalDocumentError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .unsupported: "Choose a PDF, document, text, Markdown or code file."
+        case .unsupported: "Choose a PDF, document, spreadsheet, presentation, text, Markdown or code file."
         case .empty: "This file is empty."
         case .noPDFText: "This PDF has no selectable text. Scanned PDFs can't be read on this device."
         case .textTooLong: "Text files must contain at most 200,000 characters."
@@ -56,6 +56,7 @@ public enum LocalDocument {
     public static var contentTypes: [UTType] {
         var types: [UTType] = [.pdf, .text, .sourceCode, .json, .yaml, .commaSeparatedText, .tabSeparatedText, .log]
         types += richTextTypes
+        types += OfficeDocument.contentTypes
         // Code that the system doesn't type as text (or types as something else, like `.ts`).
         types += (markdownExtensions + codeExtensions).compactMap { UTType(filenameExtension: $0) }
         var seen = Set<UTType>()
@@ -99,12 +100,14 @@ public enum LocalDocument {
     public static func isReadable(typeIdentifier: String) -> Bool {
         guard let type = UTType(typeIdentifier) else { return false }
         return type.conforms(to: .pdf) || type.conforms(to: .text) || richTextTypes.contains(where: type.conforms(to:))
+            || OfficeDocument.isOfficeType(type)
     }
 
     /// Whether a file with this extension is one `read(fileURL:)` reads.
     public static func isReadable(extension ext: String) -> Bool {
         let ext = ext.lowercased()
-        if ext == "pdf" || markdownExtensions.contains(ext) || codeExtensions.contains(ext) { return true }
+        if ext == "pdf" || markdownExtensions.contains(ext) || codeExtensions.contains(ext)
+            || OfficeDocument.extensions.contains(ext) { return true }
         return UTType(filenameExtension: ext).map { isReadable(typeIdentifier: $0.identifier) } ?? false
     }
 
@@ -139,6 +142,12 @@ public enum LocalDocument {
             guard !text.isEmpty else { throw LocalDocumentError.empty }
             // Like PDFs, long documents are summarised from their opening.
             return LocalFileSource(filename: name, kind: .text, text: prefix(text, utf16Length: maxTextLength))
+        }
+        // Spreadsheets, presentations (and Word documents on iOS) are read from their XML parts.
+        if OfficeDocument.extensions.contains(ext) || type.map(OfficeDocument.isOfficeType) == true {
+            let text = try OfficeDocument.text(at: fileURL, limit: maxTextLength)
+            guard !text.isEmpty else { throw LocalDocumentError.empty }
+            return LocalFileSource(filename: name, kind: .text, text: text)
         }
         let text = try decodeText(at: fileURL, trusted: isKnownText).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw LocalDocumentError.empty }

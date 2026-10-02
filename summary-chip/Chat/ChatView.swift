@@ -14,18 +14,15 @@ struct ChatView: View {
     let isPanel: Bool
     @State private var model: ChatModel
     @State private var path: [ChatSummaryRoute] = []
-    @State private var shouldScrollToBottom = false
     @State private var isAtBottom = true
-    @State private var scrollRequest: Task<Void, Never>?
-    @State private var followRequest: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    init(environment: AppEnvironment, summary: Summary? = nil, isPanel: Bool = false) {
+    init(environment: AppEnvironment, summary: Summary? = nil, isPanel: Bool = false, model: ChatModel? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
-        self._model = State(initialValue: ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id))
+        self._model = State(initialValue: model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id))
     }
 
     var body: some View {
@@ -138,18 +135,9 @@ struct ChatView: View {
     }
 
     private var transcript: some View {
-        // `isStreaming` lets `MessageList` pin each sent question to the top while its answer
-        // fills in below: `send()` appends the answer placeholder right after the question, so
-        // without it the list just scrolls to the bottom. Once the answer outgrows the
-        // viewport, `followStream()` keeps following it on a debounce.
-        messageList
-            .onChange(of: model.entries.count) { old, new in
-                if new > old { pulseScrollToBottom() }
-            }
-            .onChange(of: model.entries.last) { followStream() }
-    }
-
-    private var messageList: some View {
+        // The native list pins the sent question, follows growing row heights, and
+        // releases that anchor when the reader scrolls away. Extra scroll pulses
+        // on token updates compete with its layout and reset the reader's position.
         GeometryReader { geometry in
             // AppKit hosts each row separately. Give it the viewport's width so a
             // horizontal result strip cannot determine the width of the whole row.
@@ -157,7 +145,6 @@ struct ChatView: View {
             MessageList(
                 messages: model.entries,
                 isStreaming: model.isStreaming,
-                shouldScrollToBottom: shouldScrollToBottom,
                 isAtBottom: $isAtBottom
             ) { entry in
                 ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
@@ -165,30 +152,6 @@ struct ChatView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             }
-        }
-    }
-
-    /// Coalesces streamed updates into at most one scroll per interval, and only while
-    /// the reader is still at the bottom, so scrolling up to read isn't interrupted.
-    private func followStream() {
-        guard followRequest == nil, isAtBottom else { return }
-        followRequest = Task {
-            try? await Task.sleep(for: .milliseconds(300))
-            followRequest = nil
-            guard !Task.isCancelled, isAtBottom else { return }
-            pulseScrollToBottom()
-        }
-    }
-
-    /// `MessageList` scrolls on the false→true edge of `shouldScrollToBottom`, so each
-    /// send has to pulse it rather than just set it.
-    private func pulseScrollToBottom() {
-        scrollRequest?.cancel()
-        shouldScrollToBottom = false
-        scrollRequest = Task {
-            try? await Task.sleep(for: .milliseconds(20))
-            guard !Task.isCancelled else { return }
-            shouldScrollToBottom = true
         }
     }
 
@@ -269,8 +232,14 @@ private struct ChatEntryView: View {
                     ChatToolCallCard(tool: tool, openSummary: openSummary)
                 }
                 if !entry.text.isEmpty {
-                    MarkdownView(text: entry.text, fadeNewText: entry.isStreaming)
+                    // Keep the live parse path, but render each delta without a
+                    // fade transaction that can animate existing blocks and sizing.
+                    MarkdownView(text: entry.text, showsTrailingCursor: entry.isStreaming, fadeNewText: false)
                         .textSelection(.enabled)
+                        .transaction { transaction in
+                            transaction.animation = nil
+                            transaction.disablesAnimations = true
+                        }
                 }
                 // A running tool card already pulses; don't stack a second status under it.
                 if entry.isStreaming, !entry.tools.contains(where: \.isRunning) {

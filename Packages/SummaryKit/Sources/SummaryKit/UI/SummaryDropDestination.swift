@@ -21,7 +21,7 @@ public struct DroppedSummaryFile: Sendable, Hashable {
 }
 
 extension View {
-    /// Accepts a dropped PDF, document, text, Markdown or code file, and on macOS a dropped web link.
+    /// Accepts a dropped PDF, document, spreadsheet, presentation, text, Markdown or code file, and on macOS a dropped web link.
     /// Only the first item of a multi-item drop is used.
     public func summaryDropDestination(
         isEnabled: Bool = true,
@@ -78,6 +78,10 @@ struct DroppedLocalFile: Transferable {
         FileRepresentation(importedContentType: UTType(filenameExtension: "md") ?? .plainText, importing: stage)
         FileRepresentation(importedContentType: .rtf, importing: stage)
         FileRepresentation(importedContentType: .flatRTFD, importing: stage)
+        // Excel, PowerPoint and Word (Office Open XML); the builder takes at most ten representations.
+        FileRepresentation(importedContentType: .compositeContent, importing: stage)
+        FileRepresentation(importedContentType: UTType("org.oasis-open.opendocument.spreadsheet") ?? .data, importing: stage)
+        FileRepresentation(importedContentType: UTType("org.oasis-open.opendocument.presentation") ?? .data, importing: stage)
         FileRepresentation(importedContentType: .sourceCode, importing: stage)
         FileRepresentation(importedContentType: .plainText, importing: stage)
         FileRepresentation(importedContentType: .text, importing: stage)
