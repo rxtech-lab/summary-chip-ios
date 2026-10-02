@@ -9,6 +9,9 @@ export default function NotFound() {
       <Link href="/" className="mt-8 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-slate-900">
         About Chippy
       </Link>
+      <Link href="/download" className="mt-3 text-sm font-semibold text-slate-600 underline-offset-4 hover:underline dark:text-slate-400">
+        Download the app
+      </Link>
     </main>
   );
 }

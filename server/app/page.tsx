@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Chippy",
@@ -24,6 +25,12 @@ export default function Home() {
       <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
         Chippy turns long articles, PDFs and notes into short, beautiful summary cards — then lets you share them as a link or an image.
       </p>
+      <Link
+        href="/download"
+        className="mt-8 self-start rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-slate-900"
+      >
+        Download Chippy
+      </Link>
       <ul className="mt-14 grid gap-4 sm:grid-cols-3">
         {features.map((feature) => (
           <li key={feature.title} className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
