@@ -15,6 +15,7 @@ struct ChatView: View {
     @State private var model: ChatModel
     @State private var path: [ChatSummaryRoute] = []
     @State private var isAtBottom = true
+    @State private var inputBarHeight: CGFloat = 0
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -27,19 +28,22 @@ struct ChatView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                Group {
-                    if model.entries.isEmpty {
-                        emptyState
-                    } else {
-                        transcript
-                    }
+            Group {
+                if model.entries.isEmpty {
+                    emptyState
+                } else {
+                    transcript
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // Reserve space for the composer, including when its draft grows.
-                // Native hosted message rows must never render underneath it.
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The composer floats over the transcript with no backing bar; its height
+            // becomes the list's bottom inset so the last row still rests above it.
+            .overlay(alignment: .bottom) {
                 inputBar
-                    .background(.bar)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                        guard abs(height - inputBarHeight) > 0.5 else { return }
+                        inputBarHeight = height
+                    }
             }
             .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
                 if isStreaming { return .impact(weight: .light) }
@@ -131,6 +135,7 @@ struct ChatView: View {
             }
             .padding()
         }
+        .contentMargins(.bottom, inputBarHeight, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -145,6 +150,7 @@ struct ChatView: View {
             MessageList(
                 messages: model.entries,
                 isStreaming: model.isStreaming,
+                bottomInset: inputBarHeight,
                 isAtBottom: $isAtBottom
             ) { entry in
                 ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
