@@ -2,8 +2,8 @@
 
 `chippy` uploads summaries to Chippy from a terminal, a script, or an agent. You send a summary you
 already have, its tags and the raw source text; Chippy stores them as given. Nothing is re-summarised:
-the server only designs the cover image and indexes the summary for search, the same as for a summary
-made in the app. Uploaded summaries appear in the library on every device signed in to the same
+a model still generates the cover image from your summary and text (its palette, emoji, headline and
+artwork) and the summary is indexed for search, the same as for a summary made in the app. Uploaded summaries appear in the library on every device signed in to the same
 account.
 
 It is a plain command-line program (flags in, text out), so it composes with pipes and shell scripts.

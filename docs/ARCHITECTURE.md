@@ -189,8 +189,9 @@ Without `deviceReader`, a `url` source returns the original error and a `text` s
 Adds a summary, its tags and the raw source text in one call, for scripts, other apps and agents.
 Auth is the same OAuth bearer token as the rest of `/api/v1` (an RxLab access token whose
 `client_id` is in `IOS_OAUTH_CLIENT_ID` / `RXLAB_ALLOWED_CLIENT_IDS`; `sub` becomes the owner).
-Nothing is summarised: the server only designs the cover image and embeds it for search, and the raw
-text is kept as the source document (`GET /api/v1/summaries/:id/markdown`). Counts as one summary
+Nothing is summarised: a model still designs the cover from the summary and raw text (palette, mode,
+emoji, accent and headline, then the `imageStyle` artwork, as for any summary; a failed design falls
+back to a seeded palette), the summary is embedded for search, and the raw text is kept as the source document (`GET /api/v1/summaries/:id/markdown`). Counts as one summary
 against the allowance (`402 SUMMARY_ALLOWANCE_EXHAUSTED` when used up). Unknown fields are rejected.
 
 ```jsonc
