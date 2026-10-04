@@ -39,6 +39,8 @@ enum StoreKitBillingProof: Sendable {
 public final class SummaryAPIClient: Sendable {
     public static let maxUploadBytes = 25 * 1024 * 1024
     public static let createTimeout: TimeInterval = 120
+    /// Matches the import route's `maxDuration`.
+    public static let importTimeout: TimeInterval = 180
 
     public let baseURL: URL
     let tokenProvider: any AccessTokenProvider
@@ -217,6 +219,15 @@ public final class SummaryAPIClient: Sendable {
         }
     }
 
+    /// Saves a summary written elsewhere. A chip already in the library fails with `409 DUPLICATE_SUMMARY`
+    /// (`details.duplicate` is the existing summary) unless `allowDuplicate` is set.
+    public func importSummary(_ body: ImportSummaryRequest) async throws -> Summary {
+        var request = try json("/api/v1/summaries/import", method: "POST", body: body)
+        // The server checks for duplicates with a model and designs the cover before answering.
+        request.timeoutInterval = Self.importTimeout
+        return try await send(request)
+    }
+
     public func createUpload(_ body: CreateUploadRequest) async throws -> UploadTicket {
         try await send(json("/api/v1/uploads", method: "POST", body: body))
     }
@@ -296,7 +307,7 @@ public final class SummaryAPIClient: Sendable {
     func applyBillingProof(to request: inout URLRequest) async {
         let path = request.url?.path
         guard path == "/api/v1/billing" ||
-            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/chat")),
+            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat")),
             let proof = await billingProofProvider() else { return }
         switch proof {
         case .xcode:

@@ -53,6 +53,9 @@ packages:
   RxAgentSDK:
     url: https://github.com/rxtech-lab/RxAgentSDK
     from: 1.0.8
+  MCP:
+    url: https://github.com/modelcontextprotocol/swift-sdk
+    from: 0.12.1
 
 # Info.plist keys every target reads through SummaryConfiguration.
 x-config-info: &configInfo
@@ -180,6 +183,9 @@ targets:
       - package: RxAgentSDK
         product: RxAgentSDK
       - package: RxSubscriptionIOS
+      - package: MCP
+        product: MCP
+        destinationFilters: [macOS]
       - target: MacSmartShare
         destinationFilters: [macOS]
       - target: SmartShare
@@ -236,6 +242,7 @@ targets:
         "ENABLE_HARDENED_RUNTIME[sdk=macosx*]": YES
         "ENABLE_APP_SANDBOX[sdk=macosx*]": YES
         "ENABLE_OUTGOING_NETWORK_CONNECTIONS[sdk=macosx*]": YES
+        "ENABLE_INCOMING_NETWORK_CONNECTIONS[sdk=macosx*]": YES
         "REGISTER_APP_GROUPS[sdk=macosx*]": YES
         "CODE_SIGN_IDENTITY[sdk=macosx*]": Apple Development
         "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"

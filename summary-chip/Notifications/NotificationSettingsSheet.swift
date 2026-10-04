@@ -19,7 +19,7 @@ struct NotificationSettingsSheet: View {
                     }
                     .disabled(notifications.busy)
                 } footer: {
-                    Text("Receive a notification when a summary is added through the API or CLI. Tap the notification to open the summary. Summary titles may appear on your lock screen.")
+                    Text("Receive a notification when a summary is added through the API or an AI agent. Tap the notification to open the summary. Summary titles may appear on your lock screen.")
                 }
             }
             .formStyle(.grouped)

@@ -13,6 +13,9 @@ struct SettingsView: View {
     @State private var helpSheet: HelpSheet?
     @State private var showsCredits = false
     @State private var showsNotifications = false
+    #if os(macOS)
+    @State private var showsMCPServer = false
+    #endif
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
     var body: some View {
@@ -29,6 +32,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showsCredits) { SummaryCreditsSheet(environment: environment) }
             .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
+            #if os(macOS)
+            .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(controller: environment.mcpServer) }
+            #endif
             .sheet(item: $helpSheet) { sheet in
                 switch sheet {
                 case .welcome:
@@ -98,6 +104,19 @@ struct SettingsView: View {
             creditsSection
             notificationSettingsSection
 
+            Section {
+                SettingsActionRow("MCP Server", systemImage: "point.3.connected.trianglepath.dotted", tint: .indigo,
+                                  detail: mcpServerDetail) {
+                    Button("Configure…") { showsMCPServer = true }
+                        .accessibilityIdentifier("mcp-server-settings")
+                }
+            } header: {
+                Text("Integrations")
+            } footer: {
+                Text("Let AI agents such as Claude add, search and list your summaries.")
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Legal") {
                 ForEach(LegalDocument.allCases, id: \.self) { document in
                     NavigationLink(value: document) {
@@ -159,6 +178,15 @@ struct SettingsView: View {
         .frame(maxWidth: 680)
         .frame(maxWidth: .infinity)
         .background(Color.summaryGroupedBackground)
+    }
+
+    private var mcpServerDetail: String {
+        switch environment.mcpServer.status {
+        case .running(let port): "Running on port \(port)."
+        case .starting: "Starting…"
+        case .failed: "Couldn’t start. Open to fix."
+        case .stopped: "Off"
+        }
     }
     #else
     private var iOSList: some View {
