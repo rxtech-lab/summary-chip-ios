@@ -216,6 +216,9 @@ curl -X POST https://<host>/api/v1/summaries/import \
   -d '{"title":"Monarch migration","summary":"Monarchs fly south each autumn.","tags":["butterflies"],"text":"Raw notes…"}'
 ```
 
+From the terminal, the Go CLI in `cli/` (`chippy upload …`) signs in with RxAuthGo and calls this
+endpoint; see `cli/README.md`.
+
 ### Chat stream (what iOS must parse)
 
 Standard AI SDK v7 UI message stream, `Content-Type: text/event-stream`, lines of
