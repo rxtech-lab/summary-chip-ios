@@ -12,9 +12,10 @@ import { hostOf, siteNameFor } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { isValidSlug } from "@/lib/slug";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
+import { categoryLabel } from "@/lib/og/category-labels";
 import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
 import { findPublicSummaryBySlug, incrementViewCount } from "@/lib/services/summaries";
-import { preferredLanguage, readingLanguage, readSummary, translationLanguageFor } from "@/lib/services/translations";
+import { preferredLanguage, readingLanguage, readSummary, translationLanguageFor, translationPayer } from "@/lib/services/translations";
 
 /** Exported so Next allows a 300 s budget: the source translation continues after the response. */
 export const maxDuration = 300;
@@ -31,6 +32,8 @@ interface PageText {
   title: string;
   summary: string;
   highlights: string[];
+  category: string;
+  tags: string[];
   language: string;
   translated: boolean;
 }
@@ -42,13 +45,19 @@ interface PageText {
 const loadText = cache(async (slug: string, lang: string | undefined): Promise<PageText | undefined> => {
   const row = await loadSummary(slug);
   if (!row) return undefined;
-  const original: PageText = { title: row.title, summary: row.summary, highlights: row.highlights, language: row.language, translated: false };
+  const original: PageText = { title: row.title, summary: row.summary, highlights: row.highlights,
+    category: categoryLabel(row.category, translationLanguageFor(row.language) ?? "en"), tags: row.tags,
+    language: row.language, translated: false };
   const requestHeaders = await headers();
   if (lang === "original" || isBotUserAgent(requestHeaders.get("user-agent"))) return original;
   const wanted = lang ? translationLanguageFor(lang) : preferredLanguage(requestHeaders.get("accept-language"));
-  const { translation } = await readSummary(getDatabase(), row, readingLanguage(row, null, wanted));
+  // A visitor who isn't signed in: a translation not written yet is paid from the owner's points.
+  const { translation } = await readSummary(getDatabase(), row, readingLanguage(row, null, wanted), translationPayer(row, null));
   if (!translation) return original;
-  return { title: translation.title, summary: translation.summary, highlights: translation.highlights, language: translation.language, translated: true };
+  return { title: translation.title, summary: translation.summary, highlights: translation.highlights,
+    category: categoryLabel(row.category, translationLanguageFor(translation.language) ?? "en"),
+    tags: translation.tags?.length === row.tags.length ? translation.tags : row.tags,
+    language: translation.language, translated: true };
 });
 
 function languageName(code: string): string {
@@ -142,7 +151,7 @@ export default async function SummaryPage({ params, searchParams }: Props) {
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <span className="text-2xl" aria-hidden>{emoji}</span>
           <span className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider" style={{ backgroundColor: accent, color: accentText }}>
-            {row.category}
+            {text.category}
           </span>
           {site ? <span className="text-sm text-slate-500">{site}</span> : null}
         </div>
@@ -169,10 +178,10 @@ export default async function SummaryPage({ params, searchParams }: Props) {
           </section>
         ) : null}
 
-        {row.tags.length ? (
+        {text.tags.length ? (
           <ul className="mt-8 flex flex-wrap gap-2" aria-label="Tags">
-            {row.tags.map((tag) => (
-              <li key={tag} className="md-chip">#{tag}</li>
+            {text.tags.map((tag, index) => (
+              <li key={index} className="md-chip">#{tag}</li>
             ))}
           </ul>
         ) : null}

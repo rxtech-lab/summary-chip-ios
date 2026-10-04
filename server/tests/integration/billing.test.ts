@@ -3,11 +3,13 @@ import * as billingRoute from "@/app/api/v1/billing/route";
 import * as chatRoute from "@/app/api/v1/chat/route";
 import { pointsForCost, usageCostUsd } from "@/lib/subscription/chat-billing";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
+import * as summaryRoute from "@/app/api/v1/summaries/[id]/route";
+import * as publicRoute from "@/app/api/public/summaries/[slug]/route";
 import { subscriptionConfig } from "@/lib/subscription/config";
 import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import { eq } from "drizzle-orm";
-import { summaries } from "@/lib/db/schema";
-import { apiRequest, setupTestEnv, type TestEnv } from "../helpers/setup";
+import { summaries, summaryTranslations } from "@/lib/db/schema";
+import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
 let env: TestEnv;
 const source = { type: "text", text: "Solar panels on balconies are becoming popular in cities across Europe." };
@@ -329,6 +331,123 @@ describe("source document points", () => {
     const response = await create(env.tokens.alice, { source: { type: "local", kind: "text", text: source.text, filename: "notes.txt" } });
     expect(response.status).toBe(201);
     expect(bodies(fetch, "/api/v1/balances/reserve")).toHaveLength(0);
+  });
+});
+
+describe("translation points", () => {
+  /** Summaries come out of the free allowance (their documents too); translation holds answer with `reserve`. */
+  function service(reserve: (body: { rxlabUserId: string; idempotencyKey: string }) => Response) {
+    const fetch = vi.fn<(url: unknown, init?: RequestInit) => Promise<Response>>(async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === "/api/v1/usage") return Response.json({ allowed: true });
+      if (path === "/api/v1/balances/reserve") return reserve(JSON.parse(init?.body as string));
+      if (path.startsWith("/api/v1/balances/reservations/")) return Response.json({ operationShortfallAmount: 0, status: "closed" });
+      throw new Error(`Unexpected ${path}`);
+    });
+    vi.stubGlobal("fetch", fetch);
+    return fetch;
+  }
+  const funded = (body: { idempotencyKey: string }) => Response.json({ reservationId: body.idempotencyKey, amount: 1, available: 9 });
+  const empty = () => Response.json({ error: "insufficient_balance", available: 0, required: 1 }, { status: 409 });
+  const calls = (fetch: ReturnType<typeof service>, match: (path: string) => boolean) => fetch.mock.calls
+    .filter(([url]) => match(new URL(String(url)).pathname))
+    .map(([url, init]) => ({ path: new URL(String(url)).pathname, body: JSON.parse(init?.body as string) }));
+  const reserves = (fetch: ReturnType<typeof service>) => calls(fetch, (path) => path === "/api/v1/balances/reserve").map(({ body }) => body);
+  const settles = (fetch: ReturnType<typeof service>) => calls(fetch, (path) => path.endsWith("/settle"))
+    .map(({ path, body }) => ({ reservation: decodeURIComponent(path.split("/")[5]), ...body }));
+
+  async function createWithSource() {
+    const summary = await (await create()).json();
+    await vi.waitFor(async () => {
+      const [row] = await env.handle.db.select().from(summaries).where(eq(summaries.id, summary.id));
+      expect(row.contentMarkdown).toBeTruthy();
+    });
+    return summary;
+  }
+  async function read(id: string, token: string, language: string) {
+    const response = await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${id}`, { token, headers: { "accept-language": language } }), params({ id }));
+    expect(response.status).toBe(200);
+    return response.json();
+  }
+
+  it("charges the reader for the card and the source document at the model's API price", async () => {
+    const fetch = service(funded);
+    const created = await createWithSource();
+    expect(reserves(fetch)).toHaveLength(0);
+    expect((await read(created.id, env.tokens.bob, "ja")).title).toBe(`[ja] ${created.title}`);
+    await vi.waitFor(() => expect(settles(fetch)).toHaveLength(2));
+    const [card, document] = reserves(fetch);
+    expect(card).toMatchObject({ rxlabUserId: "user-bob", unit: "points", amount: 1, metadata: { summaryId: created.id, language: "ja", part: "card" } });
+    expect(card.idempotencyKey).toMatch(new RegExp(`^translation:${created.id}:ja:`));
+    expect(document).toMatchObject({ rxlabUserId: "user-bob", metadata: { summaryId: created.id, language: "ja", part: "source" } });
+    // One call of 10 input + 10 output tokens at $0.01/$0.04 = $0.50 → 25 points each.
+    for (const settle of settles(fetch)) expect(settle).toMatchObject({ amount: 25, final: true, metadata: { outcome: "finished" } });
+    // A saved translation is free for the next reader.
+    await read(created.id, env.tokens.bob, "ja");
+    expect(reserves(fetch)).toHaveLength(2);
+  });
+
+  it("shows the original without translating when the reader's balance is empty", async () => {
+    service(empty);
+    const created = await createWithSource();
+    const summary = await read(created.id, env.tokens.bob, "ja");
+    expect(summary).toMatchObject({ language: "en", title: created.title, translationPending: false });
+    expect(env.ai.calls.translateSummary).toHaveLength(0);
+    expect(await env.handle.db.select().from(summaryTranslations)).toHaveLength(0);
+  });
+
+  it("refuses the owner's display language with 402 when they have no points, without storing it", async () => {
+    service(empty);
+    const created = await createWithSource();
+    const response = await summaryRoute.PATCH(apiRequest("PATCH", `/api/v1/summaries/${created.id}`, {
+      token: env.tokens.alice, body: { displayLanguage: "fr" },
+    }), params({ id: created.id }));
+    expect(response.status).toBe(402);
+    expect((await response.json()).error.code).toBe("TRANSLATION_POINTS_EXHAUSTED");
+    const [row] = await env.handle.db.select().from(summaries).where(eq(summaries.id, created.id));
+    expect(row.displayLanguage).toBeNull();
+  });
+
+  it("releases the hold when the translation fails", async () => {
+    const fetch = service(funded);
+    const created = await createWithSource();
+    env.ai.translates = false;
+    expect((await read(created.id, env.tokens.bob, "ja")).title).toBe(created.title);
+    expect(settles(fetch)).toEqual([expect.objectContaining({ amount: 0, metadata: expect.objectContaining({ outcome: "failed" }) })]);
+  });
+
+  it("charges the owner for a visitor who isn't signed in", async () => {
+    const fetch = service(funded);
+    const created = await createWithSource();
+    const response = await publicRoute.GET(apiRequest("GET", `/api/public/summaries/${created.slug}`, { headers: { "accept-language": "de" } }), params({ slug: created.slug }));
+    expect((await response.json()).title).toBe(`[de] ${created.title}`);
+    expect(reserves(fetch)[0]).toMatchObject({ rxlabUserId: "user-alice", metadata: { part: "card" } });
+  });
+
+  it("holds once for a library page and charges only the cards it translated", async () => {
+    const fetch = service(funded);
+    await createWithSource();
+    await createWithSource();
+    // Alice reads both of her chips in Korean; no source documents, so only the cards are translated.
+    const rows = await env.handle.db.select().from(summaries);
+    await env.handle.db.update(summaries).set({ displayLanguage: "ko", contentMarkdown: null });
+    const list = await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries", { token: env.tokens.alice }))).json();
+    expect(list.items.every((item: { translationPending: boolean }) => item.translationPending)).toBe(true);
+    await vi.waitFor(() => expect(settles(fetch)).toHaveLength(1));
+    const [hold] = reserves(fetch);
+    expect(hold).toMatchObject({ rxlabUserId: "user-alice", metadata: { part: "card" } });
+    expect(hold.metadata.summaryIds).toHaveLength(rows.length);
+    // Two cards of 10 + 10 tokens = $1.00 → 50 points.
+    expect(settles(fetch)[0]).toMatchObject({ amount: 50, metadata: { translated: 2, requested: 2, outcome: "finished" } });
+  });
+
+  it("lists the originals when the balance is empty", async () => {
+    service(empty);
+    await createWithSource();
+    await env.handle.db.update(summaries).set({ displayLanguage: "ko" });
+    const list = await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries", { token: env.tokens.alice }))).json();
+    expect(list.items[0]).toMatchObject({ translationPending: false, language: "en" });
+    expect(env.ai.calls.translateSummary).toHaveLength(0);
   });
 });
 

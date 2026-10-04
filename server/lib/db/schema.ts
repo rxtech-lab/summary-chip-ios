@@ -127,6 +127,8 @@ export const summaryTranslations = sqliteTable("summary_translations", {
   summary: text("summary").notNull(),
   highlights: text("highlights", { mode: "json" }).$type<string[]>().notNull(),
   contentMarkdown: text("content_markdown"),
+  /** Display labels in canonical tag order; null for translations that still need chip labels. */
+  tags: text("tags", { mode: "json" }).$type<string[]>(),
   /** The translated OG headline; null for translations written before it was translated. */
   headline: text("headline"),
   /** The OG card drawn over the summary's art with the translated headline (rendered on first request). */

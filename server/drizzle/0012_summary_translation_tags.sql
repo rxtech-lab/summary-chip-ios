@@ -1,0 +1,1 @@
+ALTER TABLE `summary_translations` ADD `tags` text;

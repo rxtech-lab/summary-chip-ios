@@ -69,7 +69,7 @@ public struct SummaryCardView: View {
                 }
                 if !compact {
                     HStack(spacing: 6) {
-                        ChipLabel(summary.category, tint: summary.theme.accentColor)
+                        ChipLabel(summary.displayCategory, tint: summary.theme.accentColor)
                         if summary.isOwner {
                             VisibilityBadge(summary.visibility)
                         }

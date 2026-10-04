@@ -150,16 +150,31 @@ func fixture(_ name: String) throws -> Data {
         object["originalLanguage"] = "en"
         object["displayLanguage"] = "ja"
         object["sourceTranslationPending"] = true
+        object["displayCategory"] = "テクノロジー"
+        let tags = try #require(object["tags"] as? [String])
+        object["displayTags"] = tags.map { "翻訳 \($0)" }
         let summary = try SummaryJSON.decoder().decode(Summary.self, from: JSONSerialization.data(withJSONObject: object))
         #expect(summary.isTranslated)
         #expect(summary.displayLanguage == "ja")
         #expect(summary.sourceTranslationPending)
         #expect(summary.translationPending == false)
+        #expect(summary.category == "Technology")
+        #expect(summary.displayCategory == "テクノロジー")
+        #expect(summary.tags == tags)
+        #expect(summary.displayTags == tags.map { "翻訳 \($0)" })
+        let cached = try SummaryJSON.decoder().decode(Summary.self, from: SummaryJSON.encoder().encode(summary))
+        #expect(cached.displayTags == summary.displayTags)
+        #expect(cached.displayCategory == summary.displayCategory)
 
         // Older payloads: the summary is in the language it was written in.
         let untranslated = try SummaryJSON.decoder().decode(Summary.self, from: fixture("summary.json"))
         #expect(untranslated.originalLanguage == untranslated.language)
         #expect(untranslated.isTranslated == false)
+        #expect(untranslated.displayCategory == untranslated.category)
+        #expect(untranslated.displayTags == untranslated.tags)
+        object["displayTags"] = ["Incomplete labels"]
+        let malformed = try SummaryJSON.decoder().decode(Summary.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(malformed.displayTags == malformed.tags)
     }
 
     @Test func mapsLanguageTags() {

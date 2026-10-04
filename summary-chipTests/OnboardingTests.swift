@@ -37,8 +37,10 @@ import Testing
         store.acknowledge(EducationPage.features[0])
         store.acknowledge(EducationPage.features[0])
         let relaunched = SummaryOnboardingStore(defaults: defaults)
-        #expect(relaunched.launchPages.isEmpty)
+        #expect(relaunched.launchPages == Array(EducationPage.features.dropFirst()))
         #expect(relaunched.readIDs.count == 1)
+        for page in relaunched.unreadFeatures { relaunched.acknowledge(page) }
+        #expect(SummaryOnboardingStore(defaults: defaults).launchPages.isEmpty)
         let future = EducationPage(id: "future-feature", kind: .feature, title: "Future", message: "New", imageName: "WelcomeSiri")
         #expect(relaunched.unreadFeatures(from: EducationPage.features + [future]) == [future])
     }

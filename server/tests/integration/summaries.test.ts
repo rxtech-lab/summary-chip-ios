@@ -44,6 +44,18 @@ async function createText(text: string, extra: Record<string, unknown> = {}, tok
 }
 
 describe("POST /api/v1/summaries", () => {
+  it("varies cover colors even when the AI keeps returning the same palette", async () => {
+    const palettes: string[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      const chip = await createText(`Security news item ${index}: researchers reported another data breach.`, { followLinks: false });
+      palettes.push(chip.theme.colors.join(","));
+      expect(env.ai.calls.designSvg.at(-1)).toMatchObject({ colors: chip.theme.colors, mode: chip.theme.mode });
+      const fetched = await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${chip.id}`, { token: env.tokens.alice }), params({ id: chip.id }));
+      expect((await fetched.json()).theme).toEqual(chip.theme);
+    }
+    expect(new Set(palettes).size).toBe(6);
+  });
+
   it("requires a bearer token and returns the error envelope", async () => {
     const response = await summariesRoute.POST(apiRequest("POST", "/api/v1/summaries", { body: {} }));
     expect(response.status).toBe(401);
@@ -86,10 +98,10 @@ describe("POST /api/v1/summaries", () => {
     expect(summary.shareUrl).toBe(`https://summary.rxlab.app/s/${summary.slug}`);
     expect(summary.ogImageUrl).toBe(`${summary.shareUrl}/og.png?v=${new Date(summary.updatedAt).getTime()}`);
     expect(new Date(summary.expiresAt).getTime() - new Date(summary.createdAt).getTime()).toBe(7 * 86_400_000);
-    expect(summary.theme).toEqual({ colors: expect.any(Array), mode: "dark", emoji: "🧪", accent: "#f59e0b" });
+    expect(summary.theme).toEqual({ colors: expect.any(Array), mode: expect.stringMatching(/^(light|dark)$/), emoji: "🧪", accent: expect.stringMatching(/^#[0-9a-f]{6}$/) });
     expect(Object.keys(summary)).toEqual([
       "id", "slug", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
-      "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "keywords", "language",
+      "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "displayCategory", "displayTags", "keywords", "language",
       "originalLanguage", "displayLanguage", "translationPending", "sourceTranslationPending", "theme", "imageStyle", "visibility",
       "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "createdAt", "updatedAt",
     ]);
@@ -183,6 +195,7 @@ describe("POST /api/v1/summaries", () => {
     const illustrate = vi.spyOn(env.ai, "illustrate").mockResolvedValue(drawn);
     const summary = await createText("Cats' eyes inspire new camera sensors for robots and drones.", { imageStyle: "illustration" });
     expect(illustrate).toHaveBeenCalledTimes(1);
+    expect(illustrate).toHaveBeenCalledWith(expect.objectContaining({ colors: summary.theme.colors, mode: summary.theme.mode }));
     expect(env.ai.calls.designSvg).toHaveLength(0);
     const objects = [...env.store.objects.entries()];
     const art = objects.find(([key]) => key.startsWith("art/"))![1].bytes;
@@ -602,6 +615,8 @@ describe("get, patch, visibility, delete", () => {
     const beforeKeys = [...env.store.objects.keys()];
     const regenerated = await (await imageRoute.POST(apiRequest("POST", `/api/v1/summaries/${created.id}/image`, { token: env.tokens.alice, body: { imageStyle: "illustration" } }), context)).json();
     expect(regenerated.imageStyle).toBe("illustration");
+    expect(regenerated.theme.colors).not.toEqual(created.theme.colors);
+    expect(env.ai.calls.illustrate.at(-1)).toMatchObject({ colors: regenerated.theme.colors, mode: regenerated.theme.mode });
     expect(regenerated.ogImageUrl).not.toBe(never.ogImageUrl);
     const afterKeys = [...env.store.objects.keys()];
     expect(afterKeys).toHaveLength(2);
@@ -666,9 +681,10 @@ describe("POST /api/v1/summaries/import", () => {
       sourceMarkdownPending: false,
     });
     expect(summary.ogImageUrl).toEqual(expect.any(String));
-    // The cover theme is still designed by a model from the summary and raw text.
+    // The model supplies the headline and emoji; the server supplies the stored colors.
     expect(env.ai.calls.designCover).toEqual([expect.objectContaining({ title: BODY.title, summary: BODY.summary, text: BODY.text })]);
-    expect(summary.theme).toMatchObject({ colors: ["#1e1b4b", "#4c1d95", "#7c3aed", "#c084fc"], mode: "dark", emoji: "🦋" });
+    expect(summary.theme).toMatchObject({ colors: expect.any(Array), emoji: "🦋" });
+    expect(env.ai.calls.designSvg.at(-1)).toMatchObject({ colors: summary.theme.colors, mode: summary.theme.mode });
     expect(env.ai.calls.designSvg).toHaveLength(1);
 
     const markdown = await markdownRoute.GET(apiRequest("GET", `/api/v1/summaries/${summary.id}/markdown`, { token: env.tokens.alice }), params({ id: summary.id }));
@@ -678,13 +694,22 @@ describe("POST /api/v1/summaries/import", () => {
     expect(byTag.items.map((item: { id: string }) => item.id)).toEqual([summary.id]);
   });
 
-  it("falls back to a seeded palette when the cover design fails", async () => {
+  it("assigns a server palette when the cover design fails", async () => {
     vi.spyOn(env.ai, "designCover").mockResolvedValueOnce(null);
     const response = await importSummary(BODY);
     expect(response.status).toBe(201);
     const summary = await response.json();
     expect(summary.theme.emoji).toBe("📰");
     expect(summary.ogImageUrl).toEqual(expect.any(String));
+  });
+
+  it("shares palette history across imported and generated chips", async () => {
+    const first = await createText("Security researchers reported a data breach.", { followLinks: false });
+    const imported = await (await importSummary(BODY)).json();
+    expect(imported.theme.colors).not.toEqual(first.theme.colors);
+    const third = await createText("Another breach was reported by security researchers.", { followLinks: false });
+    expect(third.theme.colors).not.toEqual(first.theme.colors);
+    expect(third.theme.colors).not.toEqual(imported.theme.colors);
   });
 
   it("labels a summary with a source URL by its platform", async () => {

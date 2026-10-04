@@ -23,6 +23,8 @@ nonisolated final class MacNavigationUITests: XCTestCase {
 
         features.click()
         XCTAssertTrue(app.staticTexts["Your next summary, with Siri"].waitForExistence(timeout: 5))
+        app.buttons["Next"].click()
+        XCTAssertTrue(app.staticTexts["Connect your AI agents"].waitForExistence(timeout: 5))
         app.buttons["Got it"].click()
         XCTAssertTrue(features.waitForExistence(timeout: 5))
 
@@ -84,6 +86,8 @@ nonisolated final class MacNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Share on your terms"].waitForExistence(timeout: 3))
         next.click()
         XCTAssertTrue(app.staticTexts["Your next summary, with Siri"].waitForExistence(timeout: 3))
+        next.click()
+        XCTAssertTrue(app.staticTexts["Connect your AI agents"].waitForExistence(timeout: 3))
         next.click()
         XCTAssertFalse(next.exists)
     }

@@ -245,6 +245,9 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var highlights: [String]
     public var category: String
     public var tags: [String]
+    /// Chip labels in the reading language; canonical category and tags remain filter/edit values.
+    public var displayCategory: String
+    public var displayTags: [String]
     public var keywords: [String]
     /// The language `title`, `summary` and `highlights` are in: a translation's, else `originalLanguage`.
     public var language: String
@@ -272,7 +275,8 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         id: String, slug: String, shareUrl: URL, ogImageUrl: URL?, artImageUrl: URL? = nil, sourceType: SummarySourceType,
         source: SummaryOrigin? = nil, sourceUrl: URL?, sourceTitle: String?, siteName: String?, sourceFileUrl: URL?,
         hasSourceMarkdown: Bool = false, sourceMarkdownPending: Bool = false, title: String, summary: String, highlights: [String], category: String, tags: [String],
-        keywords: [String], language: String, originalLanguage: String? = nil, displayLanguage: String? = nil,
+        keywords: [String], language: String, displayCategory: String? = nil, displayTags: [String]? = nil,
+        originalLanguage: String? = nil, displayLanguage: String? = nil,
         translationPending: Bool = false, sourceTranslationPending: Bool = false, theme: Theme, imageStyle: ImageStyle,
         visibility: SummaryVisibility, ttlDays: Int?, expiresAt: Date?, viewCount: Int,
         isOwner: Bool, viewedAt: Date? = nil, createdAt: Date, updatedAt: Date
@@ -283,6 +287,8 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         self.sourceMarkdownPending = sourceMarkdownPending; self.title = title
         self.summary = summary; self.highlights = highlights; self.category = category
         self.tags = tags; self.keywords = keywords; self.language = language
+        self.displayCategory = displayCategory ?? category
+        self.displayTags = displayTags?.count == tags.count ? (displayTags ?? tags) : tags
         self.originalLanguage = originalLanguage ?? language; self.displayLanguage = displayLanguage
         self.translationPending = translationPending; self.sourceTranslationPending = sourceTranslationPending
         self.theme = theme
@@ -313,6 +319,9 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         highlights = try c.decodeIfPresent([String].self, forKey: .highlights) ?? []
         category = try c.decodeIfPresent(String.self, forKey: .category) ?? "Other"
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        displayCategory = try c.decodeIfPresent(String.self, forKey: .displayCategory) ?? category
+        let tagLabels = try c.decodeIfPresent([String].self, forKey: .displayTags)
+        displayTags = tagLabels?.count == tags.count ? (tagLabels ?? tags) : tags
         keywords = try c.decodeIfPresent([String].self, forKey: .keywords) ?? []
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
         originalLanguage = try c.decodeIfPresent(String.self, forKey: .originalLanguage) ?? language

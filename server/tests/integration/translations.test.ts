@@ -7,6 +7,7 @@ import * as translationsRoute from "@/app/api/v1/summaries/[id]/translations/rou
 import * as viewsRoute from "@/app/api/v1/views/route";
 import * as publicRoute from "@/app/api/public/summaries/[slug]/route";
 import * as ogRoute from "@/app/s/[slug]/og.png/route";
+import { eq } from "drizzle-orm";
 import { summaryTranslations } from "@/lib/db/schema";
 import { preferredLanguage, translationLanguageFor } from "@/lib/services/translations";
 import { apiRequest, params, pngSize, setupTestEnv, type TestEnv } from "../helpers/setup";
@@ -74,8 +75,10 @@ describe("summary translations", () => {
       title: `[ja] ${created.title}`,
       summary: `[ja] ${created.summary}`,
       highlights: created.highlights.map((highlight: string) => `[ja] ${highlight}`),
+      displayCategory: "テクノロジー",
+      displayTags: created.tags.map((tag: string) => `[ja] ${tag}`),
     });
-    // Tags and keywords stay as written; they are filters.
+    // Canonical tags stay as written for filters; the chip labels are translated.
     expect(summary.tags).toEqual(created.tags);
 
     await vi.waitFor(async () => {
@@ -121,6 +124,82 @@ describe("summary translations", () => {
     expect(body).toMatchObject({ language: "en", displayLanguage: null });
   });
 
+  it("keeps canonical chip values for filters and restores their labels in the original", async () => {
+    const created = await createAsAlice();
+    const translated = await (await patch(created.id, { displayLanguage: "fr" })).json();
+    expect(translated).toMatchObject({ category: "Technology", displayCategory: "Technologie", tags: created.tags });
+    expect(translated.displayTags).toEqual(created.tags.map((tag: string) => `[fr] ${tag}`));
+    const response = await summariesRoute.GET(apiRequest("GET", `/api/v1/summaries?category=Technology&tag=${encodeURIComponent(created.tags[0])}`, { token: env.tokens.alice }));
+    expect((await response.json()).items).toMatchObject([{ id: created.id, displayCategory: "Technologie" }]);
+    const original = await (await patch(created.id, { displayLanguage: null })).json();
+    expect(original).toMatchObject({ displayCategory: "Technology", displayTags: created.tags });
+  });
+
+  it("fills chip labels for older saved translations without losing edits or translated sources", async () => {
+    const created = await createAsAlice();
+    await patch(created.id, { displayLanguage: "ja" });
+    await patch(created.id, { title: "Custom translated title" });
+    await vi.waitFor(async () => {
+      const [translation] = await env.handle.db.select().from(summaryTranslations);
+      expect(translation.contentMarkdown).toBeTruthy();
+    });
+    const [saved] = await env.handle.db.select().from(summaryTranslations);
+    await env.handle.db.update(summaryTranslations).set({ tags: null }).where(eq(summaryTranslations.summaryId, created.id));
+    const translated = await getSummary(created.id, env.tokens.alice);
+    expect(translated.title).toBe("Custom translated title");
+    expect(translated.displayTags).toEqual(created.tags.map((tag: string) => `[ja] ${tag}`));
+    const [updated] = await env.handle.db.select().from(summaryTranslations);
+    expect(updated.contentMarkdown).toBe(saved.contentMarkdown);
+    expect(updated.headline).toBe(saved.headline);
+    await getSummary(created.id, env.tokens.alice);
+    expect(env.ai.calls.translateSummary).toHaveLength(2);
+  });
+
+  it("discards stale labels after a tag edit and preserves the translated title", async () => {
+    const created = await createAsAlice();
+    await patch(created.id, { displayLanguage: "de" });
+    const edited = await (await patch(created.id, { title: "Custom title", tags: ["robotics", "research"] })).json();
+    expect(edited.displayTags).toEqual(["[de] robotics", "[de] research"]);
+    const translated = await getSummary(created.id, env.tokens.alice);
+    expect(translated).toMatchObject({ title: "Custom title", tags: ["robotics", "research"], displayTags: ["[de] robotics", "[de] research"] });
+    const beforeUnchanged = env.ai.calls.translateSummary.length;
+    await patch(created.id, { tags: ["robotics", "research"] });
+    expect(env.ai.calls.translateSummary).toHaveLength(beforeUnchanged);
+    await patch(created.id, { tags: [] });
+    const calls = env.ai.calls.translateSummary.length;
+    expect(await getSummary(created.id, env.tokens.alice)).toMatchObject({ displayTags: [] });
+    expect(env.ai.calls.translateSummary).toHaveLength(calls);
+  });
+
+  it("retries missing chip labels from a list while keeping the saved translated text", async () => {
+    const created = await createAsAlice();
+    await patch(created.id, { displayLanguage: "es" });
+    await env.handle.db.update(summaryTranslations).set({ tags: null }).where(eq(summaryTranslations.summaryId, created.id));
+    const list = async () => {
+      const response = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries", { token: env.tokens.alice }));
+      return (await response.json()).items[0];
+    };
+    expect(await list()).toMatchObject({ title: `[es] ${created.title}`, translationPending: true });
+    await vi.waitFor(async () => {
+      expect(await list()).toMatchObject({ translationPending: false, displayTags: created.tags.map((tag: string) => `[es] ${tag}`) });
+    });
+  });
+
+  it("rejects missing tag labels and falls back to saved text if a label upgrade fails", async () => {
+    const created = await createAsAlice();
+    const translate = env.ai.translateSummary.bind(env.ai);
+    const broken = vi.spyOn(env.ai, "translateSummary").mockImplementation(async (input, options) => {
+      const result = await translate(input, options);
+      return result ? { ...result, tags: [] } : null;
+    });
+    expect((await patch(created.id, { displayLanguage: "ja" })).status).toBe(502);
+    broken.mockRestore();
+    await patch(created.id, { displayLanguage: "ja" });
+    await env.handle.db.update(summaryTranslations).set({ tags: null }).where(eq(summaryTranslations.summaryId, created.id));
+    env.ai.translates = false;
+    expect(await getSummary(created.id, env.tokens.alice)).toMatchObject({ title: `[ja] ${created.title}`, displayTags: created.tags });
+  });
+
   it("refuses a language it could not translate into without storing it", async () => {
     const created = await createAsAlice();
     env.ai.translates = false;
@@ -153,7 +232,8 @@ describe("summary translations", () => {
       params({ slug: created.slug }),
     );
     expect(response.headers.get("vary")).toBe("Accept-Language");
-    expect(await response.json()).toMatchObject({ language: "zh-Hant", title: `[zh-Hant] ${created.title}`, displayLanguage: null });
+    expect(await response.json()).toMatchObject({ language: "zh-Hant", title: `[zh-Hant] ${created.title}`, displayLanguage: null,
+      displayCategory: "科技", displayTags: created.tags.map((tag: string) => `[zh-Hant] ${tag}`) });
   });
 });
 

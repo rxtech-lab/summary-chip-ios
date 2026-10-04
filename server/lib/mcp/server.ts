@@ -197,7 +197,7 @@ export function createMcpServer(context: McpContext): McpServer {
     },
     annotations: { title: "Search Summaries", readOnlyHint: true, openWorldHint: false },
   }, (args) => run(async () => {
-    const page = await listSummaries(db, principal.sub, listQuery({ ...args, q: args.query, limit: args.limit ?? 10 }), { accepted: context.accepted });
+    const page = await listSummaries(db, principal.sub, listQuery({ ...args, q: args.query, limit: args.limit ?? 10 }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
     return { result: success(listPayload(page)) };
   }));
 
@@ -213,7 +213,7 @@ export function createMcpServer(context: McpContext): McpServer {
     },
     annotations: { title: "List Summaries", readOnlyHint: true, openWorldHint: false },
   }, (args) => run(async () => {
-    const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? 50 }), { accepted: context.accepted });
+    const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? 50 }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
     return { result: success(listPayload(page)) };
   }));
 

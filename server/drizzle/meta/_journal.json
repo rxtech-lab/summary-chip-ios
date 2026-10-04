@@ -85,6 +85,13 @@
       "when": 1791108578235,
       "tag": "0011_summary_translation_cover",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791111591959,
+      "tag": "0012_summary_translation_tags",
+      "breakpoints": true
     }
   ]
 }

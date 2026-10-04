@@ -55,7 +55,7 @@ public struct SummaryDetailContent: View {
 
             if !summary.tags.isEmpty {
                 FlowLayout(spacing: 6) {
-                    ForEach(summary.tags, id: \.self) { tag in
+                    ForEach(Array(summary.displayTags.enumerated()), id: \.offset) { _, tag in
                         ChipLabel("#\(tag)")
                     }
                 }
@@ -72,7 +72,7 @@ public struct SummaryDetailContent: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                ChipLabel(summary.category, tint: summary.theme.accentColor)
+                ChipLabel(summary.displayCategory, tint: summary.theme.accentColor)
                 ChipLabel(summary.source.title, image: summary.source.image)
                     .accessibilityLabel(Text("Source: \(summary.source.title)", bundle: .module))
                 Text(summary.createdAt.formatted(date: .abbreviated, time: .omitted))
