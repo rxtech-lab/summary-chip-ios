@@ -66,6 +66,8 @@ export const sourceSchema = z.discriminatedUnion("type", [
 ]);
 export type SourceInput = z.infer<typeof sourceSchema>;
 
+const tagSchema = z.string().trim().min(1).max(40).transform((value) => value.toLowerCase());
+
 export const createSummarySchema = z.object({
   source: sourceSchema,
   language: z.enum(OUTPUT_LANGUAGES).default("auto"),
@@ -88,7 +90,30 @@ export const createSummarySchema = z.object({
 });
 export type CreateSummaryInput = z.infer<typeof createSummarySchema>;
 
-const tagSchema = z.string().trim().min(1).max(40).transform((value) => value.toLowerCase());
+/**
+ * `POST /api/v1/summaries/import` — a summary written elsewhere (another app, a script, an agent),
+ * saved as given together with its tags and raw source text. No model summarises it; the server only
+ * designs the cover and indexes it for search.
+ */
+export const importSummarySchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  summary: z.string().trim().min(1).max(1200),
+  /** The raw source text; kept as the summary's source document (plain text is valid Markdown). */
+  text: z.string().max(MAX_TEXT_LENGTH).refine((value) => value.trim().length > 0, "must not be empty"),
+  tags: z.array(tagSchema).max(12).default([]),
+  highlights: z.array(z.string().trim().min(1).max(300)).max(5).default([]),
+  category: z.enum(CATEGORIES).default("Other"),
+  keywords: z.array(z.string().trim().min(1).max(60)).max(10).default([]),
+  /** BCP-47 code of the language the title and summary are written in. */
+  language: z.string().trim().min(1).max(35).default("en"),
+  sourceUrl: httpUrl.nullish(),
+  sourceTitle: z.string().trim().max(1000).nullish(),
+  siteName: z.string().trim().max(300).nullish(),
+  imageStyle: z.enum(IMAGE_STYLES).default("graphic"),
+  ttlDays: ttlDaysSchema.optional(),
+  visibility: z.enum(VISIBILITIES).default("public"),
+}).strict();
+export type ImportSummaryInput = z.infer<typeof importSummarySchema>;
 
 export const patchSummarySchema = z.object({
   visibility: z.enum(VISIBILITIES).optional(),

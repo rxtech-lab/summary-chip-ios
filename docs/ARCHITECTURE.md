@@ -133,6 +133,7 @@ Food, Opinion, Research, Other`.
 |---|---|---|
 | `POST /api/v1/uploads` | `{filename, mimeType:"application/pdf", byteSize}` (≤ 25 MB) | `201 {key, uploadUrl, method:"PUT", headers:{…}, expiresAt}` |
 | `POST /api/v1/summaries` | see *Create* | `201 Summary` (synchronous, may take up to ~90 s) |
+| `POST /api/v1/summaries/import` | see *Import* | `201 Summary` — saves a summary written elsewhere as given (no summarising) |
 | `GET /api/v1/summaries` | `?scope=all|mine|viewed&q=&category=&tag=&visibility=&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others) |
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
 | `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?}` | `Summary` |
@@ -181,6 +182,39 @@ can't read it either, the client throws `UnreadablePageError` and the creation f
 `OpenInSafariSheet`: a diagram of Safari → Share → Chippy, an **Open in Safari** button, Cancel and,
 for pasted text, **Summarise the text instead** (resubmits with `followLinks: false`).
 Without `deviceReader`, a `url` source returns the original error and a `text` source falls back to the text.
+
+### Import body
+
+Adds a summary, its tags and the raw source text in one call, for scripts, other apps and agents.
+Auth is the same OAuth bearer token as the rest of `/api/v1` (an RxLab access token whose
+`client_id` is in `IOS_OAUTH_CLIENT_ID` / `RXLAB_ALLOWED_CLIENT_IDS`; `sub` becomes the owner).
+Nothing is summarised: the server only designs the cover image and embeds it for search, and the raw
+text is kept as the source document (`GET /api/v1/summaries/:id/markdown`). Counts as one summary
+against the allowance (`402 SUMMARY_ALLOWANCE_EXHAUSTED` when used up). Unknown fields are rejected.
+
+```jsonc
+{
+  "title": "…",                                 // required, ≤ 200
+  "summary": "…",                               // required, ≤ 1200
+  "text": "raw source text",                    // required, ≤ 200 000
+  "tags": ["…"],                                // ≤ 12, lowercased + de-duplicated
+  "highlights": ["…"],                          // optional, ≤ 5
+  "category": "Technology",                     // optional, one of the categories; default "Other"
+  "keywords": ["…"],                            // optional, ≤ 10
+  "language": "en",                             // optional BCP-47; default "en"
+  "sourceUrl": "https://…" | null,              // optional; sets sourceType "url" and the platform label
+  "sourceTitle": "…", "siteName": "…",          // optional
+  "imageStyle": "graphic" | "illustration",     // default "graphic"
+  "ttlDays": 7 | null,                          // default DEFAULT_TTL_DAYS
+  "visibility": "public" | "private"            // default "public"
+}
+```
+
+```sh
+curl -X POST https://<host>/api/v1/summaries/import \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"Monarch migration","summary":"Monarchs fly south each autumn.","tags":["butterflies"],"text":"Raw notes…"}'
+```
 
 ### Chat stream (what iOS must parse)
 
