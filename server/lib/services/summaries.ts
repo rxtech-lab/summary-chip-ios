@@ -3,13 +3,14 @@ import { and, asc, desc, eq, inArray, isNotNull, lt, ne, or, sql, type SQL } fro
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { linkToFollow } from "@/lib/ai/shared-link";
-import { normalizeDraft } from "@/lib/ai/summary-schema";
+import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import { defaultTtlDays, expiresAtFor } from "@/lib/config";
 import {
   MAX_UPLOAD_BYTES,
   CATEGORIES,
   type CreateSummaryInput,
   type FacetQuery,
+  type ImportSummaryInput,
   type ListQuery,
   type PatchSummaryInput,
 } from "@/lib/contracts/api";
@@ -27,6 +28,7 @@ import {
   type ExtractedContent,
 } from "@/lib/extract";
 import { extractPdfText } from "@/lib/extract/pdf";
+import { platformOf } from "@/lib/extract/platforms";
 import { runAfter } from "@/lib/http/after";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateOgImages, type OgImages } from "@/lib/og/generate";
@@ -35,7 +37,7 @@ import { reserveDocumentPoints, settleUsage, type ChatCharge } from "@/lib/subsc
 import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
-import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding } from "./embeddings";
+import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
 import { sourceMarkdownFor, toSummaryJson, type SummaryJson } from "./serialize";
 
@@ -331,22 +333,7 @@ export async function createSummary(
   const embedding = embedSummary(ai, { ...draft, siteName: content.siteName, sourceTitle: content.sourceTitle, contentText: storedText });
 
   const createdAt = now();
-  let imageKeys: ImageKeys = { ogImageKey: null, artImageKey: null };
-  try {
-    const images = await generateOgImages({
-      id,
-      headline: draft.headline,
-      summary: draft.summary,
-      category: draft.category,
-      keywords: draft.keywords,
-      theme: draft.theme,
-      siteLabel: content.siteName ?? hostOf(content.sourceUrl),
-      language: draft.language,
-    }, input.imageStyle, ai);
-    imageKeys = await storeImages(store, id, createdAt.getTime(), images);
-  } catch (error) {
-    console.error("[summaries] OG image generation failed", error);
-  }
+  const imageKeys = await coverImages(store, ai, id, draft, content.siteName ?? hostOf(content.sourceUrl), input.imageStyle, createdAt);
 
   const ttlDays = input.ttlDays === undefined ? defaultTtlDays() : input.ttlDays;
   const base = {
@@ -381,35 +368,141 @@ export async function createSummary(
     updatedAt: createdAt,
   } satisfies Omit<SummaryRow, "slug">;
 
+  const row = await insertSummary(db, store, base, embedding);
+  // The document agent works after the response: free with an allowance summary, else on points.
+  if (keepsSourceMarkdown(input)) {
+    runAfter(() => saveSourceDocument(db, ai, content, {
+      userId: principal.sub,
+      summaryId: id,
+      environment: deps?.billingEnvironment,
+      coveredByAllowance: usage.chargedUnits === 0,
+    }));
+  }
+  return toSummaryJson(row, principal.sub);
+}
+
+/**
+ * Saves a new summary under a fresh slug (retrying collisions) with its tags, attached upload and
+ * embedding. On failure its already-stored images are deleted.
+ */
+async function insertSummary(
+  db: Database,
+  store: ObjectStore,
+  base: Omit<SummaryRow, "slug">,
+  embedding: Promise<SummaryEmbedding | null>,
+): Promise<SummaryRow> {
+  const uploadKey = base.sourceFileKey;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const row: SummaryRow = { ...base, slug: generateSlug() };
     try {
-      const tagRows = row.tags.map((tag) => ({ summaryId: id, tag }));
+      const tagRows = row.tags.map((tag) => ({ summaryId: row.id, tag }));
       await db.batch([
         db.insert(summaries).values(row),
         ...(tagRows.length ? [db.insert(summaryTags).values(tagRows).onConflictDoNothing()] : []),
         ...(uploadKey
-          ? [db.update(uploads).set({ attachedAt: createdAt, summaryId: id }).where(eq(uploads.key, uploadKey))]
+          ? [db.update(uploads).set({ attachedAt: row.createdAt, summaryId: row.id }).where(eq(uploads.key, uploadKey))]
           : []),
       ]);
-      await saveSummaryEmbedding(db, id, await embedding);
-      // The document agent works after the response: free with an allowance summary, else on points.
-      if (keepsSourceMarkdown(input)) {
-        runAfter(() => saveSourceDocument(db, ai, content, {
-          userId: principal.sub,
-          summaryId: id,
-          environment: deps?.billingEnvironment,
-          coveredByAllowance: usage.chargedUnits === 0,
-        }));
-      }
-      return toSummaryJson(row, principal.sub);
+      await saveSummaryEmbedding(db, row.id, await embedding);
+      return row;
     } catch (error) {
       if (isSlugConflict(error) && attempt < 3) continue;
-      await deleteObjects(store, [imageKeys.ogImageKey, imageKeys.artImageKey]);
+      await deleteObjects(store, [base.ogImageKey, base.artImageKey]);
       throw error;
     }
   }
   throw new ApiError(500, "SLUG_EXHAUSTED", "Could not allocate a share link");
+}
+
+/** Renders and stores the cover; a failed render leaves the summary without images rather than failing it. */
+async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft: SummaryDraft, siteLabel: string | null, imageStyle: ImageStyle, createdAt: Date): Promise<ImageKeys> {
+  try {
+    const images = await generateOgImages({
+      id,
+      headline: draft.headline,
+      summary: draft.summary,
+      category: draft.category,
+      keywords: draft.keywords,
+      theme: draft.theme,
+      siteLabel,
+      language: draft.language,
+    }, imageStyle, ai);
+    return await storeImages(store, id, createdAt.getTime(), images);
+  } catch (error) {
+    console.error("[summaries] OG image generation failed", error);
+    return { ogImageKey: null, artImageKey: null };
+  }
+}
+
+/**
+ * Saves a summary written elsewhere as given — title, summary, tags and the raw source text — in one
+ * call. No model summarises it: the server only designs the cover and embeds it for search. The raw
+ * text is kept as the source document. Counts as one summary against the caller's allowance.
+ */
+export async function importSummary(
+  db: Database,
+  principal: ApiPrincipal,
+  input: ImportSummaryInput,
+  deps?: ServiceDeps,
+): Promise<SummaryJson> {
+  const { ai, store, now } = await resolveDeps(deps);
+  const id = crypto.randomUUID();
+  await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
+
+  // The model's draft shape without a design: the theme falls back to a palette seeded by the id,
+  // its mode left unset so it follows that palette's luminance.
+  const normalized = normalizeDraft({
+    title: input.title,
+    summary: input.summary,
+    highlights: input.highlights,
+    category: input.category,
+    tags: [],
+    keywords: input.keywords,
+    language: input.language,
+    design: { colors: [], mode: undefined as unknown as "light", emoji: "", accent: "", headline: "" },
+  }, { requestedLanguage: "auto", seed: id });
+  const draft: SummaryDraft = { ...normalized, title: input.title, tags: [...new Set(input.tags)] };
+
+  const text = input.text.trim();
+  const sourceUrl = input.sourceUrl ?? null;
+  const siteName = input.siteName || null;
+  const sourceTitle = input.sourceTitle || null;
+  const embedding = embedSummary(ai, { ...draft, siteName, sourceTitle, contentText: text });
+
+  const createdAt = now();
+  const imageKeys = await coverImages(store, ai, id, draft, siteName ?? hostOf(sourceUrl), input.imageStyle, createdAt);
+  const ttlDays = input.ttlDays === undefined ? defaultTtlDays() : input.ttlDays;
+  const row = await insertSummary(db, store, {
+    id,
+    ownerId: principal.sub,
+    sourceType: sourceUrl ? "url" : "text",
+    source: sourceUrl ? platformOf(sourceUrl) ?? "web" : "text",
+    sourceUrl,
+    sourceTitle,
+    siteName,
+    sourceFileKey: null,
+    contentExcerpt: text.slice(0, EXCERPT_LIMIT),
+    contentText: text.slice(0, SOURCE_TEXT_LIMIT),
+    contentMarkdown: text.slice(0, SOURCE_TEXT_LIMIT),
+    title: draft.title,
+    summary: draft.summary,
+    highlights: draft.highlights,
+    category: draft.category,
+    tags: draft.tags,
+    keywords: draft.keywords,
+    language: draft.language,
+    theme: draft.theme,
+    ogHeadline: draft.headline,
+    imageStyle: input.imageStyle,
+    ...imageKeys,
+    visibility: input.visibility,
+    ttlDays,
+    expiresAt: expiresAtFor(ttlDays, createdAt),
+    viewCount: 0,
+    createdAt,
+    updatedAt: createdAt,
+  }, embedding);
+  return toSummaryJson(row, principal.sub);
 }
 
 /* ------------------------------------------------------------------------------------------------

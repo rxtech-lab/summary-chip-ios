@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
+import * as importRoute from "@/app/api/v1/summaries/import/route";
 import * as summaryRoute from "@/app/api/v1/summaries/[id]/route";
 import * as imageRoute from "@/app/api/v1/summaries/[id]/image/route";
 import * as markdownRoute from "@/app/api/v1/summaries/[id]/markdown/route";
@@ -622,5 +623,58 @@ describe("get, patch, visibility, delete", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     const fetched = await (await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${created.id}`, { token: env.tokens.alice }), params({ id: created.id }))).json();
     expect(fetched.viewCount).toBe(1);
+  });
+});
+
+describe("POST /api/v1/summaries/import", () => {
+  const importSummary = (body: unknown, token: string | null = env.tokens.alice) =>
+    importRoute.POST(apiRequest("POST", "/api/v1/summaries/import", { token: token ?? undefined, body }));
+  const BODY = {
+    title: "Monarch migration",
+    summary: "Monarch butterflies fly thousands of kilometres south every autumn.",
+    tags: ["Butterflies", "migration", "butterflies"],
+    text: "Raw field notes: monarchs left the meadow on 2 October, heading south-west.",
+  };
+
+  it("requires an OAuth bearer token", async () => {
+    const response = await importSummary(BODY, null);
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe("MISSING_ACCESS_TOKEN");
+  });
+
+  it("validates the body, rejecting unknown fields", async () => {
+    expect((await importSummary({ ...BODY, text: "  " })).status).toBe(400);
+    expect((await importSummary({ ...BODY, slug: "mine" })).status).toBe(400);
+  });
+
+  it("saves the summary, tags and raw text as given without summarising", async () => {
+    const response = await importSummary({ ...BODY, highlights: ["They fly south"], category: "Science", visibility: "private" });
+    expect(response.status).toBe(201);
+    const summary = await response.json();
+    expect(env.ai.calls.summarize).toHaveLength(0);
+    expect(summary).toMatchObject({
+      title: BODY.title,
+      summary: BODY.summary,
+      highlights: ["They fly south"],
+      category: "Science",
+      tags: ["butterflies", "migration"],
+      sourceType: "text",
+      source: "text",
+      visibility: "private",
+      hasSourceMarkdown: true,
+      sourceMarkdownPending: false,
+    });
+    expect(summary.ogImageUrl).toEqual(expect.any(String));
+
+    const markdown = await markdownRoute.GET(apiRequest("GET", `/api/v1/summaries/${summary.id}/markdown`, { token: env.tokens.alice }), params({ id: summary.id }));
+    expect((await markdown.json()).markdown).toBe(BODY.text);
+
+    const byTag = await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?tag=butterflies", { token: env.tokens.alice }))).json();
+    expect(byTag.items.map((item: { id: string }) => item.id)).toEqual([summary.id]);
+  });
+
+  it("labels a summary with a source URL by its platform", async () => {
+    const summary = await (await importSummary({ ...BODY, sourceUrl: "https://github.com/rxtech-lab/chippy" })).json();
+    expect(summary).toMatchObject({ sourceType: "url", source: "github", sourceUrl: "https://github.com/rxtech-lab/chippy" });
   });
 });

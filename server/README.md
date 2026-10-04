@@ -112,7 +112,7 @@ app/
   s/[slug]/og.png/route.ts          OG PNG (302 to R2 custom domain when public, else streamed)
   s/[slug]/source/route.ts          302 → signed R2 URL of the uploaded PDF
   .well-known/apple-app-site-association/route.ts
-  api/v1/{uploads,summaries,summaries/[id],summaries/[id]/image,facets,views,chat}
+  api/v1/{uploads,summaries,summaries/import,summaries/[id],summaries/[id]/image,facets,views,chat}
   api/v1/account/deletion           schedule / read / cancel account deletion (7-day grace)
   api/v1/legal/{privacy,terms}      markdown legal documents (public)
   api/public/summaries/[slug]       App Clip read
@@ -206,6 +206,7 @@ template is composited on top. If the env var is unset or the call fails, the gr
 | `bun run build` | Production build (no env vars needed at build time; clients are created lazily). |
 | `bun run lint` / `bun run typecheck` | ESLint / `tsc --noEmit`. |
 | `bun run test` | Vitest: in-memory libsql migrated with the real migrations, mock AI, memory R2. |
+| `bun run test:e2e` | Playwright API tests (`tests/e2e`) against a real `next dev` on :3100 with mock services, a fresh `.e2e/e2e.db`, and bearer tokens from a local mock issuer on :3101 (`tests/e2e/mock-issuer.ts`). No browsers needed. CI: `.github/workflows/server-tests.yaml`. |
 | `bun run db:generate` / `bun run db:migrate` | drizzle-kit generate / apply migrations to `TURSO_DATABASE_URL`. |
 | `bun run db:backfill-embeddings` | Embed every summary missing a search embedding (or one from an older `AI_EMBEDDING_MODEL`). |
 | `TURSO_DATABASE_URL=file:local.db bun scripts/seed-dev.ts` | Seed one sample summary locally (mock AI). `OG_OUT=og.png` also writes its OG image. |
@@ -225,8 +226,8 @@ everyone but the owner before the cron runs. The cron moves the OG image of rece
 a fresh key (so the CDN URL dies), deletes uploads that were never attached to a summary within a day,
 and embeds up to 500 summaries still missing a search embedding.
 
-Function limits: `POST /api/v1/summaries`, `POST /api/v1/summaries/:id/image` and `POST /api/v1/chat`
-set `maxDuration = 120`; the cron allows 300.
+Function limits: `POST /api/v1/summaries/import`, `POST /api/v1/summaries/:id/image` and `POST /api/v1/chat`
+set `maxDuration = 120`; `POST /api/v1/summaries` (document agent runs after the response) and the cron allow 300.
 
 ## Universal links & App Clip
 
