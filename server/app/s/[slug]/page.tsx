@@ -15,10 +15,7 @@ import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import { categoryLabel } from "@/lib/og/category-labels";
 import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
 import { findPublicSummaryBySlug, incrementViewCount } from "@/lib/services/summaries";
-import { preferredLanguage, readingLanguage, readSummary, translationLanguageFor, translationPayer } from "@/lib/services/translations";
-
-/** Exported so Next allows a 300 s budget: the source translation continues after the response. */
-export const maxDuration = 300;
+import { findTranslation, preferredLanguage, readingLanguage, translationLanguageFor } from "@/lib/services/translations";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ lang?: string | string[] }> };
 
@@ -40,7 +37,9 @@ interface PageText {
 
 /**
  * The page opens in the visitor's language (`Accept-Language`), or `?lang=` (`original` for the
- * summary as written). Crawlers get it as written, so link previews match the shared card.
+ * summary as written), when a translation is already saved; the website never writes one, so it
+ * shows the summary as written otherwise. Crawlers get it as written, so link previews match the
+ * shared card.
  */
 const loadText = cache(async (slug: string, lang: string | undefined): Promise<PageText | undefined> => {
   const row = await loadSummary(slug);
@@ -51,8 +50,8 @@ const loadText = cache(async (slug: string, lang: string | undefined): Promise<P
   const requestHeaders = await headers();
   if (lang === "original" || isBotUserAgent(requestHeaders.get("user-agent"))) return original;
   const wanted = lang ? translationLanguageFor(lang) : preferredLanguage(requestHeaders.get("accept-language"));
-  // A visitor who isn't signed in: a translation not written yet is paid from the owner's points.
-  const { translation } = await readSummary(getDatabase(), row, readingLanguage(row, null, wanted), translationPayer(row, null));
+  const language = readingLanguage(row, null, wanted);
+  const translation = language ? await findTranslation(getDatabase(), row.id, language) : undefined;
   if (!translation) return original;
   return { title: translation.title, summary: translation.summary, highlights: translation.highlights,
     category: categoryLabel(row.category, translationLanguageFor(translation.language) ?? "en"),
