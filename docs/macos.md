@@ -6,6 +6,8 @@ The Mac app uses a sidebar for Library, Chat, and Settings. Toolbar Search (also
 
 The app includes native clipboard copying, the macOS system sharing picker, security-scoped PDF import, drag-and-drop summary creation (drop a PDF, text or Markdown file or a web link on the window, or a file on the Dock icon or via Finder’s Open With, to open New Summary with it), welcome onboarding, and Siri/Shortcuts actions. Long-running intents use the macOS 27 API when available and the existing generation path on macOS 26.
 
+**Settings → Integrations → MCP Server** turns on a local MCP server. Agents on the Mac use it to add, search and list summaries as the signed-in user; see [MCP server](mcp.md). It is the reason the sandboxed app has the `com.apple.security.network.server` entitlement.
+
 `MacSmartShare` is the bundled macOS share extension. It accepts web links, PDFs, and text, and uses the same generation flow as the main app. Sign in to the containing app first, then choose Chippy in Safari’s Share menu. macOS may require enabling the extension in System Settings before it appears.
 
 ## Configuration and signing

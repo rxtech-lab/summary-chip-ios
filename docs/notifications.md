@@ -24,7 +24,8 @@ Failed or rejected creation requests do not send an alert.
    in. Debug uses the sandbox APNs environment; Release uses production. The
    `SUMMARY_CHIP_PUSH_ENVIRONMENT` setting drives both the entitlement and
    registration payload; it must match the signing profile's APNs environment.
-5. Sign in with the same account in the app and CLI, upload a summary, and confirm
+5. Sign in with the same account on two devices, add a summary through the import API or the Mac
+   app's MCP server (`add_summary`, see [mcp.md](mcp.md)), and confirm
    the alert opens the correct summary. Test on a signed physical iOS device and
    macOS installation; an unsigned build cannot register with APNs.
 

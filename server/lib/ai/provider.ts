@@ -294,12 +294,14 @@ export class GatewayAiProvider implements AiProvider {
 export function illustrationInstruction(input: DesignInput): string {
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
-    "Create a 16:9 editorial illustration to be used as the background artwork of a social preview card for this article.",
+    "Create a 16:9 text-free editorial illustration to be used as the background artwork of a social preview card for this article.",
+    "ABSOLUTE RULE: never include any text in the image. The article details below are context for choosing the subject only; do not write the title, keywords or any other words anywhere in the picture.",
     `Article: "${input.headline}". Category: ${input.category}. Key ideas: ${input.keywords.slice(0, 6).join(", ")}.`,
     `Visual style: polished modern editorial illustration, like a premium magazine or tech-blog cover. Palette: ${input.colors.join(", ")}; overall tone ${tone}.`,
     "Fill the entire canvas edge to edge: a designed background with layered geometric shapes, flowing curves, fine line work (thin rings, grid lines, dotted paths, hairlines), soft light and depth, plus an illustrated subject that represents the article. No blank or plain white areas, no frame or border.",
-    "Place the illustrated subject in the right half; keep the left half calmer and lower in detail, because a headline will be laid over it later.",
-    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, pages, signs or labels in the scene must be blank or abstract.",
+    "Place the illustrated subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
+    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, pages, books, signs, posters or labels in the scene must be blank or abstract.",
+    "Reminder: a purely visual image with zero text, typography or lettering.",
   ].join(" ");
 }
 

@@ -264,6 +264,68 @@ public struct SummaryPatch: Encodable, Sendable, Hashable {
     }
 }
 
+/// `POST /api/v1/summaries/import` body: a summary written elsewhere, saved as-is (nothing is re-summarised).
+public struct ImportSummaryRequest: Encodable, Sendable, Hashable {
+    public var title: String
+    public var summary: String
+    /// The raw source text, kept as the summary's source document.
+    public var text: String
+    public var tags: [String]
+    /// Shown as "Key points" under the summary.
+    public var highlights: [String]
+    public var category: String?
+    public var keywords: [String]
+    /// BCP-47 code of the title and summary; the server defaults to `en`.
+    public var language: String?
+    public var sourceUrl: URL?
+    public var sourceTitle: String?
+    public var siteName: String?
+    public var imageStyle: ImageStyle
+    /// Nil: the server's default lifetime.
+    public var ttl: TTLOption?
+    public var visibility: SummaryVisibility?
+    /// Skips the server's duplicate check (`409 DUPLICATE_SUMMARY`).
+    public var allowDuplicate: Bool
+
+    public init(
+        title: String, summary: String, text: String, tags: [String] = [], highlights: [String] = [],
+        category: String? = nil, keywords: [String] = [], language: String? = nil, sourceUrl: URL? = nil,
+        sourceTitle: String? = nil, siteName: String? = nil, imageStyle: ImageStyle = .illustration,
+        ttl: TTLOption? = nil, visibility: SummaryVisibility? = nil, allowDuplicate: Bool = false
+    ) {
+        self.title = title; self.summary = summary; self.text = text; self.tags = tags; self.highlights = highlights
+        self.category = category; self.keywords = keywords; self.language = language; self.sourceUrl = sourceUrl
+        self.sourceTitle = sourceTitle; self.siteName = siteName; self.imageStyle = imageStyle
+        self.ttl = ttl; self.visibility = visibility; self.allowDuplicate = allowDuplicate
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title, summary, text, tags, highlights, category, keywords, language, sourceUrl, sourceTitle, siteName
+        case imageStyle, ttlDays, visibility, allowDuplicate
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(title, forKey: .title)
+        try c.encode(summary, forKey: .summary)
+        try c.encode(text, forKey: .text)
+        if !tags.isEmpty { try c.encode(tags, forKey: .tags) }
+        if !highlights.isEmpty { try c.encode(highlights, forKey: .highlights) }
+        try c.encodeIfPresent(category, forKey: .category)
+        if !keywords.isEmpty { try c.encode(keywords, forKey: .keywords) }
+        try c.encodeIfPresent(language, forKey: .language)
+        try c.encodeIfPresent(sourceUrl?.absoluteString, forKey: .sourceUrl)
+        try c.encodeIfPresent(sourceTitle, forKey: .sourceTitle)
+        try c.encodeIfPresent(siteName, forKey: .siteName)
+        try c.encode(imageStyle, forKey: .imageStyle)
+        if let ttl {
+            if let days = ttl.ttlDays { try c.encode(days, forKey: .ttlDays) } else { try c.encodeNil(forKey: .ttlDays) }
+        }
+        try c.encodeIfPresent(visibility, forKey: .visibility)
+        if allowDuplicate { try c.encode(true, forKey: .allowDuplicate) }
+    }
+}
+
 public struct RegenerateImageRequest: Encodable, Sendable {
     public var imageStyle: ImageStyle
     public init(imageStyle: ImageStyle) { self.imageStyle = imageStyle }
