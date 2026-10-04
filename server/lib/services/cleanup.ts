@@ -3,6 +3,7 @@ import type { Database } from "@/lib/db/client";
 import { summaries, uploads } from "@/lib/db/schema";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
 import { rotateImageKeys } from "./summaries";
+import { retireTranslatedCovers } from "./translations";
 
 const BATCH_SIZE = 100;
 const MAX_BATCHES = 50;
@@ -63,6 +64,7 @@ export async function runCleanup(db: Database, options: { store?: ObjectStore; n
         continue;
       }
       await db.update(summaries).set(changes).where(eq(summaries.id, row.id));
+      await retireTranslatedCovers(db, store, [row.id]);
       report.expiredLinks += 1;
       for (const key of retired) {
         try {

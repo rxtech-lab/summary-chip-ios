@@ -28,7 +28,7 @@ struct ShareRootView: View {
             switch phase {
             case .loading:
                 NavigationStack {
-                    Color.clear.overlay { ActionStatusOverlay("Reading what you shared…", isWorking: true) }
+                    Color.clear.overlay { ActionStatusOverlay(String(localized: "Reading what you shared…"), isWorking: true) }
                         .toolbar { cancelItem }
                 }
             case .signedOut:

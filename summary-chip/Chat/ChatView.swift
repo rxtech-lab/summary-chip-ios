@@ -64,7 +64,7 @@ struct ChatView: View {
             } message: {
                 Text("Chatting uses points based on the AI's usage. Top up to keep chatting.")
             }
-            .navigationTitle(summary == nil ? "Chat" : "Ask About This")
+            .navigationTitle(summary == nil ? Text("Chat") : Text("Ask About This"))
             .summaryInlineNavigationTitle()
             .summarySearchToolbar(isEnabled: summary == nil && !isPanel)
             .navigationDestination(for: ChatSummaryRoute.self) { route in
@@ -167,7 +167,7 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 10) {
-            TextField(summary == nil ? "Ask about your summaries" : "Ask about this summary", text: $model.draft, axis: .vertical)
+            TextField(summary == nil ? String(localized: "Ask about your summaries") : String(localized: "Ask about this summary"), text: $model.draft, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($inputFocused)
                 // The glass capsule is the field's only outline; drop the platform border.
@@ -249,7 +249,7 @@ private struct ChatEntryView: View {
                 }
                 // A running tool card already pulses; don't stack a second status under it.
                 if entry.isStreaming, !entry.tools.contains(where: \.isRunning) {
-                    ChatStatusChip(text: "Thinking…")
+                    ChatStatusChip(text: String(localized: "Thinking…"))
                 }
                 if let error = entry.errorText {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -345,20 +345,20 @@ private struct ChatToolCallCard: View {
     private var title: String {
         switch tool.toolName {
         case "searchSummaries":
-            if tool.isRunning { return "Searching your library…" }
-            return tool.finished == true ? "Searched your library" : "Search stopped"
+            if tool.isRunning { return String(localized: "Searching your library…") }
+            return tool.finished == true ? String(localized: "Searched your library") : String(localized: "Search stopped")
         case "getSummary":
-            if tool.isRunning { return "Reading summary…" }
-            return tool.finished == true ? "Read summary" : "Reading stopped"
+            if tool.isRunning { return String(localized: "Reading summary…") }
+            return tool.finished == true ? String(localized: "Read summary") : String(localized: "Reading stopped")
         case "grepLocalFile":
-            if tool.isRunning { return "Searching the file…" }
-            return tool.finished == true ? "Searched the file" : "Search stopped"
+            if tool.isRunning { return String(localized: "Searching the file…") }
+            return tool.finished == true ? String(localized: "Searched the file") : String(localized: "Search stopped")
         case "readLocalFile":
-            if tool.isRunning { return "Reading the file…" }
-            return tool.finished == true ? "Read the file" : "Reading stopped"
+            if tool.isRunning { return String(localized: "Reading the file…") }
+            return tool.finished == true ? String(localized: "Read the file") : String(localized: "Reading stopped")
         default:
-            if tool.isRunning { return tool.label.isEmpty ? "Working…" : tool.label }
-            return tool.toolName.isEmpty ? "Used a tool" : "Used \(tool.toolName)"
+            if tool.isRunning { return tool.label.isEmpty ? String(localized: "Working…") : tool.label }
+            return tool.toolName.isEmpty ? String(localized: "Used a tool") : String(localized: "Used \(tool.toolName)")
         }
     }
 
@@ -372,8 +372,12 @@ private struct ChatToolCallCard: View {
         if let status = tool.status { return status }
         guard isSearch, tool.finished == true else { return nil }
         let count = tool.references.count
-        let results = count == 0 ? "No matches" : count == 1 ? "1 result" : "\(count) results"
-        return tool.isSemantic == true ? "\(results) · by meaning" : results
+        if tool.isSemantic == true {
+            return count == 0 ? String(localized: "No matches · by meaning")
+                : count == 1 ? String(localized: "1 result · by meaning")
+                : String(localized: "\(count) results · by meaning")
+        }
+        return count == 0 ? String(localized: "No matches") : count == 1 ? String(localized: "1 result") : String(localized: "\(count) results")
     }
 }
 

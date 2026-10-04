@@ -96,8 +96,17 @@ public final class SummaryAPIClient: Sendable {
 
     /// The summary's source rewritten as Markdown. Fails with `404 SOURCE_NOT_KEPT` when it wasn't kept.
     public func sourceMarkdown(id: String) async throws -> String {
-        let body: SourceMarkdown = try await send(get("/api/v1/summaries/\(id.urlPathEscaped)/markdown"))
-        return body.markdown
+        try await sourceDocument(id: id).markdown
+    }
+
+    /// The source document in the language the summary is read in, once translated (see `translationPending`).
+    public func sourceDocument(id: String) async throws -> SourceMarkdown {
+        try await send(get("/api/v1/summaries/\(id.urlPathEscaped)/markdown"))
+    }
+
+    /// The languages the summary is already translated into; nothing is translated by asking.
+    public func translations(id: String) async throws -> SummaryTranslations {
+        try await send(get("/api/v1/summaries/\(id.urlPathEscaped)/translations"))
     }
 
     public func updateSummary(id: String, patch: SummaryPatch) async throws -> Summary {
@@ -164,6 +173,35 @@ public final class SummaryAPIClient: Sendable {
         request.httpMethod = "DELETE"
         return try await send(request)
     }
+
+    // MARK: MCP
+
+    /// The hosted MCP server agents connect to with an API key.
+    public var mcpEndpoint: URL { baseURL.appending(path: "/api/mcp") }
+
+    /// The account's MCP API keys with their usage, newest first.
+    public func apiKeys() async throws -> [APIKey] {
+        struct Page: Decodable { let items: [APIKey] }
+        let page: Page = try await send(get("/api/v1/api-keys"))
+        return page.items
+    }
+
+    public func createAPIKey(name: String) async throws -> CreatedAPIKey {
+        try await send(json("/api/v1/api-keys", method: "POST", body: APIKeyName(name: name)))
+    }
+
+    public func renameAPIKey(id: String, name: String) async throws -> APIKey {
+        try await send(json("/api/v1/api-keys/\(id.urlPathEscaped)", method: "PATCH", body: APIKeyName(name: name)))
+    }
+
+    /// Agents using the key are refused from their next request on.
+    public func revokeAPIKey(id: String) async throws {
+        var request = request("/api/v1/api-keys/\(id.urlPathEscaped)")
+        request.httpMethod = "DELETE"
+        _ = try await sendRaw(request)
+    }
+
+    private struct APIKeyName: Encodable { let name: String }
 
     // MARK: Creation
 
@@ -270,6 +308,8 @@ public final class SummaryAPIClient: Sendable {
         if !query.isEmpty { components.queryItems = query }
         var request = URLRequest(url: components.url!)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // Others' summaries come back translated into the user's language.
+        request.setValue(Locale.acceptLanguageHeader, forHTTPHeaderField: "Accept-Language")
         request.timeoutInterval = 30
         return request
     }
@@ -383,6 +423,7 @@ public final class PublicSummaryClient: Sendable {
     public func summary(slug: String) async throws -> Summary {
         var request = URLRequest(url: baseURL.appending(path: "/api/public/summaries/\(slug.urlPathEscaped)"))
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(Locale.acceptLanguageHeader, forHTTPHeaderField: "Accept-Language")
         request.timeoutInterval = 30
         let data: Data
         let response: URLResponse
@@ -407,5 +448,15 @@ public final class PublicSummaryClient: Sendable {
 extension String {
     var urlPathEscaped: String {
         addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))) ?? self
+    }
+}
+
+extension Locale {
+    /// `Accept-Language` for the user's preferred languages, most preferred first (`ja-JP, en-US;q=0.9`).
+    /// The server shows shared summaries in the first one it can translate into.
+    static var acceptLanguageHeader: String {
+        Locale.preferredLanguages.prefix(6).enumerated().map { index, tag in
+            index == 0 ? tag : "\(tag);q=\(String(format: "%.1f", 1 - Double(index) * 0.1))"
+        }.joined(separator: ", ")
     }
 }

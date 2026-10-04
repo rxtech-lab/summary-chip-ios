@@ -43,7 +43,7 @@ struct PointsUsageView: View {
     @ViewBuilder
     private var summary: some View {
         LabeledContent {
-            Text(points.map { "\($0.formatted()) points" } ?? "–")
+            Text(points.map { String(localized: "\($0.formatted()) points") } ?? "–")
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .animation(.default, value: points)
@@ -192,18 +192,18 @@ private struct LedgerRow: View {
 
     private var title: String {
         switch entry.kind {
-        case "topup": return "Top-up"
-        case "plan_grant": return "Points granted"
-        case "overage": return "Summary"
-        case "refund": return "Refund"
-        case "dispute": return "Payment disputed"
-        case "dispute_reversal": return "Dispute resolved"
-        case "adjustment": return "Adjustment"
-        case "expiry": return "Points expired"
+        case "topup": return String(localized: "Top-up")
+        case "plan_grant": return String(localized: "Points granted")
+        case "overage": return String(localized: "Summary", comment: "Ledger entry: points charged for a summary")
+        case "refund": return String(localized: "Refund")
+        case "dispute": return String(localized: "Payment disputed")
+        case "dispute_reversal": return String(localized: "Dispute resolved")
+        case "adjustment": return String(localized: "Adjustment")
+        case "expiry": return String(localized: "Points expired")
         case "usage":
-            if metadataKeys.contains("turnId") { return "Chat" }
-            if metadataKeys.contains("summaryId") { return "Source document" }
-            return "Usage"
+            if metadataKeys.contains("turnId") { return String(localized: "Chat", comment: "Ledger entry: points charged for a chat turn") }
+            if metadataKeys.contains("summaryId") { return String(localized: "Source document") }
+            return String(localized: "Usage")
         default: return entry.description.isEmpty ? entry.kind.capitalized : entry.description
         }
     }

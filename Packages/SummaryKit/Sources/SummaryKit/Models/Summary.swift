@@ -88,9 +88,9 @@ public enum SummaryOrigin: Codable, Sendable, Hashable, Identifiable {
 
     public var title: String {
         switch self {
-        case .web: "Web"
-        case .pdf: "PDF"
-        case .text: "Text"
+        case .web: String(localized: "Web", bundle: .module, comment: "Summary source kind: a web page")
+        case .pdf: String(localized: "PDF", bundle: .module)
+        case .text: String(localized: "Text", bundle: .module, comment: "Summary source kind: pasted text")
         case .x: "X"
         case .facebook: "Facebook"
         case .youtube: "YouTube"
@@ -137,15 +137,15 @@ public enum ImageStyle: String, Codable, Sendable, CaseIterable, Identifiable {
 
     public var title: String {
         switch self {
-        case .graphic: "Graphic"
-        case .illustration: "Illustration"
+        case .graphic: String(localized: "Graphic", bundle: .module, comment: "Image style option")
+        case .illustration: String(localized: "Illustration", bundle: .module, comment: "Image style option")
         }
     }
 
     public var detail: String {
         switch self {
-        case .graphic: "Abstract shapes and gradients that match the topic."
-        case .illustration: "An AI illustration behind the headline."
+        case .graphic: String(localized: "Abstract shapes and gradients that match the topic.", bundle: .module)
+        case .illustration: String(localized: "An AI illustration behind the headline.", bundle: .module)
         }
     }
 
@@ -170,8 +170,8 @@ public enum SummaryVisibility: String, Codable, Sendable, CaseIterable, Identifi
 
     public var title: String {
         switch self {
-        case .public: "Public"
-        case .private: "Private"
+        case .public: String(localized: "Public", bundle: .module, comment: "Summary visibility")
+        case .private: String(localized: "Private", bundle: .module, comment: "Summary visibility")
         }
     }
 
@@ -246,7 +246,16 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var category: String
     public var tags: [String]
     public var keywords: [String]
+    /// The language `title`, `summary` and `highlights` are in: a translation's, else `originalLanguage`.
     public var language: String
+    /// The language the summary was written in.
+    public var originalLanguage: String
+    /// Owner only: the language they chose to read it in (`PATCH displayLanguage`); nil = as written.
+    public var displayLanguage: String?
+    /// A translation into the reader's language is being written; fetch it again shortly.
+    public var translationPending: Bool
+    /// The translated source document is being written; the original is served until then.
+    public var sourceTranslationPending: Bool
     public var theme: Theme
     public var imageStyle: ImageStyle
     public var visibility: SummaryVisibility
@@ -263,7 +272,8 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         id: String, slug: String, shareUrl: URL, ogImageUrl: URL?, artImageUrl: URL? = nil, sourceType: SummarySourceType,
         source: SummaryOrigin? = nil, sourceUrl: URL?, sourceTitle: String?, siteName: String?, sourceFileUrl: URL?,
         hasSourceMarkdown: Bool = false, sourceMarkdownPending: Bool = false, title: String, summary: String, highlights: [String], category: String, tags: [String],
-        keywords: [String], language: String, theme: Theme, imageStyle: ImageStyle,
+        keywords: [String], language: String, originalLanguage: String? = nil, displayLanguage: String? = nil,
+        translationPending: Bool = false, sourceTranslationPending: Bool = false, theme: Theme, imageStyle: ImageStyle,
         visibility: SummaryVisibility, ttlDays: Int?, expiresAt: Date?, viewCount: Int,
         isOwner: Bool, viewedAt: Date? = nil, createdAt: Date, updatedAt: Date
     ) {
@@ -272,7 +282,10 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         self.siteName = siteName; self.sourceFileUrl = sourceFileUrl; self.hasSourceMarkdown = hasSourceMarkdown
         self.sourceMarkdownPending = sourceMarkdownPending; self.title = title
         self.summary = summary; self.highlights = highlights; self.category = category
-        self.tags = tags; self.keywords = keywords; self.language = language; self.theme = theme
+        self.tags = tags; self.keywords = keywords; self.language = language
+        self.originalLanguage = originalLanguage ?? language; self.displayLanguage = displayLanguage
+        self.translationPending = translationPending; self.sourceTranslationPending = sourceTranslationPending
+        self.theme = theme
         self.imageStyle = imageStyle; self.visibility = visibility; self.ttlDays = ttlDays
         self.expiresAt = expiresAt; self.viewCount = viewCount; self.isOwner = isOwner
         self.viewedAt = viewedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
@@ -302,6 +315,10 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         keywords = try c.decodeIfPresent([String].self, forKey: .keywords) ?? []
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
+        originalLanguage = try c.decodeIfPresent(String.self, forKey: .originalLanguage) ?? language
+        displayLanguage = try c.decodeIfPresent(String.self, forKey: .displayLanguage)
+        translationPending = try c.decodeIfPresent(Bool.self, forKey: .translationPending) ?? false
+        sourceTranslationPending = try c.decodeIfPresent(Bool.self, forKey: .sourceTranslationPending) ?? false
         theme = try c.decodeIfPresent(Theme.self, forKey: .theme) ?? .fallback
         imageStyle = try c.decodeIfPresent(ImageStyle.self, forKey: .imageStyle) ?? .graphic
         visibility = try c.decodeIfPresent(SummaryVisibility.self, forKey: .visibility) ?? .public
@@ -313,6 +330,9 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }
+
+    /// The title, summary and key points are shown translated from `originalLanguage`.
+    public var isTranslated: Bool { language != originalLanguage }
 
     /// The date the library sorts by: when you created it, or when you last opened someone else's.
     public var activityDate: Date { viewedAt ?? createdAt }
@@ -346,11 +366,56 @@ extension KeyedDecodingContainer {
     }
 }
 
-/// `{markdown}` from `GET /api/v1/summaries/:id/markdown`.
+/// `{markdown, language, translationPending}` from `GET /api/v1/summaries/:id/markdown`.
 public struct SourceMarkdown: Codable, Sendable, Hashable {
     public var markdown: String
+    /// The language `markdown` is in; nil from servers that predate translations.
+    public var language: String?
+    /// The document is being translated into the reader's language; `markdown` is the original until then.
+    public var translationPending: Bool
 
-    public init(markdown: String) { self.markdown = markdown }
+    public init(markdown: String, language: String? = nil, translationPending: Bool = false) {
+        self.markdown = markdown
+        self.language = language
+        self.translationPending = translationPending
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        markdown = try c.decode(String.self, forKey: .markdown)
+        language = try c.decodeIfPresent(String.self, forKey: .language)
+        translationPending = try c.decodeIfPresent(Bool.self, forKey: .translationPending) ?? false
+    }
+}
+
+/// `GET /api/v1/summaries/:id/translations`: the languages a summary is already translated into.
+public struct SummaryTranslations: Codable, Sendable, Hashable {
+    public struct Item: Codable, Sendable, Hashable {
+        public var language: String
+        /// The source text is translated too.
+        public var sourceTranslated: Bool
+        /// The translated source text is still being written.
+        public var sourcePending: Bool
+
+        public init(language: String, sourceTranslated: Bool = false, sourcePending: Bool = false) {
+            self.language = language
+            self.sourceTranslated = sourceTranslated
+            self.sourcePending = sourcePending
+        }
+    }
+
+    public var originalLanguage: String
+    public var items: [Item]
+
+    public init(originalLanguage: String, items: [Item]) {
+        self.originalLanguage = originalLanguage
+        self.items = items
+    }
+
+    /// Whether `language` already has a translation (so switching to it is instant and free).
+    public func contains(_ language: SummaryLanguage) -> Bool {
+        items.contains { SummaryLanguage(languageTag: $0.language) == language }
+    }
 }
 
 /// `{items:[Summary], nextCursor}` from `GET /api/v1/summaries`.

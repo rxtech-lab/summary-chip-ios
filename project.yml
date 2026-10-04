@@ -12,8 +12,10 @@ options:
   groupSortPosition: top
   xcodeVersion: "27.0"
   # XcodeGen 2.45 maps .icon to the legacy type; Xcode needs the Icon Composer type.
+  # It also only lists regions it finds in .lproj folders, so add the String Catalog languages.
   postGenCommand: >-
-    perl -pi -e 's/lastKnownFileType = wrapper\.icon;/lastKnownFileType = folder.iconcomposer.icon;/g' summary-chip.xcodeproj/project.pbxproj
+    perl -pi -e 's/lastKnownFileType = wrapper\.icon;/lastKnownFileType = folder.iconcomposer.icon;/g' summary-chip.xcodeproj/project.pbxproj &&
+    perl -0pi -e 's/(knownRegions = \(\n(\s*)Base,\n\s*en,\n)/$1$2"zh-Hans",\n$2"zh-Hant",\n/' summary-chip.xcodeproj/project.pbxproj
 
 configFiles:
   Debug: Configuration/Debug.xcconfig
@@ -36,6 +38,7 @@ settings:
     ENABLE_MODULE_VERIFIER: NO
     ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
     SUMMARY_CHIP_KEYCHAIN_GROUP: $(AppIdentifierPrefix)com.rxlab.summary-chip.shared
 
 packages:
@@ -53,9 +56,6 @@ packages:
   RxAgentSDK:
     url: https://github.com/rxtech-lab/RxAgentSDK
     from: 1.0.8
-  MCP:
-    url: https://github.com/modelcontextprotocol/swift-sdk
-    from: 0.12.1
 
 # Info.plist keys every target reads through SummaryConfiguration.
 x-config-info: &configInfo
@@ -113,6 +113,10 @@ targets:
                   || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "org.openxmlformats.wordprocessingml.document"
                   || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.microsoft.word.doc"
                   || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "org.oasis-open.opendocument.text"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "org.openxmlformats.spreadsheetml.sheet"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "org.openxmlformats.presentationml.presentation"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "org.oasis-open.opendocument.spreadsheet"
+                  || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "org.oasis-open.opendocument.presentation"
                 ).@count >= 1
               ).@count == 1
     entitlements:
@@ -183,9 +187,6 @@ targets:
       - package: RxAgentSDK
         product: RxAgentSDK
       - package: RxSubscriptionIOS
-      - package: MCP
-        product: MCP
-        destinationFilters: [macOS]
       - target: MacSmartShare
         destinationFilters: [macOS]
       - target: SmartShare

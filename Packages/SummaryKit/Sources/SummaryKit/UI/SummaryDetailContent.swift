@@ -8,6 +8,7 @@ import SwiftUI
 public struct SummaryDetailContent: View {
     let summary: Summary
     let onEditSharing: (() -> Void)?
+    let onChangeLanguage: (() -> Void)?
 
     @Environment(\.openURL) private var openURL
     @Environment(\.summaryAssetLoader) private var loader
@@ -15,11 +16,15 @@ public struct SummaryDetailContent: View {
     @State private var isOpeningSource = false
     @State private var sourceError: String?
 
-    /// - Parameter onEditSharing: When set, the owner's sharing card becomes a button that
-    ///   calls it (the app opens its Edit Sharing sheet).
-    public init(summary: Summary, onEditSharing: (() -> Void)? = nil) {
+    /// - Parameters:
+    ///   - onEditSharing: When set, the owner's sharing card becomes a button that
+    ///     calls it (the app opens its Edit Sharing sheet).
+    ///   - onChangeLanguage: When set, the "Translated from…" note becomes a button that calls it
+    ///     (the app opens its Language sheet).
+    public init(summary: Summary, onEditSharing: (() -> Void)? = nil, onChangeLanguage: (() -> Void)? = nil) {
         self.summary = summary
         self.onEditSharing = onEditSharing
+        self.onChangeLanguage = onChangeLanguage
     }
 
     public var body: some View {
@@ -69,7 +74,7 @@ public struct SummaryDetailContent: View {
             HStack(spacing: 8) {
                 ChipLabel(summary.category, tint: summary.theme.accentColor)
                 ChipLabel(summary.source.title, image: summary.source.image)
-                    .accessibilityLabel("Source: \(summary.source.title)")
+                    .accessibilityLabel(Text("Source: \(summary.source.title)", bundle: .module))
                 Text(summary.createdAt.formatted(date: .abbreviated, time: .omitted))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
@@ -85,6 +90,45 @@ public struct SummaryDetailContent: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            if summary.translationPending {
+                Label {
+                    Text("Translating into your language…", bundle: .module)
+                } icon: {
+                    ProgressView().controlSize(.mini)
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("summary-translation-pending")
+            } else if summary.isTranslated {
+                translationNote
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var translationNote: some View {
+        let original = SummaryLanguage.displayName(for: summary.originalLanguage)
+        let label = Label {
+            Text("Translated from \(original) to \(SummaryLanguage.displayName(for: summary.language))", bundle: .module)
+        } icon: {
+            Image(systemName: "translate")
+        }
+        .font(.footnote.weight(.medium))
+        .foregroundStyle(.secondary)
+        if let onChangeLanguage {
+            Button(action: onChangeLanguage) {
+                HStack(spacing: 4) {
+                    label
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text("Change language", bundle: .module))
+            .accessibilityIdentifier("summary-translated-note")
+        } else {
+            label.accessibilityIdentifier("summary-translated-note")
         }
     }
 
@@ -96,10 +140,10 @@ public struct SummaryDetailContent: View {
             SharingStat(title: "Link expiry") { ExpiryLabel(summary.expiresAt).lineLimit(1) }
             Divider().frame(height: 36)
             SharingStat(title: "Views") {
-                Label("\(summary.viewCount)", systemImage: "eye")
+                Label(summary.viewCount.formatted(), systemImage: "eye")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("\(summary.viewCount) views")
+                    .accessibilityLabel(Text("\(summary.viewCount) views", bundle: .module))
             }
             if onEditSharing != nil {
                 Image(systemName: "chevron.right")
@@ -114,7 +158,7 @@ public struct SummaryDetailContent: View {
         if let onEditSharing {
             Button(action: onEditSharing) { content.contentShape(DetailTile.shape) }
                 .buttonStyle(DetailPressStyle())
-                .accessibilityHint("Edit sharing")
+                .accessibilityHint(Text("Edit sharing", bundle: .module))
                 .accessibilityIdentifier("edit-sharing-card")
         } else {
             content
@@ -126,7 +170,7 @@ public struct SummaryDetailContent: View {
             DetailSectionLabel("Key points")
             ForEach(Array(summary.highlights.enumerated()), id: \.offset) { index, highlight in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("\(index + 1)")
+                    Text(verbatim: "\(index + 1)")
                         .font(.caption.weight(.bold).monospacedDigit())
                         .foregroundStyle(summary.theme.accentColor)
                         .frame(width: 24, height: 24)
@@ -156,7 +200,7 @@ public struct SummaryDetailContent: View {
                         .background { ThemeArtwork(theme: summary.theme) }
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Read the original")
+                        Text("Read the original", bundle: .module)
                             .font(.headline)
                             .foregroundStyle(.primary)
                         Text(summary.sourceTitle ?? summary.sourceLabel)
@@ -225,7 +269,7 @@ private struct DetailSectionLabel: View {
     init(_ text: LocalizedStringKey) { self.text = text }
 
     var body: some View {
-        Text(text)
+        Text(text, bundle: .module)
             .font(.caption.weight(.bold))
             .textCase(.uppercase)
             .kerning(0.6)
@@ -240,7 +284,7 @@ private struct SharingStat<Value: View>: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Text(title)
+            Text(title, bundle: .module)
                 .font(.caption2.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)

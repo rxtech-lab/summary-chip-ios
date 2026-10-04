@@ -136,6 +136,42 @@ func fixture(_ name: String) throws -> Data {
         #expect(String(decoding: onlyTTL, as: UTF8.self) == #"{"ttlDays":30}"#)
     }
 
+    @Test func encodesDisplayLanguagePatch() throws {
+        let translated = try SummaryJSON.encoder().encode(SummaryPatch(displayLanguage: .zhHant))
+        #expect(String(decoding: translated, as: UTF8.self) == #"{"displayLanguage":"zh-Hant"}"#)
+        // `.auto` reads the summary as written.
+        let original = try SummaryJSON.encoder().encode(SummaryPatch(displayLanguage: .auto))
+        #expect(String(decoding: original, as: UTF8.self) == #"{"displayLanguage":null}"#)
+    }
+
+    @Test func decodesTranslatedSummary() throws {
+        var object = try #require(JSONSerialization.jsonObject(with: fixture("summary.json")) as? [String: Any])
+        object["language"] = "ja"
+        object["originalLanguage"] = "en"
+        object["displayLanguage"] = "ja"
+        object["sourceTranslationPending"] = true
+        let summary = try SummaryJSON.decoder().decode(Summary.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(summary.isTranslated)
+        #expect(summary.displayLanguage == "ja")
+        #expect(summary.sourceTranslationPending)
+        #expect(summary.translationPending == false)
+
+        // Older payloads: the summary is in the language it was written in.
+        let untranslated = try SummaryJSON.decoder().decode(Summary.self, from: fixture("summary.json"))
+        #expect(untranslated.originalLanguage == untranslated.language)
+        #expect(untranslated.isTranslated == false)
+    }
+
+    @Test func mapsLanguageTags() {
+        #expect(SummaryLanguage(languageTag: "zh-Hant-TW") == .zhHant)
+        #expect(SummaryLanguage(languageTag: "zh-HK") == .zhHant)
+        #expect(SummaryLanguage(languageTag: "zh-CN") == .zhHans)
+        #expect(SummaryLanguage(languageTag: "en-GB") == .en)
+        #expect(SummaryLanguage(languageTag: "it") == nil)
+        #expect(SummaryLanguage(languageTag: "auto") == nil)
+        #expect(SummaryLanguage.translations.contains(.auto) == false)
+    }
+
     @Test func listQueryDropsEmptyValues() {
         let items = SummaryListQuery(q: "  ", category: "Technology", tag: nil, visibility: .private, cursor: "c", limit: 20).queryItems
         #expect(items.map(\.name) == ["category", "visibility", "cursor", "limit"])
@@ -154,4 +190,27 @@ func fixture(_ name: String) throws -> Data {
         #expect(SummaryConfiguration.sanitized("  ") == nil)
         #expect(SummaryConfiguration.sanitized("https://x") == "https://x")
     }
+
+    @Test func decodesCreatedAPIKey() throws {
+        let json = Data("""
+        {"key":"chippy_abcdEFGH","apiKey":{"id":"k1","name":"Claude Code","hint":"chippy_abcd…EFGH","toolCallCount":3,
+        "summariesAddedCount":1,"lastUsedAt":null,"createdAt":"2026-10-04T10:00:00.123Z"}}
+        """.utf8)
+        let created = try SummaryJSON.decoder().decode(CreatedAPIKey.self, from: json)
+        #expect(created.key == "chippy_abcdEFGH")
+        #expect(created.apiKey.name == "Claude Code")
+        #expect(created.apiKey.toolCallCount == 3)
+        #expect(created.apiKey.summariesAddedCount == 1)
+        #expect(created.apiKey.lastUsedAt == nil)
+        #expect(created.apiKey.createdAt == SummaryJSON.parseISO8601("2026-10-04T10:00:00.123Z"))
+    }
+
+    @Test func mcpEndpointIsUnderTheAPIBase() {
+        let client = SummaryAPIClient(baseURL: URL(string: "https://summary.rxlab.app")!, tokenProvider: StaticTokenProvider())
+        #expect(client.mcpEndpoint.absoluteString == "https://summary.rxlab.app/api/mcp")
+    }
+}
+
+private struct StaticTokenProvider: AccessTokenProvider {
+    func accessToken(forceRefresh: Bool) async throws -> String { "token" }
 }

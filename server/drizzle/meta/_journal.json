@@ -64,6 +64,27 @@
       "when": 1791095346132,
       "tag": "0008_push_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791105154200,
+      "tag": "0009_summary_translations",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791108520523,
+      "tag": "0010_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1791108578235,
+      "tag": "0011_summary_translation_cover",
+      "breakpoints": true
     }
   ]
 }

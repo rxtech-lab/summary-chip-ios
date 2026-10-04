@@ -72,7 +72,7 @@ struct EditSharingSheet: View {
                 .frame(width: 44, height: 44)
                 .background((isPublic ? Color.green : Color.orange).opacity(0.15), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(isPublic ? "Public link" : "Private")
+                (isPublic ? Text("Public link") : Text("Private"))
                     .font(.headline)
                 if isPublic {
                     ExpiryLabel(summary.expiresAt)

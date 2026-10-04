@@ -21,7 +21,7 @@ final class SummaryServiceProvider: NSObject {
     /// Selector matches `NSMessage` (`summarize`) in Info.plist.
     @objc func summarize(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
         guard let text = Self.content(of: pasteboard) else {
-            error.pointee = "Select some text or a link to summarize." as NSString
+            error.pointee = String(localized: "Select some text or a link to summarize.") as NSString
             return
         }
         NSApplication.shared.activate()

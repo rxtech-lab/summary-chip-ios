@@ -57,7 +57,7 @@ struct EducationSheet: View {
     private static let pageAnimation = Animation.spring(response: 0.55, dampingFraction: 0.86)
 
     private var nextTitle: String {
-        isLast ? (current?.kind == .feature ? "Got it" : "Get started") : "Next"
+        isLast ? (current?.kind == .feature ? String(localized: "Got it") : String(localized: "Get started")) : String(localized: "Next")
     }
 
     #if !os(macOS)
@@ -98,7 +98,7 @@ struct EducationSheet: View {
                 .padding(.bottom, 24)
             }
             .background(Color.summaryGroupedBackground)
-            .navigationTitle(current?.kind == .feature ? "What’s new" : "Welcome to Chippy")
+            .navigationTitle(current?.kind == .feature ? Text("What’s new") : Text("Welcome to Chippy"))
             .summaryInlineNavigationTitle()
             .toolbar {
                 if allowsDismissal {
@@ -187,7 +187,7 @@ struct EducationSheet: View {
                 .accessibilityHidden(true)
                 .padding(.top, 48)
 
-            Text(page.kind == .feature ? "NEW" : "WELCOME")
+            (page.kind == .feature ? Text("NEW", comment: "Badge on a new-feature onboarding page") : Text("WELCOME", comment: "Badge on a welcome onboarding page"))
                 .font(.caption.weight(.bold))
                 .tracking(1.2)
                 .foregroundStyle(.indigo)

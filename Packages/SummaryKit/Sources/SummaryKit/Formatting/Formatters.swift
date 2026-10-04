@@ -4,30 +4,30 @@ public enum TTLFormatter {
     /// "1 day", "3 days", "1 week", "1 month", "3 months", "1 year", "Never".
     public static func optionTitle(_ option: TTLOption) -> String {
         switch option {
-        case .never: return "Never"
+        case .never: return String(localized: "Never", bundle: .module, comment: "Link lifetime option: never expires")
         case .days(let days):
             switch days {
-            case 7: return "1 week"
-            case 30: return "1 month"
-            case 90: return "3 months"
-            case 365: return "1 year"
-            case 1: return "1 day"
-            default: return "\(days) days"
+            case 7: return String(localized: "1 week", bundle: .module)
+            case 30: return String(localized: "1 month", bundle: .module)
+            case 90: return String(localized: "3 months", bundle: .module)
+            case 365: return String(localized: "1 year", bundle: .module)
+            case 1: return String(localized: "1 day", bundle: .module)
+            default: return String(localized: "\(days) days", bundle: .module)
             }
         }
     }
 
     /// Compact link countdown: "Expires in 3d", "Expires in 5h", "Expires in 12m", "Link expired", "No expiry".
     public static func countdown(until expiresAt: Date?, now: Date = Date()) -> String {
-        guard let expiresAt else { return "No expiry" }
+        guard let expiresAt else { return String(localized: "No expiry", bundle: .module) }
         let remaining = expiresAt.timeIntervalSince(now)
-        guard remaining > 0 else { return "Link expired" }
+        guard remaining > 0 else { return String(localized: "Link expired", bundle: .module) }
         let minutes = Int(remaining / 60)
         let hours = minutes / 60
         let days = hours / 24
-        if days >= 1 { return "Expires in \(days)d" }
-        if hours >= 1 { return "Expires in \(hours)h" }
-        return "Expires in \(max(1, minutes))m"
+        if days >= 1 { return String(localized: "Expires in \(days)d", bundle: .module, comment: "Compact countdown in days") }
+        if hours >= 1 { return String(localized: "Expires in \(hours)h", bundle: .module, comment: "Compact countdown in hours") }
+        return String(localized: "Expires in \(max(1, minutes))m", bundle: .module, comment: "Compact countdown in minutes")
     }
 
     /// True when less than a day remains (used to tint the countdown).
@@ -46,6 +46,16 @@ public enum DateSection: String, CaseIterable, Sendable, Identifiable {
     case earlier = "Earlier"
 
     public var id: String { rawValue }
+
+    /// Localized header text; `rawValue` stays the stable English identifier.
+    public var title: String {
+        switch self {
+        case .today: String(localized: "Today", bundle: .module)
+        case .yesterday: String(localized: "Yesterday", bundle: .module)
+        case .thisWeek: String(localized: "This Week", bundle: .module)
+        case .earlier: String(localized: "Earlier", bundle: .module)
+        }
+    }
 
     public static func section(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> DateSection {
         if calendar.isDate(date, inSameDayAs: now) { return .today }
@@ -74,7 +84,7 @@ public enum SummaryDateFormatter {
     public static func display(_ date: Date, now: Date = Date()) -> String {
         let age = now.timeIntervalSince(date)
         if age >= 0 && age < 7 * 86_400 {
-            if age < 60 { return "Just now" }
+            if age < 60 { return String(localized: "Just now", bundle: .module) }
             return date.formatted(.relative(presentation: .named, unitsStyle: .wide))
         }
         return date.formatted(date: .abbreviated, time: .omitted)
@@ -87,7 +97,7 @@ public enum SummaryDateFormatter {
         time.timeZone = calendar.timeZone
         switch DateSection.section(for: date, now: now, calendar: calendar) {
         case .today: return date.formatted(time)
-        case .yesterday: return "Yesterday"
+        case .yesterday: return String(localized: "Yesterday", bundle: .module)
         case .thisWeek:
             var weekday = Date.FormatStyle().weekday(.wide)
             weekday.timeZone = calendar.timeZone

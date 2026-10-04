@@ -44,7 +44,7 @@ struct SummaryCreditsSheet: View {
         }
         .overlay {
             if isRestoring {
-                ActionStatusOverlay("Restoring purchases…", isWorking: true)
+                ActionStatusOverlay(String(localized: "Restoring purchases…"), isWorking: true)
             }
         }
         .statusAlert("Summary Points", message: status) { status = nil }
@@ -64,7 +64,7 @@ struct SummaryCreditsSheet: View {
             }
             Section("Free summaries") {
                 if let allowance = store.allowance {
-                    LabeledContent("Remaining", value: allowance.remaining.map { $0.formatted() } ?? "Unlimited")
+                    LabeledContent("Remaining", value: allowance.remaining.map { $0.formatted() } ?? String(localized: "Unlimited"))
                         .accessibilityIdentifier("summary-free-remaining")
                     if let limit = allowance.limit {
                         LabeledContent("Allowance", value: limit.formatted())
@@ -73,7 +73,7 @@ struct SummaryCreditsSheet: View {
                         LabeledContent("Resets", value: reset.formatted(date: .abbreviated, time: .shortened))
                     }
                 } else {
-                    Text(store.isLoading ? "Loading allowance…" : "Allowance unavailable")
+                    (store.isLoading ? Text("Loading allowance…") : Text("Allowance unavailable"))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -90,9 +90,11 @@ struct SummaryCreditsSheet: View {
                 }
                 .disabled(store.isLoading)
             } footer: {
-                Text(SummaryCreditsStore.usesInAppPurchase
-                     ? "Your free allowance and point charges are set by the server. Top-ups add points without a recurring subscription."
-                     : "Your free allowance and point charges are set by the server. Top-ups open Stripe Checkout in your browser and add points without a recurring subscription.")
+                if SummaryCreditsStore.usesInAppPurchase {
+                    Text("Your free allowance and point charges are set by the server. Top-ups add points without a recurring subscription.")
+                } else {
+                    Text("Your free allowance and point charges are set by the server. Top-ups open Stripe Checkout in your browser and add points without a recurring subscription.")
+                }
             }
         }
         .formStyle(.grouped)
@@ -154,7 +156,7 @@ struct SummaryCreditsSheet: View {
         do {
             _ = try await client.restoreApplePurchases()
             await refresh()
-            status = "Purchases restored. Consumable top-ups are saved in your account balance."
+            status = String(localized: "Purchases restored. Consumable top-ups are saved in your account balance.")
             restoredCount += 1
         } catch {
             status = error.localizedDescription

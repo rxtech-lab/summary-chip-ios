@@ -70,7 +70,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             guard try await center.requestAuthorization(options: [.alert, .sound, .badge]) else {
                 busy = false
                 await refreshStatus()
-                errorMessage = "Allow notifications for Chippy in system Settings to receive summary alerts."
+                errorMessage = String(localized: "Allow notifications for Chippy in system Settings to receive summary alerts.")
                 return
             }
             guard acceptsRegistrations, environment?.authenticationState == .signedIn else {
@@ -82,7 +82,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             registerWithApple()
         } catch {
             busy = false
-            errorMessage = "Chippy could not request notification permission. Try again."
+            errorMessage = String(localized: "Chippy could not request notification permission. Try again.")
         }
     }
 
@@ -98,9 +98,9 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         await registrationTask?.value
         do {
             try await environment?.api.unregisterPushDevice(installationId: installationId)
-            feedback = "Notifications disabled"
+            feedback = String(localized: "Notifications disabled")
         } catch {
-            errorMessage = "Notifications are disabled on this device. The server could not be updated; Chippy will retry when it becomes active."
+            errorMessage = String(localized: "Notifications are disabled on this device. The server could not be updated; Chippy will retry when it becomes active.")
         }
         busy = false
     }
@@ -135,7 +135,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             do {
                 try await environment.api.registerPushDevice(installationId: installationId, token: token, environment: pushEnvironment, platform: platform)
                 guard currentGeneration == generation else { return }
-                if busy { feedback = "Notifications enabled" }
+                if busy { feedback = String(localized: "Notifications enabled") }
                 busy = false
             } catch {
                 guard currentGeneration == generation else { return }
@@ -147,7 +147,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     func registrationFailed() {
         guard acceptsRegistrations, enabled else { return }
         busy = false
-        errorMessage = "Chippy could not register for notifications. Try again when you are online."
+        errorMessage = String(localized: "Chippy could not register for notifications. Try again when you are online.")
     }
 
     func clearFeedback() { feedback = nil }

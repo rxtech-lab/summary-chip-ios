@@ -1,6 +1,7 @@
 import { requireApiPrincipal, type ApiPrincipal } from "@/lib/auth/bearer";
 import { getDatabase, type Database } from "@/lib/db/client";
-import { errorResponse } from "@/lib/http/errors";
+import { ApiError, errorResponse } from "@/lib/http/errors";
+import { authenticateApiKey, type ApiKeyPrincipal } from "@/lib/services/api-keys";
 import { ensureUser } from "@/lib/services/users";
 
 function requestIdFor(request: Request): string {
@@ -45,6 +46,39 @@ export async function withApiAuth(request: Request, action: (context: ApiContext
   } catch (error) {
     const response = errorResponse(error, requestId);
     status = response.status;
+    return response;
+  } finally {
+    log(request, requestId, status, startedAt, principal);
+  }
+}
+
+export interface ApiKeyContext {
+  principal: ApiKeyPrincipal;
+  db: Database;
+  requestId: string;
+}
+
+/** Handler authenticated by a personal API key (`Authorization: Bearer chippy_…`), as used by the MCP server. */
+export async function withApiKeyAuth(request: Request, action: (context: ApiKeyContext) => Promise<Response>): Promise<Response> {
+  const requestId = requestIdFor(request);
+  const startedAt = performance.now();
+  let principal: ApiKeyPrincipal | undefined;
+  let status = 500;
+  try {
+    const authorization = request.headers.get("authorization");
+    const key = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    if (!key) throw new ApiError(401, "MISSING_API_KEY", "An API key is required. Create one in Chippy → Settings → MCP Server.");
+    const db = getDatabase();
+    principal = await authenticateApiKey(db, key) ?? undefined;
+    if (!principal) throw new ApiError(401, "INVALID_API_KEY", "The API key is invalid or has been revoked.");
+    const response = await action({ principal, db, requestId });
+    status = response.status;
+    response.headers.set("x-request-id", requestId);
+    return response;
+  } catch (error) {
+    const response = errorResponse(error, requestId);
+    status = response.status;
+    if (status === 401) response.headers.set("www-authenticate", 'Bearer realm="chippy"');
     return response;
   } finally {
     log(request, requestId, status, startedAt, principal);

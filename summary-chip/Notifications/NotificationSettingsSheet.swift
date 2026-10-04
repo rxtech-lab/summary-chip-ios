@@ -8,14 +8,14 @@ struct NotificationSettingsSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Status", value: notifications.isEnabled ? "Enabled" : "Disabled")
+                    LabeledContent("Status", value: notifications.isEnabled ? String(localized: "Enabled") : String(localized: "Disabled"))
                     Button {
                         Task {
                             if notifications.isEnabled { await notifications.disable() }
                             else { await notifications.enable() }
                         }
                     } label: {
-                        Label(notifications.isEnabled ? "Disable Notifications" : "Enable Notifications", systemImage: notifications.isEnabled ? "bell.slash" : "bell.badge")
+                        Label(notifications.isEnabled ? String(localized: "Disable Notifications") : String(localized: "Enable Notifications"), systemImage: notifications.isEnabled ? "bell.slash" : "bell.badge")
                     }
                     .disabled(notifications.busy)
                 } footer: {

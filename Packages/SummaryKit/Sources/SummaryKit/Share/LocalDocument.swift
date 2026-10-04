@@ -11,11 +11,11 @@ public enum LocalDocumentError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .unsupported: "Choose a PDF, document, spreadsheet, presentation, text, Markdown or code file."
-        case .empty: "This file is empty."
-        case .noPDFText: "This PDF has no selectable text. Scanned PDFs can't be read on this device."
-        case .textTooLong: "Text files must contain at most 200,000 characters."
-        case .unavailable: "The local file is unavailable. Choose it again in Files to restore access."
+        case .unsupported: String(localized: "Choose a PDF, document, spreadsheet, presentation, text, Markdown or code file.", bundle: .module)
+        case .empty: String(localized: "This file is empty.", bundle: .module)
+        case .noPDFText: String(localized: "This PDF has no selectable text. Scanned PDFs can't be read on this device.", bundle: .module)
+        case .textTooLong: String(localized: "Text files must contain at most 200,000 characters.", bundle: .module)
+        case .unavailable: String(localized: "The local file is unavailable. Choose it again in Files to restore access.", bundle: .module)
         }
     }
 }
@@ -37,17 +37,17 @@ public struct LocalFileSource: Sendable, Hashable {
 
     /// What the file is, for display: "Markdown", "Swift source", "Word document"…
     public var typeLabel: String {
-        if kind == .pdf { return "PDF" }
+        if kind == .pdf { return String(localized: "PDF", bundle: .module) }
         let ext = URL(fileURLWithPath: filename).pathExtension.lowercased()
-        if LocalDocument.markdownExtensions.contains(ext) { return "Markdown" }
-        guard let type = UTType(filenameExtension: ext) else { return "Text file" }
+        if LocalDocument.markdownExtensions.contains(ext) { return String(localized: "Markdown", bundle: .module) }
+        guard let type = UTType(filenameExtension: ext) else { return String(localized: "Text file", bundle: .module) }
         if LocalDocument.richTextTypes.contains(where: type.conforms(to:)) {
-            return type.localizedDescription ?? "Document"
+            return type.localizedDescription ?? String(localized: "Document", bundle: .module)
         }
         if type.conforms(to: .sourceCode) || LocalDocument.codeExtensions.contains(ext) {
-            return type.localizedDescription ?? "Code"
+            return type.localizedDescription ?? String(localized: "Code", bundle: .module, comment: "File type label: source code")
         }
-        return type.conforms(to: .plainText) ? "Text file" : type.localizedDescription ?? "Text file"
+        return type.conforms(to: .plainText) ? String(localized: "Text file", bundle: .module) : type.localizedDescription ?? String(localized: "Text file", bundle: .module)
     }
 }
 

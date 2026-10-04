@@ -22,8 +22,8 @@ public enum LegalDocument: String, Sendable, Hashable, CaseIterable {
 
     public var title: String {
         switch self {
-        case .privacy: "Privacy Policy"
-        case .terms: "Terms of Service"
+        case .privacy: String(localized: "Privacy Policy", bundle: .module)
+        case .terms: String(localized: "Terms of Service", bundle: .module)
         }
     }
 
@@ -49,5 +49,39 @@ public enum LegalDocument: String, Sendable, Hashable, CaseIterable {
             throw SummaryAPIError.invalidResponse
         }
         return markdown
+    }
+}
+
+/// A personal key for the hosted MCP server (`GET /api/v1/api-keys`). Only its hash is stored on the
+/// server, so the key itself is returned once, by `createAPIKey(name:)`.
+public struct APIKey: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var name: String
+    /// The key's first and last characters, e.g. `chippy_Ab3x…9fQz`.
+    public var hint: String
+    public var toolCallCount: Int
+    public var summariesAddedCount: Int
+    public var lastUsedAt: Date?
+    public var createdAt: Date
+
+    public init(id: String, name: String, hint: String, toolCallCount: Int = 0, summariesAddedCount: Int = 0, lastUsedAt: Date? = nil, createdAt: Date = .now) {
+        self.id = id
+        self.name = name
+        self.hint = hint
+        self.toolCallCount = toolCallCount
+        self.summariesAddedCount = summariesAddedCount
+        self.lastUsedAt = lastUsedAt
+        self.createdAt = createdAt
+    }
+}
+
+/// `POST /api/v1/api-keys`: the new key in full, the only time it can be read.
+public struct CreatedAPIKey: Codable, Sendable, Hashable {
+    public var key: String
+    public var apiKey: APIKey
+
+    public init(key: String, apiKey: APIKey) {
+        self.key = key
+        self.apiKey = apiKey
     }
 }

@@ -13,9 +13,10 @@ import {
   type ImportSummaryInput,
   type ListQuery,
   type PatchSummaryInput,
+  type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { summaries, summaryEmbeddings, summaryTags, summaryViews, uploads, type ImageStyle, type SummaryRow } from "@/lib/db/schema";
+import { summaries, summaryEmbeddings, summaryTags, summaryTranslations, summaryViews, uploads, type ImageStyle, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -40,7 +41,8 @@ import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImag
 import { findDuplicateChip } from "./duplicates";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
-import { sourceMarkdownFor, toSummaryJson, type SummaryJson } from "./serialize";
+import { toSummaryJson, type SummaryJson } from "./serialize";
+import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, type TranslationStatus } from "./translations";
 import { notifySummaryAdded } from "./notifications";
 
 export interface ServiceDeps {
@@ -97,6 +99,21 @@ export async function getSummaryForViewer(db: Database, id: string, viewerId: st
   const row = await findSummaryById(db, id);
   if (!row || (row.ownerId !== viewerId && !isLinkLive(row))) throw notFound();
   return row;
+}
+
+/**
+ * The summary as `viewerId` reads it: the owner in the language they chose, anyone else in
+ * `accepted` (their `Accept-Language`), translated now when it hasn't been yet.
+ */
+export async function readSummaryJson(
+  db: Database,
+  row: SummaryRow,
+  viewerId: string | null,
+  accepted: TranslationLanguage | null,
+  options: { ai?: AiProvider; viewedAt?: Date | null } = {},
+): Promise<SummaryJson> {
+  const reading = await readSummary(db, row, readingLanguage(row, viewerId, accepted), { ai: options.ai });
+  return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading);
 }
 
 async function getOwnedSummary(db: Database, id: string, ownerId: string): Promise<SummaryRow> {
@@ -327,7 +344,11 @@ export async function createSummary(
     sourceLang: content.lang,
     language: input.language,
   });
-  const draft = normalizeDraft(raw, { requestedLanguage: input.language, seed: id, fallbackTitle: content.sourceTitle });
+  const normalized = normalizeDraft(raw, { requestedLanguage: input.language, seed: id, fallbackTitle: content.sourceTitle });
+  // The summary's language decides when readers get a translation, so the evaluation model checks
+  // what the model reported; a requested language is already known.
+  const detected = input.language === "auto" ? await ai.detectLanguage(normalized) : null;
+  const draft: SummaryDraft = { ...normalized, language: detected ?? normalized.language };
   // A local file's content never leaves this request; the device supplies it again when chatting.
   const storedText = input.source.type === "local" ? "" : content.text;
 
@@ -358,6 +379,7 @@ export async function createSummary(
     tags: draft.tags,
     keywords: draft.keywords,
     language: draft.language,
+    displayLanguage: null,
     theme: draft.theme,
     ogHeadline: draft.headline,
     imageStyle: input.imageStyle,
@@ -470,13 +492,15 @@ export async function importSummary(
 
   // The model designs the cover theme from the summary; when it fails the theme falls back to a
   // palette seeded by the id, its mode left unset so it follows that palette's luminance.
+  // The caller's `language` defaults to "en"; the evaluation model checks what the text is really in.
+  const language = await ai.detectLanguage({ title: input.title, summary: input.summary, highlights: input.highlights }) ?? input.language;
   const design = await ai.designCover({
     title: input.title,
     summary: input.summary,
     category: input.category,
     keywords: input.keywords,
     text,
-    language: input.language,
+    language,
   });
   const normalized = normalizeDraft({
     title: input.title,
@@ -485,7 +509,7 @@ export async function importSummary(
     category: input.category,
     tags: [],
     keywords: input.keywords,
-    language: input.language,
+    language,
     design: design ?? { colors: [], mode: undefined as unknown as "light", emoji: "", accent: "", headline: "" },
   }, { requestedLanguage: "auto", seed: id });
   const draft: SummaryDraft = { ...normalized, title: input.title, tags: [...new Set(input.tags)] };
@@ -514,6 +538,7 @@ export async function importSummary(
     tags: draft.tags,
     keywords: draft.keywords,
     language: draft.language,
+    displayLanguage: null,
     theme: draft.theme,
     ogHeadline: draft.headline,
     imageStyle: input.imageStyle,
@@ -537,7 +562,12 @@ export async function importSummary(
  * The library: the caller's own summaries plus other people's public summaries they opened, as one
  * feed ordered by activity (created for your own, last viewed for others'). `scope` narrows it.
  */
-export async function listSummaries(db: Database, userId: string, query: ListQuery, deps: Pick<ServiceDeps, "ai"> = {}) {
+export interface ListOptions extends Pick<ServiceDeps, "ai"> {
+  /** The caller's `Accept-Language`: others' summaries come back translated into it. */
+  accepted?: TranslationLanguage | null;
+}
+
+export async function listSummaries(db: Database, userId: string, query: ListQuery, deps: ListOptions = {}) {
   const view = and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId));
   const mine = eq(summaries.ownerId, userId);
   const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), isPublicAndLive())!;
@@ -565,8 +595,9 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     .limit(query.limit + 1);
   const page = rows.slice(0, query.limit);
   const last = page[page.length - 1];
+  const readings = await readSummaries(db, page.map((row) => row.summary), userId, deps.accepted ?? null, deps);
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt)),
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id))),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
 }
@@ -581,7 +612,7 @@ async function searchLibrary(
   query: ListQuery & { q: string },
   conditions: SQL[],
   activity: SQL<number>,
-  deps: Pick<ServiceDeps, "ai">,
+  deps: ListOptions,
 ) {
   const offset = decodeOffsetCursor(query.cursor);
   const vector = await embedQuery(deps.ai ?? await getAiProvider(), query.q);
@@ -594,8 +625,9 @@ async function searchLibrary(
     .limit(query.limit + 1)
     .offset(offset);
   const page = rows.slice(0, query.limit);
+  const readings = await readSummaries(db, page.map((row) => row.summary), userId, deps.accepted ?? null, deps);
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt)),
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id))),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }
@@ -666,6 +698,22 @@ export async function patchSummary(
   const existing = await getOwnedSummary(db, id, ownerId);
   const now = deps.now?.() ?? new Date();
   const changes: Partial<SummaryRow> = { updatedAt: now };
+  if (patch.displayLanguage !== undefined) {
+    // Reading it as written is stored as null, so a later edit of the original shows through.
+    const language = patch.displayLanguage;
+    changes.displayLanguage = language && translationLanguageFor(existing.language) !== language ? language : null;
+  }
+  // Translated before anything is saved: a language that could not be translated is not stored.
+  const ai = deps.ai ?? await getAiProvider();
+  const language = readingLanguage({ ...existing, ...changes }, ownerId, null);
+  const reading = await readSummary(db, { ...existing, ...changes }, language, { ai, required: patch.displayLanguage !== undefined });
+  // The owner edits the title they are reading: a translation's, or the original's.
+  let renamedTranslation = false;
+  if (patch.title !== undefined && reading.translation && language) {
+    renamedTranslation = await renameTranslation(db, existing.id, language, patch.title, now);
+    if (renamedTranslation) reading.translation = { ...reading.translation, title: patch.title, updatedAt: now };
+  }
+  if (patch.title !== undefined && !renamedTranslation) changes.title = patch.title;
   if (patch.visibility !== undefined) changes.visibility = patch.visibility;
   // Going private: move the images to fresh random keys so their public CDN URLs stop working.
   let retiredKeys: string[] = [];
@@ -675,7 +723,6 @@ export async function patchSummary(
     Object.assign(changes, rotation.changes);
     retiredKeys = rotation.retired;
   }
-  if (patch.title !== undefined) changes.title = patch.title;
   if (patch.ttlDays !== undefined) {
     changes.ttlDays = patch.ttlDays;
     changes.expiresAt = expiresAtFor(patch.ttlDays, now);
@@ -695,9 +742,10 @@ export async function patchSummary(
   ] as const;
   await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
   await deleteObjects(store, retiredKeys);
+  if (retiredKeys.length) await retireTranslatedCovers(db, store, [existing.id]);
   const updated = { ...existing, ...changes };
-  if (patch.title !== undefined || patch.tags !== undefined) await indexSummary(db, deps.ai ?? await getAiProvider(), updated);
-  return toSummaryJson(updated, ownerId);
+  if (changes.title !== undefined || patch.tags !== undefined) await indexSummary(db, ai, updated);
+  return toSummaryJson(updated, ownerId, null, reading);
 }
 
 type ImageKeys = Pick<SummaryRow, "ogImageKey" | "artImageKey">;
@@ -767,10 +815,12 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
   if (rows.length === 0) return { deleted: 0, objectsDeleted: 0, objectFailures: 0 };
   const ids = rows.map((row) => row.id);
   const fileKeys = rows.map((row) => row.sourceFileKey).filter((key): key is string => Boolean(key));
+  await retireTranslatedCovers(db, store, ids);
   await db.batch([
     db.delete(summaryTags).where(inArray(summaryTags.summaryId, ids)),
     db.delete(summaryViews).where(inArray(summaryViews.summaryId, ids)),
     db.delete(summaryEmbeddings).where(inArray(summaryEmbeddings.summaryId, ids)),
+    db.delete(summaryTranslations).where(inArray(summaryTranslations.summaryId, ids)),
     db.delete(summaries).where(inArray(summaries.id, ids)),
     ...(fileKeys.length ? [db.delete(uploads).where(inArray(uploads.key, fileKeys))] : []),
   ]);
@@ -812,15 +862,33 @@ export async function regenerateImage(
   const changes = { imageStyle, ...keys, updatedAt: new Date(timestamp) };
   await db.update(summaries).set(changes).where(eq(summaries.id, existing.id));
   await deleteObjects(store, [existing.ogImageKey, existing.artImageKey].filter((key) => key !== keys.ogImageKey && key !== keys.artImageKey));
-  return toSummaryJson({ ...existing, ...changes }, ownerId);
+  await retireTranslatedCovers(db, store, [existing.id]);
+  return readSummaryJson(db, { ...existing, ...changes }, ownerId, null, { ai });
 }
 
-export async function getSourceMarkdown(db: Database, id: string, viewerId: string): Promise<{ markdown: string }> {
-  const markdown = sourceMarkdownFor(await getSummaryForViewer(db, id, viewerId), viewerId);
-  if (markdown === null) throw new ApiError(404, "SOURCE_NOT_KEPT", "The source text was not kept for this summary");
-  return { markdown };
+/**
+ * The source document in the language the viewer reads the summary in once its translation is
+ * written; until then the original, with `translationPending`.
+ */
+export async function getSourceMarkdown(
+  db: Database,
+  id: string,
+  viewerId: string,
+  accepted: TranslationLanguage | null = null,
+  deps: Pick<ServiceDeps, "ai"> = {},
+): Promise<{ markdown: string; language: string; translationPending: boolean }> {
+  const row = await getSummaryForViewer(db, id, viewerId);
+  const source = await readSourceMarkdown(db, row, viewerId, readingLanguage(row, viewerId, accepted), deps);
+  if (source === null) throw new ApiError(404, "SOURCE_NOT_KEPT", "The source text was not kept for this summary");
+  return source;
 }
 
 export async function incrementViewCount(db: Database, id: string): Promise<void> {
   await db.update(summaries).set({ viewCount: sql`${summaries.viewCount} + 1` }).where(eq(summaries.id, id));
+}
+
+/** `{ originalLanguage, items }`: the languages the summary is already translated into (owner, or anyone who may open it). */
+export async function getTranslations(db: Database, id: string, viewerId: string): Promise<{ originalLanguage: string; items: TranslationStatus[] }> {
+  const row = await getSummaryForViewer(db, id, viewerId);
+  return { originalLanguage: row.language, items: await listTranslations(db, row.id) };
 }

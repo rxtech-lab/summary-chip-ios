@@ -17,12 +17,13 @@
     "smoke:illustration": "bun --env-file=.env scripts/smoke-illustration.ts"
   },
   "dependencies": {
-    "@apple/app-store-server-library": "^3.1.0",
     "@ai-sdk/gateway": "^4.0.62",
     "@ai-sdk/provider": "4.0.20",
+    "@apple/app-store-server-library": "^3.1.0",
     "@aws-sdk/client-s3": "^3.1116.0",
     "@aws-sdk/s3-request-presigner": "^3.1116.0",
     "@libsql/client": "^0.17.4",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@mozilla/readability": "^0.6.0",
     "ai": "^7.0.77",
     "drizzle-orm": "^0.45.2",

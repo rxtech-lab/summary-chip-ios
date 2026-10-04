@@ -10,6 +10,7 @@ struct SummaryDetailView: View {
     @State private var showsShare = false
     @State private var showsEditSharing = false
     @State private var showsRegenerate = false
+    @State private var showsLanguage = false
     @State private var showsLocalFile = false
     @State private var showsSourceText = false
     @State private var confirmsDelete = false
@@ -26,7 +27,11 @@ struct SummaryDetailView: View {
 
     var body: some View {
         ScrollView {
-            SummaryDetailContent(summary: summary, onEditSharing: summary.isOwner ? { showsEditSharing = true } : nil)
+            SummaryDetailContent(
+                summary: summary,
+                onEditSharing: summary.isOwner ? { showsEditSharing = true } : nil,
+                onChangeLanguage: summary.isOwner ? { showsLanguage = true } : nil
+            )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 32)
@@ -95,6 +100,12 @@ struct SummaryDetailView: View {
                             Label("Edit sharing…", systemImage: "globe")
                         }
                         Button {
+                            showsLanguage = true
+                        } label: {
+                            Label("Language…", systemImage: "translate")
+                        }
+                        .accessibilityIdentifier("summary-language")
+                        Button {
                             showsRegenerate = true
                         } label: {
                             Label("Regenerate image…", systemImage: "photo.badge.arrow.down")
@@ -120,11 +131,18 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsEditSharing) {
             EditSharingSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
+        .sheet(isPresented: $showsLanguage) {
+            DisplayLanguageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
+        }
         .sheet(isPresented: $showsRegenerate) {
             RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
         .sheet(isPresented: $showsSourceText) {
-            SourceMarkdownSheet(api: environment.api, summary: summary)
+            SourceMarkdownSheet(
+                api: environment.api,
+                summary: summary,
+                onLanguageChanged: summary.isOwner ? { updated in apply(updated) } : nil
+            )
         }
         .sheet(isPresented: $showsLocalFile) {
             LocalFileSheet(summaryID: summary.id)
@@ -142,6 +160,7 @@ struct SummaryDetailView: View {
         .sensoryFeedback(.success, trigger: didDelete) { _, new in new }
         .task(id: summary.id) { await refresh() }
         .task(id: summary.sourceMarkdownPending) { await pollSourceMarkdown() }
+        .task(id: summary.translationPending) { await pollTranslation() }
         .sensoryFeedback(.success, trigger: summary.hasSourceMarkdown) { old, new in !old && new }
     }
 
@@ -164,8 +183,20 @@ struct SummaryDetailView: View {
         }
     }
 
+    /// Opened from a library page whose translation was still being written: fetch it once it lands.
+    private func pollTranslation() async {
+        var attempts = 0
+        while summary.translationPending, attempts < 8 {
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            attempts += 1
+            await refresh()
+        }
+    }
+
+    /// Others' summaries are refreshed only while their translation is pending; the copy opened is otherwise current.
     private func refresh() async {
-        guard summary.isOwner, let fresh = try? await environment.api.summary(id: summary.id) else { return }
+        guard summary.isOwner || summary.translationPending,
+              let fresh = try? await environment.api.summary(id: summary.id) else { return }
         apply(fresh)
     }
 
@@ -255,7 +286,7 @@ struct DeepLinkSheet: View {
             summary = fresh
         } catch let error as SummaryAPIError where error.isNotFound {
             if let saved { environment.library.remove(id: saved.id) }
-            errorMessage = "This summary is private, its link has expired, or it was deleted."
+            errorMessage = String(localized: "This summary is private, its link has expired, or it was deleted.")
         } catch {
             // Offline (or the server is down): show the copy saved on this device.
             if let saved {

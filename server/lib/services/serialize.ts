@@ -1,7 +1,7 @@
 import { siteUrl } from "@/lib/config";
 import { siteNameFor } from "@/lib/extract/platforms";
 import { publicObjectUrl } from "@/lib/storage/r2";
-import type { ImageStyle, SourceType, SummaryRow, SummarySource, SummaryTheme, Visibility } from "@/lib/db/schema";
+import type { ImageStyle, SourceType, SummaryRow, SummarySource, SummaryTheme, SummaryTranslationRow, Visibility } from "@/lib/db/schema";
 
 /** The `Summary` JSON object from docs/ARCHITECTURE.md. Field order mirrors the contract. */
 export interface SummaryJson {
@@ -29,7 +29,16 @@ export interface SummaryJson {
   category: string;
   tags: string[];
   keywords: string[];
+  /** The language `title`, `summary` and `highlights` are in: a translation's, else `originalLanguage`. */
   language: string;
+  /** The language the summary was written in. */
+  originalLanguage: string;
+  /** Owner only: the language they chose to read it in; null = as written (and for everyone else). */
+  displayLanguage: string | null;
+  /** A translation into the reader's language is being written; fetch the summary again shortly. */
+  translationPending: boolean;
+  /** The translated source document is being written; `GET …/markdown` serves the original until then. */
+  sourceTranslationPending: boolean;
   theme: SummaryTheme;
   imageStyle: ImageStyle;
   visibility: Visibility;
@@ -49,6 +58,12 @@ export function shareUrlFor(slug: string): string {
 
 export function ogImageUrlFor(row: Pick<SummaryRow, "slug" | "updatedAt">): string {
   return `${shareUrlFor(row.slug)}/og.png?v=${row.updatedAt.getTime()}`;
+}
+
+/** The cover with its headline in a translation's language, drawn by the OG route on first request. */
+export function translatedOgImageUrlFor(row: Pick<SummaryRow, "slug" | "updatedAt">, translation: Pick<SummaryTranslationRow, "language" | "updatedAt">): string {
+  const version = Math.max(row.updatedAt.getTime(), translation.updatedAt.getTime());
+  return `${shareUrlFor(row.slug)}/og.png?v=${version}&lang=${encodeURIComponent(translation.language)}`;
 }
 
 export function artImageUrlFor(row: Pick<SummaryRow, "slug" | "updatedAt">): string {
@@ -93,13 +108,34 @@ export function isSourceMarkdownPending(
   return now.getTime() - row.createdAt.getTime() < SOURCE_MARKDOWN_PENDING_MS;
 }
 
-export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt: Date | null = null): SummaryJson {
+/** How long a source translation may stay pending; past it the run is presumed lost and may restart. */
+export const SOURCE_TRANSLATION_PENDING_MS = 6 * 60 * 1000;
+
+/** A translation being written ("") is pending until it lands or its run is presumed lost. */
+export function isSourceTranslationPending(translation: Pick<SummaryTranslationRow, "contentMarkdown" | "updatedAt"> | null, now = new Date()): boolean {
+  if (!translation || translation.contentMarkdown !== "") return false;
+  return now.getTime() - translation.updatedAt.getTime() < SOURCE_TRANSLATION_PENDING_MS;
+}
+
+/** The text a reader sees: a translation into their language, or the summary as written. */
+export interface SummaryReading {
+  translation: SummaryTranslationRow | null;
+  /** A translation was wanted but is still being written in the background. */
+  pending: boolean;
+}
+
+export const ORIGINAL_READING: SummaryReading = { translation: null, pending: false };
+
+export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt: Date | null = null, reading: SummaryReading = ORIGINAL_READING): SummaryJson {
   const shareUrl = shareUrlFor(row.slug);
+  const { translation } = reading;
+  const isOwner = viewerId !== null && viewerId === row.ownerId;
+  const hasSourceMarkdown = sourceMarkdownFor(row, viewerId) !== null;
   return {
     id: row.id,
     slug: row.slug,
     shareUrl,
-    ogImageUrl: publicOgImageUrl(row),
+    ogImageUrl: translation && row.artImageKey ? translatedOgImageUrlFor(row, translation) : publicOgImageUrl(row),
     artImageUrl: publicArtImageUrl(row),
     sourceType: row.sourceType,
     source: row.source,
@@ -107,22 +143,26 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     sourceTitle: row.sourceTitle,
     siteName: siteNameFor(row.siteName, row.sourceUrl),
     sourceFileUrl: row.sourceType === "pdf" && row.sourceFileKey ? `${shareUrl}/source` : null,
-    hasSourceMarkdown: sourceMarkdownFor(row, viewerId) !== null,
+    hasSourceMarkdown,
     sourceMarkdownPending: isSourceMarkdownPending(row, viewerId),
-    title: row.title,
-    summary: row.summary,
-    highlights: row.highlights,
+    title: translation?.title ?? row.title,
+    summary: translation?.summary ?? row.summary,
+    highlights: translation?.highlights ?? row.highlights,
     category: row.category,
     tags: row.tags,
     keywords: row.keywords,
-    language: row.language,
+    language: translation?.language ?? row.language,
+    originalLanguage: row.language,
+    displayLanguage: isOwner ? row.displayLanguage : null,
+    translationPending: reading.pending,
+    sourceTranslationPending: hasSourceMarkdown && isSourceTranslationPending(translation),
     theme: { colors: row.theme.colors, mode: row.theme.mode, emoji: row.theme.emoji, accent: row.theme.accent },
     imageStyle: row.imageStyle,
     visibility: row.visibility,
     ttlDays: row.ttlDays,
     expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
     viewCount: row.viewCount,
-    isOwner: viewerId !== null && viewerId === row.ownerId,
+    isOwner,
     viewedAt: viewedAt ? viewedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

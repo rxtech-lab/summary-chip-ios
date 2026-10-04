@@ -63,17 +63,17 @@ final class ChatModel {
     var suggestions: [String] { summaryID == nil ? Self.librarySuggestions : Self.summarySuggestions }
 
     static let librarySuggestions = [
-        "What did I save about AI this week?",
-        "Summarise my technology summaries",
-        "Find the PDF I shared about research",
-        "Which shared links are about to expire?",
+        String(localized: "What did I save about AI this week?"),
+        String(localized: "Summarise my technology summaries"),
+        String(localized: "Find the PDF I shared about research"),
+        String(localized: "Which shared links are about to expire?"),
     ]
 
     static let summarySuggestions = [
-        "Explain this in simpler terms",
-        "What details did the summary leave out?",
-        "What are the strongest arguments here?",
-        "Find related summaries in my library",
+        String(localized: "Explain this in simpler terms"),
+        String(localized: "What details did the summary leave out?"),
+        String(localized: "What are the strongest arguments here?"),
+        String(localized: "Find related summaries in my library"),
     ]
 
     func send(_ text: String? = nil) {

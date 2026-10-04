@@ -13,9 +13,9 @@ public final class WebPageReader: NSObject {
 
         public var errorDescription: String? {
             switch self {
-            case .timedOut: "The page took too long to load on this device."
-            case .loadFailed(let reason): "The page could not be loaded on this device. \(reason)"
-            case .noContent: "Not enough readable text was found on the page."
+            case .timedOut: String(localized: "The page took too long to load on this device.", bundle: .module)
+            case .loadFailed(let reason): String(localized: "The page could not be loaded on this device. \(reason)", bundle: .module)
+            case .noContent: String(localized: "Not enough readable text was found on the page.", bundle: .module)
             }
         }
     }

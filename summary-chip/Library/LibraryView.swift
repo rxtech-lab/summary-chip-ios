@@ -145,9 +145,9 @@ struct LibraryView: View {
             ContentUnavailableView {
                 Label("You're offline", systemImage: "wifi.slash")
             } description: {
-                Text(!model.filter.isActive
-                    ? "Summaries you open while online are saved on this device for offline reading."
-                    : "No saved summaries match. Connect to the internet to search your whole library.")
+                !model.filter.isActive
+                    ? Text("Summaries you open while online are saved on this device for offline reading.")
+                    : Text("No saved summaries match. Connect to the internet to search your whole library.")
             } actions: {
                 Button("Try Again") { Task { await model.reload() } }
                     .buttonStyle(.bordered)

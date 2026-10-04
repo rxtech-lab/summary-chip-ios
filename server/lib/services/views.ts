@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
-import type { Category } from "@/lib/contracts/api";
+import type { Category, TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
 import { siteNameFor } from "@/lib/extract/platforms";
@@ -8,22 +8,30 @@ import { notFound } from "@/lib/http/errors";
 import { embedQuery } from "./embeddings";
 import { isPublicAndLive, relevance } from "./search";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
-import { findPublicSummaryBySlug, isLinkLive } from "./summaries";
+import { findPublicSummaryBySlug, isLinkLive, readSummaryJson } from "./summaries";
 
 /**
  * Records that a signed-in user opened someone else's public summary. Owner views are not recorded
  * (the owner already has it in their library) and do not bump the counter.
  */
-export async function recordView(db: Database, userId: string, slug: string, now = new Date()): Promise<SummaryJson> {
+export async function recordView(
+  db: Database,
+  userId: string,
+  slug: string,
+  options: { accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date } = {},
+): Promise<SummaryJson> {
+  const now = options.now ?? new Date();
   const row = await findPublicSummaryBySlug(db, slug);
   if (!row) throw notFound();
-  if (row.ownerId === userId) return toSummaryJson(row, userId);
+  // Opened from a shared link: in the reader's language (the owner's in their chosen one).
+  const read = (summary: typeof row) => readSummaryJson(db, summary, userId, options.accepted ?? null, { ai: options.ai });
+  if (row.ownerId === userId) return read(row);
   await db.batch([
     db.insert(summaryViews).values({ userId, summaryId: row.id, viewedAt: now })
       .onConflictDoUpdate({ target: [summaryViews.userId, summaryViews.summaryId], set: { viewedAt: now } }),
     db.update(summaries).set({ viewCount: sql`${summaries.viewCount} + 1` }).where(eq(summaries.id, row.id)),
   ]);
-  return toSummaryJson({ ...row, viewCount: row.viewCount + 1 }, userId);
+  return read({ ...row, viewCount: row.viewCount + 1 });
 }
 
 /* ------------------------------------------------------------------------------------------------

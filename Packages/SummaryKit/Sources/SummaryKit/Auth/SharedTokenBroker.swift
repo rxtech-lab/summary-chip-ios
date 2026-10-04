@@ -65,10 +65,10 @@ public enum TokenBrokerError: Error, LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .missingSession: "Please open \(SummaryIdentifiers.appName) and sign in."
-        case .refreshRejected: "Your session expired. Please sign in again."
-        case .transientRefresh: "The authentication service is temporarily unavailable."
-        case .lockUnavailable: "The shared session is temporarily unavailable."
+        case .missingSession: String(localized: "Please open \(SummaryIdentifiers.appName) and sign in.", bundle: .module)
+        case .refreshRejected: String(localized: "Your session expired. Please sign in again.", bundle: .module)
+        case .transientRefresh: String(localized: "The authentication service is temporarily unavailable.", bundle: .module)
+        case .lockUnavailable: String(localized: "The shared session is temporarily unavailable.", bundle: .module)
         }
     }
 }

@@ -73,7 +73,7 @@ struct ChatPanelToolbarContent: ToolbarContent {
                 Button {
                     withAnimation { isVisible.wrappedValue.toggle() }
                 } label: {
-                    Label(isVisible.wrappedValue ? "Hide Chat" : "Show Chat",
+                    Label(isVisible.wrappedValue ? String(localized: "Hide Chat") : String(localized: "Show Chat"),
                           systemImage: "bubble.left.and.text.bubble.right")
                 }
                 .accessibilityIdentifier("toggle-chat-panel")
@@ -107,7 +107,7 @@ struct SummaryMacCommands: Commands {
                 .disabled(newSummary == nil)
         }
         CommandGroup(after: .sidebar) {
-            Button(chatPanel?.wrappedValue == true ? "Hide Chat" : "Show Chat") {
+            Button(chatPanel?.wrappedValue == true ? String(localized: "Hide Chat") : String(localized: "Show Chat")) {
                 chatPanel?.wrappedValue.toggle()
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
