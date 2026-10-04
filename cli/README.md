@@ -1,5 +1,7 @@
 # chippy CLI
 
+Full documentation: [docs/cli.md](../docs/cli.md) — sign-in, every flag, scripting, errors.
+
 Uploads a summary, its tags and the raw source text to Chippy from the command line
 (`POST /api/v1/summaries/import`). Nothing is re-summarised: the server stores what you send,
 designs the cover and indexes it for search.

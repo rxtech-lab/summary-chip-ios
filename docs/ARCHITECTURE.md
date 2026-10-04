@@ -23,6 +23,7 @@ SmartShare/                 Share extension (web pages, URLs, PDFs, text)
 SummaryMessages/            iMessage app extension
 SummaryClip/                App Clip for the preview website
 Configuration/              xcconfig files (API base URL, RxAuth client, …)
+cli/                        chippy: Go CLI that uploads summaries (docs/cli.md)
 ```
 
 ## Identifiers
@@ -217,7 +218,7 @@ curl -X POST https://<host>/api/v1/summaries/import \
 ```
 
 From the terminal, the Go CLI in `cli/` (`chippy upload …`) signs in with RxAuthGo and calls this
-endpoint; see `cli/README.md`.
+endpoint; see [cli.md](cli.md).
 
 ### Chat stream (what iOS must parse)
 
