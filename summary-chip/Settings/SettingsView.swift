@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var clearedCount = 0
     @State private var helpSheet: HelpSheet?
     @State private var showsCredits = false
+    @State private var showsNotifications = false
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
     var body: some View {
@@ -27,6 +28,7 @@ struct SettingsView: View {
                 DeleteAccountSheet(environment: environment, state: $deletion)
             }
             .sheet(isPresented: $showsCredits) { SummaryCreditsSheet(environment: environment) }
+            .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
             .sheet(item: $helpSheet) { sheet in
                 switch sheet {
                 case .welcome:
@@ -94,6 +96,7 @@ struct SettingsView: View {
             }
 
             creditsSection
+            notificationSettingsSection
 
             Section("Legal") {
                 ForEach(LegalDocument.allCases, id: \.self) { document in
@@ -176,6 +179,7 @@ struct SettingsView: View {
             }
 
             creditsSection
+            notificationSettingsSection
 
             Section("Legal") {
                 ForEach(LegalDocument.allCases, id: \.self) { document in
@@ -268,6 +272,15 @@ struct SettingsView: View {
                 Label("Summaries & Points", systemImage: "plus.circle")
             }
             .accessibilityIdentifier("summary-credits")
+        }
+    }
+
+    private var notificationSettingsSection: some View {
+        Section("Notifications") {
+            Button { showsNotifications = true } label: {
+                Label("Notifications", systemImage: "bell.badge")
+            }
+            .accessibilityIdentifier("notification-settings")
         }
     }
 

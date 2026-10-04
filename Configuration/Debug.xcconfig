@@ -1,4 +1,5 @@
 #include "Base.xcconfig"
+SUMMARY_CHIP_PUSH_ENVIRONMENT = development
 
 // Local Next.js dev server (bun dev in server/). Use your Mac's LAN IP for a physical device.
 SUMMARY_CHIP_API_BASE_URL = http:/$()/localhost:3000

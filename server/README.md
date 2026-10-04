@@ -265,3 +265,11 @@ set `maxDuration = 120`; `POST /api/v1/summaries` (document agent runs after the
 * **OG images**: fonts are subset on the fly from Google Fonts (`Noto Sans` / `SC` / `TC` / `JP` / `KR`
   based on the glyphs); if the fetch fails the card still renders with the bundled Latin font. The card
   uses geometric decoration (layered shapes, hairlines, dot grids) — the theme emoji is not drawn.
+
+## Summary push notifications
+
+API creation and CLI imports send the owner's registered iOS/macOS devices a
+“Summary added” push after the summary is saved. Enable notifications in the app's
+Settings sheet. Apply the `push_devices` migration and configure the server's
+`APNS_KEY_ID`, `APNS_TEAM_ID`, and `APNS_PRIVATE_KEY` for live delivery; see
+[notification setup and API](../docs/notifications.md).

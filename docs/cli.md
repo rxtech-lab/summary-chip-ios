@@ -3,7 +3,7 @@
 `chippy` uploads summaries to Chippy from a terminal, a script, or an agent. You send a summary you
 already have, its tags and the raw source text; Chippy stores them as given. Nothing is re-summarised:
 a model still generates the cover image from your summary and text (its palette, emoji, headline and
-artwork) and the summary is indexed for search, the same as for a summary made in the app. Uploaded summaries appear in the library on every device signed in to the same
+an AI-drawn illustration — the CLI always uses the illustration style) and the summary is indexed for search, the same as for a summary made in the app. Uploaded summaries appear in the library on every device signed in to the same
 account.
 
 It is a plain command-line program (flags in, text out), so it composes with pipes and shell scripts.
@@ -60,7 +60,7 @@ file to the same path.
 chippy login     Sign in through the browser (replaces any saved session)
 chippy logout    Sign out and delete the saved session
 chippy whoami    Show the signed-in account (signs in if needed)
-chippy upload    Upload a summary, its tags and the raw text (signs in if needed)
+chippy upload    Upload a summary, its key points, tags and the raw text (signs in if needed)
 chippy help      Show usage
 ```
 
@@ -72,6 +72,8 @@ Run `chippy upload -h` for every upload flag.
 chippy upload \
   --title "Monarch migration" \
   --summary "Monarch butterflies fly thousands of kilometres south every autumn." \
+  --key-point "They travel up to 4,000 km to winter in Mexico" \
+  --key-point "No single butterfly makes the round trip" \
   --tag butterflies --tag migration \
   --text-file notes.md
 ```
@@ -87,29 +89,35 @@ https://summary.rxlab.app/s/Q2AD4nuCrj
 | `--summary` / `--summary-file` | one of them | The summary, up to 1,200 characters |
 | `--text` / `--text-file` | one of them | The raw source text, up to 200,000 characters. Kept as the summary's source document |
 | `--tag` | | Tag; repeat the flag or separate with commas. Up to 12. Lowercased and de-duplicated |
-| `--highlight` | | A key takeaway; repeat for more. Up to 5. Commas are kept |
+| `--key-point` | | A key point, shown under "Key points" below the summary; repeat for more. Up to 5, each up to 300 characters. Commas are kept. `--highlight` is an alias |
+| `--key-points-file` | | Read key points from a file, one per line. Blank lines are skipped and list markers (`-`, `*`, `+`, `•`, `1.`, `1)`) are stripped. Combined with any `--key-point` flags |
 | `--keyword` | | Search keyword; repeat or separate with commas. Up to 10 |
 | `--category` | | One of `Technology`, `Science`, `Business`, `Finance`, `Politics`, `World`, `Health`, `Sports`, `Entertainment`, `Culture`, `Education`, `Lifestyle`, `Travel`, `Food`, `Opinion`, `Research`, `Other` (default) |
 | `--language` | | BCP-47 language of the title and summary, e.g. `en`, `zh-Hans`, `ja`. Default `en` |
 | `--source-url` | | Where the text came from. The summary is then shown as a link, labelled by platform (GitHub, YouTube, X, …) |
 | `--source-title` | | Title of the source |
 | `--site-name` | | Name of the source site, shown on the cover |
-| `--image-style` | | Cover style: `graphic` (default) or `illustration` |
 | `--visibility` | | `public` (default, anyone with the link can open it) or `private` (only you) |
 | `--ttl-days` | | How long the public link works: `1`, `3`, `7`, `30`, `90`, `365` or `never`. Default is the server's (7 days). The summary itself stays in your library either way |
+| `--allow-duplicate` | | Upload even if your library already has this chip (skips the duplicate check) |
 | `--json` | | Print the created summary as JSON instead of the share link |
 
 Flags are checked before signing in, so a mistake never opens the browser.
 
+The server saves the summary as given and never writes key points for you: a chip uploaded without
+`--key-point` or `--key-points-file` has no "Key points" section.
+
 #### Reading from files and stdin
 
-`--summary-file` and `--text-file` read a file; `-` reads stdin. Only one of them can read stdin.
+`--summary-file`, `--text-file` and `--key-points-file` read a file; `-` reads stdin. Only one of
+them can read stdin.
 
 ```sh
 pbpaste | chippy upload --title "Meeting notes" --summary "Decisions from Monday." --text-file -
 
 curl -s https://example.com/article.txt | chippy upload \
   --title "Example article" --summary-file summary.txt --text-file - \
+  --key-points-file key-points.md \
   --source-url https://example.com/article
 ```
 
@@ -163,7 +171,7 @@ and build with `make install CLIENT_ID=<id>`.
 Each upload counts as one summary against your free allowance, or uses points once that is spent, the
 same as a summary made in the app. The cover image is still designed by a model. When nothing is
 left, `upload` fails with `SUMMARY_ALLOWANCE_EXHAUSTED`; top up in the app or wait for the allowance
-to reset.
+to reset. An upload refused as a duplicate is not charged.
 
 ## Exit codes and errors
 
@@ -172,6 +180,7 @@ to reset.
 | `0` | Success |
 | `1` | The command failed: sign-in, network, or an error from the server |
 | `2` | Invalid usage (missing or bad flags), or `-h` |
+| `3` | Skipped: your library already has this chip (same source, title or content). The existing chip's title, link and the reason are printed. Use `--allow-duplicate` to upload it anyway |
 
 Server errors are printed as `chippy: CODE (HTTP status): message`. Common ones:
 

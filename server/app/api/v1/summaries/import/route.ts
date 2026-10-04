@@ -5,8 +5,8 @@ import { importSummary } from "@/lib/services/summaries";
 import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
-/** No summarising, but the cover is still designed (or illustrated) by a model. */
-export const maxDuration = 120;
+/** No summarising, but an agent checks for duplicates and the cover is designed (or illustrated) by a model. */
+export const maxDuration = 180;
 
 /** Saves a summary written elsewhere — summary, tags and raw text in one call. OAuth bearer token required. */
 export async function POST(request: Request) {

@@ -93,7 +93,7 @@ export type CreateSummaryInput = z.infer<typeof createSummarySchema>;
 /**
  * `POST /api/v1/summaries/import` — a summary written elsewhere (another app, a script, an agent),
  * saved as given together with its tags and raw source text. No model summarises it; the server only
- * designs the cover and indexes it for search.
+ * checks it for duplicates, designs the cover and indexes it for search.
  */
 export const importSummarySchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -112,6 +112,11 @@ export const importSummarySchema = z.object({
   imageStyle: z.enum(IMAGE_STYLES).default("graphic"),
   ttlDays: ttlDaysSchema.optional(),
   visibility: z.enum(VISIBILITIES).default("public"),
+  /**
+   * Imports are checked against the caller's library first: one with the same source, title or
+   * content is refused with `409 DUPLICATE_SUMMARY` (`details.duplicate`). True saves it anyway.
+   */
+  allowDuplicate: z.boolean().default(false),
 }).strict();
 export type ImportSummaryInput = z.infer<typeof importSummarySchema>;
 

@@ -106,12 +106,14 @@ final class AppEnvironment {
         synchronizeAuthenticationState()
         if authenticationState == .signedIn {
             Task { await credits.refresh(api: api, broker: tokenBroker) }
+            await SummaryNotifications.shared.synchronize()
         }
     }
 
     func authenticationCompleted() {
         synchronizeAuthenticationState()
         Task {
+            await SummaryNotifications.shared.synchronize()
             await library.reload()
             await credits.refresh(api: api, broker: tokenBroker)
         }
@@ -157,6 +159,8 @@ final class AppEnvironment {
     }
 
     func signOut() async {
+        authenticationState = .signedOut
+        await SummaryNotifications.shared.signOut()
         try? await tokenBroker.logout()
         await authManager.logout()
         SharedLogoutPurger.purge()

@@ -18,6 +18,7 @@ import {
   textModelPricing,
 } from "./models";
 import { writeDocument, type DocumentSource } from "./document-agent";
+import { findDuplicate, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import { LANGUAGE_NAMES, llmSummarySchema, type LlmSummary } from "./summary-schema";
 
 /**
@@ -25,6 +26,8 @@ import { LANGUAGE_NAMES, llmSummarySchema, type LlmSummary } from "./summary-sch
  * and must finish within the create route's `maxDuration` (300 s).
  */
 const DOCUMENT_TIMEOUT_MS = 190_000;
+/** Budget for the duplicate agent; the import route still designs and renders the cover after it (180 s in all). */
+const DUPLICATE_TIMEOUT_MS = 40_000;
 
 export interface SummarizeInput {
   text: string;
@@ -83,6 +86,8 @@ export interface AiProvider {
   summarize(input: SummarizeInput): Promise<LlmSummary>;
   /** The source rewritten by the document agent as a formatted Markdown document, or null when it failed. */
   formatMarkdown(input: MarkdownInput, options?: MarkdownOptions): Promise<string | null>;
+  /** Whether an imported chip duplicates one in the owner's library (by source, title and content), or null when the check failed. */
+  findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null>;
   /** The cover theme (palette, mode, emoji, accent, headline) for an imported summary, or null when it failed. */
   designCover(input: CoverInput): Promise<LlmSummary["design"] | null>;
   /** Raw SVG markup (unsanitised) for the OG background, or null. */
@@ -185,6 +190,18 @@ export class GatewayAiProvider implements AiProvider {
       });
     } catch (error) {
       console.warn("[ai] document agent failed", error);
+      return null;
+    }
+  }
+
+  async findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null> {
+    try {
+      return await findDuplicate(textModel(), input, tools, {
+        abortSignal: AbortSignal.timeout(DUPLICATE_TIMEOUT_MS),
+        providerOptions: { openai: { reasoningEffort: "low" } },
+      });
+    } catch (error) {
+      console.warn("[ai] duplicate check failed; saving the chip", error);
       return null;
     }
   }
