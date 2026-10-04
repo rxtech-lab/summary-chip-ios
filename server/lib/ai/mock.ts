@@ -1,6 +1,6 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
-import type { AiProvider, DesignInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput } from "./provider";
+import type { AiProvider, CoverInput, DesignInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput } from "./provider";
 import type { LlmSummary } from "./summary-schema";
 
 /** Deterministic stand-in for tests and `SUMMARY_MOCK_SERVICES=true` local development. */
@@ -9,12 +9,14 @@ export class MockAiProvider implements AiProvider {
     isSharedLink: string[];
     summarize: SummarizeInput[];
     formatMarkdown: MarkdownInput[];
+    designCover: CoverInput[];
     designSvg: DesignInput[];
     illustrate: DesignInput[];
   } = {
     isSharedLink: [],
     summarize: [],
     formatMarkdown: [],
+    designCover: [],
     designSvg: [],
     illustrate: [],
   };
@@ -57,6 +59,11 @@ export class MockAiProvider implements AiProvider {
     options.onUsage?.({ inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0]);
     if (this.markdown) return this.markdown(input);
     return `${input.title ? `# ${input.title}\n\n` : ""}${input.content.trim()}`;
+  }
+
+  async designCover(input: CoverInput): Promise<LlmSummary["design"] | null> {
+    this.calls.designCover.push(input);
+    return { colors: ["#1e1b4b", "#4c1d95", "#7c3aed", "#c084fc"], mode: "dark", emoji: "🦋", accent: "#facc15", headline: input.title.slice(0, 70) };
   }
 
   async designSvg(input: DesignInput): Promise<string | null> {

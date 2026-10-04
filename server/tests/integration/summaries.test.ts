@@ -665,12 +665,25 @@ describe("POST /api/v1/summaries/import", () => {
       sourceMarkdownPending: false,
     });
     expect(summary.ogImageUrl).toEqual(expect.any(String));
+    // The cover theme is still designed by a model from the summary and raw text.
+    expect(env.ai.calls.designCover).toEqual([expect.objectContaining({ title: BODY.title, summary: BODY.summary, text: BODY.text })]);
+    expect(summary.theme).toMatchObject({ colors: ["#1e1b4b", "#4c1d95", "#7c3aed", "#c084fc"], mode: "dark", emoji: "🦋" });
+    expect(env.ai.calls.designSvg).toHaveLength(1);
 
     const markdown = await markdownRoute.GET(apiRequest("GET", `/api/v1/summaries/${summary.id}/markdown`, { token: env.tokens.alice }), params({ id: summary.id }));
     expect((await markdown.json()).markdown).toBe(BODY.text);
 
     const byTag = await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?tag=butterflies", { token: env.tokens.alice }))).json();
     expect(byTag.items.map((item: { id: string }) => item.id)).toEqual([summary.id]);
+  });
+
+  it("falls back to a seeded palette when the cover design fails", async () => {
+    vi.spyOn(env.ai, "designCover").mockResolvedValueOnce(null);
+    const response = await importSummary(BODY);
+    expect(response.status).toBe(201);
+    const summary = await response.json();
+    expect(summary.theme.emoji).toBe("📰");
+    expect(summary.ogImageUrl).toEqual(expect.any(String));
   });
 
   it("labels a summary with a source URL by its platform", async () => {

@@ -436,7 +436,7 @@ async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft
 
 /**
  * Saves a summary written elsewhere as given — title, summary, tags and the raw source text — in one
- * call. No model summarises it: the server only designs the cover and embeds it for search. The raw
+ * call. No model summarises it: a model only designs the cover theme and artwork, and it is embedded for search. The raw
  * text is kept as the source document. Counts as one summary against the caller's allowance.
  */
 export async function importSummary(
@@ -449,8 +449,17 @@ export async function importSummary(
   const id = crypto.randomUUID();
   await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
-  // The model's draft shape without a design: the theme falls back to a palette seeded by the id,
-  // its mode left unset so it follows that palette's luminance.
+  const text = input.text.trim();
+  // The model designs the cover theme from the summary; when it fails the theme falls back to a
+  // palette seeded by the id, its mode left unset so it follows that palette's luminance.
+  const design = await ai.designCover({
+    title: input.title,
+    summary: input.summary,
+    category: input.category,
+    keywords: input.keywords,
+    text,
+    language: input.language,
+  });
   const normalized = normalizeDraft({
     title: input.title,
     summary: input.summary,
@@ -459,11 +468,10 @@ export async function importSummary(
     tags: [],
     keywords: input.keywords,
     language: input.language,
-    design: { colors: [], mode: undefined as unknown as "light", emoji: "", accent: "", headline: "" },
+    design: design ?? { colors: [], mode: undefined as unknown as "light", emoji: "", accent: "", headline: "" },
   }, { requestedLanguage: "auto", seed: id });
   const draft: SummaryDraft = { ...normalized, title: input.title, tags: [...new Set(input.tags)] };
 
-  const text = input.text.trim();
   const sourceUrl = input.sourceUrl ?? null;
   const siteName = input.siteName || null;
   const sourceTitle = input.sourceTitle || null;
