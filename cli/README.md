@@ -14,13 +14,15 @@ automatically, so later commands run without a browser.
    `http://127.0.0.1:53682/callback` and the scopes `openid profile email offline_access`.
 2. Add its client ID to the server's `RXLAB_ALLOWED_CLIENT_IDS` (otherwise uploads fail with
    `403 OAUTH_CLIENT_NOT_ALLOWED`).
-3. Build:
+3. Build and install it onto your `PATH` (from `cli/`):
 
    ```sh
-   go -C cli build -o chippy .
-   # or bake in the client ID:
-   go -C cli build -ldflags "-X main.builtInClientID=<client-id>" -o chippy .
+   make install                        # → $GOBIN or $GOPATH/bin (usually ~/go/bin)
+   make install CLIENT_ID=<client-id>  # bake in the client ID, no CHIPPY_CLIENT_ID needed
+   make install BINDIR=~/.local/bin    # install somewhere else
    ```
+
+   `make build` only builds `cli/bin/chippy`; `make uninstall` removes the installed binary.
 
 | Variable | Default |
 |---|---|
@@ -73,5 +75,5 @@ Each upload counts as one summary against the account's allowance.
 ## Tests
 
 ```sh
-go -C cli test ./...
+make test   # or: go -C cli test ./...
 ```
