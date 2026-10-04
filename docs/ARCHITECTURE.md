@@ -78,6 +78,7 @@ summaries(
 summary_tags(summary_id, tag)                    -- tag filter index
 summary_views(user_id, summary_id, viewed_at)   -- "past viewed content" history
 summary_translations(summary_id, language, title, summary, highlights JSON[],
+  tags JSON[] (translated chip labels; NULL until written), headline, og_image_key,
   content_markdown ("" while being written, NULL when nothing to translate or it failed),
   created_at, updated_at)                        -- one per summary and translation language
 api_keys(id, owner_id FK users, name, key_hash UNIQUE (sha-256), hint, tool_call_count,
@@ -117,6 +118,7 @@ while the owner still sees it in the app and can flip it back to public.
   "hasSourceMarkdown": true,   // the source was kept as Markdown (GET /api/v1/summaries/:id/markdown); a local file's only for its owner
   "title": "string", "summary": "string", "highlights": ["string"],
   "category": "Technology", "tags": ["ai", "apple"], "keywords": ["..."],
+  "displayCategory": "テクノロジー", "displayTags": ["AI", "Apple"], // chip labels in the reading language; category/tags remain canonical filter and edit values
   "language": "ja",            // the language title/summary/highlights are in (a translation's, else the original)
   "originalLanguage": "en",    // the language the summary was written in
   "displayLanguage": "ja" | null,   // owner only: the language they chose to read it in; null = as written
@@ -184,8 +186,13 @@ among the languages above; when it answers "other" (or is off or fails), the lan
 summarising model reported — or the import's `language` — is kept. Summaries created in a requested
 `language` skip the check.
 
-Title, summary and highlights are translated together and saved per language
-(`summary_translations`); tags, keywords and category stay as written. `GET /summaries/:id`,
+Title, summary, highlights, cover headline and tag chip labels are translated together and saved
+per language (`summary_translations`). `displayCategory` uses a fixed category translation;
+`displayTags` keeps the canonical tags' order, including duplicate translated labels. Canonical
+`category`, `tags` and `keywords` stay as written for filtering and editing. Older saved translations
+receive missing tag labels on their next read using the same points billing, preserving edited
+titles, covers and translated sources. Tag edits invalidate those labels; unchanged tags do not.
+`GET /summaries/:id`,
 `POST /views` and the public API translate on the spot when needed; `GET /summaries` (the library)
 returns saved translations at once and translates the rest after the response, marking those items
 `translationPending`. The kept source document is translated after the response the first time a

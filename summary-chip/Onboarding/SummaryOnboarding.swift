@@ -37,7 +37,11 @@ struct EducationPage: Identifiable, Equatable {
         .init(id: "siri-summary-v1", kind: .feature,
               title: String(localized: "Your next summary, with Siri"),
               message: String(localized: "Add Summary now works with Siri and Shortcuts. Summarise a link or text, see the finished card, and find it in your Library. Use the action in your own shortcuts, too."),
-              imageName: "WelcomeSiri")
+              imageName: "WelcomeSiri"),
+        .init(id: "mcp-server-v1", kind: .feature,
+              title: String(localized: "Connect your AI agents"),
+              message: String(localized: "Chippy now supports MCP. Let AI agents add summaries, search your Library, and list your saved chips from anywhere. Open Settings → MCP Server to create an API key and copy your agent’s connection setup. Chippy doesn’t need to be open."),
+              imageName: "FeatureMCP")
     ]
 }
 

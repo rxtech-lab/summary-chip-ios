@@ -9,6 +9,7 @@ import { embedQuery } from "./embeddings";
 import { isPublicAndLive, relevance } from "./search";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
 import { findPublicSummaryBySlug, isLinkLive, readSummaryJson } from "./summaries";
+import type { BillingEnvironmentResolver } from "./translations";
 
 /**
  * Records that a signed-in user opened someone else's public summary. Owner views are not recorded
@@ -18,13 +19,13 @@ export async function recordView(
   db: Database,
   userId: string,
   slug: string,
-  options: { accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date } = {},
+  options: { accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date; billingEnvironment?: BillingEnvironmentResolver } = {},
 ): Promise<SummaryJson> {
   const now = options.now ?? new Date();
   const row = await findPublicSummaryBySlug(db, slug);
   if (!row) throw notFound();
   // Opened from a shared link: in the reader's language (the owner's in their chosen one).
-  const read = (summary: typeof row) => readSummaryJson(db, summary, userId, options.accepted ?? null, { ai: options.ai });
+  const read = (summary: typeof row) => readSummaryJson(db, summary, userId, options.accepted ?? null, { ai: options.ai, billingEnvironment: options.billingEnvironment });
   if (row.ownerId === userId) return read(row);
   await db.batch([
     db.insert(summaryViews).values({ userId, summaryId: row.id, viewedAt: now })

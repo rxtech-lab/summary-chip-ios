@@ -71,8 +71,12 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
     }
 
     public var isNotFound: Bool { statusCode == 404 }
-    /// Out of free summaries or points (`SUMMARY_ALLOWANCE_EXHAUSTED`), or out of points to chat (`CHAT_POINTS_EXHAUSTED`).
-    public var needsTopUp: Bool { statusCode == 402 && (code == "SUMMARY_ALLOWANCE_EXHAUSTED" || code == "CHAT_POINTS_EXHAUSTED") }
+    /// Out of free summaries or points (`SUMMARY_ALLOWANCE_EXHAUSTED`), or out of points to chat
+    /// (`CHAT_POINTS_EXHAUSTED`) or translate (`TRANSLATION_POINTS_EXHAUSTED`).
+    public var needsTopUp: Bool {
+        statusCode == 402
+            && (code == "SUMMARY_ALLOWANCE_EXHAUSTED" || code == "CHAT_POINTS_EXHAUSTED" || code == "TRANSLATION_POINTS_EXHAUSTED")
+    }
     public var isUnauthorized: Bool { statusCode == 401 || self == .notSignedIn }
 }
 

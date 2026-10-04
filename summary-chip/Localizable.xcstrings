@@ -1236,7 +1236,23 @@
         }
       }
     },
-    "Chippy translates the summary, key points and source text into %@. The source text can take a minute to finish." : {},
+    "Chippy now supports MCP. Let AI agents add summaries, search your Library, and list your saved chips from anywhere. Open Settings → MCP Server to create an API key and copy your agent’s connection setup. Chippy doesn’t need to be open." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 现已支持 MCP。让 AI 智能体随时随地添加摘要、搜索资料库及列出已保存的摘要卡片。打开设置 → MCP 服务器，创建 API 密钥并复制智能体的连接配置。无需保持 Chippy 开启。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 現已支援 MCP。讓 AI 代理隨時隨地新增摘要、搜尋資料庫及列出已儲存的摘要卡片。開啟設定 → MCP 伺服器，建立 API 金鑰並複製代理的連線設定。無需保持 Chippy 開啟。"
+          }
+        }
+      }
+    },
+    "Chippy translates the summary, key points, category, tags and source text into %@. The source text can take a minute to finish." : {},
     "Choose the original file to keep it with this summary. Chat reads it on this device to answer questions." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1425,6 +1441,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連接代理程式"
+          }
+        }
+      }
+    },
+    "Connect your AI agents" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接你的 AI 智能体"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接你的 AI 代理"
           }
         }
       }
@@ -3664,7 +3696,7 @@
         }
       }
     },
-    "Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {},
+    "Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points, category, tags and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {},
     "Point packs" : {
       "localizations" : {
         "zh-Hans" : {

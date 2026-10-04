@@ -30,6 +30,7 @@ export const llmTranslationSchema = z.object({
   summary: z.string().describe("The translated summary."),
   highlights: z.array(z.string()).describe("Every highlight translated, in the same order."),
   headline: z.string().describe("The translated cover headline, at most 70 characters; empty when none was given."),
+  tags: z.array(z.string()).describe("Every tag translated as a short chip label, in exactly the same order, including repeated translations."),
 });
 export type LlmTranslation = z.infer<typeof llmTranslationSchema>;
 

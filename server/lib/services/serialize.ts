@@ -1,6 +1,8 @@
 import { siteUrl } from "@/lib/config";
 import { siteNameFor } from "@/lib/extract/platforms";
 import { publicObjectUrl } from "@/lib/storage/r2";
+import { categoryLabel } from "@/lib/og/category-labels";
+import { translationLanguageFor } from "./translations";
 import type { ImageStyle, SourceType, SummaryRow, SummarySource, SummaryTheme, SummaryTranslationRow, Visibility } from "@/lib/db/schema";
 
 /** The `Summary` JSON object from docs/ARCHITECTURE.md. Field order mirrors the contract. */
@@ -28,6 +30,9 @@ export interface SummaryJson {
   highlights: string[];
   category: string;
   tags: string[];
+  /** Category and tag chip labels in the reading language; canonical values above remain filters. */
+  displayCategory: string;
+  displayTags: string[];
   keywords: string[];
   /** The language `title`, `summary` and `highlights` are in: a translation's, else `originalLanguage`. */
   language: string;
@@ -150,6 +155,8 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     highlights: translation?.highlights ?? row.highlights,
     category: row.category,
     tags: row.tags,
+    displayCategory: categoryLabel(row.category, translationLanguageFor(translation?.language ?? row.language) ?? "en"),
+    displayTags: translation?.tags?.length === row.tags.length ? translation.tags : row.tags,
     keywords: row.keywords,
     language: translation?.language ?? row.language,
     originalLanguage: row.language,

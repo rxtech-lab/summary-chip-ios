@@ -21,6 +21,9 @@ export async function GET(request: Request) {
   return withApiAuth(request, async ({ principal, db }) => {
     const query = listQuerySchema.parse(queryObject(request));
     // Others' summaries come back in the caller's language; missing translations are written after the response.
-    return noStoreJson(await listSummaries(db, principal.sub, query, { accepted: acceptedLanguage(request) }));
+    return noStoreJson(await listSummaries(db, principal.sub, query, {
+      accepted: acceptedLanguage(request),
+      billingEnvironment: () => billingEnvironment(request, principal),
+    }));
   });
 }

@@ -196,10 +196,17 @@ without a URL skips the evaluation, and `AI_EVALUATION_MODEL=off` always summari
 Set `AI_IMAGE_MODEL` (e.g. `google/gemini-3.1-flash-lite-image`) to enable `imageStyle: "illustration"`.
 Gemini image models are language models on the Gateway, so they are called with `generateText` and the
 drawing is read from `result.files`; other ids (e.g. `openai/gpt-image-2`) go through `generateImage`.
-The model designs the whole OG image itself — 16:9 artwork in the summary palette (background,
-shapes, line work, illustrated subject) with the headline, category, source and "Chippy"
-wordmark typeset in — and `lib/og/generated.ts` cover-crops it to a 1200×630 PNG with `sharp`. No
-template is composited on top. If the env var is unset or the call fails, the graphic style is used.
+The server randomly assigns a cover palette from eight distinct color families for new summaries,
+imports and image regeneration. It excludes the owner's five most recently updated chip palettes
+and, when regenerating, the chip's current palette. Colors, mode and accent are saved in the existing
+`summaries.theme` JSON; no migration is needed. Existing covers keep their colors until regenerated.
+Both graphic and illustration generation use this stored palette, so similar topics can have
+different colors and clients see consistent artwork.
+
+The image model draws text-free 16:9 artwork (background, shapes, line work and illustrated subject).
+`lib/og/generated.ts` cover-crops it to a 1200×630 PNG with `sharp`; the card template overlays the
+headline, category, source and "Chippy" wordmark. The artwork alone is used for library tiles. If
+the env var is unset or the call fails, the graphic style uses the same assigned palette.
 
 ## Scripts
 

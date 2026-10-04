@@ -2,6 +2,7 @@ import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson } from "@/lib/http/errors";
 import { getSourceMarkdown } from "@/lib/services/summaries";
 import { acceptedLanguage } from "@/lib/services/translations";
+import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 /** Translating the source document continues after the response (`after`). */
@@ -14,6 +15,8 @@ export const maxDuration = 300;
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
-    return noStoreJson(await getSourceMarkdown(db, id, principal.sub, acceptedLanguage(request)));
+    return noStoreJson(await getSourceMarkdown(db, id, principal.sub, acceptedLanguage(request), {
+      billingEnvironment: () => billingEnvironment(request, principal),
+    }));
   });
 }

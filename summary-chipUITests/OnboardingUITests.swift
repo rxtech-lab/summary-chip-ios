@@ -5,7 +5,7 @@ nonisolated final class OnboardingUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    @MainActor func testWelcomeAdvancesToSiriFeatureAndCanBeReopened() {
+    @MainActor func testWelcomeAdvancesThroughFeaturesAndCanBeReopened() {
         let app = launchPreview()
         XCTAssertTrue(app.staticTexts["From Safari to a summary"].waitForExistence(timeout: 10))
         capture(app, name: "Welcome-Safari")
@@ -18,6 +18,9 @@ nonisolated final class OnboardingUITests: XCTestCase {
         app.buttons["education-next"].tap()
         XCTAssertTrue(app.staticTexts["Your next summary, with Siri"].waitForExistence(timeout: 5))
         capture(app, name: "Siri-Feature")
+        app.buttons["education-next"].tap()
+        XCTAssertTrue(app.staticTexts["Connect your AI agents"].waitForExistence(timeout: 5))
+        capture(app, name: "MCP-Feature")
         app.buttons["education-next"].tap()
         XCTAssertTrue(app.navigationBars["Onboarding Preview"].waitForExistence(timeout: 5))
         app.buttons["Welcome Tour"].tap()

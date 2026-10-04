@@ -1,9 +1,12 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import type { TranslationLanguage } from "@/lib/contracts/api";
-import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput } from "./provider";
+import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput, TranslateOptions } from "./provider";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import type { LlmSummary, LlmTranslation } from "./summary-schema";
+
+/** One model step of 10 input + 10 output tokens. */
+const MOCK_STEP_USAGE = { inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0];
 
 /** Deterministic stand-in for tests and `SUMMARY_MOCK_SERVICES=true` local development. */
 export class MockAiProvider implements AiProvider {
@@ -66,7 +69,7 @@ export class MockAiProvider implements AiProvider {
   /** One agent step of 10 input + 10 output tokens, reported like the real agent does. */
   async formatMarkdown(input: MarkdownInput, options: MarkdownOptions = {}): Promise<string | null> {
     this.calls.formatMarkdown.push(input);
-    options.onUsage?.({ inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0]);
+    options.onUsage?.(MOCK_STEP_USAGE);
     if (this.markdown) return this.markdown(input);
     return `${input.title ? `# ${input.title}\n\n` : ""}${input.content.trim()}`;
   }
@@ -84,16 +87,18 @@ export class MockAiProvider implements AiProvider {
   /** False from tests simulates a failed translation. */
   translates = true;
 
-  /** Prefixes every field with the target language, e.g. "[ja] Title". */
-  async translateSummary(input: TranslateInput): Promise<LlmTranslation | null> {
+  /** Prefixes every field with the target language, e.g. "[ja] Title"; one call of 10 input + 10 output tokens. */
+  async translateSummary(input: TranslateInput, options: TranslateOptions = {}): Promise<LlmTranslation | null> {
     this.calls.translateSummary.push(input);
+    options.onUsage?.(MOCK_STEP_USAGE);
     if (!this.translates) return null;
     const tag = (text: string) => `[${input.to}] ${text}`;
-    return { title: tag(input.title), summary: tag(input.summary), highlights: input.highlights.map(tag), headline: input.headline ? tag(input.headline) : "" };
+    return { title: tag(input.title), summary: tag(input.summary), highlights: input.highlights.map(tag), tags: input.tags.map(tag), headline: input.headline ? tag(input.headline) : "" };
   }
 
-  async translateDocument(markdown: string, to: TranslationLanguage): Promise<string | null> {
+  async translateDocument(markdown: string, to: TranslationLanguage, options: TranslateOptions = {}): Promise<string | null> {
     this.calls.translateDocument.push({ markdown, to });
+    options.onUsage?.(MOCK_STEP_USAGE);
     return this.translates ? `[${to}] ${markdown}` : null;
   }
 

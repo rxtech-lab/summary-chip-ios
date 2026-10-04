@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Dedicated sheet for the owner's reading language (`PATCH /api/v1/summaries/:id` `displayLanguage`).
 /// Picking a language only selects it; Done switches to it. A language without a translation yet is
-/// translated (summary, key points and source text) after the owner confirms. The choice is kept for
+/// translated (summary, key points, category, tags and source text) after the owner confirms. The choice is kept for
 /// next time.
 struct DisplayLanguageSheet: View {
     let api: SummaryAPIClient
@@ -62,7 +62,7 @@ struct DisplayLanguageSheet: View {
                         }
                     }
                 } footer: {
-                    Text("Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language.")
+                    Text("Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points, category, tags and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language.")
                 }
             }
             .formStyle(.grouped)
@@ -90,7 +90,7 @@ struct DisplayLanguageSheet: View {
                     .accessibilityIdentifier("confirm-translate")
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Chippy translates the summary, key points and source text into \(selection.title). The source text can take a minute to finish.")
+                Text("Chippy translates the summary, key points, category, tags and source text into \(selection.title). The source text can take a minute to finish.")
             }
             .overlay {
                 if isSaving {

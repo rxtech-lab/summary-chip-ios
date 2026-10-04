@@ -109,7 +109,7 @@ struct SourceMarkdownSheet: View {
                     .accessibilityIdentifier("source-confirm-translate")
                 Button("Cancel", role: .cancel) {}
             } message: { language in
-                Text("Chippy translates the summary, key points and source text into \(language.title). The source text can take a minute to finish.")
+                Text("Chippy translates the summary, key points, category, tags and source text into \(language.title). The source text can take a minute to finish.")
             }
             .overlay {
                 if isSwitching { ActionStatusOverlay(String(localized: "Switching language…")) }

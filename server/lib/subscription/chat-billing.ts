@@ -178,3 +178,24 @@ export async function settleUsage(
   const points = costUsd === null ? (inputTokens + outputTokens > 0 ? 1 : 0) : pointsForCost(costUsd);
   await charge.settle(points, { ...metadata, steps: steps.length, inputTokens, outputTokens, costUsd });
 }
+
+/**
+ * Holds points for translating summaries or a source document; an empty balance is
+ * `402 TRANSLATION_POINTS_EXHAUSTED`. `key` names the run (one per attempt).
+ */
+export function reserveTranslationPoints(userId: string, key: string, model: string, metadata: Record<string, unknown>, environment?: BillingEnvironment): Promise<ChatCharge | null> {
+  return holdPoints({
+    userId,
+    key: `translation:${key}`,
+    description: `Translation (${model})`,
+    metadata: { ...metadata, model },
+    environment,
+    codes: {
+      exhausted: "TRANSLATION_POINTS_EXHAUSTED",
+      exhaustedMessage: "Translating uses points and your balance is empty. Top up to read summaries in other languages.",
+      notConfigured: "TRANSLATION_BILLING_NOT_CONFIGURED",
+      unavailable: "TRANSLATION_BILLING_UNAVAILABLE",
+      unavailableMessage: "Your points balance could not be checked. Please try again.",
+    },
+  });
+}
