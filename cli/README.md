@@ -10,23 +10,25 @@ automatically, so later commands run without a browser.
 
 ## Setup
 
-1. Register a **public** OAuth client in RxLab Auth with the loopback redirect URI
-   `http://127.0.0.1:53682/callback` and the scopes `openid profile email offline_access`.
-2. Add its client ID to the server's `RXLAB_ALLOWED_CLIENT_IDS` (otherwise uploads fail with
-   `403 OAUTH_CLIENT_NOT_ALLOWED`).
-3. Build and install it onto your `PATH` (from `cli/`):
+`make install` bakes in the apps' public RxAuth client ID (`SUMMARY_CHIP_IOS_CLIENT_ID` from
+`Configuration/Base.xcconfig`), which the server already accepts. That client must also have the
+CLI's loopback redirect URI `http://127.0.0.1:53682/callback` registered in RxLab Auth, next to the
+apps' `summarychip://oauth/callback`; otherwise sign-in fails with an invalid redirect URI error.
 
-   ```sh
-   make install                        # → $GOBIN or $GOPATH/bin (usually ~/go/bin)
-   make install CLIENT_ID=<client-id>  # bake in the client ID, no CHIPPY_CLIENT_ID needed
-   make install BINDIR=~/.local/bin    # install somewhere else
-   ```
+Build and install it onto your `PATH` (from `cli/`):
 
-   `make build` only builds `cli/bin/chippy`; `make uninstall` removes the installed binary.
+```sh
+make install                        # → $GOBIN or $GOPATH/bin (usually ~/go/bin)
+make install CLIENT_ID=<client-id>  # use a different OAuth client
+make install BINDIR=~/.local/bin    # install somewhere else
+```
+
+`make build` only builds `cli/bin/chippy`; `make uninstall` removes the installed binary.
+`CHIPPY_CLIENT_ID` overrides the built-in client ID at run time.
 
 | Variable | Default |
 |---|---|
-| `CHIPPY_CLIENT_ID` | the built-in client ID, if any (required) |
+| `CHIPPY_CLIENT_ID` | the built-in client ID |
 | `CHIPPY_SERVER` | `https://summary.rxlab.app` |
 | `CHIPPY_ISSUER` | `https://auth.rxlab.app` |
 | `CHIPPY_REDIRECT_URI` | `http://127.0.0.1:53682/callback` |
