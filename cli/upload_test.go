@@ -111,7 +111,7 @@ func TestUploadSendsSummaryTagsAndTextWithStoredToken(t *testing.T) {
 	want := importRequest{
 		Title: "Monarch migration", Summary: "Monarchs fly south each autumn.", Text: "Raw field notes",
 		Tags: []string{"butterflies", "migration", "insects"}, Highlights: []string{"They fly south, in groups"},
-		Category: "Science", Visibility: "private",
+		Category: "Science", ImageStyle: "illustration", Visibility: "private",
 	}
 	got := server.body
 	got.TTLDays = nil
@@ -181,6 +181,65 @@ func TestUploadReportsServerErrors(t *testing.T) {
 	}
 }
 
+func TestUploadExplainsADuplicateAndExitsWithStatus3(t *testing.T) {
+	server := newFakeServer(t, http.StatusConflict, `{"error":{"code":"DUPLICATE_SUMMARY","message":"dup","details":{"reason":"Same source URL.","duplicate":{"id":"s1","title":"Monarch migration","shareUrl":"https://summary.test/s/abc123"}}}}`)
+	s, _ := testSession(t, "stored-token")
+	var stderr bytes.Buffer
+	err := runUpload(context.Background(), s, settings{server: server.URL}, []string{"--title", "T", "--summary", "S", "--text", "x"}, strings.NewReader(""), io.Discard, &stderr)
+	if !errors.Is(err, errDuplicate) || exitCode(err) != 3 {
+		t.Fatalf("err = %v (exit %d), want errDuplicate with exit 3", err, exitCode(err))
+	}
+	for _, want := range []string{`"Monarch migration"`, "https://summary.test/s/abc123", "Same source URL.", "--allow-duplicate"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
+		}
+	}
+	if server.body.AllowDuplicate {
+		t.Fatal("allowDuplicate sent without the flag")
+	}
+}
+
+func TestUploadSendsAllowDuplicate(t *testing.T) {
+	server := newFakeServer(t, http.StatusCreated, created)
+	s, _ := testSession(t, "stored-token")
+	if _, err := runUploadTest(t, s, server.URL, []string{"--title", "T", "--summary", "S", "--text", "x", "--allow-duplicate"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if allow, ok := server.raw["allowDuplicate"]; !ok || allow != true {
+		t.Fatalf("allowDuplicate = %v (present %v), want true", allow, ok)
+	}
+}
+
+func TestUploadSendsKeyPointsFromFlagsAndFile(t *testing.T) {
+	server := newFakeServer(t, http.StatusCreated, created)
+	s, _ := testSession(t, "stored-token")
+	points := filepath.Join(t.TempDir(), "points.md")
+	if err := os.WriteFile(points, []byte("- They winter in Mexico\n\n2. Milkweed, and only milkweed\n• Four generations a year\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"--title", "T", "--summary", "S", "--text", "x",
+		"--key-point", "They fly 4,000 km", "--highlight", "Legacy flag still works", "--key-points-file", points}
+	if _, err := runUploadTest(t, s, server.URL, args, ""); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"They fly 4,000 km", "Legacy flag still works", "They winter in Mexico", "Milkweed, and only milkweed", "Four generations a year"}
+	if got, wantJSON := mustJSON(t, server.body.Highlights), mustJSON(t, want); got != wantJSON {
+		t.Fatalf("highlights = %s, want %s", got, wantJSON)
+	}
+}
+
+func TestUploadReadsKeyPointsFromStdin(t *testing.T) {
+	server := newFakeServer(t, http.StatusCreated, created)
+	s, _ := testSession(t, "stored-token")
+	args := []string{"--title", "T", "--summary", "S", "--text", "x", "--key-points-file", "-"}
+	if _, err := runUploadTest(t, s, server.URL, args, "* One\n* Two\n"); err != nil {
+		t.Fatal(err)
+	}
+	if got := mustJSON(t, server.body.Highlights); got != `["One","Two"]` {
+		t.Fatalf("highlights = %s", got)
+	}
+}
+
 func TestUploadValidatesFlagsBeforeSigningIn(t *testing.T) {
 	cases := map[string][]string{
 		"missing title":     {"--summary", "S", "--text", "x"},
@@ -188,6 +247,8 @@ func TestUploadValidatesFlagsBeforeSigningIn(t *testing.T) {
 		"missing text":      {"--title", "T", "--summary", "S"},
 		"text and file":     {"--title", "T", "--summary", "S", "--text", "x", "--text-file", "a.md"},
 		"two stdin readers": {"--title", "T", "--summary-file", "-", "--text-file", "-"},
+		"key points stdin":  {"--title", "T", "--summary", "S", "--text-file", "-", "--key-points-file", "-"},
+		"too many points":   {"--title", "T", "--summary", "S", "--text", "x", "--key-point", "1", "--key-point", "2", "--key-point", "3", "--key-point", "4", "--key-point", "5", "--key-point", "6"},
 		"bad ttl":           {"--title", "T", "--summary", "S", "--text", "x", "--ttl-days", "5"},
 		"extra argument":    {"--title", "T", "--summary", "S", "--text", "x", "stray"},
 	}

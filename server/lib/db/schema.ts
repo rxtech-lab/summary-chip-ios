@@ -128,3 +128,16 @@ export const uploads = sqliteTable("uploads", {
 
 export type SummaryRow = typeof summaries.$inferSelect;
 export type NewSummaryRow = typeof summaries.$inferInsert;
+
+/** An installation belongs to its most recently signed-in account. */
+export const pushDevices = sqliteTable("push_devices", {
+  installationId: text("installation_id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  environment: text("environment", { enum: ["sandbox", "production"] }).notNull(),
+  platform: text("platform", { enum: ["ios", "macos"] }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  uniqueIndex("push_devices_token_environment_idx").on(table.token, table.environment),
+  index("push_devices_owner_idx").on(table.ownerId),
+]);

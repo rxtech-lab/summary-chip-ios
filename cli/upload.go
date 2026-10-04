@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -30,7 +32,8 @@ type importRequest struct {
 	ImageStyle  string   `json:"imageStyle,omitempty"`
 	Visibility  string   `json:"visibility,omitempty"`
 	// TTLDays is raw so "never" can be sent as null; omitted means the server default.
-	TTLDays json.RawMessage `json:"ttlDays,omitempty"`
+	TTLDays        json.RawMessage `json:"ttlDays,omitempty"`
+	AllowDuplicate bool            `json:"allowDuplicate,omitempty"`
 }
 
 type summaryResponse struct {
@@ -44,9 +47,19 @@ type summaryResponse struct {
 
 type apiError struct {
 	Status  int
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string          `json:"code"`
+	Message string          `json:"message"`
+	Details json.RawMessage `json:"details"`
 }
+
+// duplicateDetails is the `details` of a 409 DUPLICATE_SUMMARY: the chip already in the library.
+type duplicateDetails struct {
+	Reason    string          `json:"reason"`
+	Duplicate summaryResponse `json:"duplicate"`
+}
+
+// errDuplicate reports an upload the server refused as a duplicate; it exits with status 3.
+var errDuplicate = errors.New("duplicate summary")
 
 func (e *apiError) Error() string {
 	if e.Code == "" {
@@ -69,7 +82,7 @@ func (l *stringList) Set(value string) error {
 	return nil
 }
 
-// repeated is a repeatable flag that keeps each value whole (highlights may contain commas).
+// repeated is a repeatable flag that keeps each value whole (key points may contain commas).
 type repeated []string
 
 func (r *repeated) String() string { return strings.Join(*r, " | ") }
@@ -81,12 +94,16 @@ func (r *repeated) Set(value string) error {
 
 const uploadUsage = `Usage: chippy upload --title TITLE (--summary TEXT | --summary-file PATH) (--text-file PATH | --text TEXT) [flags]
 
-Uploads a summary, its tags and the raw source text to Chippy. Nothing is re-summarised.
+Uploads a summary, its key points, tags and the raw source text to Chippy. Nothing is re-summarised,
+so pass the key points shown under the summary with --key-point or --key-points-file.
+The server first checks your library for a chip with the same source, title or content and
+refuses a duplicate (exit status 3); --allow-duplicate uploads it anyway.
 Signs in through the browser first when there is no usable session.
-Use "-" as a file path to read from stdin (only one of --summary-file / --text-file).
+Use "-" as a file path to read from stdin (only one of --summary-file / --text-file / --key-points-file).
 
 Example:
   chippy upload --title "Monarch migration" --summary "Monarchs fly south each autumn." \
+    --key-point "They travel up to 4,000 km" --key-point "They winter in Mexico" \
     --tag butterflies --tag migration --text-file notes.md
 
 Flags:
@@ -102,8 +119,9 @@ func runUpload(ctx context.Context, s *session, cfg settings, args []string, std
 	var (
 		req                   importRequest
 		summaryFile, textFile string
+		keyPointsFile         string
 		tags, keywords        stringList
-		highlights            repeated
+		keyPoints             repeated
 		ttl                   string
 		jsonOutput            bool
 	)
@@ -113,16 +131,20 @@ func runUpload(ctx context.Context, s *session, cfg settings, args []string, std
 	fs.StringVar(&req.Text, "text", "", "raw source text")
 	fs.StringVar(&textFile, "text-file", "", "read the raw source text from a file")
 	fs.Var(&tags, "tag", "tag (repeatable or comma-separated, ≤ 12)")
-	fs.Var(&highlights, "highlight", "key takeaway (repeatable, ≤ 5)")
+	fs.Var(&keyPoints, "key-point", fmt.Sprintf("key point shown under the summary (repeatable, ≤ %d)", maxKeyPoints))
+	fs.Var(&keyPoints, "highlight", "alias of --key-point")
+	fs.StringVar(&keyPointsFile, "key-points-file", "", "read key points from a file, one per line (list markers are stripped)")
 	fs.Var(&keywords, "keyword", "search keyword (repeatable or comma-separated, ≤ 10)")
 	fs.StringVar(&req.Category, "category", "", `category, e.g. "Technology" (default "Other")`)
 	fs.StringVar(&req.Language, "language", "", `BCP-47 language of the title and summary (default "en")`)
 	fs.StringVar(&req.SourceURL, "source-url", "", "URL the text came from")
 	fs.StringVar(&req.SourceTitle, "source-title", "", "title of the source")
 	fs.StringVar(&req.SiteName, "site-name", "", "name of the source site")
-	fs.StringVar(&req.ImageStyle, "image-style", "", `cover style: "graphic" or "illustration" (default "graphic")`)
+	// CLI uploads always get an AI-drawn cover, never the SVG "graphic" style.
+	req.ImageStyle = "illustration"
 	fs.StringVar(&req.Visibility, "visibility", "", `"public" or "private" (default "public")`)
 	fs.StringVar(&ttl, "ttl-days", "", `public link lifetime in days (1, 3, 7, 30, 90, 365) or "never"`)
+	fs.BoolVar(&req.AllowDuplicate, "allow-duplicate", false, "upload even if the library already has this chip")
 	fs.BoolVar(&jsonOutput, "json", false, "print the created summary as JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -132,8 +154,14 @@ func runUpload(ctx context.Context, s *session, cfg settings, args []string, std
 		return fmt.Errorf("%w: unexpected argument %q", errUsage, fs.Arg(0))
 	}
 
-	if summaryFile == "-" && textFile == "-" {
-		return fmt.Errorf("%w: only one of --summary-file and --text-file can read stdin", errUsage)
+	stdinReaders := 0
+	for _, path := range []string{summaryFile, textFile, keyPointsFile} {
+		if path == "-" {
+			stdinReaders++
+		}
+	}
+	if stdinReaders > 1 {
+		return fmt.Errorf("%w: only one of --summary-file, --text-file and --key-points-file can read stdin", errUsage)
 	}
 	var err error
 	if req.Summary, err = pick("summary", req.Summary, summaryFile, stdin); err != nil {
@@ -145,12 +173,33 @@ func runUpload(ctx context.Context, s *session, cfg settings, args []string, std
 	if strings.TrimSpace(req.Title) == "" {
 		return fmt.Errorf("%w: --title is required", errUsage)
 	}
-	req.Tags, req.Keywords, req.Highlights = tags, keywords, highlights
+	if keyPointsFile != "" {
+		fromFile, err := readKeyPoints(keyPointsFile, stdin)
+		if err != nil {
+			return err
+		}
+		keyPoints = append(keyPoints, fromFile...)
+	}
+	if len(keyPoints) > maxKeyPoints {
+		return fmt.Errorf("%w: at most %d key points, got %d", errUsage, maxKeyPoints, len(keyPoints))
+	}
+	req.Tags, req.Keywords, req.Highlights = tags, keywords, keyPoints
 	if req.TTLDays, err = parseTTL(ttl); err != nil {
 		return err
 	}
 
 	summary, raw, err := upload(ctx, s, cfg.server, req)
+	var apiErr *apiError
+	if errors.As(err, &apiErr) && apiErr.Code == "DUPLICATE_SUMMARY" {
+		var details duplicateDetails
+		_ = json.Unmarshal(apiErr.Details, &details)
+		fmt.Fprintf(stderr, "Skipped: already in your library as %q\n%s\n", details.Duplicate.Title, details.Duplicate.ShareURL)
+		if details.Reason != "" {
+			fmt.Fprintf(stderr, "Reason: %s\n", details.Reason)
+		}
+		fmt.Fprintln(stderr, "Use --allow-duplicate to upload it anyway.")
+		return errDuplicate
+	}
 	if err != nil {
 		return err
 	}
@@ -181,6 +230,36 @@ func pick(name, inline, path string, stdin io.Reader) (string, error) {
 	default:
 		return inline, nil
 	}
+}
+
+// maxKeyPoints matches the server's limit on `highlights`, which the app shows as "Key points".
+const maxKeyPoints = 5
+
+// listMarker matches a leading Markdown bullet ("-", "*", "+", "•") or number ("1.", "2)").
+var listMarker = regexp.MustCompile(`^(?:[-*+•]|\d+[.)])\s+`)
+
+// readKeyPoints reads one key point per non-blank line ("-" = stdin), dropping list markers.
+func readKeyPoints(path string, stdin io.Reader) ([]string, error) {
+	var source io.Reader = stdin
+	if path != "-" {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading --key-points-file: %w", err)
+		}
+		defer file.Close()
+		source = file
+	}
+	var points []string
+	scanner := bufio.NewScanner(source)
+	for scanner.Scan() {
+		if line := strings.TrimSpace(listMarker.ReplaceAllString(strings.TrimSpace(scanner.Text()), "")); line != "" {
+			points = append(points, line)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading --key-points-file: %w", err)
+	}
+	return points, nil
 }
 
 func parseTTL(value string) (json.RawMessage, error) {
@@ -244,7 +323,7 @@ func postImport(ctx context.Context, server, token string, body []byte) (summary
 			Error *apiError `json:"error"`
 		}
 		if json.Unmarshal(raw, &envelope) == nil && envelope.Error != nil {
-			failure.Code, failure.Message = envelope.Error.Code, envelope.Error.Message
+			failure.Code, failure.Message, failure.Details = envelope.Error.Code, envelope.Error.Message, envelope.Error.Details
 		}
 		return summaryResponse{}, nil, failure
 	}

@@ -45,6 +45,8 @@ chippy logout    # sign out and remove the stored session
 chippy upload \
   --title "Monarch migration" \
   --summary "Monarch butterflies fly thousands of kilometres south every autumn." \
+  --key-point "They travel up to 4,000 km to winter in Mexico" \
+  --key-point "No single butterfly makes the round trip" \
   --tag butterflies --tag migration \
   --text-file notes.md
 ```
@@ -58,17 +60,19 @@ the stored token. It prints the share link (`--json` prints the created summary 
 | `--summary` / `--summary-file` | one is required, ≤ 1200 characters |
 | `--text` / `--text-file` | the raw source text; one is required, ≤ 200 000 characters |
 | `--tag` | repeatable or comma-separated, ≤ 12 |
-| `--highlight` | repeatable, ≤ 5 |
+| `--key-point` | shown as "Key points" under the summary; repeatable, ≤ 5, ≤ 300 characters each (`--highlight` is an alias) |
+| `--key-points-file` | key points from a file, one per line; list markers (`-`, `*`, `•`, `1.`) are stripped |
 | `--keyword` | repeatable or comma-separated, ≤ 10 |
 | `--category` | e.g. `Technology`; default `Other` |
 | `--language` | BCP-47 code of the title and summary; default `en` |
 | `--source-url`, `--source-title`, `--site-name` | where the text came from |
-| `--image-style` | `graphic` (default) or `illustration` |
 | `--visibility` | `public` (default) or `private` |
 | `--ttl-days` | `1`, `3`, `7`, `30`, `90`, `365` or `never` |
 | `--json` | print the created summary as JSON |
 
-Pass `-` as a file path to read from stdin:
+Nothing is re-summarised on upload, so a chip uploaded without key points shows none.
+
+Pass `-` as a file path to read from stdin (only one file flag at a time):
 
 ```sh
 pbpaste | chippy upload --title "Notes" --summary "Meeting notes." --text-file -

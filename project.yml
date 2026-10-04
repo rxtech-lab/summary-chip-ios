@@ -192,6 +192,7 @@ targets:
       path: summary-chip/Info.plist
       properties:
         <<: *configInfo
+        SummaryChipPushEnvironment: $(SUMMARY_CHIP_PUSH_ENVIRONMENT)
         CFBundleDisplayName: Chippy
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -215,6 +216,7 @@ targets:
       path: summary-chip/summary-chip.entitlements
       properties:
         <<: *sharedEntitlements
+        aps-environment: $(SUMMARY_CHIP_PUSH_ENVIRONMENT)
         com.apple.developer.associated-domains:
           - applinks:summary.rxlab.app
           - webcredentials:rxlab.app

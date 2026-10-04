@@ -37,9 +37,11 @@ import { reserveDocumentPoints, settleUsage, type ChatCharge } from "@/lib/subsc
 import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
+import { findDuplicateChip } from "./duplicates";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
 import { sourceMarkdownFor, toSummaryJson, type SummaryJson } from "./serialize";
+import { notifySummaryAdded } from "./notifications";
 
 export interface ServiceDeps {
   ai?: AiProvider;
@@ -369,6 +371,7 @@ export async function createSummary(
   } satisfies Omit<SummaryRow, "slug">;
 
   const row = await insertSummary(db, store, base, embedding);
+  runAfter(() => notifySummaryAdded(db, row));
   // The document agent works after the response: free with an allowance summary, else on points.
   if (keepsSourceMarkdown(input)) {
     runAfter(() => saveSourceDocument(db, ai, content, {
@@ -436,8 +439,10 @@ async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft
 
 /**
  * Saves a summary written elsewhere as given — title, summary, tags and the raw source text — in one
- * call. No model summarises it: a model only designs the cover theme and artwork, and it is embedded for search. The raw
- * text is kept as the source document. Counts as one summary against the caller's allowance.
+ * call. No model summarises it: the duplicate agent first checks the caller's library for the same
+ * source, title or content (refusing a match with 409 unless `allowDuplicate`), then a model designs
+ * the cover theme and artwork, and it is embedded for search. The raw text is kept as the source
+ * document. Counts as one summary against the caller's allowance.
  */
 export async function importSummary(
   db: Database,
@@ -446,10 +451,23 @@ export async function importSummary(
   deps?: ServiceDeps,
 ): Promise<SummaryJson> {
   const { ai, store, now } = await resolveDeps(deps);
+  const text = input.text.trim();
+  const sourceUrl = input.sourceUrl ?? null;
+  const siteName = input.siteName || null;
+  const sourceTitle = input.sourceTitle || null;
+  // Checked before the allowance is used, so a refused duplicate costs nothing.
+  if (!input.allowDuplicate) {
+    const duplicate = await findDuplicateChip(db, ai, principal.sub, { title: input.title, summary: input.summary, sourceUrl, sourceTitle, siteName, text });
+    if (duplicate) {
+      throw new ApiError(409, "DUPLICATE_SUMMARY", `This looks like a duplicate of "${duplicate.row.title}": ${duplicate.reason}`, {
+        reason: duplicate.reason,
+        duplicate: toSummaryJson(duplicate.row, principal.sub),
+      });
+    }
+  }
   const id = crypto.randomUUID();
   await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
-  const text = input.text.trim();
   // The model designs the cover theme from the summary; when it fails the theme falls back to a
   // palette seeded by the id, its mode left unset so it follows that palette's luminance.
   const design = await ai.designCover({
@@ -472,9 +490,6 @@ export async function importSummary(
   }, { requestedLanguage: "auto", seed: id });
   const draft: SummaryDraft = { ...normalized, title: input.title, tags: [...new Set(input.tags)] };
 
-  const sourceUrl = input.sourceUrl ?? null;
-  const siteName = input.siteName || null;
-  const sourceTitle = input.sourceTitle || null;
   const embedding = embedSummary(ai, { ...draft, siteName, sourceTitle, contentText: text });
 
   const createdAt = now();
@@ -510,6 +525,7 @@ export async function importSummary(
     createdAt,
     updatedAt: createdAt,
   }, embedding);
+  runAfter(() => notifySummaryAdded(db, row));
   return toSummaryJson(row, principal.sub);
 }
 

@@ -5,6 +5,12 @@ import SwiftUI
 
 @main
 struct SummaryChipApp: App {
+    #if os(iOS)
+    @UIApplicationDelegateAdaptor(SummaryAppDelegate.self) private var appDelegate
+    #else
+    @NSApplicationDelegateAdaptor(SummaryAppDelegate.self) private var appDelegate
+    #endif
+    @Environment(\.scenePhase) private var scenePhase
     @State private var environment: AppEnvironment
     #if os(macOS)
     private let serviceProvider: SummaryServiceProvider
@@ -13,6 +19,7 @@ struct SummaryChipApp: App {
     init() {
         let environment = AppEnvironment.live()
         _environment = State(initialValue: environment)
+        SummaryNotifications.shared.configure(environment: environment)
         // Siri / Shortcuts intents run in this process and share the signed-in environment.
         AppDependencyManager.shared.add(dependency: environment)
         #if os(macOS)
@@ -49,6 +56,9 @@ struct SummaryChipApp: App {
                     if let url = activity.webpageURL { environment.handleIncomingURL(url) }
                 }
                 .onOpenURL { url in environment.handleIncomingURL(url) }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { Task { await SummaryNotifications.shared.synchronize() } }
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .rxAuthSessionExpired)) { _ in
                     Task { await environment.sessionExpired() }
                 }

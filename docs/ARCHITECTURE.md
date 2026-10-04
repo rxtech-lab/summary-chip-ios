@@ -134,7 +134,7 @@ Food, Opinion, Research, Other`.
 |---|---|---|
 | `POST /api/v1/uploads` | `{filename, mimeType:"application/pdf", byteSize}` (≤ 25 MB) | `201 {key, uploadUrl, method:"PUT", headers:{…}, expiresAt}` |
 | `POST /api/v1/summaries` | see *Create* | `201 Summary` (synchronous, may take up to ~90 s) |
-| `POST /api/v1/summaries/import` | see *Import* | `201 Summary` — saves a summary written elsewhere as given (no summarising) |
+| `POST /api/v1/summaries/import` | see *Import* | `201 Summary` — saves a summary written elsewhere as given (no summarising); `409 DUPLICATE_SUMMARY` when the library already has it |
 | `GET /api/v1/summaries` | `?scope=all|mine|viewed&q=&category=&tag=&visibility=&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others) |
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
 | `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?}` | `Summary` |
@@ -194,13 +194,24 @@ emoji, accent and headline, then the `imageStyle` artwork, as for any summary; a
 back to a seeded palette), the summary is embedded for search, and the raw text is kept as the source document (`GET /api/v1/summaries/:id/markdown`). Counts as one summary
 against the allowance (`402 SUMMARY_ALLOWANCE_EXHAUSTED` when used up). Unknown fields are rejected.
 
+**Duplicate check.** Before anything is saved or charged, the duplicate agent
+(`lib/ai/duplicate-agent.ts`, run by `lib/services/duplicates.ts`) checks the caller's **own** chips.
+Candidates are chips with the same source URL (normalised: no tracking parameters, fragment, `www.`
+or trailing slash), the same title or source title, or the same opening of the source text, plus the
+five closest in meaning. The agent reads them (`readChip`), can search for more (`searchChips`), and
+compares source, title and content. A chip on the same topic from a different source is not a
+duplicate. The agent only runs when there are candidates. A match is refused with
+`409 DUPLICATE_SUMMARY`, `details: {reason, duplicate: Summary}`, and nothing is charged. When the
+agent fails, the chip is still refused if it has the same source URL or text opening as a
+candidate; otherwise it is saved. `allowDuplicate: true` skips the check.
+
 ```jsonc
 {
   "title": "…",                                 // required, ≤ 200
   "summary": "…",                               // required, ≤ 1200
   "text": "raw source text",                    // required, ≤ 200 000
   "tags": ["…"],                                // ≤ 12, lowercased + de-duplicated
-  "highlights": ["…"],                          // optional, ≤ 5
+  "highlights": ["…"],                          // optional, ≤ 5; shown as "Key points"
   "category": "Technology",                     // optional, one of the categories; default "Other"
   "keywords": ["…"],                            // optional, ≤ 10
   "language": "en",                             // optional BCP-47; default "en"
@@ -208,7 +219,8 @@ against the allowance (`402 SUMMARY_ALLOWANCE_EXHAUSTED` when used up). Unknown 
   "sourceTitle": "…", "siteName": "…",          // optional
   "imageStyle": "graphic" | "illustration",     // default "graphic"
   "ttlDays": 7 | null,                          // default DEFAULT_TTL_DAYS
-  "visibility": "public" | "private"            // default "public"
+  "visibility": "public" | "private",           // default "public"
+  "allowDuplicate": false                       // true skips the duplicate check
 }
 ```
 

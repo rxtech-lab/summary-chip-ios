@@ -1,6 +1,7 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import type { AiProvider, CoverInput, DesignInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput } from "./provider";
+import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import type { LlmSummary } from "./summary-schema";
 
 /** Deterministic stand-in for tests and `SUMMARY_MOCK_SERVICES=true` local development. */
@@ -9,6 +10,7 @@ export class MockAiProvider implements AiProvider {
     isSharedLink: string[];
     summarize: SummarizeInput[];
     formatMarkdown: MarkdownInput[];
+    findDuplicate: DuplicateInput[];
     designCover: CoverInput[];
     designSvg: DesignInput[];
     illustrate: DesignInput[];
@@ -16,6 +18,7 @@ export class MockAiProvider implements AiProvider {
     isSharedLink: [],
     summarize: [],
     formatMarkdown: [],
+    findDuplicate: [],
     designCover: [],
     designSvg: [],
     illustrate: [],
@@ -59,6 +62,24 @@ export class MockAiProvider implements AiProvider {
     options.onUsage?.({ inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0]);
     if (this.markdown) return this.markdown(input);
     return `${input.title ? `# ${input.title}\n\n` : ""}${input.content.trim()}`;
+  }
+
+  /**
+   * Plays the agent: searches by title, reads the candidates and the hits, and flags the first chip
+   * with the same normalised source URL, the same title (case-insensitive) or the same content start.
+   */
+  async findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null> {
+    this.calls.findDuplicate.push(input);
+    const listed = new Map([...tools.candidates, ...await tools.search(input.title)].map((chip) => [chip.id, chip]));
+    const url = normalizeSourceUrl(input.sourceUrl);
+    for (const id of listed.keys()) {
+      const chip = await tools.read(id);
+      if (!chip) continue;
+      if (url && normalizeSourceUrl(chip.sourceUrl) === url) return { duplicateOf: id, reason: "Same source URL." };
+      if (chip.title.trim().toLowerCase() === input.title.trim().toLowerCase()) return { duplicateOf: id, reason: "Same title." };
+      if (sameContentStart(chip.content, input.text)) return { duplicateOf: id, reason: "Same content." };
+    }
+    return { duplicateOf: null, reason: "No chip shares the source, title or content." };
   }
 
   async designCover(input: CoverInput): Promise<LlmSummary["design"] | null> {

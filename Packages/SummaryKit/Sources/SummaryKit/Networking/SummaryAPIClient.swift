@@ -132,6 +132,16 @@ public final class SummaryAPIClient: Sendable {
 
     // MARK: Account
 
+    public func registerPushDevice(installationId: String, token: String, environment: String, platform: String) async throws {
+        struct Registration: Encodable { let installationId: String; let token: String; let environment: String; let platform: String }
+        _ = try await sendRaw(json("/api/v1/devices", method: "POST", body: Registration(installationId: installationId, token: token, environment: environment, platform: platform)))
+    }
+
+    public func unregisterPushDevice(installationId: String) async throws {
+        struct Installation: Encodable { let installationId: String }
+        _ = try await sendRaw(json("/api/v1/devices", method: "DELETE", body: Installation(installationId: installationId)))
+    }
+
     public func billingConnection() async throws -> BillingConnection {
         try await send(get("/api/v1/billing"))
     }

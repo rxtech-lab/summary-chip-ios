@@ -39,8 +39,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
-		// Help and bare usage errors have already printed the usage.
-		if !errors.Is(err, flag.ErrHelp) && err != errUsage {
+		// Help and bare usage errors have already printed the usage; a duplicate its explanation.
+		if !errors.Is(err, flag.ErrHelp) && err != errUsage && !errors.Is(err, errDuplicate) {
 			fmt.Fprintln(os.Stderr, "chippy:", err)
 		}
 		os.Exit(exitCode(err))
@@ -50,6 +50,9 @@ func main() {
 func exitCode(err error) int {
 	if errors.Is(err, flag.ErrHelp) || errors.Is(err, errUsage) {
 		return 2
+	}
+	if errors.Is(err, errDuplicate) {
+		return 3
 	}
 	return 1
 }

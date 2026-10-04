@@ -690,4 +690,55 @@ describe("POST /api/v1/summaries/import", () => {
     const summary = await (await importSummary({ ...BODY, sourceUrl: "https://github.com/rxtech-lab/chippy" })).json();
     expect(summary).toMatchObject({ sourceType: "url", source: "github", sourceUrl: "https://github.com/rxtech-lab/chippy" });
   });
+
+  describe("duplicate check", () => {
+    const OTHER = {
+      title: "Sourdough starters",
+      summary: "A starter is flour and water colonised by wild yeast and lactic acid bacteria.",
+      text: "Baking notes: feed the starter twice a day at room temperature until it doubles.",
+    };
+
+    it("skips the agent when the library has nothing close", async () => {
+      expect((await importSummary(BODY)).status).toBe(201);
+      expect(env.ai.calls.findDuplicate).toHaveLength(0);
+    });
+
+    it("refuses a chip with the same source URL, without using the allowance", async () => {
+      const first = await (await importSummary({ ...BODY, sourceUrl: "https://www.example.com/monarchs/?utm_source=x#top" })).json();
+      const response = await importSummary({ ...OTHER, sourceUrl: "https://example.com/monarchs" });
+      expect(response.status).toBe(409);
+      const { error } = await response.json();
+      expect(error).toMatchObject({ code: "DUPLICATE_SUMMARY", details: { reason: "Same source URL.", duplicate: { id: first.id, title: BODY.title } } });
+      expect(env.ai.calls.designCover).toHaveLength(1);
+    });
+
+    it("refuses a chip with the same title or the same content", async () => {
+      await importSummary(BODY);
+      const sameTitle = await importSummary({ ...OTHER, title: "monarch MIGRATION" });
+      expect((await sameTitle.json()).error.details.reason).toBe("Same title.");
+      const sameContent = await importSummary({ ...OTHER, text: `  ${BODY.text}\n\nMore notes.` });
+      expect(sameContent.status).toBe(409);
+      expect((await sameContent.json()).error.details.reason).toBe("Same content.");
+    });
+
+    it("saves a different chip on a similar topic, and a duplicate when allowed", async () => {
+      await importSummary(BODY);
+      const related = await importSummary({ ...OTHER, title: "Monarch caterpillars", summary: "Monarch caterpillars only eat milkweed." });
+      expect(related.status).toBe(201);
+      expect((await importSummary({ ...BODY, allowDuplicate: true })).status).toBe(201);
+    });
+
+    it("only compares against the caller's own chips", async () => {
+      await importSummary(BODY, env.tokens.bob);
+      expect((await importSummary(BODY)).status).toBe(201);
+    });
+
+    it("still refuses the same source when the agent fails", async () => {
+      await importSummary({ ...BODY, sourceUrl: "https://example.com/monarchs" });
+      vi.spyOn(env.ai, "findDuplicate").mockResolvedValueOnce(null);
+      expect((await importSummary({ ...OTHER, sourceUrl: "https://example.com/monarchs/" })).status).toBe(409);
+      vi.spyOn(env.ai, "findDuplicate").mockResolvedValueOnce(null);
+      expect((await importSummary({ ...OTHER, title: BODY.title })).status).toBe(201);
+    });
+  });
 });
