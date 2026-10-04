@@ -28,7 +28,7 @@ struct PointsTopUpView: View {
             .task { await load() }
             .overlay {
                 if purchasingID != nil {
-                    ActionStatusOverlay(client.useIap ? "Completing purchase…" : "Opening checkout…", isWorking: true)
+                    ActionStatusOverlay(client.useIap ? String(localized: "Completing purchase…") : String(localized: "Opening checkout…"), isWorking: true)
                 }
             }
             .statusAlert("Top Up Points", message: status) { status = nil }
@@ -71,9 +71,11 @@ struct PointsTopUpView: View {
             } header: {
                 Text("Point packs")
             } footer: {
-                Text(client.useIap
-                     ? "One-time purchase through the App Store. Points are added to your account right away, with no recurring subscription."
-                     : "Checkout opens securely in your browser. Points are added to your account once payment completes.")
+                if client.useIap {
+                    Text("One-time purchase through the App Store. Points are added to your account right away, with no recurring subscription.")
+                } else {
+                    Text("Checkout opens securely in your browser. Points are added to your account once payment completes.")
+                }
             }
             if !unavailable.isEmpty {
                 Section("Not available") {
@@ -96,7 +98,7 @@ struct PointsTopUpView: View {
                 Text("Current balance")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text(points.map { "\($0.formatted()) points" } ?? "–")
+                Text(points.map { String(localized: "\($0.formatted()) points") } ?? "–")
                     .font(.title2.weight(.bold).monospacedDigit())
                     .contentTransition(.numericText())
                     .animation(.default, value: points)
@@ -116,7 +118,7 @@ struct PointsTopUpView: View {
                 .foregroundStyle(isEligible ? Color.accentColor : .secondary)
                 .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(topUp.amount.formatted()) \(topUp.unit ?? "points")")
+                Text(amountTitle(for: topUp))
                     .font(.headline.monospacedDigit())
                 Text(isEligible ? subtitle(for: topUp) : eligibilityText(for: topUp))
                     .font(.subheadline)
@@ -134,10 +136,16 @@ struct PointsTopUpView: View {
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
             .disabled(!isEligible || purchasingID != nil)
-            .accessibilityLabel("Buy \(topUp.amount.formatted()) \(topUp.unit ?? "points") for \(price(for: topUp))")
+            .accessibilityLabel("Buy \(amountTitle(for: topUp)) for \(price(for: topUp))")
             .accessibilityIdentifier("topup-buy-\(topUp.key)")
         }
         .padding(.vertical, 4)
+    }
+
+    /// "500 points", or the amount in the pack's own server-provided unit.
+    private func amountTitle(for topUp: TopUpProduct) -> String {
+        guard let unit = topUp.unit else { return String(localized: "\(topUp.amount.formatted()) points") }
+        return "\(topUp.amount.formatted()) \(unit)"
     }
 
     private func subtitle(for topUp: TopUpProduct) -> String {
@@ -147,10 +155,10 @@ struct PointsTopUpView: View {
 
     private func eligibilityText(for topUp: TopUpProduct) -> String {
         let rules = topUp.blockedBy?.map(\.ruleType) ?? []
-        if rules.contains("purchase_limit") { return "Purchase limit reached" }
-        if rules.contains("requires_role") { return "Membership required" }
-        if rules.contains("requires_active_plan") || rules.contains("requires_any_plan") { return "Active plan required" }
-        return "Not currently eligible"
+        if rules.contains("purchase_limit") { return String(localized: "Purchase limit reached") }
+        if rules.contains("requires_role") { return String(localized: "Membership required") }
+        if rules.contains("requires_active_plan") || rules.contains("requires_any_plan") { return String(localized: "Active plan required") }
+        return String(localized: "Not currently eligible")
     }
 
     private func price(for topUp: TopUpProduct) -> String {
@@ -189,10 +197,10 @@ struct PointsTopUpView: View {
                 switch try await client.purchaseApple(productID: productID) {
                 case .completed:
                     await onPurchased()
-                    status = "\(topUp.amount.formatted()) \(topUp.unit ?? "points") added to your balance."
+                    status = String(localized: "\(amountTitle(for: topUp)) added to your balance.")
                     purchaseFeedback = PurchaseFeedback(feedback: .success)
                 case .pending:
-                    status = "Your purchase is waiting for approval. Points will be added once it's approved."
+                    status = String(localized: "Your purchase is waiting for approval. Points will be added once it's approved.")
                     purchaseFeedback = PurchaseFeedback(feedback: .warning)
                 case .cancelled:
                     break

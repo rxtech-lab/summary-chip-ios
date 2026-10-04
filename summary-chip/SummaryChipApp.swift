@@ -51,9 +51,6 @@ struct SummaryChipApp: App {
                     #endif
                     #endif
                     await environment.start()
-                    #if os(macOS)
-                    await environment.mcpServer.startIfEnabled()
-                    #endif
                 }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     if let url = activity.webpageURL { environment.handleIncomingURL(url) }

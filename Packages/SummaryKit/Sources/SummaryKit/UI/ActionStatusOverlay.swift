@@ -34,7 +34,20 @@ public extension View {
             isPresented: Binding(get: { message != nil }, set: { if !$0 { onDismiss() } }),
             presenting: message
         ) { _ in
-            Button("OK", role: .cancel) {}
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
+    }
+
+    /// Package-internal variant whose title is already resolved (e.g. `Text("…", bundle: .module)`).
+    internal func statusAlert(_ title: Text, message: String?, onDismiss: @escaping () -> Void) -> some View {
+        alert(
+            title,
+            isPresented: Binding(get: { message != nil }, set: { if !$0 { onDismiss() } }),
+            presenting: message
+        ) { _ in
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: { message in
             Text(message)
         }

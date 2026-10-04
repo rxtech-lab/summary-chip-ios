@@ -89,7 +89,8 @@ describe("POST /api/v1/summaries", () => {
     expect(summary.theme).toEqual({ colors: expect.any(Array), mode: "dark", emoji: "🧪", accent: "#f59e0b" });
     expect(Object.keys(summary)).toEqual([
       "id", "slug", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
-      "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "keywords", "language", "theme", "imageStyle", "visibility",
+      "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "keywords", "language",
+      "originalLanguage", "displayLanguage", "translationPending", "sourceTranslationPending", "theme", "imageStyle", "visibility",
       "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "createdAt", "updatedAt",
     ]);
     // Readability extracted the article, not the nav/footer chrome.

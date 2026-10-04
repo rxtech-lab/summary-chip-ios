@@ -61,17 +61,17 @@ struct LibraryFilterSheet: View {
 
                 Section {
                     FacetComboBox(
-                        "Category",
-                        anyTitle: "Any category",
-                        emptyMessage: "No categories",
+                        String(localized: "Category"),
+                        anyTitle: String(localized: "Any category"),
+                        emptyMessage: String(localized: "No categories"),
                         kind: .category,
                         api: model.api,
                         selection: $draft.category
                     )
                     FacetComboBox(
-                        "Tag",
-                        anyTitle: "Any tag",
-                        emptyMessage: "Tags appear here once your library has summaries.",
+                        String(localized: "Tag"),
+                        anyTitle: String(localized: "Any tag"),
+                        emptyMessage: String(localized: "Tags appear here once your library has summaries."),
                         kind: .tag,
                         api: model.api,
                         selection: $draft.tag,

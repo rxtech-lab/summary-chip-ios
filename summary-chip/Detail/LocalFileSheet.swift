@@ -39,13 +39,13 @@ struct LocalFileSheet: View {
                             description: Text("Choose the original file to keep it with this summary. Chat reads it on this device to answer questions."))
                     }
                 } footer: {
-                    Text(link?.isSavedCopy == true
-                        ? "This is a saved copy of the shared file. Link the original from Files if you want to open the latest version."
-                        : "This link is saved on this device. Chat reads the latest version of the file; changing it does not regenerate the summary.")
+                    link?.isSavedCopy == true
+                        ? Text("This is a saved copy of the shared file. Link the original from Files if you want to open the latest version.")
+                        : Text("This link is saved on this device. Chat reads the latest version of the file; changing it does not regenerate the summary.")
                 }
                 Section {
                     Button { isPicking = true } label: {
-                        Label(link == nil ? "Link a file…" : "Replace file link…", systemImage: "link.badge.plus")
+                        Label(link == nil ? String(localized: "Link a file…") : String(localized: "Replace file link…"), systemImage: "link.badge.plus")
                     }
                     .accessibilityIdentifier("link-local-file")
                     if link != nil {
@@ -63,7 +63,7 @@ struct LocalFileSheet: View {
             .navigationDestination(for: RemoveRoute.self) { _ in
                 Form {
                     Section {
-                        Text(link?.filename ?? "Local file").font(.headline)
+                        Text(link?.filename ?? String(localized: "Local file")).font(.headline)
                         Text("Remove the association with this summary and any saved copy. The original file in Files and the summary are kept.")
                             .foregroundStyle(.secondary)
                     }
@@ -82,7 +82,7 @@ struct LocalFileSheet: View {
         }
         .disabled(isWorking)
         .overlay {
-            if isWorking { ActionStatusOverlay("Opening file…", isWorking: true) }
+            if isWorking { ActionStatusOverlay(String(localized: "Opening file…"), isWorking: true) }
         }
         .statusAlert("Local File", message: status) { status = nil }
         .sensoryFeedback(.success, trigger: changedCount)
@@ -106,13 +106,13 @@ struct LocalFileSheet: View {
             }
             return
         }
-        perform(message: "File linked.") {
+        perform(message: String(localized: "File linked.")) {
             try store.saveBookmark(LocalFileStore.bookmark(for: url), filename: url.lastPathComponent, summaryID: summaryID)
         }
     }
 
     private func removeLink() {
-        perform(message: "File link removed.") { try store.remove(summaryID: summaryID) }
+        perform(message: String(localized: "File link removed.")) { try store.remove(summaryID: summaryID) }
         if link == nil { path = NavigationPath() }
     }
 

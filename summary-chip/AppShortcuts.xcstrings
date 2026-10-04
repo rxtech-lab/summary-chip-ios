@@ -1,0 +1,83 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add a summary in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Add a summary in ${applicationName}",
+              "Add a ${applicationName} summary",
+              "Summarise with ${applicationName}",
+              "Summarize with ${applicationName}",
+              "New summary in ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "用${applicationName}添加摘要",
+              "在${applicationName}中添加摘要",
+              "用${applicationName}生成摘要",
+              "在${applicationName}中新建摘要",
+              "添加${applicationName}摘要"
+            ]
+          }
+        },
+        "zh-Hant" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "用${applicationName}新增摘要",
+              "在${applicationName}中新增摘要",
+              "用${applicationName}產生摘要",
+              "在${applicationName}建立摘要",
+              "新增${applicationName}摘要"
+            ]
+          }
+        }
+      }
+    },
+    "Open a summary in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Open a summary in ${applicationName}",
+              "Show my ${applicationName} summaries"
+            ]
+          }
+        },
+        "zh-Hans" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "在${applicationName}中打开摘要",
+              "用${applicationName}打开摘要",
+              "显示我的${applicationName}摘要",
+              "查看我的${applicationName}摘要"
+            ]
+          }
+        },
+        "zh-Hant" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "在${applicationName}中開啟摘要",
+              "用${applicationName}開啟摘要",
+              "顯示我的${applicationName}摘要",
+              "查看我的${applicationName}摘要"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

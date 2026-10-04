@@ -27,9 +27,9 @@ public struct OpenInSafariSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("This page needs Safari", systemImage: "safari")
+                        Label(String(localized: "This page needs Safari", bundle: .module), systemImage: "safari")
                             .font(.title2.bold())
-                        Text("Chippy couldn't read \(host) from the server or this device. Open it in Safari and share it to Chippy — the text is sent straight from the page.")
+                        Text("Chippy couldn't read \(host) from the server or this device. Open it in Safari and share it to Chippy — the text is sent straight from the page.", bundle: .module)
                             .foregroundStyle(.secondary)
                     }
 
@@ -39,7 +39,7 @@ public struct OpenInSafariSheet: View {
                         Button {
                             openInSafari()
                         } label: {
-                            Label("Open in Safari", systemImage: "safari")
+                            Label(String(localized: "Open in Safari", bundle: .module), systemImage: "safari")
                                 .frame(maxWidth: .infinity)
                                 .fontWeight(.semibold)
                         }
@@ -51,7 +51,7 @@ public struct OpenInSafariSheet: View {
                             Button {
                                 onSummariseText()
                             } label: {
-                                Text("Summarise the text instead").frame(maxWidth: .infinity)
+                                Text("Summarise the text instead", bundle: .module).frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.large)
@@ -59,7 +59,7 @@ public struct OpenInSafariSheet: View {
                         }
                         #if os(macOS)
                         // Sheet navigation stacks don't display toolbar placements on macOS.
-                        Button("Cancel", role: .cancel) { onCancel() }
+                        Button(String(localized: "Cancel", bundle: .module), role: .cancel) { onCancel() }
                             .buttonStyle(.bordered)
                             .controlSize(.large)
                             .keyboardShortcut(.cancelAction)
@@ -68,12 +68,12 @@ public struct OpenInSafariSheet: View {
                 }
                 .padding(24)
             }
-            .navigationTitle("Open in Safari")
+            .navigationTitle(Text("Open in Safari", bundle: .module))
             .summaryInlineNavigationTitle()
             #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", role: .cancel) { onCancel() }
+                    Button(String(localized: "Cancel", bundle: .module), role: .cancel) { onCancel() }
                 }
             }
             #endif
@@ -115,11 +115,11 @@ struct ShareExtensionDiagram: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            step(1, title: "Open the page in Safari", detail: host) { SafariAddressBarArt(host: host) }
+            step(1, title: String(localized: "Open the page in Safari", bundle: .module), detail: host) { SafariAddressBarArt(host: host) }
             connector
-            step(2, title: "Share the page", detail: shareDetail) { ShareButtonArt() }
+            step(2, title: String(localized: "Share the page", bundle: .module), detail: shareDetail) { ShareButtonArt() }
             connector
-            step(3, title: "Choose Chippy", detail: "Chippy reads the open page and makes the summary.") { ShareSheetArt() }
+            step(3, title: String(localized: "Choose Chippy", bundle: .module), detail: String(localized: "Chippy reads the open page and makes the summary.", bundle: .module)) { ShareSheetArt() }
         }
         .padding(16)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 16))
@@ -128,9 +128,9 @@ struct ShareExtensionDiagram: View {
 
     private var shareDetail: String {
         #if os(macOS)
-        "Click the Share button in Safari's toolbar, or choose File › Share."
+        String(localized: "Click the Share button in Safari's toolbar, or choose File › Share.", bundle: .module)
         #else
-        "Tap the Share button (in the ⋯ menu if the toolbar is compact)."
+        String(localized: "Tap the Share button (in the ⋯ menu if the toolbar is compact).", bundle: .module)
         #endif
     }
 
@@ -141,7 +141,7 @@ struct ShareExtensionDiagram: View {
                 .background(.background, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator))
             VStack(alignment: .leading, spacing: 4) {
-                Text("\(number). \(title)").font(.headline)
+                Text(verbatim: "\(number). \(title)").font(.headline)
                 Text(detail).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
             }
             Spacer(minLength: 0)
@@ -212,7 +212,7 @@ private struct ShareSheetArt: View {
                     .frame(width: 28, height: 28)
                     .background(.tint, in: RoundedRectangle(cornerRadius: 7))
                     .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.tint, lineWidth: 2).padding(-3))
-                Text("Chippy").font(.system(size: 8, weight: .semibold))
+                Text(verbatim: "Chippy").font(.system(size: 8, weight: .semibold))
             }
         }
     }
@@ -224,7 +224,7 @@ private struct ShareSheetArt: View {
                 .foregroundStyle(.white)
                 .frame(width: 24, height: 24)
                 .background(color.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
-            Text(" ").font(.system(size: 8))
+            Text(verbatim: " ").font(.system(size: 8))
         }
     }
 }

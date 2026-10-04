@@ -61,6 +61,8 @@ export const summaries = sqliteTable("summaries", {
   tags: text("tags", { mode: "json" }).$type<string[]>().notNull(),
   keywords: text("keywords", { mode: "json" }).$type<string[]>().notNull(),
   language: text("language").notNull(),
+  /** The language the owner chose to read this summary in (a `TRANSLATION_LANGUAGES` code); null = as written. */
+  displayLanguage: text("display_language"),
   theme: text("theme", { mode: "json" }).$type<SummaryTheme>().notNull(),
   /** The OG image headline chosen by the model; not part of the public JSON. */
   ogHeadline: text("og_headline"),
@@ -113,6 +115,30 @@ export const summaryEmbeddings = sqliteTable("summary_embeddings", {
   index("summary_embeddings_model_idx").on(table.model),
 ]);
 
+/**
+ * A summary translated into one of `TRANSLATION_LANGUAGES`: its title, summary and highlights, and
+ * the kept source document. `contentMarkdown` follows the `summaries` convention: "" while the
+ * translation is being written, null when there is no source to translate (or it failed).
+ */
+export const summaryTranslations = sqliteTable("summary_translations", {
+  summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  language: text("language").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  highlights: text("highlights", { mode: "json" }).$type<string[]>().notNull(),
+  contentMarkdown: text("content_markdown"),
+  /** The translated OG headline; null for translations written before it was translated. */
+  headline: text("headline"),
+  /** The OG card drawn over the summary's art with the translated headline (rendered on first request). */
+  ogImageKey: text("og_image_key"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.summaryId, table.language] }),
+]);
+
+export type SummaryTranslationRow = typeof summaryTranslations.$inferSelect;
+
 /** Presigned PDF uploads. Rows never attached to a summary are swept by the cleanup cron. */
 export const uploads = sqliteTable("uploads", {
   key: text("key").primaryKey(),
@@ -141,3 +167,24 @@ export const pushDevices = sqliteTable("push_devices", {
   uniqueIndex("push_devices_token_environment_idx").on(table.token, table.environment),
   index("push_devices_owner_idx").on(table.ownerId),
 ]);
+
+/**
+ * Personal API keys for the hosted MCP server (`/api/mcp`). Only the SHA-256 of a key is stored;
+ * the key itself is shown once, when it is created. `hint` (prefix…last four) identifies it in lists.
+ */
+export const apiKeys = sqliteTable("api_keys", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(),
+  hint: text("hint").notNull(),
+  toolCallCount: integer("tool_call_count").notNull().default(0),
+  summariesAddedCount: integer("summaries_added_count").notNull().default(0),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  uniqueIndex("api_keys_key_hash_unique").on(table.keyHash),
+  index("api_keys_owner_created_idx").on(table.ownerId, table.createdAt),
+]);
+
+export type ApiKeyRow = typeof apiKeys.$inferSelect;

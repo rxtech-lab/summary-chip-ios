@@ -1,30 +1,52 @@
-# MCP server (macOS)
+# MCP server
 
-The Mac app has a built-in [Model Context Protocol](https://modelcontextprotocol.io) server. With it, AI
-agents on the same Mac (Claude Code, Claude Desktop, Cursor and others) can add summaries to your library,
-search it in natural language and list it by filter. Agents act as the account signed in to Chippy. There
-is no separate sign-in, and nothing to install.
+The Chippy server hosts a [Model Context Protocol](https://modelcontextprotocol.io) server at
+`https://summary.rxlab.app/api/mcp`. With it, AI agents (Claude Code, Claude Desktop, Cursor and others)
+can add summaries to your library, search it in natural language and list it by filter, from any machine.
+Agents sign in with a personal **API key** and act as the account that owns it. The app doesn't need to
+be open.
 
-## Turning it on
+## API keys
 
-**Settings → Integrations → MCP Server → Configure…** opens a sheet where you can:
+**Settings → MCP Server** on iOS (under *Integrations*) and macOS (under *General*) opens a sheet that:
 
-- turn the server on or off. The setting is remembered, and the server starts when Chippy launches;
-- change the port (default `47823`);
-- copy the endpoint URL (`http://127.0.0.1:<port>/mcp`) and the access token;
-- regenerate the token. Agents set up with the old token stop working;
-- copy a ready-made configuration for Claude Code, Claude Desktop, or any agent that reads JSON MCP
-  configuration (Cursor, VS Code, a project's `.mcp.json`).
+- shows the endpoint URL, with a copy button;
+- lists the account's keys, newest first. Each row shows the key's name, its hint
+  (`chippy_Ab3x…9fQz`), how many tool calls it made, how many summaries it added, and when it was
+  created and last used;
+- **New API Key** (the `+` button) opens a sheet to name a key. After it's created, the same sheet shows
+  the key **once**, with a copy button and ready-made configuration for Claude Code, Claude Desktop or any
+  agent that reads JSON MCP configuration;
+- **Rename…** opens its own sheet. **Revoke…** asks for confirmation, then deletes the key. Agents using it
+  get `401` from their next request on. On iOS these are swipe actions; on both platforms they are in the
+  row's context menu, and on macOS also in its `…` menu.
 
-The server only runs while Chippy is open. It binds to the loopback interface, so other machines can't
-reach it. Every request must send `Authorization: Bearer <token>`, which keeps other apps on the Mac out.
-The token is a random 256-bit value stored in the keychain.
+A key is `chippy_` followed by 32 random bytes in base64url. The server stores only its SHA-256
+(`api_keys.key_hash`). The full key is in the `POST` response and nowhere else, so a lost key can't be
+recovered: revoke it and create another. An account can have at most 25 keys. Keys go when the account is
+deleted, through the `owner_id` foreign key's cascade.
+
+| Method & path | Body | Response |
+|---|---|---|
+| `GET /api/v1/api-keys` | – | `{items:[ApiKey]}` |
+| `POST /api/v1/api-keys` | `{name}` (1–60 chars) | `201 {key, apiKey: ApiKey}`, or `409 API_KEY_LIMIT_REACHED` |
+| `PATCH /api/v1/api-keys/:id` | `{name}` | `ApiKey` |
+| `DELETE /api/v1/api-keys/:id` | – | `204` (revoked) |
+
+`ApiKey` is `{id, name, hint, toolCallCount, summariesAddedCount, lastUsedAt, createdAt}`. These routes
+take the app's OAuth token, like the rest of `/api/v1`. An API key can't manage keys.
+
+`lastUsedAt` is set on every `tools/call`, and on other authenticated MCP requests (`initialize`,
+`tools/list`) at most once a minute per key. `toolCallCount` counts every `tools/call`, including failed ones. `summariesAddedCount` counts chips that
+`add_summary` saved.
+
+## Connecting an agent
 
 ### Claude Code
 
 ```sh
-claude mcp add --transport http chippy http://127.0.0.1:47823/mcp \
-  --header "Authorization: Bearer <token>"
+claude mcp add --transport http chippy https://summary.rxlab.app/api/mcp \
+  --header "Authorization: Bearer <api key>"
 # add --scope user to use it in every project
 ```
 
@@ -35,8 +57,8 @@ claude mcp add --transport http chippy http://127.0.0.1:47823/mcp \
   "mcpServers": {
     "chippy": {
       "type": "http",
-      "url": "http://127.0.0.1:47823/mcp",
-      "headers": { "Authorization": "Bearer <token>" }
+      "url": "https://summary.rxlab.app/api/mcp",
+      "headers": { "Authorization": "Bearer <api key>" }
     }
   }
 }
@@ -52,7 +74,7 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
   "mcpServers": {
     "chippy": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://127.0.0.1:47823/mcp", "--header", "Authorization: Bearer <token>"]
+      "args": ["-y", "mcp-remote", "https://summary.rxlab.app/api/mcp", "--header", "Authorization: Bearer <api key>"]
     }
   }
 }
@@ -60,11 +82,11 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 
 ## Tools
 
-| Tool | What it does | API call |
+| Tool | What it does | Service |
 |---|---|---|
-| `add_summary` | Saves a summary the agent wrote, with key points, tags and the raw source text. Nothing is re-summarised. | `POST /api/v1/summaries/import` |
-| `search_summaries` | Natural-language search (meaning + keywords), most relevant first. | `GET /api/v1/summaries?q=…` |
-| `list_summaries` | The library newest first, filtered. Follows cursors internally, up to 200 per call. | `GET /api/v1/summaries` |
+| `add_summary` | Saves a summary the agent wrote, with key points, tags and the raw source text. Nothing is re-summarised. | `importSummary` (as `POST /api/v1/summaries/import`) |
+| `search_summaries` | Natural-language search (meaning + keywords), most relevant first. Up to 50 per page. | `listSummaries` with `q` |
+| `list_summaries` | The library newest first, filtered. Up to 200 per call. | `listSummaries` |
 
 `search_summaries` and `list_summaries` accept the same filters: `source` (`web`, `x`, `facebook`,
 `youtube`, `github`, `pdf`, `text`), `category`, `tag`, `visibility` (`public` / `private`) and `scope`
@@ -75,33 +97,37 @@ to get the next page. Each item has `id`, `title`, `summary`, `keyPoints`, `cate
 
 `add_summary` takes `title`, `summary` and `text` (all required), plus optional `keyPoints` (≤ 5), `tags`
 (≤ 12), `keywords` (≤ 10), `category`, `language`, `sourceUrl`, `sourceTitle`, `siteName`, `visibility`,
-`ttlDays` (`1`, `3`, `7`, `30`, `90`, `365` or `"never"`) and `allowDuplicate`. The server limits are
-listed under [Import body](ARCHITECTURE.md#import-body). Added chips always get an illustrated cover. Each
-one counts against the summary allowance, and the open library refreshes so the new chip shows up.
+`ttlDays` (`1`, `3`, `7`, `30`, `90`, `365` or `"never"`) and `allowDuplicate`. The arguments are checked
+with the import API's own schema, so the limits under [Import body](ARCHITECTURE.md#import-body) apply.
+Added chips always get an illustrated cover. Each one counts against the summary allowance. The account's
+devices with notifications on are alerted, the same as for the import API.
 
 A chip that is already in the library (`409 DUPLICATE_SUMMARY`) comes back as a tool error. The message
-names the existing chip and its link, and suggests `allowDuplicate: true`. When the app is signed out,
-every tool returns an error asking the user to sign in to Chippy.
+names the existing chip and its link, and suggests `allowDuplicate: true`. Other API errors, such as an
+allowance that is used up, come back as tool errors carrying the server's message and code.
 
 ## Implementation
 
 | File | Role |
 |---|---|
-| `summary-chip/MCP/MCPHTTPServer.swift` | Network.framework listener on loopback. It checks the bearer token, then gives each session its own `Server` + `StatefulHTTPServerTransport` ([swift-sdk](https://github.com/modelcontextprotocol/swift-sdk)), keyed by `MCP-Session-Id` |
-| `summary-chip/MCP/ChippyMCPTools.swift` | Tool catalog, argument validation, and mapping to `SummaryAPIClient` |
-| `summary-chip/MCP/MCPServerController.swift` | On/off, port, and keychain token. Starts the server at launch when it's enabled |
-| `summary-chip/MCP/MCPSettingsSheet.swift` | The settings sheet |
-| `summary-chipTests/MCPServerTests.swift` | End-to-end over HTTP against a stubbed `/api/v1` |
+| `server/app/api/mcp/route.ts` | `POST` handler: API key auth, then a fresh `McpServer` + `WebStandardStreamableHTTPServerTransport` per request (stateless, JSON responses). `GET`/`DELETE` answer `405` |
+| `server/lib/mcp/server.ts` | Tool catalog (zod input schemas), mapping to the summary services, results and usage counting |
+| `server/lib/services/api-keys.ts` | Key generation, hashing, list/create/rename/revoke, authentication and usage counters |
+| `server/lib/http/handler.ts` | `withApiKeyAuth`: `401 MISSING_API_KEY` / `INVALID_API_KEY` with `WWW-Authenticate: Bearer` |
+| `server/app/api/v1/api-keys/**` | Key management routes (OAuth) |
+| `server/tests/integration/mcp.test.ts` | Key routes and MCP tool calls end to end |
+| `summary-chip/MCP/MCPSettingsSheet.swift` | The settings sheet: endpoint, key list with usage, revoke |
+| `summary-chip/MCP/APIKeySheets.swift` | Create (shows the key once, with agent configuration) and rename sheets |
 
-The app is sandboxed, so it needs the `com.apple.security.network.server` entitlement to listen. The
-whole feature is compiled only for macOS. The `MCP` package is linked with `destinationFilters: [macOS]`.
+The server is stateless: there are no `MCP-Session-Id`s, so any serverless instance can answer any
+request, and `add_summary` runs within the route's `maxDuration` (300 s).
 
-Check the endpoint by hand. Expect `401` without the token, then an SSE response with the server's
+Check the endpoint by hand. Expect `401` without the key, then a JSON-RPC result with the server's
 capabilities:
 
 ```sh
-curl -i http://127.0.0.1:47823/mcp \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+curl -i https://summary.rxlab.app/api/mcp \
+  -H "Authorization: Bearer <api key>" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
 ```

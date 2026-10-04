@@ -1,17 +1,21 @@
 import { patchSummarySchema } from "@/lib/contracts/api";
 import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson, readJson } from "@/lib/http/errors";
-import { toSummaryJson } from "@/lib/services/serialize";
-import { deleteSummary, getSummaryForViewer, patchSummary } from "@/lib/services/summaries";
+import { deleteSummary, getSummaryForViewer, patchSummary, readSummaryJson } from "@/lib/services/summaries";
+import { acceptedLanguage } from "@/lib/services/translations";
 
 export const runtime = "nodejs";
+/** Translating the source document continues after the response (`after`). */
+export const maxDuration = 300;
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, { params }: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
-    return noStoreJson(toSummaryJson(await getSummaryForViewer(db, id, principal.sub), principal.sub));
+    // The owner reads their chosen `displayLanguage`; anyone else their `Accept-Language`.
+    const row = await getSummaryForViewer(db, id, principal.sub);
+    return noStoreJson(await readSummaryJson(db, row, principal.sub, acceptedLanguage(request)));
   });
 }
 

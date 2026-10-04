@@ -86,7 +86,7 @@ public struct ChatStreamParser: Sendable {
         case "tool-output-available":
             return .toolOutputAvailable(toolCallId: value["toolCallId"]?.stringValue ?? "", output: value["output"] ?? .null)
         case "error":
-            return .error(value["errorText"]?.stringValue ?? "Something went wrong.")
+            return .error(value["errorText"]?.stringValue ?? String(localized: "Something went wrong.", bundle: .module))
         case "finish":
             return .finish
         default:
@@ -196,7 +196,7 @@ public struct SummaryReference: Codable, Sendable, Hashable, Identifiable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         slug = try c.decodeIfPresent(String.self, forKey: .slug)
-        title = try c.decodeIfPresent(String.self, forKey: .title) ?? "Untitled"
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? String(localized: "Untitled", bundle: .module)
         summary = try c.decodeIfPresent(String.self, forKey: .summary)
         category = try c.decodeIfPresent(String.self, forKey: .category)
         tags = (try? c.decodeIfPresent([String].self, forKey: .tags)) ?? []
@@ -234,7 +234,7 @@ public enum ChatToolOutput {
             return input["pattern"]?.stringValue.map { "“\($0)”" }
         case "readLocalFile":
             guard let start = input["startLine"]?.intValue else { return nil }
-            return input["endLine"]?.intValue.map { "Lines \(start)–\($0)" } ?? "From line \(start)"
+            return input["endLine"]?.intValue.map { String(localized: "Lines \(start)–\($0)", bundle: .module) } ?? String(localized: "From line \(start)", bundle: .module)
         default:
             return nil
         }
@@ -245,11 +245,11 @@ public enum ChatToolOutput {
         switch toolName {
         case "grepLocalFile":
             guard let total = output["totalMatches"]?.intValue else { return nil }
-            return total == 0 ? "No matches" : total == 1 ? "1 match" : "\(total) matches"
+            return total == 0 ? String(localized: "No matches", bundle: .module) : total == 1 ? String(localized: "1 match", bundle: .module) : String(localized: "\(total) matches", bundle: .module)
         case "readLocalFile":
             guard let start = output["startLine"]?.intValue, let end = output["endLine"]?.intValue,
                   let total = output["totalLines"]?.intValue else { return nil }
-            return "Lines \(start)–\(end) of \(total)"
+            return String(localized: "Lines \(start)–\(end) of \(total)", bundle: .module)
         default:
             return nil
         }
@@ -270,16 +270,16 @@ public enum ChatToolOutput {
     public static func activityLabel(toolName: String, input: JSONValue) -> String {
         switch toolName {
         case "searchSummaries":
-            if let query = input["query"]?.stringValue, !query.isEmpty { return "Searching for “\(query)”…" }
-            return "Searching summaries…"
+            if let query = input["query"]?.stringValue, !query.isEmpty { return String(localized: "Searching for “\(query)”…", bundle: .module) }
+            return String(localized: "Searching summaries…", bundle: .module)
         case "getSummary":
-            return "Reading summary…"
+            return String(localized: "Reading summary…", bundle: .module)
         case "grepLocalFile":
-            return "Searching the file…"
+            return String(localized: "Searching the file…", bundle: .module)
         case "readLocalFile":
-            return "Reading the file…"
+            return String(localized: "Reading the file…", bundle: .module)
         default:
-            return "Working…"
+            return String(localized: "Working…", bundle: .module)
         }
     }
 }

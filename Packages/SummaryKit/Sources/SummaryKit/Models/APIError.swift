@@ -35,18 +35,18 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
         case .server(_, let body): body.message
         case .http(let status):
             switch status {
-            case 401: "Your session expired. Please sign in again."
-            case 404: "This summary is private, its link expired, or it no longer exists."
-            case 413: "That file is too large."
-            case 429: "Too many requests. Try again in a moment."
-            case 500...: "The server had a problem (\(status)). Please try again."
-            default: "The request failed (\(status))."
+            case 401: String(localized: "Your session expired. Please sign in again.", bundle: .module)
+            case 404: String(localized: "This summary is private, its link expired, or it no longer exists.", bundle: .module)
+            case 413: String(localized: "That file is too large.", bundle: .module)
+            case 429: String(localized: "Too many requests. Try again in a moment.", bundle: .module)
+            case 500...: String(localized: "The server had a problem (\(status)). Please try again.", bundle: .module)
+            default: String(localized: "The request failed (\(status)).", bundle: .module)
             }
-        case .notSignedIn: "Open Chippy and sign in first."
-        case .invalidResponse: "The server returned an unexpected response."
-        case .decoding(let detail): "Could not read the server response. \(detail)"
-        case .fileTooLarge(let max): "PDFs must be smaller than \(ByteCountFormatter.string(fromByteCount: Int64(max), countStyle: .file))."
-        case .uploadFailed(let status): "Uploading the file failed (\(status))."
+        case .notSignedIn: String(localized: "Open Chippy and sign in first.", bundle: .module)
+        case .invalidResponse: String(localized: "The server returned an unexpected response.", bundle: .module)
+        case .decoding(let detail): String(localized: "Could not read the server response. \(detail)", bundle: .module)
+        case .fileTooLarge(let max): String(localized: "PDFs must be smaller than \(ByteCountFormatter.string(fromByteCount: Int64(max), countStyle: .file)).", bundle: .module)
+        case .uploadFailed(let status): String(localized: "Uploading the file failed (\(status)).", bundle: .module)
         }
     }
 
@@ -123,6 +123,6 @@ public struct UnreadablePageError: Error, LocalizedError, Sendable, Hashable, Id
     }
 
     public var errorDescription: String? {
-        "Chippy couldn't read this page. Open it in Safari, then share it to Chippy from the Share menu."
+        String(localized: "Chippy couldn't read this page. Open it in Safari, then share it to Chippy from the Share menu.", bundle: .module)
     }
 }

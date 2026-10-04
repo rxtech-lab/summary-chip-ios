@@ -39,10 +39,6 @@ final class AppEnvironment {
     let assetLoader: SummaryAssetLoader
     let library: LibraryModel
     let credits = SummaryCreditsStore()
-    #if os(macOS)
-    /// Local MCP server that lets agents add, search and list summaries (Settings → MCP Server).
-    let mcpServer: MCPServerController
-    #endif
     var pendingTopUp = false
     private(set) var authenticationState: AuthenticationPresentationState
     var pendingRoute: AppRoute?
@@ -63,10 +59,6 @@ final class AppEnvironment {
         self.chatClient = ChatStreamClient(api: api)
         self.assetLoader = SummaryAssetLoader(tokenProvider: tokenBroker)
         self.library = LibraryModel(api: api, offline: OfflineSummaryStore())
-        #if os(macOS)
-        let library = library
-        self.mcpServer = MCPServerController(api: api) { await library.reload() }
-        #endif
         SummaryAssetLoader.retainImagesForOfflineUse()
         self.authenticationState = authenticationState
     }

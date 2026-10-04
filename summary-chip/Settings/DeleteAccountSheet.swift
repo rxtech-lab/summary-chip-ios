@@ -18,7 +18,7 @@ struct DeleteAccountSheet: View {
                         Image(systemName: state.pendingDeletion ? "clock.badge.exclamationmark" : "person.crop.circle.badge.xmark")
                             .font(.system(size: 48))
                             .foregroundStyle(.red)
-                        Text(state.pendingDeletion ? "Deletion Scheduled" : "Delete Your Account")
+                        (state.pendingDeletion ? Text("Deletion Scheduled") : Text("Delete Your Account"))
                             .font(.title2.weight(.bold))
                         Text(summary)
                             .multilineTextAlignment(.center)
@@ -85,12 +85,12 @@ struct DeleteAccountSheet: View {
 
     private var summary: String {
         if state.pendingDeletion, let date = state.deletionScheduledAt {
-            return "Everything will be permanently deleted on \(date.formatted(date: .long, time: .shortened)). You stay signed in until then and can keep your account at any time."
+            return String(localized: "Everything will be permanently deleted on \(date.formatted(date: .long, time: .shortened)). You stay signed in until then and can keep your account at any time.")
         }
-        return "Your account is deleted 7 days after you ask, and you can cancel any time before then. After that it cannot be recovered."
+        return String(localized: "Your account is deleted 7 days after you ask, and you can cancel any time before then. After that it cannot be recovered.")
     }
 
-    private func actionLabel(_ title: String) -> some View {
+    private func actionLabel(_ title: LocalizedStringKey) -> some View {
         HStack {
             Spacer()
             Text(title).fontWeight(.semibold)
@@ -108,7 +108,7 @@ struct DeleteAccountSheet: View {
                 state = try await work()
             } catch let error as SummaryAPIError where error.code == "ACCOUNT_DELETION_SCOPE_REQUIRED" {
                 // Sessions from before the app asked for `write:profile` need a fresh sign-in.
-                errorMessage = "Sign out and sign in again to confirm this change."
+                errorMessage = String(localized: "Sign out and sign in again to confirm this change.")
             } catch {
                 errorMessage = error.localizedDescription
             }

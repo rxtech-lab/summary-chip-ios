@@ -13,11 +13,11 @@ public enum GenerationStage: Int, CaseIterable, Sendable, Comparable {
 
     public var title: String {
         switch self {
-        case .uploading: "Uploading PDF"
-        case .reading: "Reading the source"
-        case .summarising: "Writing the summary"
-        case .designing: "Designing the preview image"
-        case .finishing: "Finishing up"
+        case .uploading: String(localized: "Uploading PDF", bundle: .module)
+        case .reading: String(localized: "Reading the source", bundle: .module)
+        case .summarising: String(localized: "Writing the summary", bundle: .module)
+        case .designing: String(localized: "Designing the preview image", bundle: .module)
+        case .finishing: String(localized: "Finishing up", bundle: .module)
         }
     }
 

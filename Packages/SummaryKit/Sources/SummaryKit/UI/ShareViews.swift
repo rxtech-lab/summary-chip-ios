@@ -102,19 +102,19 @@ public enum ShareMode: String, CaseIterable, Identifiable, Sendable {
 
     public var title: String {
         switch self {
-        case .system: "Everything"
-        case .link: "Link"
-        case .image: "Image"
-        case .copy: "Copy link"
+        case .system: String(localized: "Everything", bundle: .module, comment: "Share mode: link, image and full text")
+        case .link: String(localized: "Link", bundle: .module, comment: "Share mode: send only the link (noun)")
+        case .image: String(localized: "Image", bundle: .module, comment: "Share mode: send the preview image")
+        case .copy: String(localized: "Copy link", bundle: .module)
         }
     }
 
     public var detail: String {
         switch self {
-        case .system: "Link preview, image and the full summary. Each app takes what it supports."
-        case .link: "Messages, Slack and others render the preview card from the link."
-        case .image: "Sends the preview image with the title and link as a caption."
-        case .copy: "Copies the link to the clipboard."
+        case .system: String(localized: "Link preview, image and the full summary. Each app takes what it supports.", bundle: .module)
+        case .link: String(localized: "Messages, Slack and others render the preview card from the link.", bundle: .module)
+        case .image: String(localized: "Sends the preview image with the title and link as a caption.", bundle: .module)
+        case .copy: String(localized: "Copies the link to the clipboard.", bundle: .module)
         }
     }
 
@@ -129,8 +129,8 @@ public enum ShareMode: String, CaseIterable, Identifiable, Sendable {
 
     var actionTitle: String {
         switch self {
-        case .copy: "Copy link"
-        default: "Share"
+        case .copy: String(localized: "Copy link", bundle: .module)
+        default: String(localized: "Share", bundle: .module, comment: "Button: open the share sheet")
         }
     }
 }
@@ -255,6 +255,8 @@ enum RichShareItems {
 /// result screen and the share extension's result screen.
 public struct ShareActionsSection: View {
     let summary: Summary
+    /// Puts the share button in the enclosing toolbar instead of a row below the picker.
+    let actionInToolbar: Bool
 
     @Environment(\.summaryAssetLoader) private var loader
     @AppStorage("shareMode") private var mode: ShareMode = .system
@@ -263,11 +265,14 @@ public struct ShareActionsSection: View {
     @State private var copied = false
     @State private var errorMessage: String?
 
-    public init(summary: Summary) { self.summary = summary }
+    public init(summary: Summary, actionInToolbar: Bool = false) {
+        self.summary = summary
+        self.actionInToolbar = actionInToolbar
+    }
 
     public var body: some View {
         Section {
-            Picker("Share as", selection: $mode) {
+            Picker(String(localized: "Share as", bundle: .module), selection: $mode) {
                 ForEach(ShareMode.allCases) { mode in
                     HStack(spacing: 14) {
                         Image(systemName: mode.systemImage)
@@ -286,40 +291,70 @@ public struct ShareActionsSection: View {
             .labelsHidden()
             .disabled(isPreparing)
         } header: {
-            Text("Share as")
+            Text("Share as", bundle: .module)
         } footer: {
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red)
             } else if summary.visibility == .private {
-                Text("This summary is private, so the link won't open for anyone else. Make it public under Edit sharing.")
+                Text("This summary is private, so the link won't open for anyone else. Make it public under Edit sharing.", bundle: .module)
             }
         }
-
-        Section {
-            Button {
-                Task { await perform(mode) }
-            } label: {
-                HStack(spacing: 8) {
-                    if isPreparing {
-                        ProgressView().tint(.white)
-                    } else {
-                        Image(systemName: copied && mode == .copy ? "checkmark" : (mode == .copy ? "doc.on.doc" : "square.and.arrow.up"))
+        .toolbar {
+            if actionInToolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await perform(mode) }
+                    } label: {
+                        if isPreparing {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Label(actionTitle, systemImage: actionImage)
+                                .labelStyle(.titleAndIcon)
+                        }
                     }
-                    Text(copied && mode == .copy ? "Copied" : mode.actionTitle)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isPreparing)
+                    .background(ActivityPresenterAnchor(presenter: presenter))
+                    .accessibilityIdentifier("share-action")
                 }
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isPreparing)
-            .background(ActivityPresenterAnchor(presenter: presenter))
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
         }
         .sensoryFeedback(.success, trigger: copied) { _, new in new }
         .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         .onChange(of: mode) { errorMessage = nil }
+
+        if !actionInToolbar {
+            Section {
+                Button {
+                    Task { await perform(mode) }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isPreparing {
+                            ProgressView().tint(.white)
+                        } else {
+                            Image(systemName: actionImage)
+                        }
+                        Text(actionTitle)
+                    }
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isPreparing)
+                .background(ActivityPresenterAnchor(presenter: presenter))
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+        }
+    }
+
+    private var actionTitle: String {
+        copied && mode == .copy ? String(localized: "Copied", bundle: .module) : mode.actionTitle
+    }
+
+    private var actionImage: String {
+        copied && mode == .copy ? "checkmark" : (mode == .copy ? "doc.on.doc" : "square.and.arrow.up")
     }
 
     private func perform(_ mode: ShareMode) async {
@@ -342,7 +377,7 @@ public struct ShareActionsSection: View {
                 presenter.present([file, ShareCaption.text(for: summary)])
             } catch {
                 isPreparing = false
-                errorMessage = "Couldn't download the preview image. \(error.localizedDescription)"
+                errorMessage = String(localized: "Couldn't download the preview image. \(error.localizedDescription)", bundle: .module)
             }
         case .copy:
             #if os(iOS)
@@ -376,14 +411,25 @@ public struct ShareModeSheet: View {
                     Text(summary.shareUrl.absoluteString)
                         .textSelection(.enabled)
                 }
+                #if os(macOS)
+                ShareActionsSection(summary: summary, actionInToolbar: true)
+                #else
                 ShareActionsSection(summary: summary)
+                #endif
             }
-            .navigationTitle("Share")
+            .navigationTitle(Text("Share", bundle: .module, comment: "Title of the share sheet"))
             .summaryInlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                #if os(macOS)
+                // The share action takes the default (trailing) slot; Done closes without sharing.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
                 }
+                #else
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
+                }
+                #endif
             }
         }
         .presentationDetents([.medium, .large])

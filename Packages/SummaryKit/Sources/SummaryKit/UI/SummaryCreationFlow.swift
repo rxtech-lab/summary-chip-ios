@@ -42,7 +42,7 @@ public struct SummaryCreationFlow<Result: View>: View {
         initialText: String = "",
         initialFile: DroppedSummaryFile? = nil,
         allowsFilePicking: Bool = false,
-        title: String = "New Summary",
+        title: String? = nil,
         onCancel: @escaping () -> Void,
         onCreated: @escaping (Summary) -> Void = { _ in },
         onTopUp: (() -> Void)? = nil,
@@ -55,7 +55,7 @@ public struct SummaryCreationFlow<Result: View>: View {
         self.sourceFilename = sourceFilename
         self.initialFile = initialFile
         self.allowsFilePicking = allowsFilePicking
-        self.title = title
+        self.title = title ?? String(localized: "New Summary", bundle: .module)
         self.onCancel = onCancel
         self.onCreated = onCreated
         self.onTopUp = onTopUp
@@ -73,20 +73,20 @@ public struct SummaryCreationFlow<Result: View>: View {
                 .navigationDestination(for: OptionsRoute.self) { _ in
                     Form { GenerationOptionsSections(options: $options) }
                         .formStyle(.grouped)
-                        .navigationTitle("Options")
+                        .navigationTitle(Text("Options", bundle: .module))
                 }
         }
         .summarySheetSize()
         .interactiveDismissDisabled(session.isGenerating || isReadingFile)
         .overlay {
             if isReadingFile {
-                ActionStatusOverlay("Reading file…", isWorking: true)
+                ActionStatusOverlay(String(localized: "Reading file…", bundle: .module), isWorking: true)
             } else if session.isGenerating, case .generating(let stage) = session.state {
                 ZStack {
                     Color.black.opacity(0.12).ignoresSafeArea()
                     VStack(spacing: 20) {
                         GenerationProgressView(stages: session.stages, current: stage)
-                        Button("Stop", role: .cancel) { session.cancel() }
+                        Button(String(localized: "Stop", bundle: .module), role: .cancel) { session.cancel() }
                     }
                     .padding(24)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
@@ -100,15 +100,15 @@ public struct SummaryCreationFlow<Result: View>: View {
                 session.unreadablePage = nil
             }
         }
-        .statusAlert("Couldn't Read File", message: importError) { importError = nil }
-        .statusAlert("Couldn't Create Summary", message: session.needsTopUp ? nil : failureMessage) { session.reset() }
-        .alert("Not Enough Points", isPresented: topUpAlertPresented, presenting: failureMessage) { _ in
-            Button(onTopUp == nil ? "Open Chippy" : "Top Up") {
+        .statusAlert(Text("Couldn't Read File", bundle: .module), message: importError) { importError = nil }
+        .statusAlert(Text("Couldn't Create Summary", bundle: .module), message: session.needsTopUp ? nil : failureMessage) { session.reset() }
+        .alert(Text("Not Enough Points", bundle: .module), isPresented: topUpAlertPresented, presenting: failureMessage) { _ in
+            Button(onTopUp == nil ? String(localized: "Open Chippy", bundle: .module) : String(localized: "Top Up", bundle: .module)) {
                 session.reset()
                 if let onTopUp { onTopUp() }
                 else if let url = URL(string: "summarychip://top-up") { openURL(url) }
             }
-            Button("Later", role: .cancel) { session.reset() }
+            Button(String(localized: "Later", bundle: .module), role: .cancel) { session.reset() }
         } message: { message in
             Text(message)
         }
@@ -158,8 +158,8 @@ public struct SummaryCreationFlow<Result: View>: View {
     private var navigationTitle: String {
         switch session.state {
         case .idle, .failed: title
-        case .generating: "Generating…"
-        case .finished: "Ready to share"
+        case .generating: String(localized: "Generating…", bundle: .module)
+        case .finished: String(localized: "Ready to share", bundle: .module)
         }
     }
 
@@ -186,9 +186,9 @@ public struct SummaryCreationFlow<Result: View>: View {
                     SummaryInputPreview(input: pickedDocument)
                     Button(role: .destructive) {
                         clearPickedDocument()
-                    } label: { Label("Remove file", systemImage: "xmark.circle") }
+                    } label: { Label(String(localized: "Remove file", bundle: .module), systemImage: "xmark.circle") }
                 } else {
-                    TextField("Paste a link or some text", text: $draft, axis: .vertical)
+                    TextField(String(localized: "Paste a link or some text", bundle: .module), text: $draft, axis: .vertical)
                         .lineLimit(3...10)
                         .summaryInputCapitalization()
                         .autocorrectionDisabled()
@@ -203,41 +203,43 @@ public struct SummaryCreationFlow<Result: View>: View {
                         Button {
                             isImporting = true
                         } label: {
-                            Label("Choose a file…", systemImage: "doc.badge.plus")
+                            Label(String(localized: "Choose a file…", bundle: .module), systemImage: "doc.badge.plus")
                             .accessibilityIdentifier("choose-summary-file")
                         }
                     }
                 }
             } header: {
-                Text("Source")
+                Text("Source", bundle: .module)
             } footer: {
                 if fixedInput == nil, pickedDocument == nil {
-                    Text(allowsFilePicking ? "A web link, text, or drop or choose a PDF, document, text, Markdown or code file." : draftHint)
+                    Text(allowsFilePicking ? String(localized: "A web link, text, or drop or choose a PDF, document, text, Markdown or code file.", bundle: .module) : draftHint)
                 } else if sourceFile != nil {
-                    Text("Read on this device; \(savedToAccount). A copy of the file stays on this device.")
+                    readOnDeviceFooter(keepsCopy: true)
                 } else if case .copy = pickedLink {
-                    Text("Read on this device; \(savedToAccount). A copy of the file stays on this device.")
+                    readOnDeviceFooter(keepsCopy: true)
                 } else if pickedDocument != nil {
-                    Text("Read on this device; \(savedToAccount). The original file stays linked on this device.")
+                    readOnDeviceFooter(keepsCopy: false)
                 }
             }
 
             if offersKeepingSourceText {
                 Section {
                     Toggle(isOn: $options.keepsSourceText) {
-                        Label("Keep source text", systemImage: "doc.plaintext")
+                        Label(String(localized: "Keep source text", bundle: .module), systemImage: "doc.plaintext")
                     }
                     .sensoryFeedback(.selection, trigger: options.keepsSourceText)
                     .accessibilityIdentifier("keep-source-text")
                 } footer: {
-                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it.")
+                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it.", bundle: .module)
                 }
             }
 
             Section {
                 NavigationLink(value: OptionsRoute()) {
-                    LabeledContent("Options") {
+                    LabeledContent {
                         Text(optionsSummary).lineLimit(1)
+                    } label: {
+                        Text("Options", bundle: .module)
                     }
                 }
             }
@@ -247,7 +249,7 @@ public struct SummaryCreationFlow<Result: View>: View {
                 Button {
                     generate()
                 } label: {
-                    Label(error == nil ? "Generate summary" : "Try again", systemImage: "sparkles")
+                    Label(error == nil ? String(localized: "Generate summary", bundle: .module) : String(localized: "Try again", bundle: .module), systemImage: "sparkles")
                         .frame(maxWidth: .infinity)
                         .fontWeight(.semibold)
                 }
@@ -285,11 +287,11 @@ public struct SummaryCreationFlow<Result: View>: View {
         switch session.state {
         case .generating:
             ToolbarItem(placement: .cancellationAction) {
-                Button("Stop", role: .cancel) { session.cancel() }
+                Button(String(localized: "Stop", bundle: .module), role: .cancel) { session.cancel() }
             }
         case .finished:
             ToolbarItem(placement: .cancellationAction) {
-                Button("New") {
+                Button(String(localized: "New", bundle: .module, comment: "Start another summary")) {
                     session.reset()
                     draft = ""
                     clearPickedDocument()
@@ -299,7 +301,7 @@ public struct SummaryCreationFlow<Result: View>: View {
             }
         default:
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", role: .cancel) { onCancel() }.disabled(isReadingFile)
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) { onCancel() }.disabled(isReadingFile)
             }
             #if os(macOS)
             ToolbarItem(placement: .confirmationAction) {
@@ -320,19 +322,19 @@ public struct SummaryCreationFlow<Result: View>: View {
 
     private var freeSummariesBadgeHelp: String {
         guard let freeSummariesRemaining, freeSummariesRemaining > 0 else { return "" }
-        return freeSummariesRemaining == 1 ? "1 free summary left today" : "\(freeSummariesRemaining) free summaries left today"
+        return freeSummariesRemaining == 1 ? String(localized: "1 free summary left today", bundle: .module) : String(localized: "\(freeSummariesRemaining) free summaries left today", bundle: .module)
     }
 
     private var generationActionTitle: String {
-        if case .failed = session.state { return "Try again" }
-        return "Generate summary"
+        if case .failed = session.state { return String(localized: "Try again", bundle: .module) }
+        return String(localized: "Generate summary", bundle: .module)
     }
 
     private var optionsSummary: String {
         [options.language == .auto ? nil : options.language.title,
          options.imageStyle.title,
          options.visibility.title,
-         options.ttl == .never ? "Link never expires" : "Link: \(options.ttl.title)"]
+         options.ttl == .never ? String(localized: "Link never expires", bundle: .module) : String(localized: "Link: \(options.ttl.title)", bundle: .module, comment: "Options summary: how long the share link lasts")]
             .compactMap { $0 }
             .joined(separator: " · ")
     }
@@ -346,16 +348,24 @@ public struct SummaryCreationFlow<Result: View>: View {
         }
     }
 
-    private var savedToAccount: String {
-        offersKeepingSourceText && options.keepsSourceText
-            ? "the summary and the file's text are saved to your account"
-            : "only the summary is saved to your account"
+    /// Footer for a file read on this device: what is saved, and whether a copy or a link to the original stays here.
+    private func readOnDeviceFooter(keepsCopy: Bool) -> Text {
+        switch (offersKeepingSourceText && options.keepsSourceText, keepsCopy) {
+        case (true, true):
+            Text("Read on this device; the summary and the file's text are saved to your account. A copy of the file stays on this device.", bundle: .module)
+        case (false, true):
+            Text("Read on this device; only the summary is saved to your account. A copy of the file stays on this device.", bundle: .module)
+        case (true, false):
+            Text("Read on this device; the summary and the file's text are saved to your account. The original file stays linked on this device.", bundle: .module)
+        case (false, false):
+            Text("Read on this device; only the summary is saved to your account. The original file stays linked on this device.", bundle: .module)
+        }
     }
 
     private var draftHint: String {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return "A web link, or any text you want summarised." }
-        return ShareClassifier.singleURL(in: trimmed) != nil ? "The server will read this web page." : "The text will be summarised as-is."
+        if trimmed.isEmpty { return String(localized: "A web link, or any text you want summarised.", bundle: .module) }
+        return ShareClassifier.singleURL(in: trimmed) != nil ? String(localized: "The server will read this web page.", bundle: .module) : String(localized: "The text will be summarised as-is.", bundle: .module)
     }
 
     private var currentInput: SummaryInput? {
@@ -392,7 +402,7 @@ public struct SummaryCreationFlow<Result: View>: View {
                     try store.saveCopy(of: sourceFile, filename: sourceFilename ?? sourceFile.lastPathComponent, summaryID: summary.id)
                 }
             } catch {
-                importError = "Your summary was created, but the local file couldn't be linked. \(error.localizedDescription)"
+                importError = String(localized: "Your summary was created, but the local file couldn't be linked. \(error.localizedDescription)", bundle: .module)
             }
         }
     }
@@ -461,12 +471,12 @@ public struct SignedOutNotice: View {
 
     public var body: some View {
         ContentUnavailableView {
-            Label("Sign in to Chippy", systemImage: "person.crop.circle.badge.exclamationmark")
+            Label(String(localized: "Sign in to Chippy", bundle: .module), systemImage: "person.crop.circle.badge.exclamationmark")
         } description: {
-            Text("Open the Chippy app and sign in. This extension then uses the same account automatically.")
+            Text("Open the Chippy app and sign in. This extension then uses the same account automatically.", bundle: .module)
         } actions: {
             if let action {
-                Button("Open Chippy", action: action)
+                Button(String(localized: "Open Chippy", bundle: .module), action: action)
                     .buttonStyle(.borderedProminent)
             }
         }

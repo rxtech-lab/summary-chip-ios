@@ -13,13 +13,13 @@ import { ApiError, errorResponse, notFound } from "./errors";
 export async function serveSummaryImage(
   request: Request,
   params: Promise<{ slug: string }>,
-  keyOf: (row: SummaryRow) => string | null,
+  keyOf: (row: SummaryRow) => string | null | Promise<string | null>,
 ): Promise<Response> {
   try {
     const { slug } = await params;
     const principal = request.headers.has("authorization") ? await optionalApiPrincipal(request) : null;
     const row = await findSummaryBySlugForViewer(getDatabase(), slug, principal?.sub ?? null);
-    const key = row ? keyOf(row) : null;
+    const key = row ? await keyOf(row) : null;
     if (!row || !key) throw notFound("The image does not exist");
     // Public summaries: hand off to the R2 custom domain (Cloudflare CDN) when one is configured.
     const direct = row.visibility === "public" ? publicObjectUrl(key) : null;

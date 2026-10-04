@@ -224,7 +224,7 @@ struct SummaryTimelineScrubber: View {
         }
         .frame(width: Self.railWidth)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Timeline")
+        .accessibilityLabel(Text("Timeline", bundle: .module))
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("feed-timeline")
         .accessibilityAdjustableAction { direction in

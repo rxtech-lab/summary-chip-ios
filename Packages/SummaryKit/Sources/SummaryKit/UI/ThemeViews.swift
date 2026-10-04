@@ -204,7 +204,7 @@ public struct VisibilityBadge: View {
     public init(_ visibility: SummaryVisibility) { self.visibility = visibility }
     public var body: some View {
         ChipLabel(visibility.title, systemImage: visibility.systemImage, tint: visibility == .public ? .green : .orange)
-            .accessibilityLabel(visibility == .public ? "Public link" : "Private, link disabled")
+            .accessibilityLabel(visibility == .public ? Text("Public link", bundle: .module) : Text("Private, link disabled", bundle: .module))
     }
 }
 

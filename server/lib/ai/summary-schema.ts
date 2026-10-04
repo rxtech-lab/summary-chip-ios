@@ -24,6 +24,15 @@ export const llmSummarySchema = z.object({
 });
 export type LlmSummary = z.infer<typeof llmSummarySchema>;
 
+/** A summary card's reader-facing text in another language. */
+export const llmTranslationSchema = z.object({
+  title: z.string().describe("The translated title."),
+  summary: z.string().describe("The translated summary."),
+  highlights: z.array(z.string()).describe("Every highlight translated, in the same order."),
+  headline: z.string().describe("The translated cover headline, at most 70 characters; empty when none was given."),
+});
+export type LlmTranslation = z.infer<typeof llmTranslationSchema>;
+
 export interface SummaryDraft {
   title: string;
   summary: string;

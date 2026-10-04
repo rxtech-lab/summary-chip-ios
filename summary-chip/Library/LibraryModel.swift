@@ -34,6 +34,8 @@ final class LibraryModel {
     var filter = LibraryFilter()
 
     private var loadGeneration = 0
+    /// Reloads made to pick up translations the server was still writing; bounded so a failing one can't loop.
+    private var translationReloads = 0
 
     init(api: SummaryAPIClient, offline: OfflineSummaryStore) {
         self.api = api
@@ -72,6 +74,7 @@ final class LibraryModel {
             errorMessage = nil
             isOffline = false
             hasLoaded = true
+            scheduleTranslationReload(for: page.items)
             if !filter.isActive {
                 RecentSummariesCache.save(page.items)
                 offline.replaceFirstPage(page.items, isComplete: page.nextCursor == nil)
@@ -91,6 +94,19 @@ final class LibraryModel {
             isOffline = error.isOffline
             errorMessage = error.localizedDescription
             hasLoaded = true
+        }
+    }
+
+    /// Others' summaries are translated into the user's language after the list returns; check back once.
+    private func scheduleTranslationReload(for items: [Summary]) {
+        guard items.contains(where: \.translationPending), translationReloads < 3 else {
+            translationReloads = 0
+            return
+        }
+        translationReloads += 1
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            await reload()
         }
     }
 

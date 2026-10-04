@@ -1,174 +1,154 @@
-#if os(macOS)
-import AppKit
 import SummaryKit
 import SwiftUI
 
-/// Turns the MCP server on or off, sets its port and shows how to connect an agent to it.
+/// The hosted MCP server: its URL, the account's API keys with their usage, and the tools agents get.
+/// Creating and renaming a key happen in their own sheets; revoking asks for confirmation.
 struct MCPSettingsSheet: View {
-    let controller: MCPServerController
+    let api: SummaryAPIClient
     @Environment(\.dismiss) private var dismiss
-    @State private var portText = ""
-    @State private var client: MCPClientKind = .claudeCode
-    @State private var revealsToken = false
-    @State private var confirmsRegenerate = false
-    @State private var copiedMessage: String?
-    @State private var copyCount = 0
+    @State private var keys: [APIKey]?
+    @State private var loadError: String?
+    @State private var showsCreate = false
+    @State private var renaming: APIKey?
+    @State private var revoking: APIKey?
+    @State private var busyMessage: String?
+    @State private var toast: String?
+    @State private var successCount = 0
     @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
             Form {
-                serverSection
-                if controller.isEnabled {
-                    connectionSection
-                    clientSection
-                }
+                endpointSection
+                keysSection
                 toolsSection
             }
             .formStyle(.grouped)
             .navigationTitle("MCP Server")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                         .accessibilityIdentifier("mcp-done")
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("New API Key", systemImage: "plus") { showsCreate = true }
+                        .accessibilityIdentifier("mcp-new-key")
+                }
+            }
+            .refreshable { await load() }
+            .task { await load() }
+            .sheet(isPresented: $showsCreate) {
+                CreateAPIKeySheet(api: api) { created in
+                    keys = [created] + (keys ?? [])
+                }
+            }
+            .sheet(item: $renaming) { key in
+                RenameAPIKeySheet(api: api, key: key) { renamed in
+                    keys = keys?.map { $0.id == renamed.id ? renamed : $0 }
+                }
+            }
+            .confirmationDialog(
+                revoking.map { String(localized: "Revoke “\($0.name)”?") } ?? "",
+                isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
+                titleVisibility: .visible,
+                presenting: revoking
+            ) { key in
+                Button("Revoke Key", role: .destructive) { revoke(key) }
+            } message: { _ in
+                Text("Agents using this key stop working immediately. This can’t be undone.")
             }
             .overlay {
-                if controller.isBusy {
-                    ActionStatusOverlay("Starting MCP server…")
-                } else if let copiedMessage {
-                    ActionStatusOverlay(copiedMessage, isWorking: false)
+                if let busyMessage {
+                    ActionStatusOverlay(busyMessage)
+                } else if let toast {
+                    ActionStatusOverlay(toast, isWorking: false)
                         .allowsHitTesting(false)
                         .transition(.opacity)
                 }
             }
-            .animation(.default, value: copiedMessage)
-            .sensoryFeedback(.success, trigger: copyCount)
-            .sensoryFeedback(.error, trigger: errorMessage)
+            .animation(.default, value: toast)
+            .sensoryFeedback(.success, trigger: successCount)
+            .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
             .statusAlert("MCP Server", message: errorMessage) { errorMessage = nil }
-            .confirmationDialog("Regenerate the access token?", isPresented: $confirmsRegenerate, titleVisibility: .visible) {
-                Button("Regenerate", role: .destructive) {
-                    Task {
-                        await controller.regenerateToken()
-                        reportFailure()
-                    }
-                }
-            } message: {
-                Text("Agents set up with the current token stop working until you update their configuration.")
-            }
-            .task(id: copiedMessage) {
-                guard copiedMessage != nil else { return }
+            .task(id: toast) {
+                guard toast != nil else { return }
                 do { try await Task.sleep(for: .seconds(1.4)) } catch { return }
-                copiedMessage = nil
+                toast = nil
             }
-            .onAppear { portText = String(controller.port) }
         }
-        .frame(width: 560, height: 640)
+        #if os(macOS)
+        .frame(width: 560, height: 620)
+        #endif
     }
 
     // MARK: Sections
 
-    private var serverSection: some View {
+    private var endpointSection: some View {
         Section {
-            Toggle(isOn: Binding(
-                get: { controller.isEnabled },
-                set: { enabled in
-                    Task {
-                        await controller.setEnabled(enabled)
-                        reportFailure()
-                    }
-                }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Enable MCP Server")
-                    Text("Lets AI agents on this Mac add, search and list your summaries.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .disabled(controller.isBusy)
-            .accessibilityIdentifier("mcp-enabled-toggle")
-
-            LabeledContent("Status") {
-                Label(statusTitle, systemImage: statusImage)
-                    .foregroundStyle(statusColor)
-            }
-            .accessibilityIdentifier("mcp-status")
-
-            LabeledContent("Port") {
-                HStack {
-                    TextField("Port", text: $portText, prompt: Text(String(MCPServerController.defaultPort)))
-                        .labelsHidden()
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                        .onSubmit(applyPort)
-                        .accessibilityIdentifier("mcp-port-field")
-                    if Int(portText) != controller.port {
-                        Button("Apply", action: applyPort)
-                            .disabled(!isValidPort)
-                            .accessibilityIdentifier("mcp-port-apply")
-                    }
-                }
-            }
-        } footer: {
-            Text("The server runs while Chippy is open and only accepts connections from this Mac. Agents act as your signed-in account; added summaries count against your allowance.")
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var connectionSection: some View {
-        Section("Connection") {
             LabeledContent("URL") {
                 HStack {
-                    Text(controller.endpoint)
-                        .font(.body.monospaced())
-                        .textSelection(.enabled)
-                    copyButton(controller.endpoint, message: "URL copied", identifier: "mcp-copy-url")
-                }
-            }
-            LabeledContent("Access Token") {
-                HStack {
-                    Text(revealsToken ? controller.token : String(repeating: "•", count: 16))
-                        .font(.body.monospaced())
+                    Text(api.mcpEndpoint.absoluteString)
+                        .font(.callout.monospaced())
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .textSelection(.enabled)
-                    Button(revealsToken ? "Hide" : "Show") { revealsToken.toggle() }
-                        .accessibilityIdentifier("mcp-reveal-token")
-                    copyButton(controller.token, message: "Token copied", identifier: "mcp-copy-token")
+                    Button("Copy", systemImage: "doc.on.doc") {
+                        MCPPasteboard.copy(api.mcpEndpoint.absoluteString)
+                        toast = String(localized: "URL copied")
+                        successCount += 1
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("mcp-copy-url")
                 }
             }
-            Button("Regenerate Token…", role: .destructive) { confirmsRegenerate = true }
-                .accessibilityIdentifier("mcp-regenerate-token")
+        } footer: {
+            Text("AI agents such as Claude connect to this URL with an API key to add, search and list your summaries. They act as your account, from any device, and added summaries count against your allowance.")
         }
     }
 
-    private var clientSection: some View {
+    @ViewBuilder
+    private var keysSection: some View {
         Section {
-            Picker("Agent", selection: $client) {
-                ForEach(MCPClientKind.allCases) { kind in
-                    Text(kind.title).tag(kind)
+            if let keys {
+                if keys.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("No API keys yet")
+                            .font(.headline)
+                        Text("Create a key for each agent you connect, so you can see its usage and revoke it on its own.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Button("Create API Key…") { showsCreate = true }
+                            .accessibilityIdentifier("mcp-create-first-key")
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    ForEach(keys) { key in
+                        APIKeyRow(key: key, onRename: { renaming = key }, onRevoke: { revoking = key })
+                    }
                 }
-            }
-            .accessibilityIdentifier("mcp-client-picker")
-            VStack(alignment: .leading, spacing: 8) {
-                Text(client.instructions)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(snippet)
-                    .font(.caption.monospaced())
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 8))
+            } else if let loadError {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(loadError)
+                        .foregroundStyle(.secondary)
+                    Button("Try Again") { Task { await load() } }
+                }
+            } else {
                 HStack {
                     Spacer()
-                    Button("Copy", systemImage: "doc.on.doc") { copy(snippet, message: "Configuration copied") }
-                        .accessibilityIdentifier("mcp-copy-config")
+                    ProgressView()
+                    Spacer()
                 }
             }
         } header: {
-            Text("Connect an Agent")
+            Text("API Keys")
+        } footer: {
+            if let keys, !keys.isEmpty {
+                Text("Only a hash of each key is stored, so a key can’t be shown again. Revoke a key you lost and create a new one.")
+            }
         }
     }
 
@@ -176,7 +156,7 @@ struct MCPSettingsSheet: View {
         Section("Tools") {
             ForEach(MCPToolSummary.all) { tool in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(tool.name).font(.body.monospaced())
+                    Text(verbatim: tool.name).font(.body.monospaced())
                     Text(tool.detail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -185,121 +165,96 @@ struct MCPSettingsSheet: View {
         }
     }
 
-    // MARK: Helpers
+    // MARK: Actions
 
-    private var snippet: String { client.configuration(endpoint: controller.endpoint, token: controller.token) }
-
-    private var isValidPort: Bool {
-        Int(portText).map(MCPServerController.portRange.contains) ?? false
+    private func load() async {
+        do {
+            keys = try await api.apiKeys()
+            loadError = nil
+        } catch is CancellationError {
+        } catch {
+            if keys == nil { loadError = error.localizedDescription } else { errorMessage = error.localizedDescription }
+        }
     }
 
-    private func applyPort() {
-        guard let port = Int(portText), MCPServerController.portRange.contains(port) else {
-            errorMessage = "Enter a port between \(MCPServerController.portRange.lowerBound) and \(MCPServerController.portRange.upperBound)."
-            return
-        }
+    private func revoke(_ key: APIKey) {
+        busyMessage = String(localized: "Revoking key…")
         Task {
-            await controller.setPort(port)
-            reportFailure()
-        }
-    }
-
-    private func reportFailure() {
-        if case .failed(let message) = controller.status { errorMessage = message }
-    }
-
-    private func copyButton(_ value: String, message: String, identifier: String) -> some View {
-        Button("Copy", systemImage: "doc.on.doc") { copy(value, message: message) }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .help("Copy")
-            .accessibilityIdentifier(identifier)
-    }
-
-    private func copy(_ value: String, message: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
-        copiedMessage = message
-        copyCount += 1
-    }
-
-    private var statusTitle: String {
-        switch controller.status {
-        case .stopped: "Off"
-        case .starting: "Starting…"
-        case .running(let port): "Running on port \(port)"
-        case .failed: "Couldn’t start"
-        }
-    }
-
-    private var statusImage: String {
-        switch controller.status {
-        case .stopped: "pause.circle"
-        case .starting: "hourglass"
-        case .running: "checkmark.circle.fill"
-        case .failed: "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var statusColor: Color {
-        switch controller.status {
-        case .running: .green
-        case .failed: .orange
-        default: .secondary
+            defer { busyMessage = nil }
+            do {
+                try await api.revokeAPIKey(id: key.id)
+                keys?.removeAll { $0.id == key.id }
+                toast = String(localized: "Key revoked")
+                successCount += 1
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }
 
-/// Agents the sheet has ready-made configuration for.
-enum MCPClientKind: String, CaseIterable, Identifiable {
-    case claudeCode, claudeDesktop, json
+/// One key: its name, hint and usage, with rename and revoke actions.
+private struct APIKeyRow: View {
+    let key: APIKey
+    let onRename: () -> Void
+    let onRevoke: () -> Void
 
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .claudeCode: "Claude Code"
-        case .claudeDesktop: "Claude Desktop"
-        case .json: "Cursor & Others"
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(key.name)
+                    .font(.headline)
+                Text(verbatim: key.hint)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    Label("\(key.toolCallCount) tool calls", systemImage: "wrench.and.screwdriver")
+                    Label("\(key.summariesAddedCount) summaries added", systemImage: "plus.square.on.square")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Text(lastUsed)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            #if os(macOS)
+            Menu {
+                actions
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel(Text("Actions for \(key.name)"))
+            .accessibilityIdentifier("mcp-key-actions")
+            #endif
         }
+        .padding(.vertical, 2)
+        .contentShape(.rect)
+        .contextMenu { actions }
+        #if os(iOS)
+        .swipeActions(edge: .trailing) {
+            Button("Revoke", systemImage: "trash", role: .destructive, action: onRevoke)
+            Button("Rename", systemImage: "pencil", action: onRename)
+                .tint(.indigo)
+        }
+        #endif
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("mcp-key-row")
     }
 
-    var instructions: String {
-        switch self {
-        case .claudeCode: "Run this in Terminal. Add --scope user to use Chippy in every project."
-        case .claudeDesktop: "Add this to claude_desktop_config.json (Settings → Developer → Edit Config). Requires Node.js."
-        case .json: "Add this to the agent’s MCP configuration, e.g. ~/.cursor/mcp.json or a project’s .mcp.json."
-        }
+    @ViewBuilder
+    private var actions: some View {
+        Button("Rename…", systemImage: "pencil", action: onRename)
+        Button("Revoke…", systemImage: "trash", role: .destructive, action: onRevoke)
     }
 
-    func configuration(endpoint: String, token: String) -> String {
-        switch self {
-        case .claudeCode:
-            return "claude mcp add --transport http chippy \(endpoint) --header \"Authorization: Bearer \(token)\""
-        case .claudeDesktop:
-            return """
-            {
-              "mcpServers": {
-                "chippy": {
-                  "command": "npx",
-                  "args": ["-y", "mcp-remote", "\(endpoint)", "--header", "Authorization: Bearer \(token)"]
-                }
-              }
-            }
-            """
-        case .json:
-            return """
-            {
-              "mcpServers": {
-                "chippy": {
-                  "type": "http",
-                  "url": "\(endpoint)",
-                  "headers": { "Authorization": "Bearer \(token)" }
-                }
-              }
-            }
-            """
-        }
+    private var lastUsed: String {
+        let created = String(localized: "Created \(key.createdAt.formatted(date: .abbreviated, time: .omitted))")
+        guard let lastUsedAt = key.lastUsedAt else { return String(localized: "\(created) · Never used") }
+        return String(localized: "\(created) · Last used \(lastUsedAt.formatted(.relative(presentation: .named)))")
     }
 }
 
@@ -309,9 +264,8 @@ private struct MCPToolSummary: Identifiable {
     var id: String { name }
 
     static let all = [
-        MCPToolSummary(name: ChippyMCPTools.Name.addSummary, detail: "Save a summary, its key points, tags and raw source text."),
-        MCPToolSummary(name: ChippyMCPTools.Name.searchSummaries, detail: "Find summaries by meaning, optionally from one source."),
-        MCPToolSummary(name: ChippyMCPTools.Name.listSummaries, detail: "List summaries newest first by source, category, tag or visibility."),
+        MCPToolSummary(name: "add_summary", detail: String(localized: "Save a summary, its key points, tags and raw source text.")),
+        MCPToolSummary(name: "search_summaries", detail: String(localized: "Find summaries by meaning, optionally from one source.")),
+        MCPToolSummary(name: "list_summaries", detail: String(localized: "List summaries newest first by source, category, tag or visibility.")),
     ]
 }
-#endif

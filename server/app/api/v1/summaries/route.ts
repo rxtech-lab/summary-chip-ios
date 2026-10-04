@@ -2,6 +2,7 @@ import { createSummarySchema, listQuerySchema, queryObject } from "@/lib/contrac
 import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson, readJson } from "@/lib/http/errors";
 import { createSummary, listSummaries } from "@/lib/services/summaries";
+import { acceptedLanguage } from "@/lib/services/translations";
 import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   return withApiAuth(request, async ({ principal, db }) => {
     const query = listQuerySchema.parse(queryObject(request));
-    return noStoreJson(await listSummaries(db, principal.sub, query));
+    // Others' summaries come back in the caller's language; missing translations are written after the response.
+    return noStoreJson(await listSummaries(db, principal.sub, query, { accepted: acceptedLanguage(request) }));
   });
 }

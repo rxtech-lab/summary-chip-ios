@@ -16,7 +16,7 @@ public enum SummaryLanguage: String, Codable, Sendable, CaseIterable, Identifiab
 
     public var title: String {
         switch self {
-        case .auto: "Same as source"
+        case .auto: String(localized: "Same as source", bundle: .module, comment: "Summary language option: write in the source's language")
         case .en: "English"
         case .zhHans: "简体中文"
         case .zhHant: "繁體中文"
@@ -26,6 +26,28 @@ public enum SummaryLanguage: String, Codable, Sendable, CaseIterable, Identifiab
         case .fr: "Français"
         case .de: "Deutsch"
         }
+    }
+
+    /// The languages a summary can be translated into and read in (every case but `auto`).
+    public static let translations: [SummaryLanguage] = allCases.filter { $0 != .auto }
+
+    /// The language a BCP 47 tag reads as (`zh-TW` → `.zhHant`, `en-GB` → `.en`), matching the server; nil when unsupported.
+    public init?(languageTag tag: String) {
+        let parts = tag.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-").map(String.init)
+        guard let primary = parts.first else { return nil }
+        if primary == "zh" {
+            let traditional = parts.contains("hant") || parts.contains { ["tw", "hk", "mo"].contains($0) }
+            self = traditional ? .zhHant : .zhHans
+            return
+        }
+        guard let language = SummaryLanguage(rawValue: primary), language != .auto else { return nil }
+        self = language
+    }
+
+    /// The name of a language tag in its own language ("日本語"), or the system's name for tags this list lacks.
+    public static func displayName(for tag: String) -> String {
+        if let language = SummaryLanguage(languageTag: tag) { return language.title }
+        return Locale.current.localizedString(forIdentifier: tag) ?? tag
     }
 }
 
@@ -243,15 +265,18 @@ public struct SummaryPatch: Encodable, Sendable, Hashable {
     public var ttl: TTLOption?
     public var title: String?
     public var tags: [String]?
+    /// The language the owner reads the summary in from now on; `.auto` = as written, nil = unchanged.
+    public var displayLanguage: SummaryLanguage?
 
-    public init(visibility: SummaryVisibility? = nil, ttl: TTLOption? = nil, title: String? = nil, tags: [String]? = nil) {
+    public init(visibility: SummaryVisibility? = nil, ttl: TTLOption? = nil, title: String? = nil, tags: [String]? = nil, displayLanguage: SummaryLanguage? = nil) {
         self.visibility = visibility
         self.ttl = ttl
         self.title = title
         self.tags = tags
+        self.displayLanguage = displayLanguage
     }
 
-    private enum CodingKeys: String, CodingKey { case visibility, ttlDays, title, tags }
+    private enum CodingKeys: String, CodingKey { case visibility, ttlDays, title, tags, displayLanguage }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -261,6 +286,9 @@ public struct SummaryPatch: Encodable, Sendable, Hashable {
         }
         try c.encodeIfPresent(title, forKey: .title)
         try c.encodeIfPresent(tags, forKey: .tags)
+        if let displayLanguage {
+            if displayLanguage == .auto { try c.encodeNil(forKey: .displayLanguage) } else { try c.encode(displayLanguage, forKey: .displayLanguage) }
+        }
     }
 }
 
@@ -343,9 +371,9 @@ public enum LibraryScope: String, CaseIterable, Identifiable, Sendable, Hashable
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .all: "All"
-        case .mine: "Created"
-        case .viewed: "Viewed"
+        case .all: String(localized: "All", bundle: .module, comment: "Library scope: every summary")
+        case .mine: String(localized: "Created", bundle: .module, comment: "Library scope: summaries you created")
+        case .viewed: String(localized: "Viewed", bundle: .module, comment: "Library scope: others' summaries you opened")
         }
     }
 }

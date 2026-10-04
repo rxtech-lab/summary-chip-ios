@@ -61,7 +61,7 @@ public struct SummaryDropHighlight: View {
         RoundedRectangle(cornerRadius: 18)
             .strokeBorder(.tint, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
             .background(.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
-            .overlay { Label("Drop to summarise", systemImage: "doc.badge.plus").font(.headline) }
+            .overlay { Label(String(localized: "Drop to summarise", bundle: .module), systemImage: "doc.badge.plus").font(.headline) }
             .padding(12)
             .allowsHitTesting(false)
             .accessibilityIdentifier("summary-drop-highlight")

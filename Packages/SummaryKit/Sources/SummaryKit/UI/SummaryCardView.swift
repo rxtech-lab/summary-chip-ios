@@ -8,10 +8,11 @@ public struct SummaryCardView: View {
         case created
         case viewed
 
-        var prefix: String {
+        /// The card's date line: the formatted date, or "Viewed <date>" for others' summaries.
+        func label(_ formattedDate: String) -> String {
             switch self {
-            case .created: ""
-            case .viewed: "Viewed "
+            case .created: formattedDate
+            case .viewed: String(localized: "Viewed \(formattedDate)", bundle: .module)
             }
         }
 
@@ -44,8 +45,11 @@ public struct SummaryCardView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                    TranslationBadge(summary: summary)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                     Spacer(minLength: 8)
-                    Label(dateKind.prefix + SummaryDateFormatter.display(date), systemImage: dateKind.systemImage)
+                    Label(dateKind.label(SummaryDateFormatter.display(date)), systemImage: dateKind.systemImage)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                         .labelStyle(.titleAndIcon)
@@ -88,6 +92,40 @@ public struct SummaryCardView: View {
         .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Marks a summary shown in another language than it was written in: the language it is read in
+/// ("translate 日本語"), or a spinner while the translation is still being written. Empty otherwise.
+public struct TranslationBadge: View {
+    let summary: Summary
+
+    public init(summary: Summary) {
+        self.summary = summary
+    }
+
+    public var body: some View {
+        if summary.translationPending {
+            HStack(spacing: 3) {
+                ProgressView().controlSize(.mini)
+                Image(systemName: "translate").imageScale(.small)
+            }
+            .help(Text("Translating…", bundle: .module))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Translating", bundle: .module))
+            .accessibilityIdentifier("translation-badge-pending")
+        } else if summary.isTranslated {
+            Label {
+                Text(SummaryLanguage.displayName(for: summary.language)).lineLimit(1)
+            } icon: {
+                Image(systemName: "translate").imageScale(.small)
+            }
+            .labelStyle(.titleAndIcon)
+            .help(Text("Translated from \(SummaryLanguage.displayName(for: summary.originalLanguage))", bundle: .module))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Translated to \(SummaryLanguage.displayName(for: summary.language))", bundle: .module))
+            .accessibilityIdentifier("translation-badge")
+        }
     }
 }
 
@@ -173,7 +211,7 @@ public struct SummaryTileView: View {
         .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
         .contentShape(shape)
         .accessibilityElement(children: .combine)
-        .accessibilityHint(Text(dateKind == .viewed ? "Viewed \(stamp)" : stamp))
+        .accessibilityHint(Text(dateKind.label(stamp)))
     }
 
     private var stamp: String { SummaryDateFormatter.tile(date) }
@@ -245,10 +283,12 @@ public struct SummaryTileView: View {
                     Image(systemName: "eye.fill").imageScale(.small)
                 }
                 Text(stamp).lineLimit(1)
+                    .accessibilityHidden(true)
+                TranslationBadge(summary: summary)
+                    .padding(.leading, 4)
             }
             .font(.subheadline.weight(.medium))
             .foregroundStyle(secondary)
-            .accessibilityHidden(true)
 
             Text(summary.title)
                 .font(.title2.weight(.bold))
@@ -414,9 +454,9 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
 
     private func dateHeader(for section: FeedSection) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(Calendar.current.isDateInToday(section.id) ? "Today" : SummaryDateFormatter.tile(section.id))
+            Text(Calendar.current.isDateInToday(section.id) ? DateSection.today.title : SummaryDateFormatter.tile(section.id))
                 .font(.headline)
-            Text(section.entries.count == 1 ? "1 summary" : "\(section.entries.count) summaries")
+            Text(section.entries.count == 1 ? String(localized: "1 summary", bundle: .module) : String(localized: "\(section.entries.count) summaries", bundle: .module))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }

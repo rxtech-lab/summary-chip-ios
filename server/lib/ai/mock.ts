@@ -1,8 +1,9 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
-import type { AiProvider, CoverInput, DesignInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput } from "./provider";
+import type { TranslationLanguage } from "@/lib/contracts/api";
+import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput } from "./provider";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
-import type { LlmSummary } from "./summary-schema";
+import type { LlmSummary, LlmTranslation } from "./summary-schema";
 
 /** Deterministic stand-in for tests and `SUMMARY_MOCK_SERVICES=true` local development. */
 export class MockAiProvider implements AiProvider {
@@ -10,6 +11,9 @@ export class MockAiProvider implements AiProvider {
     isSharedLink: string[];
     summarize: SummarizeInput[];
     formatMarkdown: MarkdownInput[];
+    detectLanguage: LanguageInput[];
+    translateSummary: TranslateInput[];
+    translateDocument: { markdown: string; to: TranslationLanguage }[];
     findDuplicate: DuplicateInput[];
     designCover: CoverInput[];
     designSvg: DesignInput[];
@@ -18,6 +22,9 @@ export class MockAiProvider implements AiProvider {
     isSharedLink: [],
     summarize: [],
     formatMarkdown: [],
+    detectLanguage: [],
+    translateSummary: [],
+    translateDocument: [],
     findDuplicate: [],
     designCover: [],
     designSvg: [],
@@ -62,6 +69,32 @@ export class MockAiProvider implements AiProvider {
     options.onUsage?.({ inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0]);
     if (this.markdown) return this.markdown(input);
     return `${input.title ? `# ${input.title}\n\n` : ""}${input.content.trim()}`;
+  }
+
+  /** Judges by script: kana → ja, hangul → ko, other Han → zh-Hans; anything else is left undetected (null). */
+  async detectLanguage(input: LanguageInput): Promise<TranslationLanguage | null> {
+    this.calls.detectLanguage.push(input);
+    const text = `${input.title} ${input.summary}`;
+    if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text)) return "ja";
+    if (/\p{Script=Hangul}/u.test(text)) return "ko";
+    if (/\p{Script=Han}/u.test(text)) return "zh-Hans";
+    return null;
+  }
+
+  /** False from tests simulates a failed translation. */
+  translates = true;
+
+  /** Prefixes every field with the target language, e.g. "[ja] Title". */
+  async translateSummary(input: TranslateInput): Promise<LlmTranslation | null> {
+    this.calls.translateSummary.push(input);
+    if (!this.translates) return null;
+    const tag = (text: string) => `[${input.to}] ${text}`;
+    return { title: tag(input.title), summary: tag(input.summary), highlights: input.highlights.map(tag), headline: input.headline ? tag(input.headline) : "" };
+  }
+
+  async translateDocument(markdown: string, to: TranslationLanguage): Promise<string | null> {
+    this.calls.translateDocument.push({ markdown, to });
+    return this.translates ? `[${to}] ${markdown}` : null;
   }
 
   /**

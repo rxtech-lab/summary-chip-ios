@@ -62,7 +62,7 @@ final class UpdateService: NSObject, SPUUpdaterDelegate {
         automaticallyDownloads = updater.automaticallyDownloadsUpdates
         let window = NSWindow(contentViewController: NSHostingController(rootView: SoftwareUpdateSettingsSheet(service: self)))
         window.styleMask = [.titled]
-        window.title = "Software Update"
+        window.title = String(localized: "Software Update")
         window.isReleasedWhenClosed = false
         sheet = window
         // Sheet windows may be key themselves; attach to the containing app window.

@@ -10,7 +10,7 @@ public struct GenerationOptionsSections: View {
 
     public var body: some View {
         Section {
-            Picker("Language", selection: $options.language) {
+            Picker(String(localized: "Language", bundle: .module), selection: $options.language) {
                 ForEach(SummaryLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }
@@ -21,12 +21,12 @@ public struct GenerationOptionsSections: View {
             .pickerStyle(.navigationLink)
             #endif
         } header: {
-            Text("Summary")
+            Text("Summary", bundle: .module)
         } footer: {
-            Text("The language the summary is written in.")
+            Text("The language the summary is written in.", bundle: .module)
         }
 
-        Section("Preview image") {
+        Section {
             ForEach(ImageStyle.allCases) { style in
                 Button {
                     options.imageStyle = style
@@ -49,6 +49,8 @@ public struct GenerationOptionsSections: View {
                 .accessibilityAddTraits(options.imageStyle == style ? .isSelected : [])
                 .sensoryFeedback(.selection, trigger: options.imageStyle == style) { _, new in new }
             }
+        } header: {
+            Text("Preview image", bundle: .module)
         }
 
         SharingOptionsSections(visibility: $options.visibility, ttl: $options.ttl)
@@ -66,7 +68,7 @@ public struct SharingOptionsSections: View {
     }
 
     public var body: some View {
-        Section("Who can open the link") {
+        Section {
             ForEach(SummaryVisibility.allCases) { value in
                 Button {
                     visibility = value
@@ -91,6 +93,8 @@ public struct SharingOptionsSections: View {
                 .accessibilityAddTraits(visibility == value ? .isSelected : [])
                 .sensoryFeedback(.selection, trigger: visibility == value) { _, new in new }
             }
+        } header: {
+            Text("Who can open the link", bundle: .module)
         }
 
         if visibility == .public {
@@ -100,7 +104,7 @@ public struct SharingOptionsSections: View {
                         Text(option.title).tag(option)
                     }
                 } label: {
-                    Label("Expires after", systemImage: "hourglass")
+                    Label(String(localized: "Expires after", bundle: .module), systemImage: "hourglass")
                 }
                 #if os(macOS)
                 .pickerStyle(.menu)
@@ -108,11 +112,11 @@ public struct SharingOptionsSections: View {
                 .pickerStyle(.navigationLink)
                 #endif
             } header: {
-                Text("Link expiry")
+                Text("Link expiry", bundle: .module)
             } footer: {
                 Text(ttl == .never
-                    ? "The link stays open until you make the summary private."
-                    : "The link stops working \(ttl.title) from now. The summary stays in your library, and you can extend the link at any time.")
+                    ? String(localized: "The link stays open until you make the summary private.", bundle: .module)
+                    : String(localized: "The link stops working \(ttl.title) from now. The summary stays in your library, and you can extend the link at any time.", bundle: .module))
             }
         }
     }
@@ -123,8 +127,8 @@ extension SummaryVisibility {
 
     var detail: String {
         switch self {
-        case .public: "Anyone with the link can view it and its preview."
-        case .private: "Only you. The link stops working; nothing is deleted."
+        case .public: String(localized: "Anyone with the link can view it and its preview.", bundle: .module)
+        case .private: String(localized: "Only you. The link stops working; nothing is deleted.", bundle: .module)
         }
     }
 }
@@ -161,9 +165,9 @@ public struct GenerationProgressView: View {
                         .fontWeight(stage == current ? .semibold : .regular)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityValue(stage < current ? "Done" : (stage == current ? "In progress" : "Pending"))
+                .accessibilityValue(stage < current ? Text("Done", bundle: .module) : (stage == current ? Text("In progress", bundle: .module) : Text("Pending", bundle: .module)))
             }
-            Text("This usually takes under a minute.")
+            Text("This usually takes under a minute.", bundle: .module)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -202,15 +206,16 @@ public struct SummaryInputPreview: View {
         case .url(let url): return url.absoluteString
         case .webpage(let page):
             let words = page.content.split(whereSeparator: \.isWhitespace).count
-            return "\(page.siteName ?? page.url.host() ?? "Web page") · \(words.formatted()) words extracted"
+            let site = page.siteName ?? page.url.host() ?? String(localized: "Web page", bundle: .module)
+            return String(localized: "\(site) · \(words) words extracted", bundle: .module)
         case .pdf(let file, _, let sourceURL):
             let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             let sizeText = ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
-            return sourceURL.map { "PDF · \(sizeText) · \($0.host() ?? "")" } ?? "PDF · \(sizeText)"
+            return sourceURL.map { String(localized: "PDF · \(sizeText) · \($0.host() ?? "")", bundle: .module) } ?? String(localized: "PDF · \(sizeText)", bundle: .module)
         case .text(let text, _):
-            return "\(text.count.formatted()) characters of text"
+            return String(localized: "\(text.count) characters of text", bundle: .module)
         case .localFile(let file):
-            return "\(file.typeLabel) · \(file.text.count.formatted()) characters read on this device"
+            return String(localized: "\(file.typeLabel) · \(file.text.count) characters read on this device", bundle: .module)
         }
     }
 }

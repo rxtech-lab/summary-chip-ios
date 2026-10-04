@@ -42,12 +42,12 @@ public struct DiscardSummarySheet: View {
                 }
                 .padding(24)
             }
-            .navigationTitle("Discard Summary")
+            .navigationTitle(Text("Discard Summary", bundle: .module))
             .summaryInlineNavigationTitle()
             #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", role: .cancel) { dismiss() }.disabled(isDiscarding)
+                    Button(String(localized: "Cancel", bundle: .module), role: .cancel) { dismiss() }.disabled(isDiscarding)
                 }
             }
             #endif
@@ -56,7 +56,7 @@ public struct DiscardSummarySheet: View {
         .disabled(isDiscarding)
         .interactiveDismissDisabled(isDiscarding)
         .overlay {
-            if isDiscarding { ActionStatusOverlay("Discarding…", isWorking: true) }
+            if isDiscarding { ActionStatusOverlay(String(localized: "Discarding…", bundle: .module), isWorking: true) }
         }
         .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         .sensoryFeedback(.success, trigger: discardCount)
@@ -69,8 +69,9 @@ public struct DiscardSummarySheet: View {
     }
 
     private var explanation: String {
-        let base = "The summary and its share link are deleted permanently."
-        return safariURL == nil ? base : "\(base) To try again from the page itself, open it in Safari and share it to Chippy."
+        safariURL == nil
+            ? String(localized: "The summary and its share link are deleted permanently.", bundle: .module)
+            : String(localized: "The summary and its share link are deleted permanently. To try again from the page itself, open it in Safari and share it to Chippy.", bundle: .module)
     }
 
     private var actions: some View {
@@ -79,7 +80,7 @@ public struct DiscardSummarySheet: View {
                 Button(role: .destructive) {
                     Task { await discard(thenOpen: safariURL) }
                 } label: {
-                    Label("Discard & Open in Safari", systemImage: "safari")
+                    Label(String(localized: "Discard & Open in Safari", bundle: .module), systemImage: "safari")
                         .frame(maxWidth: .infinity)
                         .fontWeight(.semibold)
                 }
@@ -90,7 +91,7 @@ public struct DiscardSummarySheet: View {
             Button(role: .destructive) {
                 Task { await discard(thenOpen: nil) }
             } label: {
-                Label("Discard", systemImage: "trash")
+                Label(String(localized: "Discard", bundle: .module), systemImage: "trash")
                     .frame(maxWidth: .infinity)
                     .fontWeight(safariURL == nil ? .semibold : .regular)
             }
@@ -101,7 +102,7 @@ public struct DiscardSummarySheet: View {
             #if os(macOS)
             // Sheet navigation stacks don't display toolbar placements on macOS.
             Button(role: .cancel) { dismiss() } label: {
-                Text("Keep Summary").frame(maxWidth: .infinity)
+                Text("Keep Summary", bundle: .module).frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .controlSize(.large)

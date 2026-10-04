@@ -129,8 +129,8 @@ struct SearchView: View {
     private var resultsCaption: String? {
         guard !model.loadedQuery.isEmpty, !model.items.isEmpty else { return nil }
         let count = model.items.count
-        let more = model.nextCursor != nil ? "+" : ""
-        return count == 1 && more.isEmpty ? "1 result" : "\(count)\(more) results"
+        if model.nextCursor != nil { return String(localized: "\(count)+ results") }
+        return count == 1 ? String(localized: "1 result") : String(localized: "\(count) results")
     }
 
     @ViewBuilder

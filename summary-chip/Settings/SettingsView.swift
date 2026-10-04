@@ -13,9 +13,9 @@ struct SettingsView: View {
     @State private var helpSheet: HelpSheet?
     @State private var showsCredits = false
     @State private var showsNotifications = false
-    #if os(macOS)
     @State private var showsMCPServer = false
-    #endif
+    @State private var formWidth: CGFloat = 0
+    private static let maxContentWidth: CGFloat = 680
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
     var body: some View {
@@ -32,9 +32,7 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showsCredits) { SummaryCreditsSheet(environment: environment) }
             .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
-            #if os(macOS)
-            .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(controller: environment.mcpServer) }
-            #endif
+            .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(api: environment.api) }
             .sheet(item: $helpSheet) { sheet in
                 switch sheet {
                 case .welcome:
@@ -85,50 +83,32 @@ struct SettingsView: View {
     private var macForm: some View {
         Form {
             Section {
-                profile
+                accountHeader
             }
-
-            Section("Help") {
-                SettingsActionRow("Welcome Tour", systemImage: "hand.wave.fill", tint: .orange,
-                                  detail: "A quick look at how Chippy works.") {
-                    Button("Show") { helpSheet = .welcome }
-                        .accessibilityIdentifier("settings-welcome")
-                }
-                SettingsActionRow("What’s New", systemImage: "sparkles", tint: .purple,
-                                  detail: "Features added in recent updates.") {
-                    Button("Show") { helpSheet = .features }
-                        .accessibilityIdentifier("settings-features")
-                }
-            }
-
-            creditsSection
-            notificationSettingsSection
 
             Section {
-                SettingsActionRow("MCP Server", systemImage: "point.3.connected.trianglepath.dotted", tint: .indigo,
-                                  detail: mcpServerDetail) {
+                SettingsActionRow(String(localized: "Notifications"), systemImage: "bell.badge.fill", tint: .red,
+                                  detail: notifications.isEnabled
+                                    ? String(localized: "On for summaries added by agents and the API.")
+                                    : String(localized: "Off")) {
+                    Button("Configure…") { showsNotifications = true }
+                        .accessibilityIdentifier("notification-settings")
+                }
+                SettingsActionRow(String(localized: "MCP Server"), systemImage: "point.3.connected.trianglepath.dotted", tint: .indigo,
+                                  detail: String(localized: "API keys for AI agents.")) {
                     Button("Configure…") { showsMCPServer = true }
                         .accessibilityIdentifier("mcp-server-settings")
                 }
             } header: {
-                Text("Integrations")
+                Text("General")
             } footer: {
-                Text("Let AI agents such as Claude add, search and list your summaries.")
+                Text("The MCP server lets AI agents such as Claude add, search and list your summaries from anywhere.")
                     .foregroundStyle(.secondary)
             }
 
-            Section("Legal") {
-                ForEach(LegalDocument.allCases, id: \.self) { document in
-                    NavigationLink(value: document) {
-                        SettingsRowLabel(document.title, systemImage: document.systemImage, tint: .gray)
-                    }
-                    .accessibilityIdentifier("\(document.rawValue)-link")
-                }
-            }
-
             Section {
-                SettingsActionRow("Offline Cache", systemImage: "internaldrive.fill", tint: .blue,
-                                  detail: cacheSize.map { "\($0.formatted(.byteCount(style: .file))) used" } ?? "Calculating…") {
+                SettingsActionRow(String(localized: "Offline Cache"), systemImage: "internaldrive.fill", tint: .blue,
+                                  detail: cacheSize.map { String(localized: "\($0.formatted(.byteCount(style: .file))) used") } ?? String(localized: "Calculating…")) {
                     Button("Clear Cache…") {
                         Task {
                             cacheSize = await environment.cacheSize()
@@ -145,49 +125,130 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("About") {
-                LabeledContent("Version", value: Self.version)
-                    .accessibilityIdentifier("app-version")
-                LabeledContent("Build", value: Self.build)
-                    .accessibilityIdentifier("app-build")
+            Section("Help") {
+                SettingsActionRow(String(localized: "Welcome Tour"), systemImage: "hand.wave.fill", tint: .orange,
+                                  detail: String(localized: "A quick look at how Chippy works.")) {
+                    Button("Show") { helpSheet = .welcome }
+                        .accessibilityIdentifier("settings-welcome")
+                }
+                SettingsActionRow(String(localized: "What’s New"), systemImage: "sparkles", tint: .purple,
+                                  detail: String(localized: "Features added in recent updates.")) {
+                    Button("Show") { helpSheet = .features }
+                        .accessibilityIdentifier("settings-features")
+                }
             }
 
-            Section("Account") {
-                SettingsActionRow("Sign Out", systemImage: "rectangle.portrait.and.arrow.right", tint: .gray,
-                                  detail: "Also signs out the share extension.") {
+            Section("About") {
+                appIdentity
+                ForEach(LegalDocument.allCases, id: \.self) { document in
+                    NavigationLink(value: document) {
+                        SettingsRowLabel(document.title, systemImage: document.systemImage, tint: .gray)
+                    }
+                    .accessibilityIdentifier("\(document.rawValue)-link")
+                }
+            }
+
+            Section {
+                SettingsActionRow(String(localized: "Sign Out"), systemImage: "rectangle.portrait.and.arrow.right", tint: .gray,
+                                  detail: String(localized: "Also signs out the share extension.")) {
                     Button("Sign Out…") { confirmsSignOut = true }
                         .accessibilityIdentifier("sign-out-button")
                 }
                 SettingsActionRow(
-                    deletion.pendingDeletion ? "Account Scheduled for Deletion" : "Delete Account",
+                    deletion.pendingDeletion ? String(localized: "Account Scheduled for Deletion") : String(localized: "Delete Account"),
                     systemImage: "trash.fill",
                     tint: .red,
                     detail: deletion.deletionScheduledAt.map {
-                        "Deletes \($0.formatted(date: .abbreviated, time: .shortened))."
-                    } ?? "Permanently removes your account and summaries."
+                        String(localized: "Deletes \($0.formatted(date: .abbreviated, time: .shortened)).")
+                    } ?? String(localized: "Permanently removes your account and summaries.")
                 ) {
-                    Button(deletion.pendingDeletion ? "Manage…" : "Delete…", role: .destructive) {
+                    Button(deletion.pendingDeletion ? String(localized: "Manage…") : String(localized: "Delete…"), role: .destructive) {
                         showsDeleteAccount = true
                     }
                     .accessibilityIdentifier("delete-account-button")
                 }
+            } header: {
+                Text("Account")
             }
         }
         .formStyle(.grouped)
         .buttonStyle(PlainTextButtonStyle())
-        .frame(maxWidth: 680)
-        .frame(maxWidth: .infinity)
-        .background(Color.summaryGroupedBackground)
+        // The form spans the page so its background and scrolling reach the edges; the rows stay readable.
+        .contentMargins(.horizontal, max(0, (formWidth - Self.maxContentWidth) / 2), for: .scrollContent)
+        .onGeometryChange(for: CGFloat.self, of: \.size.width) { formWidth = $0 }
+        .task { await notifications.refreshStatus() }
+        .task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
     }
 
-    private var mcpServerDetail: String {
-        switch environment.mcpServer.status {
-        case .running(let port): "Running on port \(port)."
-        case .starting: "Starting…"
-        case .failed: "Couldn’t start. Open to fix."
-        case .stopped: "Off"
+    /// Who is signed in, with this account's usage at a glance and the way to manage it.
+    private var accountHeader: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                AccountAvatar(name: user?.name ?? user?.email ?? "", url: user?.image.flatMap(URL.init(string:)), size: 60)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(user?.name ?? String(localized: "Signed in"))
+                        .font(.title3.weight(.semibold))
+                    if let email = user?.email {
+                        Text(email)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("signed-in-profile")
+
+            HStack(spacing: 10) {
+                UsageTile(String(localized: "Points"), systemImage: "circle.hexagongrid.fill", tint: .orange,
+                          value: credits.points.map { $0.formatted() })
+                    .accessibilityIdentifier("settings-points")
+                UsageTile(String(localized: "Free summaries left"), systemImage: "gift.fill", tint: .green,
+                          value: credits.allowance.map { $0.remaining.map { $0.formatted() } ?? String(localized: "Unlimited") })
+                    .accessibilityIdentifier("settings-free-remaining")
+            }
+
+            HStack {
+                if let reset = credits.allowance?.resetsAt {
+                    Text("Free summaries reset \(reset.formatted(.relative(presentation: .named))).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Summaries & Points…") { showsCredits = true }
+                    .accessibilityIdentifier("summary-credits")
+            }
         }
+        .padding(.vertical, 6)
     }
+
+    private var appIdentity: some View {
+        HStack(spacing: 12) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 40, height: 40)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Chippy")
+                    .font(.headline)
+                HStack(spacing: 4) {
+                    Text("Version \(Self.version)")
+                        .accessibilityIdentifier("app-version")
+                    Text(verbatim: "(\(Self.build))")
+                        .accessibilityIdentifier("app-build")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            }
+            Spacer(minLength: 16)
+            Button("Check for Updates…") { UpdateService.shared.checkForUpdates() }
+                .accessibilityIdentifier("check-for-updates")
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var notifications: SummaryNotifications { .shared }
+    private var credits: SummaryCreditsStore { environment.credits }
     #else
     private var iOSList: some View {
         List {
@@ -208,6 +269,7 @@ struct SettingsView: View {
 
             creditsSection
             notificationSettingsSection
+            integrationsSection
 
             Section("Legal") {
                 ForEach(LegalDocument.allCases, id: \.self) { document in
@@ -260,7 +322,7 @@ struct SettingsView: View {
                     showsDeleteAccount = true
                 } label: {
                     VStack(spacing: 2) {
-                        Text(deletion.pendingDeletion ? "Account Scheduled for Deletion" : "Delete My Account")
+                        (deletion.pendingDeletion ? Text("Account Scheduled for Deletion") : Text("Delete My Account"))
                         if let date = deletion.deletionScheduledAt {
                             Text("Deletes \(date.formatted(date: .abbreviated, time: .shortened))")
                                 .font(.caption)
@@ -279,7 +341,7 @@ struct SettingsView: View {
         HStack(spacing: 14) {
             AccountAvatar(name: user?.name ?? user?.email ?? "", url: user?.image.flatMap(URL.init(string:)))
             VStack(alignment: .leading, spacing: 2) {
-                Text(user?.name ?? "Signed in")
+                Text(user?.name ?? String(localized: "Signed in"))
                     .font(.headline)
                 if let email = user?.email {
                     Text(email)
@@ -309,6 +371,19 @@ struct SettingsView: View {
                 Label("Notifications", systemImage: "bell.badge")
             }
             .accessibilityIdentifier("notification-settings")
+        }
+    }
+
+    private var integrationsSection: some View {
+        Section {
+            Button { showsMCPServer = true } label: {
+                Label("MCP Server", systemImage: "point.3.connected.trianglepath.dotted")
+            }
+            .accessibilityIdentifier("mcp-server-settings")
+        } header: {
+            Text("Integrations")
+        } footer: {
+            Text("API keys let AI agents such as Claude add, search and list your summaries.")
         }
     }
 
@@ -389,6 +464,48 @@ private struct SettingsRowLabel: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+/// One usage figure in the account header; a dash until the billing service answers.
+private struct UsageTile: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    let value: String?
+
+    init(_ title: String, systemImage: String, tint: Color, value: String?) {
+        self.title = title
+        self.systemImage = systemImage
+        self.tint = tint
+        self.value = value
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(title, systemImage: systemImage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .labelStyle(TintedIconLabelStyle(tint: tint))
+            Text(value ?? "–")
+                .font(.title2.weight(.semibold).monospacedDigit())
+                .contentTransition(.numericText())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct TintedIconLabelStyle: LabelStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon.foregroundStyle(tint)
+            configuration.title
         }
     }
 }

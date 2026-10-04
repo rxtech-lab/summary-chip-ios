@@ -21,7 +21,7 @@ struct MessagesRootView: View {
                     SummaryCreationFlow(
                         api: state.api,
                         initialText: state.pendingText,
-                        title: "New Summary",
+                        title: String(localized: "New Summary"),
                         onCancel: { state.requestStyle(.compact) },
                         onCreated: { state.created($0) }
                     ) { summary in
@@ -56,7 +56,7 @@ private struct CompactMessagesView: View {
                 Spacer()
             }
             if state.recent.isEmpty {
-                Text(state.recentError ?? "Your recent summaries appear here. Paste a link to create one.")
+                Text(state.recentError ?? String(localized: "Your recent summaries appear here. Paste a link to create one."))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)

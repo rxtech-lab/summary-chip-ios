@@ -115,11 +115,14 @@ app/
   api/v1/{uploads,summaries,summaries/import,summaries/[id],summaries/[id]/image,facets,views,chat}
   api/v1/account/deletion           schedule / read / cancel account deletion (7-day grace)
   api/v1/legal/{privacy,terms}      markdown legal documents (public)
+  api/v1/api-keys[/[id]]            list / create / rename / revoke MCP API keys (hashed)
+  api/mcp                           hosted MCP server (API key auth, stateless) — docs/mcp.md
   api/public/summaries/[slug]       App Clip read
   api/cron/cleanup                  retire OG images of expired links + orphan uploads
   api/cron/account-deletion         hourly: purge accounts whose deletion came due
 lib/
   auth/bearer.ts                    RxAuth JWT verification (JWKS, RS256, client_id allow list)
+  mcp/server.ts                     MCP tools: add_summary, search_summaries, list_summaries
   http/                             handler wrapper, error envelope, cron auth
   db/                               drizzle schema + libsql client
   extract/                          URL fetch (SSRF-guarded) + Cloudflare Browser Rendering, Readability/linkedom, unpdf
@@ -227,7 +230,8 @@ a fresh key (so the CDN URL dies), deletes uploads that were never attached to a
 and embeds up to 500 summaries still missing a search embedding.
 
 Function limits: `POST /api/v1/summaries/import`, `POST /api/v1/summaries/:id/image` and `POST /api/v1/chat`
-set `maxDuration = 120`; `POST /api/v1/summaries` (document agent runs after the response) and the cron allow 300.
+set `maxDuration = 120`; `POST /api/v1/summaries` (document agent runs after the response), `POST /api/mcp`
+and the cron allow 300.
 
 ## Universal links & App Clip
 

@@ -78,7 +78,7 @@ public struct SummaryOGImage: View {
             }
             .clipped()
             .accessibilityElement()
-            .accessibilityLabel(Text("Preview image: \(title)"))
+            .accessibilityLabel(Text("Preview image: \(title)", bundle: .module))
     }
 }
 #endif

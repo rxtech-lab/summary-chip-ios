@@ -11,6 +11,10 @@ export type Category = (typeof CATEGORIES)[number];
 export const OUTPUT_LANGUAGES = ["auto", "en", "zh-Hans", "zh-Hant", "ja", "ko", "es", "fr", "de"] as const;
 export type OutputLanguage = (typeof OUTPUT_LANGUAGES)[number];
 
+/** Languages a summary can be translated into (and read in). */
+export const TRANSLATION_LANGUAGES = ["en", "zh-Hans", "zh-Hant", "ja", "ko", "es", "fr", "de"] as const satisfies readonly Exclude<OutputLanguage, "auto">[];
+export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
+
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAX_WEBPAGE_CONTENT = 60_000;
 /** The page's main-content markup from the device, so the kept document has its links and images. */
@@ -125,6 +129,8 @@ export const patchSummarySchema = z.object({
   ttlDays: ttlDaysSchema.optional(),
   title: z.string().trim().min(1).max(200).optional(),
   tags: z.array(tagSchema).max(12).optional(),
+  /** Owner only: the language to read the summary in from now on (translated on first use); null = as written. */
+  displayLanguage: z.enum(TRANSLATION_LANGUAGES).nullable().optional(),
 }).strict();
 export type PatchSummaryInput = z.infer<typeof patchSummarySchema>;
 
@@ -172,3 +178,9 @@ export function queryObject(request: Request): Record<string, string> {
   for (const [key, value] of params) if (value !== "") out[key] = value;
   return out;
 }
+
+/** `POST /api/v1/api-keys` and `PATCH /api/v1/api-keys/:id` — a personal key for the MCP server. */
+export const apiKeyNameSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+}).strict();
+export type ApiKeyNameInput = z.infer<typeof apiKeyNameSchema>;

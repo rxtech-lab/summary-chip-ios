@@ -52,6 +52,8 @@ Configuration/              xcconfig files (API base URL, RxAuth client, …)
   `${AUTH_ISSUER}/.well-known/jwks.json` (RS256, `client_id` must be in the allow list:
   `IOS_OAUTH_CLIENT_ID`, `RXLAB_ALLOWED_CLIENT_IDS`). `sub` is the user id.
 * The App Clip is anonymous; it only uses `/api/public/*`.
+* The MCP server (`/api/mcp`) takes a personal API key instead (`Authorization: Bearer chippy_…`),
+  created in Settings → MCP Server and stored only as a SHA-256 hash; see [mcp.md](mcp.md).
 
 ## Data model (Turso / SQLite)
 
@@ -68,12 +70,18 @@ summaries(
                     Written by the document agent (lib/ai/document-agent.ts) from the page's simplified
                     HTML — links, images, headings, tables — or the plain text; saved after the response),
   title, summary, highlights JSON[], category, tags JSON[], keywords JSON[], language,
+  display_language (the owner's reading language; NULL = as written),
   theme JSON {colors[], mode, emoji, accent},
   image_style 'graphic' | 'illustration', og_image_key (R2),
   visibility 'public' | 'private', ttl_days (NULL = never), expires_at (NULL = never),
   view_count, created_at, updated_at)
 summary_tags(summary_id, tag)                    -- tag filter index
 summary_views(user_id, summary_id, viewed_at)   -- "past viewed content" history
+summary_translations(summary_id, language, title, summary, highlights JSON[],
+  content_markdown ("" while being written, NULL when nothing to translate or it failed),
+  created_at, updated_at)                        -- one per summary and translation language
+api_keys(id, owner_id FK users, name, key_hash UNIQUE (sha-256), hint, tool_call_count,
+  summaries_added_count, last_used_at, created_at)  -- MCP API keys
 summaries_fts  FTS5(title, summary, highlights, tags, keywords, category, site_name)
 ```
 
@@ -109,7 +117,11 @@ while the owner still sees it in the app and can flip it back to public.
   "hasSourceMarkdown": true,   // the source was kept as Markdown (GET /api/v1/summaries/:id/markdown); a local file's only for its owner
   "title": "string", "summary": "string", "highlights": ["string"],
   "category": "Technology", "tags": ["ai", "apple"], "keywords": ["..."],
-  "language": "en",
+  "language": "ja",            // the language title/summary/highlights are in (a translation's, else the original)
+  "originalLanguage": "en",    // the language the summary was written in
+  "displayLanguage": "ja" | null,   // owner only: the language they chose to read it in; null = as written
+  "translationPending": false,      // list only: the translation is being written after the response; fetch again
+  "sourceTranslationPending": false, // the translated source document is being written (…/markdown serves the original)
   "theme": { "colors": ["#104b8f", "..."], "mode": "light" | "dark", "emoji": "📰", "accent": "#hex" },
   "imageStyle": "graphic" | "illustration",
   "visibility": "public" | "private",
@@ -136,9 +148,10 @@ Food, Opinion, Research, Other`.
 | `POST /api/v1/summaries/import` | see *Import* | `201 Summary` — saves a summary written elsewhere as given (no summarising); `409 DUPLICATE_SUMMARY` when the library already has it |
 | `GET /api/v1/summaries` | `?scope=all|mine|viewed&q=&category=&tag=&visibility=&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others) |
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
-| `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?}` | `Summary` |
+| `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?, displayLanguage? (language|null)}` | `Summary` — `displayLanguage` translates on first use (`502 TRANSLATION_FAILED` stores nothing); a `title` edit while reading a translation renames that translation |
 | `DELETE /api/v1/summaries/:id` | – | `204` |
-| `GET /api/v1/summaries/:id/markdown` | – | `{markdown}` — the source as Markdown; `404 SOURCE_NOT_KEPT` when not kept (or a local file's, for anyone but the owner) |
+| `GET /api/v1/summaries/:id/markdown` | – | `{markdown, language, translationPending}` — the source as Markdown, translated like the summary once written; `404 SOURCE_NOT_KEPT` when not kept (or a local file's, for anyone but the owner) |
+| `GET /api/v1/summaries/:id/translations` | – | `{originalLanguage, items:[{language, sourceTranslated, sourcePending}]}` — languages already translated (translates nothing) |
 | `POST /api/v1/summaries/:id/image` | `{imageStyle}` | `Summary` (regenerated OG image) |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
 | `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
@@ -147,8 +160,37 @@ Food, Opinion, Research, Other`.
 | `GET /api/v1/account/deletion` | – | `{pendingDeletion, deletionScheduledAt, deletionRequestedAt}` (ISO dates or null) |
 | `POST /api/v1/account/deletion` | – | same shape — schedules deletion 7 days out at rxlab-auth and locally (idempotent; needs the `write:profile` scope, else `403 ACCOUNT_DELETION_SCOPE_REQUIRED`) |
 | `DELETE /api/v1/account/deletion` | – | same shape — cancels a pending deletion |
+| `GET /api/v1/api-keys` | – | `{items:[ApiKey]}` — the caller's MCP API keys with their usage; see [mcp.md](mcp.md) |
+| `POST /api/v1/api-keys` | `{name}` | `201 {key, apiKey}` — the only response that contains the key |
+| `PATCH /api/v1/api-keys/:id` | `{name}` | `ApiKey` |
+| `DELETE /api/v1/api-keys/:id` | – | `204` — revokes the key |
+| `POST /api/mcp` | JSON-RPC (MCP Streamable HTTP, stateless) | API key auth, not OAuth; tools `add_summary`, `search_summaries`, `list_summaries` |
 | `GET /api/v1/legal/{privacy,terms}` | – (no auth) | `text/markdown` legal document |
 | `GET /api/public/summaries/:slug` | – | `Summary` without owner-only fields (`isOwner:false`); 404 if private/expired |
+
+### Translations
+
+Summaries are read in one language per viewer, chosen from `en, zh-Hans, zh-Hant, ja, ko, es, fr, de`:
+
+* **The owner** reads the language they picked (`PATCH displayLanguage`, stored on the summary for
+  next time); by default the summary as written. Their `Accept-Language` is ignored.
+* **Everyone else** (shared links in the app, the App Clip, `/s/<slug>`) reads the first supported
+  language in their `Accept-Language` (`zh-TW`/`zh-HK` → `zh-Hant`, `zh`/`zh-CN` → `zh-Hans`). The
+  web page also takes `?lang=<code>|original`; crawlers always get the original.
+
+A summary's own language (`language` when it is added) is judged by the evaluation model
+(`AI_EVALUATION_MODEL`, default `typesafe-ai/jev`) from its title, summary and highlights, choosing
+among the languages above; when it answers "other" (or is off or fails), the language the
+summarising model reported — or the import's `language` — is kept. Summaries created in a requested
+`language` skip the check.
+
+Title, summary and highlights are translated together and saved per language
+(`summary_translations`); tags, keywords and category stay as written. `GET /summaries/:id`,
+`POST /views` and the public API translate on the spot when needed; `GET /summaries` (the library)
+returns saved translations at once and translates the rest after the response, marking those items
+`translationPending`. The kept source document is translated after the response the first time a
+translation is read (the first ~120k characters; the rest stays in the original language). The
+clients send `Accept-Language` from the system's preferred languages.
 
 ### Create body
 
@@ -229,8 +271,8 @@ curl -X POST https://<host>/api/v1/summaries/import \
   -d '{"title":"Monarch migration","summary":"Monarchs fly south each autumn.","tags":["butterflies"],"text":"Raw notes…"}'
 ```
 
-On the Mac, agents call this endpoint through the app's MCP server (`add_summary`), as the signed-in
-user; see [mcp.md](mcp.md).
+Agents reach the same import through the hosted MCP server's `add_summary` tool, authenticated with
+an API key; see [mcp.md](mcp.md).
 
 ### Chat stream (what iOS must parse)
 

@@ -184,7 +184,7 @@ private struct FacetSearchSheet: View {
                 }
             }
             .overlay { emptyState }
-            .searchable(text: $model.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search")
+            .searchable(text: $model.query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text("Search", bundle: .module))
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
             .task(id: model.query) { await model.searchDebounced() }
@@ -192,7 +192,7 @@ private struct FacetSearchSheet: View {
             .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
             }
         }
@@ -206,7 +206,7 @@ private struct FacetSearchSheet: View {
             HStack {
                 Text(text)
                 Spacer()
-                if let count, count > 0 { Text("\(count)").foregroundStyle(.secondary) }
+                if let count, count > 0 { Text(count.formatted()).foregroundStyle(.secondary) }
                 if selection == value {
                     Image(systemName: "checkmark").foregroundStyle(.tint).fontWeight(.semibold)
                 }
@@ -222,7 +222,7 @@ private struct FacetSearchSheet: View {
             if !model.hasLoaded || model.isLoading {
                 if !model.query.isEmpty { ProgressView() }
             } else if let message = model.errorMessage {
-                ContentUnavailableView("Couldn't Load", systemImage: "wifi.exclamationmark", description: Text(message))
+                ContentUnavailableView(String(localized: "Couldn't Load", bundle: .module), systemImage: "wifi.exclamationmark", description: Text(message))
             } else if !model.query.isEmpty {
                 ContentUnavailableView.search(text: model.query)
             } else {

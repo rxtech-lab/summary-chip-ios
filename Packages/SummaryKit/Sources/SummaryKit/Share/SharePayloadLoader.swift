@@ -7,8 +7,8 @@ public enum SharePayloadError: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .noSupportedItems: "Chippy can summarise web pages, links, PDFs and text. Nothing like that was shared."
-        case .cannotRead(let name): "Chippy couldn't read \(name)."
+        case .noSupportedItems: String(localized: "Chippy can summarise web pages, links, PDFs and text. Nothing like that was shared.", bundle: .module)
+        case .cannotRead(let name): String(localized: "Chippy couldn't read \(name).", bundle: .module)
         }
     }
 }
