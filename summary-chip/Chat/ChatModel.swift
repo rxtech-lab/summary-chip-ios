@@ -20,6 +20,10 @@ nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable, Codable {
     var errorText: String? = nil
     /// Result line for the local-file tools, e.g. "3 matches".
     var status: String? = nil
+    var webReferences: [ChatWebReference]? = nil
+    var renderedUI: ChatRenderedUI? = nil
+    /// Readable values from the rendered view, included in subsequent turns.
+    var renderedText: String? = nil
 }
 
 /// Row model for the RxAgentSDK `MessageList`.
@@ -226,6 +230,13 @@ final class ChatModel {
                 entry.tools[index].isSemantic = ChatToolOutput.isSemantic(output)
                 entry.tools[index].errorText = ChatToolOutput.errorText(from: output)
                 entry.tools[index].status = ChatToolOutput.localFileStatus(toolName: entry.tools[index].toolName, output: output)
+                if entry.tools[index].toolName == "searchWeb" {
+                    entry.tools[index].webReferences = ChatToolOutput.webReferences(from: output)
+                }
+                if entry.tools[index].toolName == "renderUI" {
+                    entry.tools[index].renderedUI = ChatToolOutput.renderedUI(from: output)
+                    entry.tools[index].renderedText = output["text"]?.stringValue
+                }
                 if entry.tools[index].toolName == "updateTrip", entry.tools[index].errorText != nil {
                     // Sent back to the agent to fix; the raw issues are for the model, not the reader.
                     entry.tools[index].errorText = String(localized: "Some edits didn't fit the trip, so the agent corrected them.")
@@ -237,6 +248,16 @@ final class ChatModel {
             }
             if ChatToolOutput.tripUpdate(from: output).map({ $0.applied > 0 }) == true {
                 onTripUpdated?()
+            }
+        case .toolOutputError(let callID, let error):
+            update(id) { entry in
+                let index = entry.tools.firstIndex(where: { $0.id == callID }) ?? {
+                    entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: []))
+                    return entry.tools.count - 1
+                }()
+                entry.tools[index].isRunning = false
+                entry.tools[index].finished = true
+                entry.tools[index].errorText = error
             }
         case .error(let message):
             update(id) { $0.errorText = message }
@@ -270,7 +291,7 @@ final class ChatModel {
             entry.isStreaming = false
             for index in entry.tools.indices { entry.tools[index].isRunning = false }
             if wasStreaming, entry.role == .assistant, entry.text.isEmpty, entry.errorText == nil,
-               entry.tools.allSatisfy({ $0.references.isEmpty }) {
+               entry.tools.allSatisfy({ $0.references.isEmpty && ($0.webReferences ?? []).isEmpty && $0.renderedUI == nil }) {
                 return nil
             }
             return entry
@@ -297,6 +318,17 @@ final class ChatModel {
                         "- \(ref.title) (id: \(ref.id)\(ref.shareUrl.map { ", \($0.absoluteString)" } ?? ""))"
                     }.joined(separator: "\n")
                     text += (text.isEmpty ? "" : "\n\n") + "[Summaries shown to the user]\n" + list
+                }
+                let sources = entry.tools.flatMap { $0.webReferences ?? [] }
+                if !sources.isEmpty {
+                    text += "\n\n[Web sources shown to the user]\n" + sources.prefix(10).map {
+                        "- \($0.title): \($0.url.absoluteString)\($0.snippet.map { "\n  \($0.prefix(500))" } ?? "")"
+                    }.joined(separator: "\n")
+                }
+                for tool in entry.tools {
+                    if let ui = tool.renderedUI {
+                        text += "\n\n[Native view shown to the user: \(ui.title)]\n" + (tool.renderedText ?? "")
+                    }
                 }
                 guard !text.isEmpty else { return nil }
                 return ChatUIMessage(id: entry.id, role: .assistant, text: text)

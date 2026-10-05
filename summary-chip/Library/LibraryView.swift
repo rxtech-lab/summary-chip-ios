@@ -116,7 +116,7 @@ struct LibraryView: View {
                 }
                 .sheet(item: $deletingSummary) { summary in
                     DeleteSummarySheet(api: environment.api, summary: summary) {
-                        withAnimation { model.remove(id: summary.id) }
+                        model.remove(id: summary.id)
                         environment.likes.remove(id: summary.id)
                         deletedCount += 1
                     }

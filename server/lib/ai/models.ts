@@ -21,6 +21,11 @@ export function textModel(): LanguageModel {
   return gateway()(textModelId());
 }
 
+/** Provider-independent search, authenticated through the same Gateway as chat. */
+export function webSearchTool() {
+  return gateway().tools.perplexitySearch({ maxResults: 6, maxTokensPerPage: 1024, maxTokens: 6000 });
+}
+
 const PRICING_TTL_MS = 60 * 60 * 1000;
 let pricingCache: { at: number; prices: Map<string, ModelPricing> } | undefined;
 

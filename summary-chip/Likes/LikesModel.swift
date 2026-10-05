@@ -49,7 +49,7 @@ final class LikesModel {
         do {
             let page = try await api.listSummaries(query(cursor: nil))
             guard generation == loadGeneration else { return }
-            withAnimation(hasLoaded ? .spring(duration: 0.4) : nil) { items = page.items }
+            items = page.items
             nextCursor = page.nextCursor
             errorMessage = nil
             isOffline = false
@@ -61,7 +61,7 @@ final class LikesModel {
             guard generation == loadGeneration else { return }
             let saved = savedLikes()
             if !saved.isEmpty || error.isOffline {
-                withAnimation(hasLoaded ? .spring(duration: 0.4) : nil) { items = saved }
+                items = saved
                 nextCursor = nil
             }
             isOffline = error.isOffline
@@ -89,10 +89,8 @@ final class LikesModel {
 
     /// A star changed: a newly starred summary goes to the top, an unstarred one leaves the list.
     func apply(_ summary: Summary) {
-        withAnimation(.spring(duration: 0.4)) {
-            items.removeAll { $0.id == summary.id }
-            if summary.isLiked { items.insert(summary, at: 0) }
-        }
+        items.removeAll { $0.id == summary.id }
+        if summary.isLiked { items.insert(summary, at: 0) }
     }
 
     /// A summary changed elsewhere (detail refresh, edit): update it in place.

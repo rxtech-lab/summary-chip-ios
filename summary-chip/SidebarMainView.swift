@@ -43,10 +43,12 @@ struct SidebarMainView: View {
             .environment(\.chatPanelVisibility, $showsChat)
             .inspector(isPresented: $showsChat) {
                 ChatView(environment: environment, isPanel: true)
+                    .environment(\.openLibraryItem, openFromSearch)
                     .inspectorColumnWidth(min: 320, ideal: 380, max: 560)
             }
         }
         .summarySearchPresentation(environment: environment, onOpenSummary: openFromSearch)
+        .environment(\.openLibraryItem, openFromSearch)
         .sheet(isPresented: $showsNewSummary) {
             NewSummarySheet(environment: environment)
         }
@@ -72,6 +74,8 @@ struct SidebarMainView: View {
 }
 
 extension EnvironmentValues {
+    /// Opens an item in the main Library navigation after a preview sheet closes.
+    @Entry var openLibraryItem: ((Summary) -> Void)?
     /// Set by `SidebarMainView`; pages add a toolbar toggle for the chat column when present.
     @Entry var chatPanelVisibility: Binding<Bool>?
 }
@@ -90,7 +94,7 @@ struct ChatPanelToolbarContent: ToolbarContent {
                     withAnimation { isVisible.wrappedValue.toggle() }
                 } label: {
                     Label(isVisible.wrappedValue ? String(localized: "Hide Chat") : String(localized: "Show Chat"),
-                          systemImage: "bubble.left.and.text.bubble.right")
+                          systemImage: "sparkles")
                 }
                 .accessibilityIdentifier("toggle-chat-panel")
             }

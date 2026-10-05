@@ -32,7 +32,6 @@ public struct SummaryRemoteImage<Placeholder: View>: View {
                 .cancelOnDisappear(true)
                 .placeholder { placeholder }
                 .onFailureView { placeholder }
-                .fade(duration: 0.2)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
         } else {

@@ -335,6 +335,7 @@ ignores the rest:
 * `text-start {id}`, `text-delta {id, delta}`, `text-end {id}`
 * `tool-input-available {toolCallId, toolName, input}`
 * `tool-output-available {toolCallId, output}`
+* `tool-output-error {toolCallId, errorText}`, `tool-input-error {toolCallId, errorText}`
 * `error {errorText}`, `finish`
 
 Request `messages` use the UI message shape:
@@ -346,6 +347,24 @@ Tools the agent exposes (outputs are shown as cards on iOS):
 * `searchSummaries({query, category?, tag?, scope: "all"|"mine"|"viewed", limit?})` →
   `{ results: [ {id, slug, title, summary, category, tags, siteName, sourceUrl, shareUrl, ogImageUrl, createdAt, viewedAt?} ] }`
 * `getSummary({id})` → `{ summary: Summary-like object incl. contentExcerpt }`
+* `listTrips({})` → `{ results: [library card + trip dates, subtitle, revision, dayCount, placeCount] }`.
+  Lists owned trip diaries (including private ones), ongoing/upcoming first and then past ones,
+  without keyword or embedding filters. The agent uses this for requests such as "find my trip".
+* `getTrip({id})` → `{ summary: library card, trip: TripJson }` (or `{error}` for an inaccessible id).
+  Reads an owned trip's full document for itinerary and booking questions. Trip cards use the
+  existing navigation to the dedicated trip diary; edits stay in its trip agent.
+* `searchWeb({query: string | string[], ...filters})` → `{results: [{title, url, snippet, date?, lastUpdated?}], id}`
+  (or `{error, message}`). Uses AI Gateway's provider-independent Perplexity Search tool with
+  the existing Gateway credentials. Available in library, focused-summary and trip chats;
+  source links and excerpts open in a dedicated native sheet, and the agent cites returned URLs.
+* `readWebPage({url})` → `{url, title, siteName, text, images}` (or `{error}`), available in all chats.
+* `renderUI({title, currency?, spec: {root, elements}})` → `{ui: {title, currency, spec}, text}`
+  (or `{error, issues}`). Uses the trip JSON component catalog except `Place`: native tables,
+  charts, lists, statistics, cards, images and links. The server validates fields and the tree
+  (300 elements, 24 levels, no cycles or duplicate child references). The chat shows a compact
+  card that opens the native renderer in a dedicated sheet. No HTML or JavaScript is executed,
+  and rendering does not mutate a trip. UI specs and web sources persist in the local transcript;
+  their readable content is included in subsequent turns. See `server/lib/ai/chat-ui.ts`.
 
 When the owner chats about a local-file summary, the app reads the linked file on device and sends
 its text as `localContent` (never stored). Files up to 20,000 characters are inlined in full,

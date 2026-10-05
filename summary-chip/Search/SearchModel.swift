@@ -57,7 +57,7 @@ final class SearchModel {
         do {
             let page = try await api.listSummaries(listQuery(q, cursor: nil))
             guard current == generation else { return }
-            withAnimation(.spring(duration: 0.3)) { items = page.items }
+            items = page.items
             nextCursor = page.nextCursor
             loadedQuery = q
             isOffline = false

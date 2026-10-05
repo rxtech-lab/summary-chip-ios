@@ -189,6 +189,10 @@ struct MainTabView: View {
             selection = .library
             libraryPath = [summary]
         }
+        .environment(\.openLibraryItem, { summary in
+            selection = .library
+            libraryPath = [summary]
+        })
     }
 
     /// iOS 27 sets the chat tab apart from the others as the prominent tab.

@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 struct TripDetailView: View {
     let environment: AppEnvironment
     let title: String
+    let onOpenTrip: (() -> Void)?
     @State private var model: TripEditorModel
     @State private var camera = TripMapCamera()
     @State private var location = LocationProvider()
@@ -53,9 +54,10 @@ struct TripDetailView: View {
 
     private static let collapsedDetent = PresentationDetent.fraction(0.12)
 
-    init(environment: AppEnvironment, tripID: String, title: String = "") {
+    init(environment: AppEnvironment, tripID: String, title: String = "", onOpenTrip: (() -> Void)? = nil) {
         self.environment = environment
         self.title = title
+        self.onOpenTrip = onOpenTrip
         _model = State(initialValue: TripEditorModel(api: environment.api, id: tripID))
     }
 
@@ -68,6 +70,14 @@ struct TripDetailView: View {
     }
 
     private var canEdit: Bool { model.trip?.isOwner ?? false }
+
+    private var navigationTitle: String? {
+        #if os(macOS)
+        // Omit the native title area when the preview supplies its own top bar.
+        if onOpenTrip != nil { return nil }
+        #endif
+        return model.document?.title ?? title
+    }
 
     var body: some View {
         Group {
@@ -87,10 +97,37 @@ struct TripDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .navigationTitle(model.document?.title ?? title)
+        .modifier(TripNavigationTitle(title: navigationTitle))
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
-        .toolbar { toolbar }
+        .toolbar {
+            toolbar
+            #if os(iOS)
+            if onOpenTrip != nil {
+                ToolbarItem(placement: .topBarLeading) { openTripButton }
+            }
+            #endif
+        }
+        #if os(macOS)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if onOpenTrip != nil {
+                VStack(spacing: 0) {
+                    HStack(spacing: 16) {
+                        Text(model.document?.title ?? title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Spacer(minLength: 16)
+                        openTripButton
+                            .fixedSize()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 14)
+                    .background(.bar)
+                    Divider()
+                }
+            }
+        }
+        #endif
         .environment(\.tripEditable, canEdit)
         .environment(\.tripFlights, model.flights)
         .environment(\.tripPlaces, model.document?.places ?? [])
@@ -164,6 +201,16 @@ struct TripDetailView: View {
     }
 
     // MARK: Layout
+
+    private var openTripButton: some View {
+        Button {
+            onOpenTrip?()
+        } label: {
+            Label("Open Trip", systemImage: "arrow.up.right.square")
+        }
+        .labelStyle(.titleAndIcon)
+        .accessibilityIdentifier("chat-open-trip-detail")
+    }
 
     @ViewBuilder
     private func content(_ document: TripDocument) -> some View {
@@ -726,6 +773,19 @@ struct TripDetailView: View {
     }
 }
 
+
+/// An empty navigation title still reserves a title row in a macOS sheet.
+private struct TripNavigationTitle: ViewModifier {
+    let title: String?
+
+    func body(content: Content) -> some View {
+        if let title {
+            content.navigationTitle(title)
+        } else {
+            content
+        }
+    }
+}
 
 /// A trip's printed report, for the Save dialog.
 struct TripPDFDocument: FileDocument {

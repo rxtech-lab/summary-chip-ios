@@ -10,6 +10,7 @@ import { isPublicAndLive, relevance } from "./search";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
 import { findPublicSummaryBySlug, isLinkLive, readSummaryJson } from "./summaries";
 import type { BillingEnvironmentResolver } from "./translations";
+import { getOwnedTrip, listTrips, toTripJson } from "./trips";
 
 /**
  * Records that a signed-in user opened someone else's public summary. Owner views are not recorded
@@ -49,6 +50,7 @@ export interface ChatSearchInput {
 
 export interface ChatSearchResult {
   id: string;
+  kind: SummaryRow["kind"];
   slug: string;
   title: string;
   summary: string;
@@ -65,6 +67,7 @@ export interface ChatSearchResult {
 function toResult(row: SummaryRow, viewedAt?: Date): ChatSearchResult {
   return {
     id: row.id,
+    kind: row.kind,
     slug: row.slug,
     title: row.title,
     summary: row.summary,
@@ -125,6 +128,27 @@ export async function searchForChat(
     .slice(0, limit)
     .map((entry) => toResult(entry.row, entry.viewedAt));
   return { ...(query ? { query } : {}), semantic: vector !== null, results };
+}
+
+/** Lists actual owned trips, without depending on search terms or embedding coverage. */
+export async function listTripsForChat(db: Database, userId: string) {
+  const { trips } = await listTrips(db, userId);
+  if (!trips.length) return { results: [] };
+  const rows = await db.select().from(summaries)
+    .where(and(eq(summaries.ownerId, userId), eq(summaries.kind, "trip")));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return {
+    results: trips.flatMap((trip) => {
+      const row = byId.get(trip.id);
+      return row ? [{ ...toResult(row), ...trip }] : [];
+    }),
+  };
+}
+
+/** Reads the full diary of an owned trip and supplies its tappable library card. */
+export async function getTripForChat(db: Database, userId: string, id: string) {
+  const { summary, trip } = await getOwnedTrip(db, id, userId);
+  return { summary: toResult(summary), trip: toTripJson(summary, trip, userId) };
 }
 
 /** A summary the caller owns, or a public one they have viewed; includes the content excerpt. */

@@ -233,10 +233,16 @@ struct SummaryDestination: View {
     let environment: AppEnvironment
     let summary: Summary
     var allowsChat = true
+    var onOpenTrip: ((Summary) -> Void)?
 
     var body: some View {
         if summary.kind == .trip {
-            TripDetailView(environment: environment, tripID: summary.id, title: summary.title)
+            TripDetailView(
+                environment: environment,
+                tripID: summary.id,
+                title: summary.title,
+                onOpenTrip: onOpenTrip.map { action in { action(summary) } }
+            )
         } else {
             SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat)
         }
@@ -248,13 +254,14 @@ struct SummaryLoaderView: View {
     let environment: AppEnvironment
     let id: String
     var allowsChat = true
+    var onOpenTrip: ((Summary) -> Void)?
     @State private var summary: Summary?
     @State private var errorMessage: String?
 
     var body: some View {
         Group {
             if let summary {
-                SummaryDestination(environment: environment, summary: summary, allowsChat: allowsChat)
+                SummaryDestination(environment: environment, summary: summary, allowsChat: allowsChat, onOpenTrip: onOpenTrip)
             } else if let errorMessage {
                 ContentUnavailableView("Summary unavailable", systemImage: "exclamationmark.triangle", description: Text(errorMessage))
             } else {

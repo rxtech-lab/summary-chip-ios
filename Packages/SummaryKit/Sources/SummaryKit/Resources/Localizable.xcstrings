@@ -924,6 +924,9 @@
         }
       }
     },
+    "Creating a view…" : {
+
+    },
     "Delayed" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1212,6 +1215,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 分鐘後到期"
+          }
+        }
+      }
+    },
+    "Finding your trips…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查找你的行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在尋找你的行程…"
           }
         }
       }
@@ -2313,6 +2332,22 @@
         }
       }
     },
+    "Reading the trip…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取行程…"
+          }
+        }
+      }
+    },
     "Ready to share" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2457,6 +2492,9 @@
           }
         }
       }
+    },
+    "Searching the web…" : {
+
     },
     "Sends the preview image with the title and link as a caption." : {
       "localizations" : {
@@ -3068,6 +3106,9 @@
           }
         }
       }
+    },
+    "The tool could not finish." : {
+
     },
     "This file is empty." : {
       "localizations" : {

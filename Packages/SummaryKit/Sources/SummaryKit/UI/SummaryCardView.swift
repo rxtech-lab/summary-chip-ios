@@ -99,6 +99,11 @@ public struct SummaryCardView: View {
         .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
+        .transition(.identity)
+        .transaction {
+            $0.animation = nil
+            $0.disablesAnimations = true
+        }
     }
 }
 
@@ -248,6 +253,11 @@ public struct SummaryTileView: View {
         .contentShape(shape)
         .accessibilityElement(children: .combine)
         .accessibilityHint(Text(dateKind.label(stamp)))
+        .transition(.identity)
+        .transaction {
+            $0.animation = nil
+            $0.disablesAnimations = true
+        }
     }
 
     private var stamp: String { SummaryDateFormatter.tile(date) }
@@ -475,6 +485,11 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             }
         }
         #endif
+        // Keep card insertion, removal, and masonry layout changes immediate.
+        .transaction {
+            $0.animation = nil
+            $0.disablesAnimations = true
+        }
     }
 
     private struct FeedSection: Identifiable {
@@ -521,7 +536,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 LazyVStack(spacing: Self.spacing) {
                     ForEach(columns[index]) { entry in
                         tileLink(for: entry)
-                        .buttonStyle(TilePressStyle())
+                        .buttonStyle(.plain)
                         #if os(iOS)
                         .contentShape(
                             .contextMenuPreview,
@@ -529,7 +544,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                         )
                         #endif
                         .contextMenu { menuItems(entry.summary) }
-                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                        .transition(.identity)
                         .onAppear {
                             if tail.contains(entry.id) { onReachEnd() }
                         }
@@ -542,6 +557,10 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                         #endif
                     }
                 }
+                // On iOS a LazyVStack nested in the feed's LazyVStack can keep a stale visible
+                // range when its entries change (e.g. applying a filter), leaving cards blank.
+                // A new identity per column contents makes it lay out fresh.
+                .id(columns[index].map(\.id))
                 .frame(maxWidth: .infinity, alignment: .top)
             }
         }
@@ -577,14 +596,6 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             heights[target] += SummaryTileView.Style.style(for: entry.summary).estimatedHeight(title: entry.summary.title) + 0.08
         }
         return columns
-    }
-}
-
-private struct TilePressStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(duration: 0.25), value: configuration.isPressed)
     }
 }
 
