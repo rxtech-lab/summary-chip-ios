@@ -16,7 +16,7 @@ import { reserveChatPoints, settleUsage, type ChatCharge } from "@/lib/subscript
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { LOCAL_INLINE_LIMIT, localFileTools, splitLines } from "./local-file";
 import { getAiProvider, type AiProvider } from "./provider";
-import { operationsJsonSchema, TRIP_RECORD_RULES, TRIP_SOURCE_CHARS } from "./trip-agent";
+import { operationsJsonSchema, sourceImages, TRIP_RECORD_RULES, TRIP_SOURCE_CHARS } from "./trip-agent";
 
 export const MAX_CHAT_MESSAGES = 30;
 const MAX_TEXT_PER_MESSAGE = 8_000;
@@ -141,13 +141,13 @@ export function tripChatTools(db: Database, userId: string, tripId: string, ai: 
   let edits = 0;
   return {
     readWebPage: tool({
-      description: "Fetch a web page (a booking, timetable, hotel or article) and return its text.",
+      description: "Fetch a web page (a booking, timetable, hotel or article) and return its text and the images on it (usable as place photos).",
       inputSchema: z.object({ url: httpUrl }),
       execute: async ({ url }) => {
         try {
           const { content } = await extractSource(db, userId, { source: { type: "url", url }, followLinks: true }, getObjectStore(), ai);
           const text = content.text.length > TRIP_SOURCE_CHARS ? `${content.text.slice(0, TRIP_SOURCE_CHARS)}\n[… truncated]` : content.text;
-          return { url: content.sourceUrl ?? url, title: content.sourceTitle, siteName: content.siteName, text };
+          return { url: content.sourceUrl ?? url, title: content.sourceTitle, siteName: content.siteName, text, images: sourceImages(content) };
         } catch (error) {
           return { error: error instanceof ApiError ? error.message : "The page could not be read." };
         }

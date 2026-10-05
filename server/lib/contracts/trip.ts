@@ -37,15 +37,60 @@ export const TRAIN_CATEGORIES = ["shinkansen", "limited_express", "rapid", "loca
 export const SEAT_CLASSES = ["reserved", "non_reserved", "green", "gran_class", "economy", "premium_economy", "business", "first"] as const;
 export const EXPENSE_CATEGORIES = ["transport", "lodging", "food", "activity", "shopping", "pass", "other"] as const;
 
-export const placeSchema = z.object({
-  id,
+/** An image on the web (https only): clients and the PDF export load it straight from its URL. */
+export const imageUrl = z.string().trim().max(4096).url().refine((value) => value.startsWith("https://"), "must be an https URL");
+
+export const MAX_PLACE_PHOTOS = 12;
+
+/** A photo of a place: a direct image URL plus what it shows and who took it. */
+export const photoSchema = z.object({
+  url: imageUrl,
+  caption: shortText.nullish(),
+  /** Attribution shown under the photo ("Photo: Wikimedia Commons / Jane Doe"). */
+  credit: shortText.nullish(),
+  /** The page the photo came from. */
+  sourceUrl: url.nullish(),
+});
+
+/** One line of a place's price list: an admission tier, a set menu, a parking rate. No price means free. */
+export const priceItemSchema = z.object({
+  label: shortText.min(1),
+  price: moneySchema.nullish(),
+  note: shortText.nullish(),
+});
+
+/** A place's fields without defaults, so `update_place` patches change only what they name. */
+const placeFields = {
   name: shortText.min(1),
-  kind: z.enum(PLACE_KINDS).default("poi"),
+  kind: z.enum(PLACE_KINDS),
   coordinate: coordinateSchema,
   address: shortText.nullish(),
   note: longText.nullish(),
-  major: z.boolean().default(false),
+  major: z.boolean(),
+  /** What the place is and why it's worth the visit, like a guidebook entry. */
+  description: longText.nullish(),
+  photos: z.array(photoSchema).max(MAX_PLACE_PHOTOS),
+  /** Opening hours as written ("9:00–17:00, closed Mondays"). */
+  hours: shortText.nullish(),
+  /** How long a visit takes ("1–2 h"). */
+  visitDuration: shortText.nullish(),
+  pricing: z.array(priceItemSchema).max(30),
+  website: url.nullish(),
+  phone: shortText.nullish(),
+};
+
+export const placeSchema = z.object({
+  id,
+  ...placeFields,
+  kind: placeFields.kind.default("poi"),
+  /** Drawn larger on the map. */
+  major: placeFields.major.default(false),
+  photos: placeFields.photos.default([]),
+  pricing: placeFields.pricing.default([]),
 });
+
+/** An `update_place` patch: only the fields given change; `null` clears an optional one. */
+export const placePatchSchema = z.object(placeFields).partial();
 
 export const dayRouteSchema = z.object({
   kind: z.enum(ROUTE_KINDS),
@@ -280,6 +325,13 @@ export const tripDocumentSchema = tripDocumentBase.superRefine((doc, ctx) => {
 export const tripOperationSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("set_meta"), meta: tripMetaPatchSchema }),
   z.object({ op: z.literal("upsert_place"), place: placeSchema }),
+  /** Changes some of a place's fields and appends photos, without resending the record. Unknown ids are ignored. */
+  z.object({
+    op: z.literal("update_place"),
+    id,
+    changes: placePatchSchema.default({}),
+    addPhotos: z.array(photoSchema).max(MAX_PLACE_PHOTOS).default([]),
+  }),
   z.object({ op: z.literal("upsert_day"), day: daySchema }),
   z.object({ op: z.literal("upsert_transport"), transport: transportSchema }),
   z.object({ op: z.literal("upsert_hotel"), hotel: hotelSchema }),

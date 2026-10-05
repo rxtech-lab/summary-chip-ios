@@ -1,4 +1,4 @@
-import type { TRIP_COLLECTIONS, TripDocument, TripOperation } from "@/lib/contracts/trip";
+import { MAX_PLACE_PHOTOS, type TRIP_COLLECTIONS, type TripDocument, type TripOperation } from "@/lib/contracts/trip";
 import { viewText } from "@/lib/contracts/trip-view";
 
 /**
@@ -75,6 +75,18 @@ function applyOperation(doc: TripDocument, operation: TripOperation): TripDocume
     }
     case "upsert_place":
       return { ...doc, places: upsert(doc.places, operation.place) };
+    case "update_place":
+      return {
+        ...doc,
+        places: doc.places.map((place) => {
+          if (place.id !== operation.id) return place;
+          const next = { ...place, ...operation.changes };
+          // New photos go after the kept ones; a URL already there isn't added twice.
+          const urls = new Set(next.photos.map((photo) => photo.url));
+          const added = operation.addPhotos.filter((photo) => !urls.has(photo.url) && urls.add(photo.url));
+          return { ...next, photos: [...next.photos, ...added].slice(0, MAX_PLACE_PHOTOS) };
+        }),
+      };
     case "upsert_day":
       return { ...doc, days: byKey(upsert(doc.days, operation.day), (day) => day.date) };
     case "upsert_transport":
@@ -176,6 +188,15 @@ export function tripText(doc: TripDocument): string {
   if (doc.hotels.length) {
     lines.push("", "Hotels");
     for (const hotel of doc.hotels) lines.push(`- ${hotel.name}, ${hotel.checkIn} – ${hotel.checkOut} (${hotel.status})${hotel.address ? `, ${hotel.address}` : ""}`);
+  }
+  const described = doc.places.filter((place) => place.description || place.hours || place.pricing.length);
+  if (described.length) {
+    lines.push("", "Places");
+    for (const place of described) {
+      lines.push(`- ${place.name}${place.address ? `, ${place.address}` : ""}`, place.description);
+      if (place.hours) lines.push(`  Hours: ${place.hours}`);
+      for (const item of place.pricing) lines.push(`  ${item.label}: ${item.price ? `${item.price.amount} ${item.price.currency}` : "free"}${item.note ? ` (${item.note})` : ""}`);
+    }
   }
   for (const note of doc.notes) lines.push("", note.title, note.text);
   for (const view of doc.views) lines.push("", view.title, ...viewText(view.spec));

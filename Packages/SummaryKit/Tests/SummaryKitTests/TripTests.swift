@@ -34,6 +34,29 @@ private func loadTrip() throws -> Trip {
         #expect(TripDate.clock(late.effectiveDeparture) == "09:36")
     }
 
+    @Test func decodesPlaceDetailsAndRoundTripsThem() throws {
+        let json = Data("""
+        {"id":"kiyomizu","name":"Kiyomizu-dera","coordinate":{"lat":34.9949,"lng":135.785},
+         "description":"Wooden stage over the hillside.","hours":"6:00–18:00","visitDuration":"1–2 h",
+         "photos":[{"url":"https://example.com/a.jpg","caption":"The stage","credit":"Wikimedia"},{"url":"http://example.com/b.jpg"}],
+         "pricing":[{"label":"Adult","price":{"amount":500,"currency":"JPY"}},{"label":"Under 6"}],
+         "website":"https://www.kiyomizudera.or.jp/","phone":"+81 75-551-1234"}
+        """.utf8)
+        let place = try SummaryJSON.decoder().decode(TripPlace.self, from: json)
+        #expect(place.hasDetails)
+        #expect(place.photos.count == 2)
+        #expect(place.photos[0].imageURL?.absoluteString == "https://example.com/a.jpg")
+        #expect(place.photos[1].imageURL == nil) // http images don't load
+        #expect(place.pricing[0].price == TripMoney(amount: 500, currency: "JPY"))
+        #expect(place.pricing[1].price == nil)
+        #expect(place.visitDuration == "1–2 h")
+        let again = try SummaryJSON.decoder().decode(TripPlace.self, from: SummaryJSON.encoder().encode(place))
+        #expect(again == place)
+
+        let bare = try SummaryJSON.decoder().decode(TripPlace.self, from: Data(#"{"id":"p","name":"P","coordinate":{"lat":0,"lng":0}}"#.utf8))
+        #expect(bare.photos.isEmpty && bare.pricing.isEmpty && !bare.hasDetails)
+    }
+
     @Test func summaryKindDefaultsToSummary() throws {
         let summary = try SummaryJSON.decoder().decode(Summary.self, from: fixture("summary.json"))
         #expect(summary.kind == .summary)

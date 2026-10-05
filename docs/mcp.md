@@ -92,6 +92,8 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `get_trip` | A trip's full TripDocument and its revision. | `getTrip` |
 | `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance). | `createTrip` (as `POST /api/v1/trips`) |
 | `update_trip` | Applies operations (upsert/delete records by id, `set_meta`, `add_source`) in order, as one change. Free. | `applyTripOperations` (as `POST /api/v1/trips/:id/operations`) |
+| `update_place` | Changes some of a place's details (description, photos, hours, prices, website, phone…) and appends photos, without resending the place. Free. | `applyTripOperations` with an `update_place` operation |
+| `upload_trip_image` | Stores a photo (copied from a URL, or base64) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
 | `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
 
 `search_summaries` and `list_summaries` accept the same filters: `source` (`web`, `x`, `facebook`,
@@ -124,6 +126,16 @@ The trip format and its operations are specified in [trips.md](trips.md).
 - `update_trip` takes `tripId`, `operations` (1–200) and an optional `revision`. With `revision`, a trip that changed since
   is refused (`TRIP_REVISION_CONFLICT`: call `get_trip` and retry); without it the operations apply to the latest document.
   A result that would be invalid (`TRIP_INVALID`, e.g. a `stayId` naming no hotel) changes nothing.
+- `update_place` takes `tripId`, `placeId`, `changes` (any place fields except `id`; `null` clears an optional one,
+  `photos` and `pricing` replace their lists), `addPhotos` (appended after the existing photos, skipping URLs already
+  there, at most 12 in all) and an optional `revision`. It returns `{place, revision}`; an unknown `placeId` is a tool
+  error listing the trip's place ids.
+- `upload_trip_image` takes `tripId` and exactly one of `url` (a public image, fetched with the same SSRF checks as
+  link summaries) or `data` (base64 or a `data:` URL). JPEG, PNG, WebP, GIF, AVIF or HEIC up to 15 MB is re-encoded as a
+  JPEG of at most 2048 px with EXIF (GPS, camera) stripped, stored in R2 under `trip-images/<tripId>-<time>-<random>.jpg`,
+  and returned as `{image: {url, width, height, byteSize}}`. The URL is on `R2_PUBLIC_BASE_URL` when set, else
+  `/api/public/trip-images/:file` (the unguessable file name is the capability, like OG image keys). Put it in a place's
+  `photos` or an `Image` / `Gallery` view. Only the trip's owner may upload.
 - `add_to_trip_from_source` takes `tripId`, exactly one of `url` or `text`, and optional `instructions`. It holds points
   first (`TRIP_POINTS_EXHAUSTED` when the balance is empty), runs the trip agent synchronously (within the route's 300 s),
   and returns `{changeSummary, operationsApplied, trip}`. Invalid operations the agent proposes are dropped.

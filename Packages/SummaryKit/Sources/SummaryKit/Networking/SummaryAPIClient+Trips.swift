@@ -56,6 +56,18 @@ extension SummaryAPIClient {
         return envelope.trip
     }
 
+    /// Printing waits for the trip's photos, so it takes longer than other calls.
+    public static let tripPDFTimeout: TimeInterval = 120
+
+    /// The trip as an A4 PDF report (`GET /api/v1/trips/:id/pdf`), in the app's language. Fails with
+    /// `503 PDF_UNAVAILABLE` when the server can't print and `502 PDF_RENDER_FAILED` when printing failed.
+    public func tripPDF(id: String) async throws -> Data {
+        var request = request("/api/v1/trips/\(id.urlPathEscaped)/pdf")
+        request.setValue("application/pdf", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = Self.tripPDFTimeout
+        return try await sendRaw(request)
+    }
+
     public func deleteTrip(id: String) async throws {
         var request = request("/api/v1/trips/\(id.urlPathEscaped)")
         request.httpMethod = "DELETE"

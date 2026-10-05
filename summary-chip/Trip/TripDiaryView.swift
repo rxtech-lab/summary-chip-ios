@@ -8,6 +8,7 @@ enum TripSheet: Identifiable, Hashable {
     case day(String?)
     case places
     case place(String?)
+    case placeDetail(String)
     case transport(String?)
     case transportDetail(String)
     case hotel(String?)
@@ -27,6 +28,7 @@ enum TripSheet: Identifiable, Hashable {
         case .day(let id): "day:\(id ?? "new")"
         case .places: "places"
         case .place(let id): "place:\(id ?? "new")"
+        case .placeDetail(let id): "place-detail:\(id)"
         case .transport(let id): "transport:\(id ?? "new")"
         case .transportDetail(let id): "transport-detail:\(id)"
         case .hotel(let id): "hotel:\(id ?? "new")"

@@ -41,7 +41,12 @@ collection; the server refuses documents that break this (`tripIntegrityIssues`)
 | `views` | `View[]` ≤ 50 | Custom JSON-rendered UIs (see below) |
 
 **Place** — `id`, `name`, `kind` (`city | station | airport | hotel | poi | port`, default `poi`),
-`coordinate`, `address?`, `note?`, `major` (bool, default false: drawn larger on the map).
+`coordinate`, `address?`, `note?`, `major` (bool, default false: drawn larger on the map), and guidebook
+details: `description?` (what it is, why go), `photos[]` ≤ 12 `{ url, caption?, credit?, sourceUrl? }`
+(direct **https** image URLs only), `hours?` ("9:00–17:00, closed Mondays"), `visitDuration?` ("1–2 h"),
+`pricing[]` ≤ 30 `{ label, price?: Money, note? }` (no `price` = free), `website?`, `phone?`. The apps show
+them in the place's detail sheet with a Directions button: tapping the GPS location opens Maps (or Google
+Maps) with directions to the coordinate.
 
 **Day** — `id`, `date`, `title`, `short?` ("成田 → 千叶"), `blurb?`, `highlight` (bool),
 `route?` `{ kind: out | side | back | ferry | airport | stay, placeIds[], path?: Coordinate[], summary? }`
@@ -92,6 +97,9 @@ id is used once (no cycles). The catalog (`server/lib/contracts/trip-view.ts`) i
 | `Table` | `caption?`, `columns: [{ key, label, align?, format?, currency?, total? }]`, `rows: [{ cells: { key: value \| { value, detail?, tone? } }, style? }]`, `totalLabel?` | |
 | `BarChart` | `title?`, `format?`, `currency?`, `items: [{ label, value, detail?, tone? }]` | |
 | `Divider`, `Link` (`title`, `url`) | | |
+| `Image` | `url` (https), `caption?`, `credit?`, `aspect?` (`wide` 16:9 default / `square` / `portrait`) | |
+| `Gallery` | `images: [{ url, caption?, credit? }]` (1–12, https) | |
+| `Place` | `placeId`: a card of the trip's place with its photo, description, hours, a price and Directions; draws nothing when the place is gone | |
 
 Values are strings, numbers or null; `format` (`text`/`number`/`money`/`percent`) formats numbers
 (money in `currency`, else the trip's). A column with `total: true` gets a summed total row. Tones:
@@ -151,6 +159,7 @@ Agents (and the app, for small edits) change a trip with operations applied in o
 | `set_meta` | `meta: { title?, subtitle?, intro?, startDate?, endDate?, timeZone?, currency? }` | Changes only the given fields; `null` clears `subtitle`/`intro` |
 | `upsert_place` / `upsert_day` / `upsert_transport` / `upsert_hotel` / `upsert_expense` / `upsert_note` / `upsert_view` | `place` / `day` / … / `view` (a full record) | Replaces the record with the same id, or adds it |
 | `add_source` | `source: { title, url }` | Adds it unless the URL is already listed |
+| `update_place` | `id`, `changes` (any place fields but `id`; `null` clears one; `photos`/`pricing` replace their lists), `addPhotos[]` | Patches the place without resending it; new photos go after the existing ones (no duplicate URLs, ≤ 12). Unknown ids are ignored |
 | `delete` | `collection` (`places`, `days`, `transports`, `hotels`, `expenses`, `notes`, `views`), `id` | Removes it and clears references to it (route place ids, `stayId`, `transportIds`, `linkedId`, `dayId`, `coveredByExpenseId`; a deleted day's views move to the Views pane); unknown ids are ignored |
 
 The result must be a valid document, else `422 TRIP_INVALID` (`details.issues`) and nothing changes.
@@ -171,3 +180,32 @@ leaves the trip invalid is sent back to the agent once with the issues; whatever
 dropped one operation at a time. A page with a URL is added to `sources`. The agent is charged in
 points (`402 TRIP_POINTS_EXHAUSTED` when the balance is empty, checked before anything runs); direct
 edits are free. After `ingest`, the owner's devices get a "Trip updated" push with `tripId`.
+
+## Photos
+
+Photos are referenced by URL. Agents get them three ways: the trip agent is shown the https images of
+the page it reads (its preview image and the `<img>`s of its content, without icons), MCP agents can
+copy or upload one with `upload_trip_image` (stored in R2, re-encoded without EXIF, lasting URL), and
+users paste an image link in the place editor. Only https URLs are accepted.
+
+## PDF export
+
+`GET /api/v1/trips/:id/pdf` (anyone who can open the trip; free) returns the trip as an A4 PDF report:
+a cover (title, dates, intro, counts and budget), the itinerary day by day (moments with their places,
+transport, stay, tip and the day's views), planning views, places as guidebook entries (photos,
+description, hours, prices, website, phone and a Google Maps directions link), stays, transport, the
+budget with totals per currency (covered expenses excluded), notes and sources. Every page has the trip's
+title and dates in the header and "Page n / m" in the footer; margins are 22 mm top, 18 mm bottom and
+16 mm at the sides.
+
+`server/lib/pdf/trip-report.ts` builds self-contained HTML (inline CSS, no scripts, every value escaped,
+only https images) and `server/lib/pdf/browser-pdf.ts` prints it with Cloudflare Browser Run's `/pdf`
+endpoint (`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN`, the same credentials as link crawling),
+after fetching unique photos with public-URL and redirect checks and embedding resized JPEGs
+(1440 px maximum edge, up to 256 KiB each and 12 MiB total). Photo preparation has a 20-second budget;
+unavailable or excess photos retain a source link and their captions. The PDF download is capped at
+32 MiB and interrupted downloads return `502 PDF_RENDER_FAILED`. CJK text uses the browser's Noto CJK fonts. The
+language follows `?lang=` or `Accept-Language` (`en`, `zh-Hans`, `zh-Hant`). Errors:
+`503 PDF_UNAVAILABLE` when Browser Run isn't configured, `502 PDF_RENDER_FAILED` when printing failed.
+The apps' **More → Export PDF…** downloads it behind a status overlay and opens the system Save dialog
+(Files on iPhone and iPad).

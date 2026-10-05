@@ -6,7 +6,7 @@ import { applyOperations } from "@/lib/services/trip-document";
 /** What the trip agent reads: the trip as it is, and the page or text the user shared into it. */
 export interface TripAgentInput {
   document: TripDocument;
-  source: { text: string; title: string | null; url: string | null; siteName: string | null };
+  source: { text: string; title: string | null; url: string | null; siteName: string | null; images?: string[] };
   /** What the user asked for when sharing ("add this hotel", "use the 10:15 ferry"…). */
   instructions?: string | null;
 }
@@ -36,7 +36,8 @@ export const VIEW_GUIDE = "Custom views (upsert_view) are small native UIs the a
   + "format, currency, detail}, Callout {title, text, tone: info|tip|warning|success}, KeyValue {items}, List {items, "
   + "ordered}, Table {caption, columns: [{key, label, align, format, currency, total}], rows: [{cells: {key: value | "
   + "{value, detail, tone}}, style}], totalLabel}, BarChart {title, format, currency, items: [{label, value}]}, Divider, "
-  + "Link {title, url}. format is text|number|money|percent (money uses currency, else the trip's); a column with total: "
+  + "Link {title, url}, Image {url, caption, credit, aspect: wide|square|portrait}, Gallery {images: [{url, caption, credit}]}, "
+  + "Place {placeId} (a card of a trip place with its photo, info, prices and directions). format is text|number|money|percent (money uses currency, else the trip's); a column with total: "
   + "true gets a summed total row. Use views for comparisons and budgets the records can't express, e.g. a rail pass vs "
   + "paying each fare by IC card.";
 
@@ -48,7 +49,33 @@ export const TRIP_RECORD_RULES = `- Preserve existing records: update a record b
 - Trains: fill train { operator, line, name (e.g. "Hayabusa"), number (e.g. "16" or "3016B"), category: shinkansen | limited_express | rapid | local | other, carNumber, seat, seatClass }. Flights: fill flight { airline, flightNumber, fromIATA, toIATA, terminal, gate, seat, seatClass, bookingRef }.
 - A booked train, flight or ferry is a transport with status "booked" (link it from the day's transportIds); a booked hotel is a hotel with status "booked" (set stayId on each night's day). Record what was paid as an expense linked to it (linkedId).
 - Money is { amount, currency } with an ISO 4217 code; keep the currency the source states (the trip's default currency is given).
+- Places are guidebook entries, not just pins: when the source covers a sight, restaurant, shop or station, fill what it states — description (what it is, why go, 1–4 sentences), hours, visitDuration, pricing (one { label, price: { amount, currency }, note } per tier, e.g. "Adult", "Child 6–12", "Parking / hour"; omit price for free), website, phone, address and exact coordinates.
+- To change a few details of an existing place, use update_place { id, changes, addPhotos } instead of resending it with upsert_place.
+- Photos: add up to a few photos to a place (photos: [{ url, caption, credit, sourceUrl }]) or to a view (Image, Gallery) only from direct https image URLs listed as the source's images or given by the user; never guess or build image URLs. Keep the photos a place already has.
 - ${VIEW_GUIDE} Only build or change a view when the user asks for one; update it in place (same id) when its figures change.`;
+
+/** Most images of a source listed for the agent to pick photos from. */
+export const SOURCE_IMAGE_LIMIT = 12;
+
+/**
+ * The https images of an extracted page the agent may use as photos: its preview image first, then
+ * the `<img>`s of its content, without icons and tracking pixels the URL gives away.
+ */
+export function sourceImages(content: { imageUrl: string | null; html?: string | null }): string[] {
+  const found = new Set<string>();
+  const add = (candidate: string | null | undefined) => {
+    const value = candidate?.trim().replaceAll("&amp;", "&");
+    if (!value || !value.startsWith("https://") || value.length > 4096) return;
+    if (/\.svg(\?|$)|sprite|pixel|logo|icon|avatar|badge|spacer/i.test(value)) return;
+    found.add(value);
+  };
+  add(content.imageUrl);
+  for (const match of content.html?.matchAll(/<img\b[^>]*?\bsrc="([^"]+)"/gi) ?? []) {
+    if (found.size >= SOURCE_IMAGE_LIMIT) break;
+    add(match[1]);
+  }
+  return [...found].slice(0, SOURCE_IMAGE_LIMIT);
+}
 
 /** Characters of the shared source shown to the agent. */
 export const TRIP_SOURCE_CHARS = 40_000;
@@ -136,13 +163,14 @@ export async function runTripAgent(model: LanguageModel, input: TripAgentInput, 
     source.url ? `URL: ${source.url}` : null,
   ].filter(Boolean).join("\n");
   const text = source.text.length > TRIP_SOURCE_CHARS ? `${source.text.slice(0, TRIP_SOURCE_CHARS)}\n[… truncated]` : source.text;
+  const images = source.images?.length ? `\n\nImages on the page:\n${source.images.map((image) => `- ${image}`).join("\n")}` : "";
 
   await agent.generate({
     prompt: [
       `Trip default currency: ${input.document.currency}. Time zone: ${input.document.timeZone}.`,
       `<trip_document>\n${JSON.stringify(input.document)}\n</trip_document>`,
       input.instructions?.trim() ? `<user_instructions>\n${input.instructions.trim()}\n</user_instructions>` : "The user gave no instructions: add what the source contributes to the trip.",
-      `<shared_source>\n${header}\n\n${text}\n</shared_source>`,
+      `<shared_source>\n${header}\n\n${text}${images}\n</shared_source>`,
     ].join("\n\n"),
     abortSignal: options.abortSignal,
     onStepFinish: (step) => options.onUsage?.(step.usage),

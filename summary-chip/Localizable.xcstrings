@@ -505,6 +505,22 @@
         }
       }
     },
+    "1–2 h" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–2 小时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–2 小時"
+          }
+        }
+      }
+    },
     "1h 31m" : {
       "shouldTranslate" : false
     },
@@ -853,6 +869,22 @@
         }
       }
     },
+    "Add Photo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加照片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增照片"
+          }
+        }
+      }
+    },
     "Add Place" : {
       "localizations" : {
         "zh-Hans" : {
@@ -897,6 +929,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "請先為行程新增地點；路線會依序連接它們。"
+          }
+        }
+      }
+    },
+    "Add Price" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加价格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增價格"
           }
         }
       }
@@ -1060,6 +1108,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "調整"
+          }
+        }
+      }
+    },
+    "Admission tiers, set menus or rates. Leave the amount empty for free." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "门票档位、套餐或收费标准。免费则留空金额。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "門票級距、套餐或收費標準。免費則留空金額。"
+          }
+        }
+      }
+    },
+    "Adult" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成人"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成人"
           }
         }
       }
@@ -1397,6 +1477,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "API 金鑰讓 Claude 等 AI 代理程式新增、搜尋和列出你的摘要。"
+          }
+        }
+      }
+    },
+    "Apple Maps" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 地图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 地圖"
           }
         }
       }
@@ -1793,6 +1889,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
+          }
+        }
+      }
+    },
+    "Caption" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "说明"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "說明"
           }
         }
       }
@@ -2444,6 +2556,22 @@
         }
       }
     },
+    "Copy Coordinates" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝坐标"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷貝座標"
+          }
+        }
+      }
+    },
     "Copy Key" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2507,6 +2635,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法刪除"
+          }
+        }
+      }
+    },
+    "Couldn't Export PDF" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法导出 PDF"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法輸出 PDF"
           }
         }
       }
@@ -2753,6 +2897,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在建立行程…"
+          }
+        }
+      }
+    },
+    "Credit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源署名"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "來源署名"
           }
         }
       }
@@ -3339,6 +3499,22 @@
     "Diary" : {
 
     },
+    "Directions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导航"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "導航"
+          }
+        }
+      }
+    },
     "Disable Notifications" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3579,6 +3755,22 @@
         }
       }
     },
+    "Edit Photo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑照片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯照片"
+          }
+        }
+      }
+    },
     "Edit Place" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3591,6 +3783,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "編輯地點"
+          }
+        }
+      }
+    },
+    "Edit Price" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑价格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯價格"
           }
         }
       }
@@ -3668,8 +3876,21 @@
     "Edit View" : {
 
     },
-    "Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link. Or ask the trip agent to build one." : {
-
+    "Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link, Image, Gallery, Place. Or ask the trip agent to build one." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元素格式为 { type, props, children }。组件：Stack、Grid、Card、Disclosure、Heading、Text、Badge、Stat、Callout、KeyValue、List、Table、BarChart、Divider、Link、Image、Gallery、Place。也可以请旅行助理来制作。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元素格式為 { type, props, children }。元件：Stack、Grid、Card、Disclosure、Heading、Text、Badge、Stat、Callout、KeyValue、List、Table、BarChart、Divider、Link、Image、Gallery、Place。也可以請旅行助理來製作。"
+          }
+        }
+      }
     },
     "Enable Notifications" : {
       "localizations" : {
@@ -3814,6 +4035,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用更簡單的方式解釋一下"
+          }
+        }
+      }
+    },
+    "Export PDF…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出 PDF…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸出 PDF…"
           }
         }
       }
@@ -4210,6 +4447,22 @@
         }
       }
     },
+    "Free" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免费"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免費"
+          }
+        }
+      }
+    },
     "Free summaries" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4408,6 +4661,22 @@
         }
       }
     },
+    "Google Maps" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 地图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 地圖"
+          }
+        }
+      }
+    },
     "Got it" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4562,6 +4831,22 @@
         }
       }
     },
+    "Hours" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "营业时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "營業時間"
+          }
+        }
+      }
+    },
     "How much have I spent so far?" : {
 
     },
@@ -4581,6 +4866,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "構想"
+          }
+        }
+      }
+    },
+    "Image URL" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖片連結"
           }
         }
       }
@@ -5007,6 +5308,22 @@
         }
       }
     },
+    "Link to images on the web (https). The trip agent adds photos from pages you share." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接到网上的图片（https）。旅行助理会从你分享的网页中添加照片。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結到網路上的圖片（https）。旅行助理會從你分享的網頁中加入照片。"
+          }
+        }
+      }
+    },
     "List summaries newest first by source, category, tag or visibility." : {
       "localizations" : {
         "zh-Hans" : {
@@ -5260,6 +5577,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "定位我"
+          }
+        }
+      }
+    },
+    "Location" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置"
           }
         }
       }
@@ -6477,6 +6810,22 @@
         }
       }
     },
+    "Open in Maps" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地图中打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地圖中打開"
+          }
+        }
+      }
+    },
     "Open Summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6521,6 +6870,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在打開檔案…"
+          }
+        }
+      }
+    },
+    "Opening hours" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "营业时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "營業時間"
           }
         }
       }
@@ -6642,6 +7007,22 @@
     },
     "Option B" : {
 
+    },
+    "Optional" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選填"
+          }
+        }
+      }
     },
     "Options" : {
       "localizations" : {
@@ -6800,6 +7181,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "永久刪除你的帳號和摘要。"
+          }
+        }
+      }
+    },
+    "Phone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电话"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電話"
+          }
+        }
+      }
+    },
+    "Photo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片"
+          }
+        }
+      }
+    },
+    "Photo: …" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片：…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片：…"
+          }
+        }
+      }
+    },
+    "Photos" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片"
           }
         }
       }
@@ -7036,10 +7481,42 @@
         }
       }
     },
+    "Preparing PDF…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备 PDF…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備 PDF…"
+          }
+        }
+      }
+    },
     "Preview" : {
 
     },
     "Price" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "价格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "價格"
+          }
+        }
+      }
+    },
+    "Prices" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8272,6 +8749,22 @@
     },
     "Show In" : {
 
+    },
+    "Shows the place's details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示地点详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示地點詳情"
+          }
+        }
+      }
     },
     "Side trip" : {
       "comment" : "Trip route kind",
@@ -9664,6 +10157,22 @@
         }
       }
     },
+    "Trip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旅行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旅行"
+          }
+        }
+      }
+    },
     "Trip Agent" : {
 
     },
@@ -9909,6 +10418,22 @@
         }
       }
     },
+    "Use an https link to an image." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请使用 https 图片链接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請使用 https 圖片連結。"
+          }
+        }
+      }
+    },
     "Use Current Location" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10008,6 +10533,9 @@
     "View" : {
 
     },
+    "View Details" : {
+
+    },
     "View summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10052,6 +10580,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可見度"
+          }
+        }
+      }
+    },
+    "Visit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "游览时长"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "遊覽時長"
+          }
+        }
+      }
+    },
+    "Visit duration" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "游览时长"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "遊覽時長"
           }
         }
       }

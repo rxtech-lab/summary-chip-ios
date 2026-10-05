@@ -5,12 +5,13 @@ import { ALLOWED_TTL_DAYS } from "@/lib/config";
 import { CATEGORIES, LIBRARY_SCOPES, importSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { VIEW_GUIDE } from "@/lib/ai/trip-agent";
-import { createTripSchema, ingestTripSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
+import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
 import { SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { recordApiKeyUsage, type ApiKeyPrincipal } from "@/lib/services/api-keys";
 import { importSummary, listSummaries } from "@/lib/services/summaries";
 import type { SummaryJson } from "@/lib/services/serialize";
+import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, type TripJson } from "@/lib/services/trips";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 
@@ -22,6 +23,8 @@ export const TOOL_NAMES = {
   getTrip: "get_trip",
   createTrip: "create_trip",
   updateTrip: "update_trip",
+  updatePlace: "update_place",
+  uploadTripImage: "upload_trip_image",
   addToTripFromSource: "add_to_trip_from_source",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
@@ -32,7 +35,9 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and each "
   + "added chip counts against the user's summary allowance. Trips are structured travel diaries (days, places, trains and "
   + "flights, hotels, expenses, and custom views such as a fare comparison table): list_trips and get_trip read them, create_trip saves a new TripDocument, update_trip applies "
-  + "entity-level operations (upsert or delete records by id; free), and add_to_trip_from_source lets Chippy's trip agent "
+  + "entity-level operations (upsert or delete records by id; free), update_place changes a place's details (description, "
+  + "photos, hours, prices, website, phone…) without resending it, upload_trip_image stores a photo for a place or view and "
+  + "returns its URL, and add_to_trip_from_source lets Chippy's trip agent "
   + "add a web page or text (a booking, a timetable) to a trip, which costs points.";
 
 export interface McpContext {
@@ -284,8 +289,11 @@ export function createMcpServer(context: McpContext): McpServer {
     title: "Update Trip",
     description: "Edit a trip with operations applied in order, as one change: set_meta (title, dates, intro…), "
       + "upsert_place / upsert_day / upsert_transport / upsert_hotel / upsert_expense / upsert_note / upsert_view (a full "
-      + "record; the same id replaces it, a new id adds it), add_source, and delete (collection + id; references to it are cleared). "
+      + "record; the same id replaces it, a new id adds it), update_place (id, changes: only the fields to change, addPhotos), add_source, and delete (collection + id; references to it are cleared). "
       + `${VIEW_GUIDE} `
+      + "Places can carry guidebook details: description, photos ([{ url, caption, credit, sourceUrl }], direct https "
+      + "image URLs you have verified, e.g. from Wikimedia Commons or the place's own site), hours, visitDuration, pricing "
+      + "([{ label, price: { amount, currency }, note }]), website and phone; the app shows them with directions to the coordinate. "
       + "Copy unchanged fields when upserting an existing record. Use kebab-case ids for new records. Pass the revision "
       + "from get_trip to refuse the edit if the trip changed meanwhile. Free.",
     inputSchema: {
@@ -298,6 +306,54 @@ export function createMcpServer(context: McpContext): McpServer {
     const input = tripOperationsRequestSchema.parse({ operations: args.operations, revision: args.revision });
     const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
     return { result: success({ trip: tripPayload(trip) }, `Updated "${trip.document.title}" (revision ${trip.revision}).`) };
+  }));
+
+  server.registerTool(TOOL_NAMES.updatePlace, {
+    title: "Update Place",
+    description: "Change some fields of one of a trip's places, like a guidebook entry: description (what it is, why go), "
+      + "hours, visitDuration, pricing ([{ label, price: { amount, currency }, note }] — omit price for free; replaces the "
+      + "list), website, phone, address, note, name, kind, coordinate, major, photos (replaces the list). Fields you leave "
+      + "out stay as they are; null clears one. addPhotos appends photos ({ url, caption, credit, sourceUrl }; direct https "
+      + "image URLs, ideally from upload_trip_image) after the existing ones, at most 12 in all. Free.",
+    inputSchema: {
+      tripId: z.string().trim().min(1).max(100).describe("The trip's id."),
+      placeId: z.string().trim().min(1).max(80).describe("The place's id (from get_trip)."),
+      changes: placePatchSchema.optional().describe("The fields to change."),
+      addPhotos: z.array(photoSchema).max(MAX_PLACE_PHOTOS).optional().describe("Photos to add after the existing ones."),
+      revision: z.number().int().min(0).optional().describe("The revision the edit is based on; omit to apply to the latest."),
+    },
+    annotations: { title: "Update Place", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(async () => {
+    const current = await getTrip(db, args.tripId, principal.sub);
+    if (!current.document.places.some((place) => place.id === args.placeId)) {
+      return { result: failure(`The trip has no place "${args.placeId}". Places: ${current.document.places.map((place) => place.id).join(", ") || "none"}.`) };
+    }
+    const input = tripOperationsRequestSchema.parse({
+      operations: [{ op: "update_place", id: args.placeId, changes: args.changes ?? {}, addPhotos: args.addPhotos ?? [] }],
+      revision: args.revision,
+    });
+    const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
+    const place = trip.document.places.find((candidate) => candidate.id === args.placeId);
+    return { result: success({ place, revision: trip.revision }, `Updated "${place?.name ?? args.placeId}" (revision ${trip.revision}).`) };
+  }));
+
+  server.registerTool(TOOL_NAMES.uploadTripImage, {
+    title: "Upload Trip Image",
+    description: "Store a photo for one of the user's trips and get a lasting https URL for a place's photos (update_place "
+      + "addPhotos) or an Image / Gallery view. Give either url (a public image, copied so it keeps working when the page "
+      + "changes or blocks hotlinking) or data (the image as base64). JPEG, PNG, WebP, GIF, AVIF or HEIC up to 15 MB; it's "
+      + "re-encoded as a JPEG of at most 2048 px with location and camera metadata removed. Only upload images you may use "
+      + "(e.g. the place's own site, Wikimedia Commons) and credit them. Free.",
+    inputSchema: {
+      tripId: z.string().trim().min(1).max(100).describe("The trip's id."),
+      url: z.string().trim().url().max(4096).optional().describe("A public image URL to copy."),
+      data: z.string().trim().optional().describe("The image as base64 (or a data: URL)."),
+    },
+    annotations: { title: "Upload Trip Image", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  }, (args) => run(async () => {
+    const input = uploadTripImageSchema.parse({ url: args.url, data: args.data });
+    const image = await uploadTripImage(db, principal.sub, args.tripId, input);
+    return { result: success({ image }, `Uploaded a ${image.width}×${image.height} image.\n${image.url}`) };
   }));
 
   server.registerTool(TOOL_NAMES.addToTripFromSource, {

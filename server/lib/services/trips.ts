@@ -2,7 +2,7 @@ import type { LanguageModelUsage } from "ai";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
-import { parseOperations } from "@/lib/ai/trip-agent";
+import { parseOperations, sourceImages } from "@/lib/ai/trip-agent";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import {
   tripDocumentSchema,
@@ -94,11 +94,22 @@ export function toTripJson(row: SummaryRow, trip: TripRow, viewerId: string | nu
   };
 }
 
+/**
+ * Fills the arrays that documents saved before a field existed lack: `views`, and places'
+ * `photos` and `pricing`. Everything downstream (the agents, PDF export, the apps) can rely on them.
+ */
+export function withStoredDefaults(document: TripDocument): TripDocument {
+  return {
+    ...document,
+    places: (document.places ?? []).map((place) => ({ ...place, photos: place.photos ?? [], pricing: place.pricing ?? [] })),
+    views: document.views ?? [],
+  };
+}
+
 async function findTripRow(db: Database, summaryId: string): Promise<TripRow | undefined> {
   const rows = await db.select().from(trips).where(eq(trips.summaryId, summaryId)).limit(1);
   const row = rows[0];
-  // Documents saved before views existed have no `views` array.
-  return row && { ...row, document: { ...row.document, views: row.document.views ?? [] } };
+  return row && { ...row, document: withStoredDefaults(row.document) };
 }
 
 /** The trip behind a summary id, for whoever may open the summary: its owner, or anyone while the link is live. */
@@ -386,7 +397,7 @@ export async function updateTripFromSource(
     const { content } = await extractSource(db, ownerId, { source: input.source, followLinks: true }, store, ai);
     const result = await ai.updateTrip({
       document: trip.document,
-      source: { text: content.text, title: content.sourceTitle, url: content.sourceUrl, siteName: content.siteName },
+      source: { text: content.text, title: content.sourceTitle, url: content.sourceUrl, siteName: content.siteName, images: sourceImages(content) },
       instructions: input.instructions,
     }, { onUsage: (usage) => steps.push(usage) });
     if (!result) throw new ApiError(502, "TRIP_AGENT_FAILED", "The trip could not be updated from this source. Please try again.");

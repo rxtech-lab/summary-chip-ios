@@ -106,7 +106,7 @@ final class TripMapCamera {
 }
 
 /// Every day's route in its colour (earlier days strong, later ones faint), the day being read
-/// drawn up to the traveler, places marked active / visited, and the user's location.
+/// drawn up to the traveler, places marked active / visited, the selected place's pin, and the user's location.
 struct TripMapView: View {
     let document: TripDocument
     let activeDayID: String?
@@ -114,6 +114,14 @@ struct TripMapView: View {
     @Bindable var camera: TripMapCamera
     let location: LocationProvider
     var onSelectPlace: (TripPlace) -> Void = { _ in }
+    var onOpenPlace: (TripPlace) -> Void = { _ in }
+    /// The iPhone diary already occupies the presentation stack; draw its callout on the map.
+    var usesInlinePlaceCallout = false
+    @State private var selectedPlaceID: String?
+    @State private var popoverPlaceID: String?
+    @State private var detailPlaceID: String?
+    @State private var inlineCalloutPoint: CGPoint?
+    @State private var inlineCalloutSize = CGSize(width: 320, height: 140)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct DayLine: Identifiable {
@@ -176,6 +184,13 @@ struct TripMapView: View {
     }
 
     var body: some View {
+        MapReader { proxy in
+            map(proxy: proxy)
+        }
+    }
+
+    @ViewBuilder
+    private func map(proxy: MapProxy) -> some View {
         let active = activeRoute
         let activeIDs = activePlaceIDs
         let visitedIDs = visitedPlaceIDs
@@ -194,12 +209,46 @@ struct TripMapView: View {
                     .stroke(TripStyle.color(for: active.kind), style: TripStyle.stroke(for: active.kind, width: 6, returning: active.returning))
             }
             ForEach(document.places) { place in
-                Annotation(place.name, coordinate: place.coordinate.clCoordinate, anchor: .center) {
-                    PlaceDot(major: place.major, active: activeIDs.contains(place.id), visited: visitedIDs.contains(place.id))
-                        .onTapGesture { onSelectPlace(place) }
-                        .accessibilityAddTraits(.isButton)
+                let selected = selectedPlaceID == place.id
+                Annotation(place.name, coordinate: place.coordinate.clCoordinate, anchor: selected ? .bottom : .center) {
+                    Button {
+                        selectedPlaceID = place.id
+                        onSelectPlace(place)
+                        popoverPlaceID = place.id
+                    } label: {
+                        if selected {
+                            PlacePin(systemImage: place.kind.systemImage)
+                        } else {
+                            PlaceDot(major: place.major, active: activeIDs.contains(place.id), visited: visitedIDs.contains(place.id))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(place.name)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("trip-map-place-\(place.id)")
+                    .popover(isPresented: Binding(
+                        get: { !usesInlinePlaceCallout && popoverPlaceID == place.id },
+                        set: {
+                            if !usesInlinePlaceCallout && !$0 && popoverPlaceID == place.id {
+                                popoverPlaceID = nil
+                                if detailPlaceID != place.id { selectedPlaceID = nil }
+                            }
+                        }
+                    ), arrowEdge: .bottom) {
+                        TripMapPlacePopover(place: place) {
+                            detailPlaceID = place.id
+                            popoverPlaceID = nil
+                        }
+                        .presentationCompactAdaptation(.popover)
+                        .onDisappear {
+                            // Present the details after the marker's popover has closed.
+                            guard detailPlaceID == place.id else { return }
+                            detailPlaceID = nil
+                            onOpenPlace(place)
+                        }
+                    }
                 }
-                .annotationTitles(place.major || activeIDs.contains(place.id) ? .visible : .hidden)
+                .annotationTitles(selected || place.major || activeIDs.contains(place.id) ? .visible : .hidden)
             }
             if let traveler = active?.traveler {
                 Annotation("", coordinate: traveler, anchor: .center) {
@@ -216,7 +265,67 @@ struct TripMapView: View {
         .onChange(of: camera.position.positionedByUser) { _, byUser in
             if byUser { camera.userMoved() }
         }
+        .onMapCameraChange(frequency: .continuous) { _ in
+            updateInlineCalloutPosition(proxy: proxy)
+        }
+        .onChange(of: popoverPlaceID) { _, _ in
+            updateInlineCalloutPosition(proxy: proxy)
+        }
+        .simultaneousGesture(SpatialTapGesture().onEnded { tap in
+            dismissSelection(at: tap.location, proxy: proxy)
+        })
+        .overlay(alignment: .topLeading) {
+            if usesInlinePlaceCallout,
+               let place = document.places.first(where: { $0.id == popoverPlaceID }),
+               let frame = inlineCalloutFrame {
+                TripMapPlacePopover(place: place) {
+                    popoverPlaceID = nil
+                    onOpenPlace(place)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { inlineCalloutSize = $0 }
+                .offset(x: frame.minX, y: frame.minY)
+                .accessibilityIdentifier("trip-map-place-callout")
+            }
+        }
+        .sensoryFeedback(.selection, trigger: popoverPlaceID)
         .accessibilityIdentifier("trip-map")
+    }
+
+    private var inlineCalloutFrame: CGRect? {
+        guard usesInlinePlaceCallout, popoverPlaceID != nil, let point = inlineCalloutPoint else { return nil }
+        let x = max(12, min(point.x - inlineCalloutSize.width / 2, camera.viewSize.width - inlineCalloutSize.width - 12))
+        let y = max(camera.obscured.top + 12, point.y - 48 - 12 - inlineCalloutSize.height)
+        return CGRect(origin: CGPoint(x: x, y: y), size: inlineCalloutSize)
+    }
+
+    private func updateInlineCalloutPosition(proxy: MapProxy) {
+        guard usesInlinePlaceCallout,
+              let place = document.places.first(where: { $0.id == popoverPlaceID }) else {
+            inlineCalloutPoint = nil
+            return
+        }
+        inlineCalloutPoint = proxy.convert(place.coordinate.clCoordinate, to: .local)
+    }
+
+    private func dismissSelection(at point: CGPoint, proxy: MapProxy) {
+        guard selectedPlaceID != nil else { return }
+        if inlineCalloutFrame?.contains(point) == true { return }
+        // Marker buttons handle their own taps; only clicks on the map background dismiss selection.
+        let tappedMarker = document.places.contains { place in
+            guard let location = proxy.convert(place.coordinate.clCoordinate, to: .local) else { return false }
+            let selected = selectedPlaceID == place.id
+            let bounds = selected
+                ? CGRect(x: location.x - 22, y: location.y - 48, width: 44, height: 63)
+                : CGRect(x: location.x - 15, y: location.y - 15, width: 30, height: 30)
+            return bounds.contains(point)
+        }
+        guard !tappedMarker else { return }
+        detailPlaceID = nil
+        popoverPlaceID = nil
+        selectedPlaceID = nil
     }
 }
 
@@ -252,6 +361,86 @@ struct TripMapControls: View {
             .controlSize(.large)
         }
         .sensoryFeedback(.impact(weight: .light), trigger: following)
+    }
+}
+
+/// A small callout at the marker; the guide opens only when requested.
+private struct TripMapPlacePopover: View {
+    let place: TripPlace
+    let onOpenDetail: () -> Void
+    @State private var detailOpened = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(place.name, systemImage: place.kind.systemImage)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            if let address = place.address?.nilIfBlank {
+                Text(address)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            HStack(spacing: 8) {
+                Button {
+                    detailOpened += 1
+                    onOpenDetail()
+                } label: {
+                    Label("View Details", systemImage: "info.circle")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.roundedRectangle(radius: 12))
+                .controlSize(.regular)
+                .accessibilityIdentifier("trip-map-place-details")
+                TripDirectionsButton(place: place, prominent: false)
+            }
+            .font(.subheadline.weight(.semibold))
+        }
+        .padding(16)
+        .frame(width: 320, alignment: .leading)
+        .sensoryFeedback(.impact(weight: .light), trigger: detailOpened)
+    }
+}
+
+/// A selected place: a gradient pin with its category icon and a white border for map contrast.
+private struct PlacePin: View {
+    let systemImage: String
+
+    var body: some View {
+        PlacePinShape()
+            .fill(Color.accentColor.gradient)
+            .overlay { PlacePinShape().stroke(.white, lineWidth: 2) }
+            .overlay(alignment: .top) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 36)
+            }
+            .frame(width: 40, height: 48)
+            .shadow(color: .black.opacity(0.3), radius: 5, y: 3)
+            .padding(.horizontal, 2)
+            .contentShape(Rectangle())
+    }
+}
+
+private nonisolated struct PlacePinShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width, h = rect.height
+        return Path { path in
+            path.move(to: CGPoint(x: w / 2, y: h))
+            path.addCurve(to: CGPoint(x: 0, y: h * 0.4),
+                          control1: CGPoint(x: w * 0.32, y: h * 0.78), control2: CGPoint(x: 0, y: h * 0.65))
+            path.addCurve(to: CGPoint(x: w / 2, y: 0),
+                          control1: CGPoint(x: 0, y: h * 0.18), control2: CGPoint(x: w * 0.22, y: 0))
+            path.addCurve(to: CGPoint(x: w, y: h * 0.4),
+                          control1: CGPoint(x: w * 0.78, y: 0), control2: CGPoint(x: w, y: h * 0.18))
+            path.addCurve(to: CGPoint(x: w / 2, y: h),
+                          control1: CGPoint(x: w, y: h * 0.65), control2: CGPoint(x: w * 0.68, y: h * 0.78))
+            path.closeSubpath()
+        }
     }
 }
 

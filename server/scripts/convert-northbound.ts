@@ -68,6 +68,8 @@ const places: TripDocument["places"] = Object.entries(stops).map(([id, stop]) =>
   coordinate: { lat: stop.point[0], lng: stop.point[1] },
   address: null,
   note: [stop.dates, stop.note].filter(Boolean).join(" · "),
+  photos: [],
+  pricing: [],
   major: stop.major,
 }));
 
