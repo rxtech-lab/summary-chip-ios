@@ -16,7 +16,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { summaries, summaryEmbeddings, summaryTags, summaryTranslations, summaryViews, uploads, type ImageStyle, type SummaryRow } from "@/lib/db/schema";
+import { summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -53,7 +53,7 @@ export interface ServiceDeps {
   billingEnvironment?: BillingEnvironment;
 }
 
-async function resolveDeps(deps: ServiceDeps = {}) {
+export async function resolveDeps(deps: ServiceDeps = {}) {
   return {
     ai: deps.ai ?? await getAiProvider(),
     store: deps.store ?? getObjectStore(),
@@ -115,11 +115,35 @@ export async function readSummaryJson(
   options: { ai?: AiProvider; viewedAt?: Date | null; billingEnvironment?: BillingEnvironmentResolver } = {},
 ): Promise<SummaryJson> {
   const payer = translationPayer(row, viewerId, options.billingEnvironment);
-  const reading = await readSummary(db, row, readingLanguage(row, viewerId, accepted), payer, { ai: options.ai });
-  return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading);
+  const [reading, likedAt] = await Promise.all([
+    readSummary(db, row, readingLanguage(row, viewerId, accepted), payer, { ai: options.ai }),
+    viewerId ? findLikedAt(db, viewerId, row.id) : null,
+  ]);
+  return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading, likedAt);
 }
 
-async function getOwnedSummary(db: Database, id: string, ownerId: string): Promise<SummaryRow> {
+async function findLikedAt(db: Database, userId: string, summaryId: string): Promise<Date | null> {
+  const [like] = await db.select({ likedAt: summaryLikes.likedAt }).from(summaryLikes)
+    .where(and(eq(summaryLikes.userId, userId), eq(summaryLikes.summaryId, summaryId))).limit(1);
+  return like?.likedAt ?? null;
+}
+
+/**
+ * Stars (`liked`) or unstars a summary for `userId`. Anything the caller can read can be starred:
+ * their own summaries, or others' while the public link is live. Starring again keeps the first date.
+ */
+export async function setSummaryLiked(db: Database, userId: string, id: string, liked: boolean): Promise<{ likedAt: string | null }> {
+  if (!liked) {
+    await db.delete(summaryLikes).where(and(eq(summaryLikes.userId, userId), eq(summaryLikes.summaryId, id)));
+    return { likedAt: null };
+  }
+  await getSummaryForViewer(db, id, userId);
+  await db.insert(summaryLikes).values({ userId, summaryId: id }).onConflictDoNothing();
+  const likedAt = await findLikedAt(db, userId, id);
+  return { likedAt: likedAt ? likedAt.toISOString() : null };
+}
+
+export async function getOwnedSummary(db: Database, id: string, ownerId: string): Promise<SummaryRow> {
   const row = await findSummaryById(db, id);
   if (!row) throw notFound();
   if (row.ownerId !== ownerId) {
@@ -230,7 +254,8 @@ async function extractSharedText(
   return extractFromText(source);
 }
 
-async function extractSource(db: Database, ownerId: string, input: CreateSummaryInput, store: ObjectStore, ai: AiProvider) {
+/** Reads a submitted source (link, shared page, text, local file or uploaded PDF) into plain text. Also used by the trip agent. */
+export async function extractSource(db: Database, ownerId: string, input: Pick<CreateSummaryInput, "source" | "deviceReader" | "followLinks">, store: ObjectStore, ai: AiProvider) {
   const source = input.source;
   switch (source.type) {
     case "url":
@@ -369,6 +394,7 @@ export async function createSummary(
   const base = {
     id,
     ownerId: principal.sub,
+    kind: "summary",
     sourceType: input.source.type,
     source: content.source,
     sourceUrl: content.sourceUrl,
@@ -413,15 +439,19 @@ export async function createSummary(
   return toSummaryJson(row, principal.sub);
 }
 
+type BatchStatement = Parameters<Database["batch"]>[0][number];
+
 /**
- * Saves a new summary under a fresh slug (retrying collisions) with its tags, attached upload and
- * embedding. On failure its already-stored images are deleted.
+ * Saves a new summary under a fresh slug (retrying collisions) with its tags, attached upload,
+ * `extra` rows that belong to it (a trip's document) and embedding. On failure its already-stored
+ * images are deleted.
  */
-async function insertSummary(
+export async function insertSummary(
   db: Database,
   store: ObjectStore,
   base: Omit<SummaryRow, "slug">,
   embedding: Promise<SummaryEmbedding | null>,
+  extra: () => BatchStatement[] = () => [],
 ): Promise<SummaryRow> {
   const uploadKey = base.sourceFileKey;
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -434,6 +464,7 @@ async function insertSummary(
         ...(uploadKey
           ? [db.update(uploads).set({ attachedAt: row.createdAt, summaryId: row.id }).where(eq(uploads.key, uploadKey))]
           : []),
+        ...extra(),
       ]);
       await saveSummaryEmbedding(db, row.id, await embedding);
       return row;
@@ -447,7 +478,7 @@ async function insertSummary(
 }
 
 /** Renders and stores the cover; a failed render leaves the summary without images rather than failing it. */
-async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft: SummaryDraft, siteLabel: string | null, imageStyle: ImageStyle, createdAt: Date): Promise<ImageKeys> {
+export async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft: SummaryDraft, siteLabel: string | null, imageStyle: ImageStyle, createdAt: Date, kind: SummaryKind = "summary"): Promise<ImageKeys> {
   try {
     const images = await generateOgImages({
       id,
@@ -458,6 +489,7 @@ async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft
       theme: draft.theme,
       siteLabel,
       language: draft.language,
+      kind,
     }, imageStyle, ai);
     return await storeImages(store, id, createdAt.getTime(), images);
   } catch (error) {
@@ -534,6 +566,7 @@ export async function importSummary(
   const row = await insertSummary(db, store, {
     id,
     ownerId: principal.sub,
+    kind: "summary",
     sourceType: sourceUrl ? "url" : "text",
     source: sourceUrl ? platformOf(sourceUrl) ?? "web" : "text",
     sourceUrl,
@@ -585,13 +618,22 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const view = and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId));
   const mine = eq(summaries.ownerId, userId);
   const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), isPublicAndLive())!;
-  const scope = query.scope === "mine" ? mine : query.scope === "viewed" ? viewed : or(mine, viewed)!;
-  const activity = sql<number>`(CASE WHEN ${summaries.ownerId} = ${userId} THEN ${summaries.createdAt} ELSE ${summaryViews.viewedAt} END)`;
+  // Starred summaries stay listed only while the caller can still read them.
+  const liked = and(isNotNull(summaryLikes.userId), or(mine, isPublicAndLive()))!;
+  const scope = query.scope === "mine" ? mine
+    : query.scope === "viewed" ? viewed
+    : query.scope === "liked" ? liked
+    : or(mine, viewed)!;
+  // Likes are ordered by when they were starred; everything else by created (own) or last viewed (others').
+  const activity = query.scope === "liked"
+    ? sql<number>`${summaryLikes.likedAt}`
+    : sql<number>`(CASE WHEN ${summaries.ownerId} = ${userId} THEN ${summaries.createdAt} ELSE ${summaryViews.viewedAt} END)`;
 
   const conditions = [scope];
   if (query.category) conditions.push(eq(summaries.category, query.category));
   if (query.visibility) conditions.push(eq(summaries.visibility, query.visibility));
   if (query.source) conditions.push(eq(summaries.source, query.source));
+  if (query.kind) conditions.push(eq(summaries.kind, query.kind));
   if (query.tag) {
     conditions.push(inArray(summaries.id, db.select({ id: summaryTags.summaryId }).from(summaryTags).where(eq(summaryTags.tag, query.tag))));
   }
@@ -601,9 +643,10 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     const at = cursor.time.getTime();
     conditions.push(or(sql`${activity} < ${at}`, and(sql`${activity} = ${at}`, lt(summaries.id, cursor.id)))!);
   }
-  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, activity: activity.mapWith(Number) })
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, activity: activity.mapWith(Number) })
     .from(summaries)
     .leftJoin(summaryViews, view)
+    .leftJoin(summaryLikes, likeOf(userId))
     .where(and(...conditions))
     .orderBy(desc(activity), desc(summaries.id))
     .limit(query.limit + 1);
@@ -611,9 +654,13 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const last = page[page.length - 1];
   const readings = await readSummaries(db, page.map((row) => row.summary), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id))),
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt)),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
+}
+
+function likeOf(userId: string): SQL {
+  return and(eq(summaryLikes.summaryId, summaries.id), eq(summaryLikes.userId, userId))!;
 }
 
 /**
@@ -631,9 +678,10 @@ async function searchLibrary(
   const offset = decodeOffsetCursor(query.cursor);
   const vector = await embedQuery(deps.ai ?? await getAiProvider(), query.q);
   const match = relevance(query.q, vector);
-  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt })
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt })
     .from(summaries)
     .leftJoin(summaryViews, and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId)))
+    .leftJoin(summaryLikes, likeOf(userId))
     .where(and(...conditions, match.where))
     .orderBy(...(match.score ? [asc(match.score)] : []), desc(activity), desc(summaries.id))
     .limit(query.limit + 1)
@@ -641,7 +689,7 @@ async function searchLibrary(
   const page = rows.slice(0, query.limit);
   const readings = await readSummaries(db, page.map((row) => row.summary), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id))),
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt)),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }
@@ -839,8 +887,10 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
   await db.batch([
     db.delete(summaryTags).where(inArray(summaryTags.summaryId, ids)),
     db.delete(summaryViews).where(inArray(summaryViews.summaryId, ids)),
+    db.delete(summaryLikes).where(inArray(summaryLikes.summaryId, ids)),
     db.delete(summaryEmbeddings).where(inArray(summaryEmbeddings.summaryId, ids)),
     db.delete(summaryTranslations).where(inArray(summaryTranslations.summaryId, ids)),
+    db.delete(trips).where(inArray(trips.summaryId, ids)),
     db.delete(summaries).where(inArray(summaries.id, ids)),
     ...(fileKeys.length ? [db.delete(uploads).where(inArray(uploads.key, fileKeys))] : []),
   ]);
@@ -878,6 +928,7 @@ export async function regenerateImage(
     theme,
     siteLabel: siteLabelFor(existing),
     language: existing.language,
+    kind: existing.kind,
   }, imageStyle, ai);
   const keys = await storeImages(store, existing.id, timestamp, images);
   const changes = { imageStyle, theme, ...keys, updatedAt: new Date(timestamp) };

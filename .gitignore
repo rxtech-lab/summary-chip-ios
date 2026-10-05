@@ -60,3 +60,4 @@ __pycache__/
 # macOS
 .DS_Store
 .playwright-mcp
+.vercel

@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     return streamChat(db, principal.sub, messages, {
       summaryId: body.summaryId,
       localContent: body.localContent,
+      tripId: body.tripId,
       billingEnvironment: await billingEnvironment(request, principal),
       abortSignal: request.signal,
     });

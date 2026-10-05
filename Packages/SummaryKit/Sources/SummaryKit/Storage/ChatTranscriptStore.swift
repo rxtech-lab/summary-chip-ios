@@ -9,6 +9,9 @@ public final class ChatTranscriptStore: Sendable {
 
     public static func key(summaryID: String) -> String { "summary-\(summaryID)" }
 
+    /// The trip agent chat on a trip's screen.
+    public static func key(tripID: String) -> String { "trip-\(tripID)" }
+
     private let directory: URL?
     private let writer = DispatchQueue(label: "com.rxlab.summary-chip.chat-store", qos: .utility)
 

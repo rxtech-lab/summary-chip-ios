@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -12,4 +13,5 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@libsql/client", "libsql", "unpdf", "linkedom", "sharp"],
 };
 
-export default nextConfig;
+// Compiles `"use workflow"` / `"use step"` (the flight tracker in `workflows/`).
+export default withWorkflow(nextConfig);

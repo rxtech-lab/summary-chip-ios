@@ -1,0 +1,883 @@
+import SummaryKit
+import SwiftUI
+
+/// Title, subtitle, dates and introduction at the top of the diary.
+struct TripHeaderView: View {
+    let document: TripDocument
+    let onEdit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Label(document.dateRangeText, systemImage: "calendar")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                TripEditButton(title: String(localized: "Edit trip details"), action: onEdit)
+            }
+            Text(document.title)
+                .font(.largeTitle.weight(.bold))
+                .kerning(-0.5)
+                .fixedSize(horizontal: false, vertical: true)
+            if let subtitle = document.subtitle {
+                Text(subtitle).font(.title3).foregroundStyle(.secondary)
+            }
+            if let intro = document.intro {
+                Text(intro).font(.body).padding(.top, 4)
+            }
+            HStack(spacing: 12) {
+                Label(document.days.count == 1 ? String(localized: "1 day") : String(localized: "\(document.days.count) days"), systemImage: "sun.max")
+                Label(document.places.count == 1 ? String(localized: "1 place") : String(localized: "\(document.places.count) places"), systemImage: "mappin.and.ellipse")
+                Label(document.timeZone, systemImage: "clock")
+                    .lineLimit(1)
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+extension EnvironmentValues {
+    /// False for someone else's trip: edit and add buttons are hidden.
+    @Entry var tripEditable = true
+    /// Edit and delete for the transport and hotel cards' context menus.
+    @Entry var tripRecordActions: TripRecordActions?
+}
+
+/// A transport or hotel a context menu acts on.
+struct TripRecord: Identifiable, Hashable {
+    enum Kind { case transport, hotel }
+
+    let kind: Kind
+    let id: String
+    let name: String
+
+    var collection: TripCollection { kind == .transport ? .transports : .hotels }
+    var editSheet: TripSheet { kind == .transport ? .transport(id) : .hotel(id) }
+
+    var deleteTitle: String {
+        kind == .transport ? String(localized: "Delete Transport") : String(localized: "Delete Hotel")
+    }
+
+    var deleteMessage: String {
+        kind == .transport
+            ? String(localized: "The transport and its options are removed from the trip.")
+            : String(localized: "Days staying here will show no hotel.")
+    }
+}
+
+struct TripRecordActions {
+    let edit: (TripRecord) -> Void
+    let delete: (TripRecord) -> Void
+}
+
+/// Edit and Delete on a transport or hotel card, for the trip's owner.
+private struct TripRecordContextMenu: ViewModifier {
+    let record: TripRecord
+    @Environment(\.tripEditable) private var editable
+    @Environment(\.tripRecordActions) private var actions
+
+    func body(content: Content) -> some View {
+        if editable, let actions {
+            content.contextMenu {
+                Button { actions.edit(record) } label: { Label("Edit", systemImage: "pencil") }
+                Button(role: .destructive) { actions.delete(record) } label: {
+                    Label(record.deleteTitle, systemImage: "trash")
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func tripRecordContextMenu(_ record: TripRecord) -> some View {
+        modifier(TripRecordContextMenu(record: record))
+    }
+}
+
+struct TripEditButton: View {
+    let title: String
+    let action: () -> Void
+    @Environment(\.tripEditable) private var editable
+
+    var body: some View {
+        if editable { button }
+    }
+
+    private var button: some View {
+        Button(action: action) {
+            Image(systemName: "pencil")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 30, height: 30)
+                .background(.quaternary, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .help(title)
+    }
+}
+
+/// One diary day: DAY number, title, where the night is spent, the moments timeline, the
+/// transport taken and a tip. Highlighted while it's the day being read.
+/// Equatable on its data so scrolling, which re-renders the diary for the map, skips the cards;
+/// the actions only route to sheets.
+struct TripDayCard: View, Equatable {
+    let document: TripDocument
+    let day: TripDay
+    let number: Int
+    let isReading: Bool
+    let onEdit: () -> Void
+    let onOpenTransport: (TripTransport) -> Void
+    var onEditView: (TripView) -> Void = { _ in }
+
+    private var accent: Color { TripStyle.color(for: day.route?.kind) }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.document == rhs.document && lhs.day == rhs.day && lhs.number == rhs.number && lhs.isReading == rhs.isReading
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 0) {
+                Text("DAY")
+                    .font(.caption2.weight(.heavy))
+                    .foregroundStyle(.secondary)
+                Text(number, format: .number.precision(.integerLength(2...)))
+                    .font(.title.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(isReading ? accent : .primary)
+            }
+            .frame(width: 44)
+            .accessibilityElement(children: .combine)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(document.dayLabel(day.date))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(day.title)
+                            .font(.title3.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let short = day.short ?? day.route?.summary {
+                            Text(short).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    TripEditButton(title: String(localized: "Edit day"), action: onEdit)
+                }
+                if let hotel = document.hotel(id: day.stayId) {
+                    Label(hotel.name, systemImage: "moon.stars")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.indigo.opacity(0.12), in: Capsule())
+                        .foregroundStyle(.indigo)
+                }
+                if let blurb = day.blurb {
+                    Text(blurb).font(.body)
+                }
+                if !day.moments.isEmpty {
+                    MomentsTimeline(document: document, moments: day.moments, tint: accent)
+                }
+                let transports = day.transportIds.compactMap { document.transport(id: $0) }
+                if !transports.isEmpty {
+                    VStack(spacing: 8) {
+                        ForEach(transports) { transport in
+                            TransportSummaryButton(document: document, transport: transport) { onOpenTransport(transport) }
+                        }
+                    }
+                }
+                ForEach(document.views(forDay: day.id)) { view in
+                    TripCustomViewCard(view: view, currency: document.currency, embedded: true) { onEditView(view) }
+                        .equatable()
+                }
+                if let tip = day.tip {
+                    Text("\(Text("Tip").bold()) · \(tip)")
+                        .font(.callout)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.summaryCardBackground, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(isReading ? accent : (day.highlight ? accent.opacity(0.4) : Color.primary.opacity(0.06)), lineWidth: isReading ? 2 : 1)
+        }
+        .animation(.easeInOut(duration: 0.2), value: isReading)
+        .accessibilityIdentifier("trip-day-\(day.id)")
+    }
+}
+
+private struct MomentsTimeline: View {
+    let document: TripDocument
+    let moments: [TripMoment]
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(moments.indices, id: \.self) { index in
+                let moment = moments[index]
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(spacing: 0) {
+                        Circle().fill(tint).frame(width: 9, height: 9).padding(.top, 5)
+                        if index < moments.count - 1 {
+                            Rectangle().fill(tint.opacity(0.3)).frame(width: 2).frame(maxHeight: .infinity)
+                        }
+                    }
+                    .frame(width: 10)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(moment.slot.title)
+                            if let time = moment.time { Text(time).monospacedDigit() }
+                            if let place = document.place(id: moment.placeId) {
+                                Text("· \(place.name)").lineLimit(1)
+                            }
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        Text(moment.text)
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.bottom, index < moments.count - 1 ? 12 : 0)
+                }
+            }
+        }
+    }
+}
+
+/// A day's transport: label, the chosen option's times and its status, and the live status of
+/// its tracked flights. Opens the details.
+struct TransportSummaryButton: View {
+    let document: TripDocument
+    let transport: TripTransport
+    let action: () -> Void
+    @Environment(\.tripFlights) private var flights
+
+    var body: some View {
+        let tracked = flights.tracked(transportID: transport.id, optionID: transport.selectedOption?.id)
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: (transport.selectedOption?.segments.first?.mode ?? .train).systemImage)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(TripStyle.color(for: .out), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(transport.label)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        if let line = transport.selectedOption?.summaryLine(timeZone: document.resolvedTimeZone), !line.isEmpty {
+                            Text(line).font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 6)
+                    StatusChip(status: transport.status)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                ForEach(tracked) { item in
+                    Divider()
+                    TrackedFlightStatusView(item: item)
+                }
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .tripRecordContextMenu(TripRecord(kind: .transport, id: transport.id, name: transport.label))
+        .accessibilityIdentifier("trip-transport-\(transport.id)")
+    }
+}
+
+struct StatusChip: View {
+    let status: TripBookingStatus
+
+    var body: some View {
+        Text(status.title)
+            .font(.caption2.weight(.bold))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .foregroundStyle(status.tint)
+            .background(status.tint.opacity(0.14), in: Capsule())
+    }
+}
+
+/// A titled group under the days (Hotels, Expenses, Places, Notes), with an add button.
+struct TripSection<Content: View>: View {
+    let title: String
+    let systemImage: String
+    var addTitle: String?
+    var onAdd: (() -> Void)?
+    /// When set, the add button becomes a menu: fill in the form, or let the agent fill it in.
+    var onAddWithAI: (() -> Void)?
+    @ViewBuilder let content: () -> Content
+    @Environment(\.tripEditable) private var editable
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(title, systemImage: systemImage)
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                if editable, let onAdd, let addTitle {
+                    if let onAddWithAI {
+                        Menu {
+                            Button(action: onAdd) { Label("Fill In Form", systemImage: "square.and.pencil") }
+                            Button(action: onAddWithAI) { Label("Fill with AI", systemImage: "sparkles") }
+                        } label: {
+                            addIcon
+                        }
+                        .menuStyle(.button)
+                        .menuIndicator(.hidden)
+                        .buttonStyle(.plain)
+                        .fixedSize()
+                        .accessibilityLabel(addTitle)
+                    } else {
+                        Button(action: onAdd) { addIcon }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(addTitle)
+                    }
+                }
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var addIcon: some View {
+        Image(systemName: "plus")
+            .font(.subheadline.weight(.semibold))
+            .frame(width: 30, height: 30)
+            .background(.quaternary, in: Circle())
+    }
+}
+
+/// A row under the days that opens a secondary section (Notes, Sources) in its own sheet.
+struct TripLinkButton: View {
+    let title: String
+    let systemImage: String
+    /// Shown before the chevron: a count, or the current setting.
+    let detail: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, height: 34)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 6)
+                Text(detail)
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct TripNotesSheet: View {
+    let notes: [TripNote]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(notes) { note in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(note.title).font(.headline)
+                    Text(note.text).font(.subheadline)
+                }
+                .textSelection(.enabled)
+                .padding(.vertical, 2)
+            }
+            .navigationTitle("Notes")
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .summarySheetSize()
+    }
+}
+
+struct TripSourcesSheet: View {
+    let sources: [TripSource]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(sources, id: \.self) { source in
+                if let url = URL(string: source.url) {
+                    Link(destination: url) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(source.title).font(.subheadline.weight(.semibold))
+                            Text(url.host() ?? source.url)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                } else {
+                    Text(source.title).font(.subheadline)
+                }
+            }
+            .navigationTitle("Sources")
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .summarySheetSize()
+    }
+}
+
+struct HotelCard: View {
+    let document: TripDocument
+    let hotel: TripHotel
+    let onEdit: () -> Void
+
+    private var nights: Int { max(0, TripDate.daysBetween(hotel.checkIn, hotel.checkOut) ?? 0) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(hotel.name).font(.headline)
+                    Text("\(document.dayLabel(hotel.checkIn)) → \(document.dayLabel(hotel.checkOut))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                StatusChip(status: hotel.status)
+                TripEditButton(title: String(localized: "Edit hotel"), action: onEdit)
+            }
+            HStack(spacing: 12) {
+                Label(nights == 1 ? String(localized: "1 night") : String(localized: "\(nights) nights"), systemImage: "moon")
+                if let time = hotel.checkInTime {
+                    Label(String(localized: "Check-in \(time)"), systemImage: "clock")
+                }
+                if let price = hotel.price {
+                    Label(price.formatted, systemImage: "creditcard")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            if let address = hotel.address ?? document.place(id: hotel.placeId)?.address {
+                Text(address).font(.caption).foregroundStyle(.secondary)
+            }
+            if let confirmation = hotel.confirmation {
+                Label(String(localized: "Confirmation \(confirmation)"), systemImage: "checkmark.seal")
+                    .font(.caption.weight(.medium))
+                    .textSelection(.enabled)
+            }
+            if let link = hotel.url.flatMap(URL.init(string:)) {
+                Link(destination: link) {
+                    Label("Website", systemImage: "safari").font(.caption.weight(.semibold))
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.summaryCardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        #if os(iOS)
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+        #endif
+        .tripRecordContextMenu(TripRecord(kind: .hotel, id: hotel.id, name: hotel.name))
+    }
+}
+
+/// Totals per currency (pass-covered costs left out), per category, and every cost.
+struct ExpensesSummaryView: View {
+    let document: TripDocument
+    let onEdit: (TripExpense) -> Void
+    @State private var converter = CurrencyConverter.shared
+
+    private func totalsText(_ totals: [TripCurrencyTotal]) -> String {
+        totals.map(\.money.formatted).joined(separator: " + ")
+    }
+
+    /// The totals, then "≈" the same in the chosen currency when any of them is in another one.
+    private func totalsLine(_ totals: [TripCurrencyTotal]) -> String {
+        guard let converted = converter.convert(totals) else { return totalsText(totals) }
+        return "\(totalsText(totals)) ≈ \(converted.formatted)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            let totals = document.expenseTotals()
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Total")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(totals.isEmpty ? TripMoney(amount: 0, currency: document.currency).formatted : totalsText(totals))
+                    .font(.title2.weight(.bold))
+                    .monospacedDigit()
+                if let converted = converter.convert(totals) {
+                    Text("≈ \(converted.formatted)")
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("expenses-converted-total")
+                }
+            }
+            let categories = TripExpenseCategory.allCases.filter { category in
+                document.expenses.contains { $0.category == category && !$0.isCovered }
+            }
+            if categories.count > 1 {
+                VStack(spacing: 6) {
+                    ForEach(categories) { category in
+                        HStack {
+                            Label(category.title, systemImage: category.systemImage)
+                            Spacer()
+                            Text(totalsLine(document.expenseTotals(category: category))).monospacedDigit()
+                        }
+                        .font(.subheadline)
+                    }
+                }
+            }
+            Divider()
+            ForEach(document.expenses) { expense in
+                Button { onEdit(expense) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: expense.category.systemImage)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(expense.title).foregroundStyle(.primary)
+                            if let pass = document.expense(id: expense.coveredByExpenseId) {
+                                Text("Covered by \(pass.title)").font(.caption).foregroundStyle(.green)
+                            } else if let date = expense.date {
+                                Text(document.dayLabel(date)).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(expense.amount.formatted)
+                                .strikethrough(expense.isCovered)
+                                .foregroundStyle(expense.isCovered ? .secondary : .primary)
+                            if let converted = converter.convert(expense.amount) {
+                                Text("≈ \(converted.formatted)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("expense-converted-amount")
+                            }
+                        }
+                        .monospacedDigit()
+                        Image(systemName: expense.paid ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(expense.paid ? .green : .secondary)
+                            .accessibilityLabel(expense.paid ? String(localized: "Paid") : String(localized: "Not paid"))
+                    }
+                    .font(.subheadline)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.summaryCardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .task(id: converter.target) { await converter.refreshIfNeeded() }
+    }
+}
+
+/// The trip's places, like Notes in its own sheet. Tapping a place opens its editor in place of
+/// this sheet; the add button opens a blank one.
+struct TripPlacesSheet: View {
+    let places: [TripPlace]
+    let onEdit: (TripPlace?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.tripEditable) private var editable
+
+    var body: some View {
+        NavigationStack {
+            List(places) { place in
+                Button { onEdit(place) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: place.kind.systemImage)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(place.name).foregroundStyle(.primary)
+                            if let address = place.address {
+                                Text(address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }
+                        Spacer()
+                        if editable {
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!editable)
+                .padding(.vertical, 2)
+            }
+            .overlay {
+                if places.isEmpty {
+                    ContentUnavailableView {
+                        Label("No places yet", systemImage: "mappin.and.ellipse")
+                    } description: {
+                        Text("Add places to draw routes on the map.")
+                    }
+                }
+            }
+            .navigationTitle("Places")
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                if editable {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { onEdit(nil) } label: { Label("Add Place", systemImage: "plus") }
+                            .accessibilityIdentifier("trip-add-place")
+                    }
+                }
+            }
+        }
+        .summarySheetSize()
+    }
+}
+
+/// The transport's options and legs: "05:53 → 14:04", train category and seat, flight number and
+/// terminal, fares and warnings. Editing opens the transport editor. Tracked flights get a
+/// dedicated Live Status tab.
+struct TransportDetailSheet: View {
+    private enum Tab: Hashable { case details, liveStatus }
+
+    let document: TripDocument
+    let transport: TripTransport
+    let onEdit: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.tripEditable) private var editable
+    @Environment(\.tripFlights) private var flights
+    @State private var optionID: String
+    @State private var tab: Tab = .details
+
+    init(document: TripDocument, transport: TripTransport, onEdit: @escaping () -> Void) {
+        self.document = document
+        self.transport = transport
+        self.onEdit = onEdit
+        _optionID = State(initialValue: transport.selectedOption?.id ?? "")
+    }
+
+    private var option: TripTransportOption? {
+        transport.options.first { $0.id == optionID } ?? transport.selectedOption
+    }
+
+    private var tracked: [TripFlight] {
+        guard let option else { return [] }
+        return flights.tracked(transportID: transport.id, optionID: option.id)
+    }
+
+    /// The Live Status tab only when the shown option has tracked flights.
+    private var shownTab: Tab { tracked.isEmpty ? .details : tab }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch shownTab {
+                case .details: details
+                case .liveStatus: liveStatus
+                }
+            }
+            .navigationTitle("Transport")
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                if !tracked.isEmpty {
+                    ToolbarItem(placement: .principal) {
+                        Picker("View", selection: $tab) {
+                            Text("Details").tag(Tab.details)
+                            Text("Live Status").tag(Tab.liveStatus)
+                        }
+                        .pickerStyle(.segmented)
+                        .fixedSize()
+                        .accessibilityIdentifier("transport-detail-tabs")
+                    }
+                }
+                if editable {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Edit", action: onEdit)
+                            .accessibilityIdentifier("transport-detail-edit")
+                    }
+                }
+            }
+        }
+        .sensoryFeedback(.selection, trigger: optionID)
+        .sensoryFeedback(.selection, trigger: tab)
+        .summarySheetSize()
+    }
+
+    /// Live flight status of the option's tracked flights, as last stored by the backend.
+    private var liveStatus: some View {
+        List {
+            Section {
+                ForEach(tracked) { item in
+                    if let flight = item.flight, item.state == .found {
+                        FlightInfoCard(flight: flight, showsUpdated: true)
+                            .padding(.vertical, 4)
+                    } else {
+                        TrackedFlightStatusView(item: item)
+                    }
+                }
+            } footer: {
+                Text("Chippy checks tracked flights and sends alerts when the gate, times or status change.")
+            }
+        }
+    }
+
+    private var details: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(document.dayLabel(transport.date))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        StatusChip(status: transport.status)
+                    }
+                    Text(transport.label).font(.title2.weight(.bold))
+                }
+                if transport.options.count > 1 {
+                    Picker("Option", selection: $optionID) {
+                        ForEach(transport.options) { option in
+                            Text(option.label).tag(option.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            if let option {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(option.label).font(.headline)
+                            if option.id == transport.selectedOption?.id && transport.options.count > 1 {
+                                Text("Chosen").font(.caption.weight(.bold)).foregroundStyle(.green)
+                            }
+                            Spacer()
+                            if let fare = option.fare {
+                                Text(fare.formatted).font(.headline).monospacedDigit()
+                            }
+                        }
+                        if let times = TripTimes.range(option.effectiveDeparture, option.effectiveArrival) {
+                            HStack {
+                                Text(times).font(.title3.weight(.semibold)).monospacedDigit()
+                                if let duration = option.duration { Text(duration).font(.subheadline).foregroundStyle(.secondary) }
+                            }
+                        }
+                    }
+                    if let warning = option.warning {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                if !option.segments.isEmpty {
+                    Section("Legs") {
+                        ForEach(option.segments.indices, id: \.self) { index in
+                            SegmentDetailRow(segment: option.segments[index])
+                        }
+                    }
+                }
+                if !option.notes.isEmpty {
+                    Section("Notes") {
+                        ForEach(option.notes, id: \.self) { Text($0).font(.subheadline) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct SegmentDetailRow: View {
+    let segment: TripSegment
+
+    private var details: [String] {
+        var parts: [String] = []
+        if let train = segment.train {
+            let name = [train.name, train.number].compactMap { $0 }.joined(separator: " ")
+            if !name.isEmpty { parts.append(name) }
+            parts.append(train.category.title)
+            if let line = train.line { parts.append(line) }
+            if let seatClass = train.seatClass { parts.append(seatClass.title) }
+            if let car = train.carNumber { parts.append(String(localized: "Car \(car)")) }
+            if let seat = train.seat { parts.append(String(localized: "Seat \(seat)")) }
+        }
+        if let flight = segment.flight {
+            parts.append([flight.airline, flight.flightNumber].compactMap { $0 }.joined(separator: " "))
+            if let from = flight.fromIATA, let to = flight.toIATA { parts.append("\(from) → \(to)") }
+            if let terminal = flight.terminal { parts.append(String(localized: "Terminal \(terminal)")) }
+            if let gate = flight.gate { parts.append(String(localized: "Gate \(gate)")) }
+            if let seatClass = flight.seatClass { parts.append(seatClass.title) }
+            if let seat = flight.seat { parts.append(String(localized: "Seat \(seat)")) }
+            if let reference = flight.bookingRef { parts.append(String(localized: "Ref \(reference)")) }
+        }
+        return parts
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: segment.mode.systemImage)
+                .foregroundStyle(TripStyle.color(for: .out))
+                .frame(width: 24)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                if let times = TripTimes.range(segment.departure, segment.arrival) {
+                    Text(times).font(.headline).monospacedDigit()
+                }
+                Text("\(segment.fromName) → \(segment.toName)").font(.subheadline.weight(.semibold))
+                if !details.isEmpty {
+                    Text(details.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                }
+                HStack {
+                    if let price = segment.price {
+                        Text(price.formatted).font(.caption.weight(.semibold)).monospacedDigit()
+                    }
+                    if let link = segment.sourceUrl.flatMap(URL.init(string:)) {
+                        Link(destination: link) {
+                            Label("Source", systemImage: "link").font(.caption)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}

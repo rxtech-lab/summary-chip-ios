@@ -61,6 +61,16 @@ struct OfflineSummaryStoreTests {
         #expect(store.summaries(matching: .init(tag: "swift")).map(\.id) == ["mine"])
     }
 
+    @Test func filtersLikesLocally() {
+        var liked = summary("liked", daysAgo: 2, isOwner: false)
+        liked.likedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let store = OfflineSummaryStore(fileURL: nil)
+        store.upsert([summary("plain", daysAgo: 1), liked])
+        #expect(store.summaries(matching: .init(scope: .liked)).map(\.id) == ["liked"])
+        #expect(store.summary(id: "liked")?.isLiked == true)
+        #expect(store.summary(id: "plain")?.isLiked == false)
+    }
+
     @Test func removeAndClear() async throws {
         let url = makeURL()
         let store = OfflineSummaryStore(fileURL: url)

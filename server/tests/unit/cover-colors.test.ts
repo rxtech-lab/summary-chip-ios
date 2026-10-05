@@ -37,4 +37,15 @@ describe("cover colors", () => {
     expect(prompt).toContain(COVER_PALETTES[0].colors.join(", "));
     expect(prompt).toContain("Make its colors dominant across the background and subject");
   });
+
+  it("draws trips as a text-free travel-diary page", () => {
+    const prompt = illustrationInstruction({
+      title: "Northbound Japan", headline: "Northbound Japan", summary: "Ten days north", category: "Travel",
+      keywords: ["Chiba", "Hakodate"], colors: [...COVER_PALETTES[0].colors], mode: "light", kind: "trip",
+    });
+    expect(prompt).toContain("travel diary");
+    expect(prompt).toContain("Chiba, Hakodate");
+    expect(prompt).toContain("NO text of any kind");
+    expect(prompt).not.toContain("editorial illustration");
+  });
 });

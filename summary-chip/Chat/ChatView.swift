@@ -6,7 +6,8 @@ import SwiftUI
 struct ChatSummaryRoute: Hashable { let id: String }
 
 /// The library-wide agent (Chat tab, or the trailing chat column on large screens), or —
-/// with `summary` — a chat about one summary, presented as a sheet from its detail screen.
+/// with `summary` — a chat about one summary, presented as a sheet from its detail screen, or —
+/// with `trip` — the trip agent, presented as a sheet from the trip's screen; it can edit the trip.
 struct ChatView: View {
     let environment: AppEnvironment
     let summary: Summary?
@@ -19,11 +20,29 @@ struct ChatView: View {
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    init(environment: AppEnvironment, summary: Summary? = nil, isPanel: Bool = false, model: ChatModel? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
-        self._model = State(initialValue: model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id))
+        let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip)
+        model.onTripUpdated = onTripUpdated
+        self._model = State(initialValue: model)
+    }
+
+    private var trip: TripChat? { model.trip }
+    /// A chat about one summary or trip, presented as a sheet over it.
+    private var isSheet: Bool { summary != nil || trip != nil }
+
+    private var title: Text {
+        if let trip { return trip.isExpense ? Text("Add Expense with AI") : Text("Trip Agent") }
+        return summary == nil ? Text("Chat") : Text("Ask About This")
+    }
+
+    private var placeholder: String {
+        if let trip {
+            return trip.isExpense ? String(localized: "Paste a receipt or describe a cost") : String(localized: "Ask, or paste a booking or link")
+        }
+        return summary == nil ? String(localized: "Ask about your summaries") : String(localized: "Ask about this summary")
     }
 
     var body: some View {
@@ -57,27 +76,27 @@ struct ChatView: View {
             .alert("Not Enough Points", isPresented: $model.needsTopUp) {
                 Button("Top Up") {
                     // The top-up sheet is presented from the root, so close this chat sheet first.
-                    if summary != nil { dismiss() }
+                    if isSheet { dismiss() }
                     environment.pendingTopUp = true
                 }
                 Button("Later", role: .cancel) {}
             } message: {
                 Text("Chatting uses points based on the AI's usage. Top up to keep chatting.")
             }
-            .navigationTitle(summary == nil ? Text("Chat") : Text("Ask About This"))
+            .navigationTitle(title)
             .summaryInlineNavigationTitle()
-            .summarySearchToolbar(isEnabled: summary == nil && !isPanel)
+            .summarySearchToolbar(isEnabled: !isSheet && !isPanel)
             .navigationDestination(for: ChatSummaryRoute.self) { route in
                 // Already inside a summary chat sheet: don't offer another one on top.
-                SummaryLoaderView(environment: environment, id: route.id, allowsChat: summary == nil)
+                SummaryLoaderView(environment: environment, id: route.id, allowsChat: !isSheet)
             }
             .toolbar {
-                if summary != nil {
+                if isSheet {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Close") { dismiss() }
                     }
                 }
-                if summary == nil && !isPanel {
+                if !isSheet && !isPanel {
                     ToolbarSpacer(.fixed, placement: .summaryTrailing)
                 }
                 ToolbarItem(placement: .summaryTrailing) {
@@ -96,12 +115,22 @@ struct ChatView: View {
     private var emptyState: some View {
         ScrollView {
             VStack(spacing: 24) {
-                Image(systemName: "sparkles")
+                Image(systemName: trip == nil ? "sparkles" : trip?.isExpense == true ? "creditcard" : "suitcase")
                     .font(.system(size: 44))
                     .foregroundStyle(.tint)
                     .padding(.top, 40)
                 VStack(spacing: 6) {
-                    if let summary {
+                    if let trip {
+                        Text(trip.title)
+                            .font(.title3.weight(.bold))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                        Text(trip.isExpense
+                             ? "Paste a receipt or booking, or describe what you paid — the agent adds it to the trip's costs."
+                             : "Ask about the trip, or paste a booking, timetable or link — the agent updates the trip for you.")
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    } else if let summary {
                         Text(summary.title)
                             .font(.title3.weight(.bold))
                             .multilineTextAlignment(.center)
@@ -167,7 +196,7 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 10) {
-            TextField(summary == nil ? String(localized: "Ask about your summaries") : String(localized: "Ask about this summary"), text: $model.draft, axis: .vertical)
+            TextField(placeholder, text: $model.draft, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($inputFocused)
                 // The glass capsule is the field's only outline; drop the platform border.
@@ -338,6 +367,8 @@ private struct ChatToolCallCard: View {
         case "getSummary": return "doc.text.magnifyingglass"
         case "grepLocalFile": return "text.magnifyingglass"
         case "readLocalFile": return "doc.plaintext"
+        case "readWebPage": return "globe"
+        case "updateTrip": return "suitcase"
         default: return "wrench.and.screwdriver"
         }
     }
@@ -356,6 +387,13 @@ private struct ChatToolCallCard: View {
         case "readLocalFile":
             if tool.isRunning { return String(localized: "Reading the file…") }
             return tool.finished == true ? String(localized: "Read the file") : String(localized: "Reading stopped")
+        case "readWebPage":
+            if tool.isRunning { return String(localized: "Reading the page…") }
+            return tool.finished == true ? String(localized: "Read the page") : String(localized: "Reading stopped")
+        case "updateTrip":
+            if tool.isRunning { return String(localized: "Updating the trip…") }
+            if tool.errorText != nil { return String(localized: "Changes needed fixing") }
+            return tool.finished == true ? String(localized: "Updated the trip") : String(localized: "Update stopped")
         default:
             if tool.isRunning { return tool.label.isEmpty ? String(localized: "Working…") : tool.label }
             return tool.toolName.isEmpty ? String(localized: "Used a tool") : String(localized: "Used \(tool.toolName)")

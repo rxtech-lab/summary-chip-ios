@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
 import * as importRoute from "@/app/api/v1/summaries/import/route";
 import * as summaryRoute from "@/app/api/v1/summaries/[id]/route";
+import * as likeRoute from "@/app/api/v1/summaries/[id]/like/route";
 import * as imageRoute from "@/app/api/v1/summaries/[id]/image/route";
 import * as markdownRoute from "@/app/api/v1/summaries/[id]/markdown/route";
 import * as uploadsRoute from "@/app/api/v1/uploads/route";
@@ -100,10 +101,10 @@ describe("POST /api/v1/summaries", () => {
     expect(new Date(summary.expiresAt).getTime() - new Date(summary.createdAt).getTime()).toBe(7 * 86_400_000);
     expect(summary.theme).toEqual({ colors: expect.any(Array), mode: expect.stringMatching(/^(light|dark)$/), emoji: "🧪", accent: expect.stringMatching(/^#[0-9a-f]{6}$/) });
     expect(Object.keys(summary)).toEqual([
-      "id", "slug", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
+      "id", "slug", "kind", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
       "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "displayCategory", "displayTags", "keywords", "language",
       "originalLanguage", "displayLanguage", "translationPending", "sourceTranslationPending", "theme", "imageStyle", "visibility",
-      "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "createdAt", "updatedAt",
+      "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "likedAt", "createdAt", "updatedAt",
     ]);
     // Readability extracted the article, not the nav/footer chrome.
     const sent = env.ai.calls.summarize[0];
@@ -639,6 +640,47 @@ describe("get, patch, visibility, delete", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     const fetched = await (await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${created.id}`, { token: env.tokens.alice }), params({ id: created.id }))).json();
     expect(fetched.viewCount).toBe(1);
+  });
+});
+
+describe("likes", () => {
+  const like = (id: string, token: string, method: "PUT" | "DELETE" = "PUT") =>
+    likeRoute[method](apiRequest(method, `/api/v1/summaries/${id}/like`, { token }), params({ id }));
+  const liked = async (token: string) =>
+    (await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?scope=liked", { token }))).json()).items as { id: string; likedAt: string }[];
+
+  it("stars own and others' public summaries, lists them newest like first, and unstars", async () => {
+    const mine = await createText("Sourdough starters need regular feeding with flour and water to stay active.", { title: "Sourdough" });
+    const theirs = await createText("Night trains are returning across Europe as travellers look for low-carbon routes.", { title: "Night trains" }, env.tokens.bob);
+    const hidden = await createText("Private diary entry about a quiet weekend at home with tea and books.", { title: "Diary", visibility: "private" }, env.tokens.bob);
+    expect(mine.likedAt).toBeNull();
+
+    expect((await like(hidden.id, env.tokens.alice)).status).toBe(404);
+    const first = await (await like(mine.id, env.tokens.alice)).json();
+    expect(first.likedAt).toEqual(expect.any(String));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect((await like(theirs.id, env.tokens.alice)).status).toBe(200);
+    // Starring again keeps the original date.
+    expect((await (await like(mine.id, env.tokens.alice)).json()).likedAt).toBe(first.likedAt);
+
+    expect((await liked(env.tokens.alice)).map((item) => item.id)).toEqual([theirs.id, mine.id]);
+    expect(await liked(env.tokens.bob)).toEqual([]);
+    const detail = await (await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${mine.id}`, { token: env.tokens.alice }), params({ id: mine.id }))).json();
+    expect(detail.likedAt).toBe(first.likedAt);
+    const all = await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries", { token: env.tokens.alice }))).json();
+    expect(all.items.find((item: { id: string }) => item.id === mine.id).likedAt).toBe(first.likedAt);
+
+    // Someone else's summary going private drops out of Likes.
+    await summaryRoute.PATCH(apiRequest("PATCH", `/api/v1/summaries/${theirs.id}`, { token: env.tokens.bob, body: { visibility: "private" } }), params({ id: theirs.id }));
+    expect((await liked(env.tokens.alice)).map((item) => item.id)).toEqual([mine.id]);
+
+    expect(await (await like(mine.id, env.tokens.alice, "DELETE")).json()).toEqual({ likedAt: null });
+    expect(await liked(env.tokens.alice)).toEqual([]);
+
+    // Deleting a summary removes its likes.
+    await like(mine.id, env.tokens.alice);
+    await summaryRoute.DELETE(apiRequest("DELETE", `/api/v1/summaries/${mine.id}`, { token: env.tokens.alice }), params({ id: mine.id }));
+    expect(await liked(env.tokens.alice)).toEqual([]);
   });
 });
 

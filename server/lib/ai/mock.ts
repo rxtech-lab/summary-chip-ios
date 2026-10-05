@@ -1,7 +1,8 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import type { TranslationLanguage } from "@/lib/contracts/api";
-import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput, TranslateOptions } from "./provider";
+import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput, TranslateOptions, TripAgentCallOptions } from "./provider";
+import type { TripAgentInput, TripAgentResult } from "./trip-agent";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import type { LlmSummary, LlmTranslation } from "./summary-schema";
 
@@ -18,6 +19,7 @@ export class MockAiProvider implements AiProvider {
     translateSummary: TranslateInput[];
     translateDocument: { markdown: string; to: TranslationLanguage }[];
     findDuplicate: DuplicateInput[];
+    updateTrip: TripAgentInput[];
     designCover: CoverInput[];
     designSvg: DesignInput[];
     illustrate: DesignInput[];
@@ -29,6 +31,7 @@ export class MockAiProvider implements AiProvider {
     translateSummary: [],
     translateDocument: [],
     findDuplicate: [],
+    updateTrip: [],
     designCover: [],
     designSvg: [],
     illustrate: [],
@@ -118,6 +121,24 @@ export class MockAiProvider implements AiProvider {
       if (sameContentStart(chip.content, input.text)) return { duplicateOf: id, reason: "Same content." };
     }
     return { duplicateOf: null, reason: "No chip shares the source, title or content." };
+  }
+
+  /** What the trip agent answers; `null` from tests simulates a failed run. Default: a note with the source's start, and the source's URL. */
+  tripAgent: ((input: TripAgentInput) => TripAgentResult | null) | undefined;
+
+  /** One agent step of 10 input + 10 output tokens, reported like the real agent does. */
+  async updateTrip(input: TripAgentInput, options: TripAgentCallOptions = {}): Promise<TripAgentResult | null> {
+    this.calls.updateTrip.push(input);
+    options.onUsage?.(MOCK_STEP_USAGE);
+    if (this.tripAgent) return this.tripAgent(input);
+    const title = input.source.title?.trim() || "Shared note";
+    return {
+      operations: [
+        { op: "upsert_note", note: { id: `note-${input.document.notes.length + 1}`, title: title.slice(0, 300), text: input.source.text.slice(0, 1_000) } },
+        ...(input.source.url ? [{ op: "add_source" as const, source: { title: title.slice(0, 300), url: input.source.url } }] : []),
+      ],
+      changeSummary: `Added a note: ${title}`,
+    };
   }
 
   async designCover(input: CoverInput): Promise<LlmSummary["design"] | null> {

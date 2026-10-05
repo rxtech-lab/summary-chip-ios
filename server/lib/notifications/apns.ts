@@ -3,14 +3,29 @@ import { importPKCS8, SignJWT } from "jose";
 
 export interface PushTarget { token: string; environment: "sandbox" | "production" }
 export interface PushPayload {
-  aps: { alert: { title: string; body: string }; sound: string };
+  aps: { alert: { title: string; body: string }; sound: string; "thread-id"?: string };
   summaryId: string;
   userId: string;
+  /** Set on "Trip updated" and flight alerts (equal to `summaryId`): the app opens the trip view. */
+  tripId?: string;
+  /** Set on flight alerts: the tracked flight (`docs/flights.md`). */
+  flightId?: string;
 }
 export interface PushResult { status: number; reason?: string }
 
+/** How APNs should treat a push. Alerts collapse by `summaryId` unless `collapseId` says otherwise. */
+export interface PushOptions {
+  type?: "alert" | "liveactivity";
+  priority?: 5 | 10;
+  collapseId?: string;
+}
+
 export function apnsConfigured(): boolean {
   return Boolean(process.env.APNS_KEY_ID && process.env.APNS_TEAM_ID && process.env.APNS_PRIVATE_KEY);
+}
+
+function bundleId(): string {
+  return process.env.APNS_BUNDLE_ID || "com.rxlab.summary-chip";
 }
 
 // Apple accepts provider tokens for an hour; reuse for 50 minutes.
@@ -28,9 +43,11 @@ async function providerToken(): Promise<string> {
 }
 
 /** Native HTTP/2: APNs doesn't accept fetch's HTTP/1.1 transport. No device tokens in logs. */
-export async function sendPush(target: PushTarget, payload: PushPayload): Promise<PushResult> {
+export async function sendPush(target: PushTarget, payload: PushPayload | Record<string, unknown>, options: PushOptions = {}): Promise<PushResult> {
   const authorization = await providerToken();
   const host = target.environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
+  const type = options.type ?? "alert";
+  const collapseId = options.collapseId ?? (typeof payload.summaryId === "string" ? payload.summaryId : undefined);
   return new Promise((resolve, reject) => {
     const session = connect(`https://${host}`);
     const timer = setTimeout(() => finish(new Error("APNs request timed out")), 10_000);
@@ -47,10 +64,11 @@ export async function sendPush(target: PushTarget, payload: PushPayload): Promis
     const request = session.request({
       ":method": "POST", ":path": `/3/device/${target.token}`,
       authorization: `bearer ${authorization}`,
-      "apns-topic": process.env.APNS_BUNDLE_ID || "com.rxlab.summary-chip",
-      "apns-push-type": "alert", "apns-priority": "10",
+      // Live Activity pushes go to the app's `.push-type.liveactivity` topic.
+      "apns-topic": type === "liveactivity" ? `${bundleId()}.push-type.liveactivity` : bundleId(),
+      "apns-push-type": type, "apns-priority": String(options.priority ?? 10),
       "apns-expiration": String(Math.floor(Date.now() / 1000) + 86_400),
-      "apns-collapse-id": payload.summaryId,
+      ...(collapseId ? { "apns-collapse-id": collapseId.slice(0, 64) } : {}),
     });
     let status = 0;
     let body = "";

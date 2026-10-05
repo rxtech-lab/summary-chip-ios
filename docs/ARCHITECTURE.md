@@ -61,6 +61,7 @@ Configuration/              xcconfig files (API base URL, RxAuth client, …)
 users(id PK = RxAuth sub, email, name, created_at)
 summaries(
   id PK (uuid), slug UNIQUE (10 char, url-safe), owner_id FK users,
+  kind 'summary' | 'trip' (default 'summary'; a trip's diary lives in `trips`),
   source_type  'url' | 'webpage' | 'pdf' | 'text',
   source_url, source_title, site_name, source_file_key (R2, pdf only),
   content_excerpt (≤ 8k chars of extracted text, for the chat's getSummary tool),
@@ -81,6 +82,8 @@ summary_translations(summary_id, language, title, summary, highlights JSON[],
   tags JSON[] (translated chip labels; NULL until written), headline, og_image_key,
   content_markdown ("" while being written, NULL when nothing to translate or it failed),
   created_at, updated_at)                        -- one per summary and translation language
+trips(summary_id PK FK summaries ON DELETE CASCADE, document JSON (TripDocument, docs/trips.md),
+  revision (bumped on every save; optimistic concurrency), start_date, end_date, updated_at)
 api_keys(id, owner_id FK users, name, key_hash UNIQUE (sha-256), hint, tool_call_count,
   summaries_added_count, last_used_at, created_at)  -- MCP API keys
 summaries_fts  FTS5(title, summary, highlights, tags, keywords, category, site_name)
@@ -104,6 +107,7 @@ while the owner still sees it in the app and can flip it back to public.
 // Summary
 {
   "id": "uuid", "slug": "a1B2c3D4e5",
+  "kind": "summary" | "trip",   // open set; a trip's document is at GET /api/v1/trips/:id
   "shareUrl": "https://summary.rxlab.app/s/a1B2c3D4e5",
   // public + R2_PUBLIC_BASE_URL set: direct CDN URL ${R2_PUBLIC_BASE_URL}/og/<id>-<ts>-<random>.png;
   // otherwise the gated route (owner bearer token for private summaries):
@@ -130,6 +134,7 @@ while the owner still sees it in the app and can flip it back to public.
   "ttlDays": 7 | null, "expiresAt": "iso" | null,
   "viewCount": 0, "isOwner": true,
   "viewedAt": "iso" | null,   // when the caller last opened someone else's summary; null for own
+  "likedAt": "iso" | null,    // when the caller starred it (Likes tab); null when not starred
   "createdAt": "iso", "updatedAt": "iso"
 }
 
@@ -148,17 +153,26 @@ Food, Opinion, Research, Other`.
 | `POST /api/v1/uploads` | `{filename, mimeType:"application/pdf", byteSize}` (≤ 25 MB) | `201 {key, uploadUrl, method:"PUT", headers:{…}, expiresAt}` |
 | `POST /api/v1/summaries` | see *Create* | `201 Summary` (synchronous, may take up to ~90 s) |
 | `POST /api/v1/summaries/import` | see *Import* | `201 Summary` — saves a summary written elsewhere as given (no summarising); `409 DUPLICATE_SUMMARY` when the library already has it |
-| `GET /api/v1/summaries` | `?scope=all|mine|viewed&q=&category=&tag=&visibility=&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others) |
+| `GET /api/v1/summaries` | `?scope=all|mine|viewed|liked&q=&category=&tag=&visibility=&source=&kind=summary|trip&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others); `scope=liked` lists starred summaries the caller can still read, newest star first |
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
 | `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?, displayLanguage? (language|null)}` | `Summary` — `displayLanguage` translates on first use (`502 TRANSLATION_FAILED` stores nothing); a `title` edit while reading a translation renames that translation |
 | `DELETE /api/v1/summaries/:id` | – | `204` |
+| `PUT /api/v1/summaries/:id/like` | – | `{likedAt}` — stars a summary the caller can read (own, or others' with a live public link); idempotent, keeps the first date |
+| `DELETE /api/v1/summaries/:id/like` | – | `{likedAt: null}` — removes the star (idempotent) |
 | `GET /api/v1/summaries/:id/markdown` | – | `{markdown, language, translationPending}` — the source as Markdown, translated like the summary once written; `404 SOURCE_NOT_KEPT` when not kept (or a local file's, for anyone but the owner) |
 | `GET /api/v1/summaries/:id/translations` | – | `{originalLanguage, items:[{language, sourceTranslated, sourcePending}]}` — languages already translated (translates nothing) |
 | `POST /api/v1/summaries/:id/image` | `{imageStyle}` | `Summary` (regenerated OG image) |
+| `GET /api/v1/trips` | – | `{trips:[TripListItem]}` — the caller's trips, ongoing/upcoming first (by `startDate`), then past (most recent first) |
+| `POST /api/v1/trips` | `{document: TripDocument, visibility?: "private"(default)|"public"}` | `201 {trip: Trip}` — a `kind:"trip"` library item; not charged to the summary allowance; link never expires |
+| `GET /api/v1/trips/:id` | – | `{trip: Trip}` (owner, or anyone signed in while public) |
+| `PUT /api/v1/trips/:id` | `{document, revision}` | `{trip: Trip}` — `409 TRIP_REVISION_CONFLICT` (`details.revision`) when the trip changed since `revision` |
+| `POST /api/v1/trips/:id/operations` | `{operations: TripOperation[], revision?}` | `{trip: Trip}` — applied in order, atomically; `422 TRIP_INVALID` (`details.issues`) when the result is invalid; `409` as above when `revision` is given |
+| `POST /api/v1/trips/:id/ingest` | `{source: <Create body source>, instructions?}` | `202 {status:"queued"}` — points held first (`402 TRIP_POINTS_EXHAUSTED`); the trip agent runs after the response, then a "Trip updated" push |
+| `DELETE /api/v1/trips/:id` | – | `204` (same as deleting the summary) |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
 | `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
 | `POST /api/v1/views` | `{slug}` | `Summary` — records that the signed-in user viewed a public summary |
-| `POST /api/v1/chat` | `{messages: UIMessage[], summaryId?}` (AI SDK UI message format; `summaryId` focuses the chat on one summary the caller can open, grounded in its original text — 404 otherwise) | AI SDK UI message stream (SSE) |
+| `POST /api/v1/chat` | `{messages: UIMessage[], summaryId?, tripId?}` (AI SDK UI message format; `summaryId` focuses the chat on one summary the caller can open, grounded in its original text — 404 otherwise; `tripId` makes it the trip agent for one of the caller's trips, with `readWebPage` and `updateTrip` tools that save entity-level operations — 404 for anyone else's trip) | AI SDK UI message stream (SSE) |
 | `GET /api/v1/account/deletion` | – | `{pendingDeletion, deletionScheduledAt, deletionRequestedAt}` (ISO dates or null) |
 | `POST /api/v1/account/deletion` | – | same shape — schedules deletion 7 days out at rxlab-auth and locally (idempotent; needs the `write:profile` scope, else `403 ACCOUNT_DELETION_SCOPE_REQUIRED`) |
 | `DELETE /api/v1/account/deletion` | – | same shape — cancels a pending deletion |
@@ -166,9 +180,40 @@ Food, Opinion, Research, Other`.
 | `POST /api/v1/api-keys` | `{name}` | `201 {key, apiKey}` — the only response that contains the key |
 | `PATCH /api/v1/api-keys/:id` | `{name}` | `ApiKey` |
 | `DELETE /api/v1/api-keys/:id` | – | `204` — revokes the key |
-| `POST /api/mcp` | JSON-RPC (MCP Streamable HTTP, stateless) | API key auth, not OAuth; tools `add_summary`, `search_summaries`, `list_summaries` |
+| `POST /api/mcp` | JSON-RPC (MCP Streamable HTTP, stateless) | API key auth, not OAuth; tools `add_summary`, `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `create_trip`, `update_trip`, `add_to_trip_from_source` |
 | `GET /api/v1/legal/{privacy,terms}` | – (no auth) | `text/markdown` legal document |
 | `GET /api/public/summaries/:slug` | – | `Summary` without owner-only fields (`isOwner:false`); 404 if private/expired |
+
+### Trips
+
+A trip diary is a summary row with `kind: "trip"` (so it is listed, shared, searched and deleted like
+any library item) plus a `trips` row holding the **TripDocument** — the format is specified in
+[trips.md](trips.md) (schema: `server/lib/contracts/trip.ts`). The summary row's title, summary,
+highlights (the first day titles), keywords (major places) and `content_text` (the trip as plain
+text, for search and embeddings) are derived from the document on every save; category `Travel`,
+tag `trip`. Services: `server/lib/services/trips.ts`; pure document helpers (`applyOperations`,
+`tripText`): `server/lib/services/trip-document.ts`. The public page `/s/<slug>` lists a public
+trip's days read-only.
+
+```jsonc
+// Trip (GET/PUT/POST responses wrap it as {"trip": Trip})
+{
+  "id": "uuid",               // = the summary id
+  "slug": "a1B2c3D4e5", "revision": 3, "visibility": "private" | "public",
+  "isOwner": true,
+  "createdAt": "iso", "updatedAt": "iso",   // updatedAt: when the document last changed
+  "shareUrl": "https://summary.rxlab.app/s/a1B2c3D4e5",
+  "document": { /* TripDocument, docs/trips.md */ }
+}
+// TripListItem (GET /api/v1/trips → {"trips": [TripListItem]})
+{ "id": "uuid", "slug": "…", "title": "…", "subtitle": "…" | null, "startDate": "2026-10-10", "endDate": "2026-10-20",
+  "revision": 3, "updatedAt": "iso", "dayCount": 11, "placeCount": 10 }
+```
+
+**Push.** When the trip agent finishes an `ingest`, the owner's devices get an APNs alert titled
+"Trip updated" (localized from the trip's language: en, zh-Hans, zh-Hant, ja, ko, es, fr, de) with
+body `<trip title>: <change summary>`, and the custom keys `tripId` and `summaryId` (both the trip's
+id) plus `userId`. Apps open the trip view when `tripId` is present.
 
 ### Translations
 

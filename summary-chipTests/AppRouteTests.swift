@@ -15,6 +15,12 @@ import Testing
         #expect(route == .summaryID("abc"))
     }
 
+    @Test func tripLinkBecomesTripRoute() {
+        let route = AppRoute(url: SummaryLink.openTripURL(tripID: "trip_1"), siteHost: "summary.rxlab.app")
+        #expect(route == .tripID("trip_1"))
+        #expect(route?.id == "trip:trip_1")
+    }
+
     @Test func oauthCallbackIsIgnored() {
         #expect(AppRoute(url: URL(string: "summarychip://oauth/callback?code=1")!, siteHost: "summary.rxlab.app") == nil)
     }

@@ -30,10 +30,13 @@ public struct ChatRequestBody: Codable, Sendable {
     public var summaryId: String?
     /// The text of the summary's linked local file, read on this device for this request only.
     public var localContent: String?
-    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil) {
+    /// Chats with the trip agent about one of the user's trips; the agent can edit it.
+    public var tripId: String?
+    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil) {
         self.messages = messages
         self.summaryId = summaryId
         self.localContent = localContent
+        self.tripId = tripId
     }
 }
 
@@ -101,12 +104,12 @@ public final class ChatStreamClient: Sendable {
 
     public init(api: SummaryAPIClient) { self.api = api }
 
-    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
+    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
         let api = self.api
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
         let task = Task {
             do {
-                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent))
+                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID))
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 300
                 let bytes = try await Self.openStream(api: api, request: request)
@@ -232,6 +235,8 @@ public enum ChatToolOutput {
             return parts.isEmpty ? nil : parts.joined(separator: " · ")
         case "grepLocalFile":
             return input["pattern"]?.stringValue.map { "“\($0)”" }
+        case "readWebPage":
+            return input["url"]?.stringValue.flatMap { URL(string: $0)?.host() }
         case "readLocalFile":
             guard let start = input["startLine"]?.intValue else { return nil }
             return input["endLine"]?.intValue.map { String(localized: "Lines \(start)–\($0)", bundle: .module) } ?? String(localized: "From line \(start)", bundle: .module)
@@ -253,6 +258,14 @@ public enum ChatToolOutput {
         default:
             return nil
         }
+    }
+
+    /// What the trip agent's `updateTrip` call changed: its change summary and how many edits were
+    /// saved (`nil` when it was refused and sent back to the agent).
+    public static func tripUpdate(from output: JSONValue) -> (summary: String?, applied: Int)? {
+        guard output["error"] == nil, let applied = output["applied"]?.intValue else { return nil }
+        let summary = output["changeSummary"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (summary?.isEmpty == false ? summary : nil, applied)
     }
 
     /// Whether a `searchSummaries` output was ranked by meaning (vector search) rather than keywords alone.
@@ -278,6 +291,10 @@ public enum ChatToolOutput {
             return String(localized: "Searching the file…", bundle: .module)
         case "readLocalFile":
             return String(localized: "Reading the file…", bundle: .module)
+        case "readWebPage":
+            return String(localized: "Reading the page…", bundle: .module)
+        case "updateTrip":
+            return String(localized: "Updating the trip…", bundle: .module)
         default:
             return String(localized: "Working…", bundle: .module)
         }

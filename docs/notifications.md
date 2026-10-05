@@ -8,6 +8,11 @@ body. Private summaries are included. Tapping opens the summary by ID through th
 authenticated API, so private and expired public links still work for the owner.
 Failed or rejected creation requests do not send an alert.
 
+When the trip agent finishes adding a shared page to a trip (`POST /api/v1/trips/:id/ingest`), the
+owner gets a “Trip updated” alert (title localized from the trip's language) with the trip's title
+and what changed. Its payload carries `tripId` (equal to `summaryId`) so the app opens the trip view;
+see [trips.md](trips.md).
+
 ## Enable delivery
 
 1. Enable Push Notifications for `com.rxlab.summary-chip` in the Apple Developer

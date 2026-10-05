@@ -41,7 +41,11 @@ struct EducationPage: Identifiable, Equatable {
         .init(id: "mcp-server-v1", kind: .feature,
               title: String(localized: "Connect your AI agents"),
               message: String(localized: "Chippy now supports MCP. Let AI agents add summaries, search your Library, and list your saved chips from anywhere. Open Settings → MCP Server to create an API key and copy your agent’s connection setup. Chippy doesn’t need to be open."),
-              imageName: "FeatureMCP")
+              imageName: "FeatureMCP"),
+        .init(id: "trip-diary-v1", kind: .feature,
+              title: String(localized: "Meet your Trip Diary"),
+              message: String(localized: "Plan each day with places, transport and bookings, and follow your itinerary on the map. Track expenses in your chosen currency, share your trip, and ask the trip agent to help organise your plans. Find it all in Trips."),
+              imageName: "FeatureTripDiary")
     ]
 }
 

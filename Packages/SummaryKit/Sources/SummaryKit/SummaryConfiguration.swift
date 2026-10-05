@@ -116,6 +116,16 @@ public enum SummaryLink {
         URL(string: "\(SummaryIdentifiers.urlScheme)://summary/\(summaryID)")!
     }
 
+    /// `summarychip://trip/<id>`: opens a trip diary (the share extension's "Open in Chippy").
+    public static func tripID(from url: URL) -> String? {
+        guard url.scheme == SummaryIdentifiers.urlScheme, url.host() == "trip" else { return nil }
+        return url.pathComponents.filter { $0 != "/" }.first
+    }
+
+    public static func openTripURL(tripID: String) -> URL {
+        URL(string: "\(SummaryIdentifiers.urlScheme)://trip/\(tripID)")!
+    }
+
     private static func validSlug(_ value: String) -> String? {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
         guard !value.isEmpty, value.count <= 64,

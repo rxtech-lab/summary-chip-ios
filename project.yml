@@ -195,11 +195,17 @@ targets:
         destinationFilters: [iOS]
       - target: SummaryClip
         destinationFilters: [iOS]
+      - target: ChippyWidgets
+        destinationFilters: [iOS]
     info:
       path: summary-chip/Info.plist
       properties:
         <<: *configInfo
         SummaryChipPushEnvironment: $(SUMMARY_CHIP_PUSH_ENVIRONMENT)
+        NSLocationWhenInUseUsageDescription: Chippy shows where you are on your trip map and opens the diary on the day you're at.
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        NSCalendarsFullAccessUsageDescription: Chippy adds your trip's travel and hotel stays to your calendar and keeps them up to date when the trip changes.
         CFBundleDisplayName: Chippy
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -326,6 +332,34 @@ targets:
         PRODUCT_NAME: SummaryMessages
         APPLICATION_EXTENSION_API_ONLY: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: iMessage App Icon
+
+  ChippyWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ChippyWidgets
+    dependencies:
+      - package: SummaryKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: ChippyWidgets/Info.plist
+      properties:
+        <<: *configInfo
+        CFBundleDisplayName: Chippy
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: ChippyWidgets/ChippyWidgets.entitlements
+      properties:
+        <<: *sharedEntitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.Widgets
+        PRODUCT_NAME: ChippyWidgets
+        APPLICATION_EXTENSION_API_ONLY: YES
 
   SummaryClip:
     type: application.on-demand-install-capable

@@ -20,13 +20,14 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     private var generation = 0
     private var acceptsRegistrations = false
     private var registrationTask: Task<Void, Never>?
-    private var pending: (summaryId: String, userId: String)?
+    private var pending: (route: AppRoute, userId: String)?
     private let center = UNUserNotificationCenter.current()
     private var enabled: Bool {
         get { UserDefaults.standard.object(forKey: "summaryPushEnabled") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "summaryPushEnabled") }
     }
-    private var installationId: String {
+    /// Identifies this device's push registration; Live Activity tokens are registered under it.
+    var installationId: String {
         if let id = UserDefaults.standard.string(forKey: "summaryPushInstallationId") { return id }
         let id = UUID().uuidString
         UserDefaults.standard.set(id, forKey: "summaryPushInstallationId")
@@ -53,6 +54,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             registerWithApple()
         } else {
             unregisterWithApple()
+            await stopLiveActivities()
             try? await environment?.api.unregisterPushDevice(installationId: installationId)
         }
     }
@@ -96,6 +98,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         unregisterWithApple()
         center.removeAllDeliveredNotifications()
         await registrationTask?.value
+        await stopLiveActivities()
         do {
             try await environment?.api.unregisterPushDevice(installationId: installationId)
             feedback = String(localized: "Notifications disabled")
@@ -113,6 +116,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         unregisterWithApple()
         center.removeAllDeliveredNotifications()
         await registrationTask?.value
+        await stopLiveActivities()
         try? await environment?.api.unregisterPushDevice(installationId: installationId)
         token = nil
         busy = false
@@ -131,10 +135,14 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             #else
             let platform = "macos"
             #endif
-            let pushEnvironment = Bundle.main.object(forInfoDictionaryKey: "SummaryChipPushEnvironment") as? String == "development" ? "sandbox" : "production"
+            let pushEnvironment = Self.pushEnvironment
             do {
                 try await environment.api.registerPushDevice(installationId: installationId, token: token, environment: pushEnvironment, platform: platform)
                 guard currentGeneration == generation else { return }
+                #if os(iOS)
+                // The backend only takes Live Activity tokens for a registered installation.
+                FlightLiveActivities.shared.start(api: environment.api, installationId: installationId, environment: pushEnvironment)
+                #endif
                 if busy { feedback = String(localized: "Notifications enabled") }
                 busy = false
             } catch {
@@ -151,6 +159,17 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func clearFeedback() { feedback = nil }
+
+    /// `sandbox` for development builds, else `production`.
+    static var pushEnvironment: String {
+        Bundle.main.object(forInfoDictionaryKey: "SummaryChipPushEnvironment") as? String == "development" ? "sandbox" : "production"
+    }
+
+    private func stopLiveActivities() async {
+        #if os(iOS)
+        await FlightLiveActivities.shared.stop()
+        #endif
+    }
 
     private func registerWithApple() {
         #if os(iOS)
@@ -173,32 +192,45 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         self.pending = nil
         guard (try? await environment.tokenBroker.currentBundle()?.subject) == pending.userId,
               environment.authenticationState == .signedIn else { return }
-        environment.pendingRoute = .summaryID(pending.summaryId)
+        environment.pendingRoute = pending.route
         await environment.library.reload()
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         let userId = notification.request.content.userInfo["userId"] as? String
-        return await presentationOptions(userId: userId)
+        let tripId = notification.request.content.userInfo["tripId"] as? String
+        return await presentationOptions(userId: userId, tripId: tripId)
     }
 
-    private func presentationOptions(userId: String?) async -> UNNotificationPresentationOptions {
+    private func presentationOptions(userId: String?, tripId: String?) async -> UNNotificationPresentationOptions {
         guard enabled, let userId, let environment, environment.authenticationState == .signedIn,
               (try? await environment.tokenBroker.currentBundle()?.subject) == userId else { return [] }
+        // An open trip reloads itself and its flights (trip updates, flight alerts).
+        if let tripId { NotificationCenter.default.post(name: .summaryTripPushReceived, object: tripId) }
         await environment.library.reload()
         return [.banner, .sound]
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let summaryId = response.notification.request.content.userInfo["summaryId"] as? String,
-              let userId = response.notification.request.content.userInfo["userId"] as? String else { return }
-        await received(summaryId: summaryId, userId: userId)
+        let info = response.notification.request.content.userInfo
+        guard let userId = info["userId"] as? String else { return }
+        // A trip update carries both ids; the trip opens as a diary, not a summary.
+        if let tripId = info["tripId"] as? String {
+            await received(.tripID(tripId), userId: userId)
+        } else if let summaryId = info["summaryId"] as? String {
+            await received(.summaryID(summaryId), userId: userId)
+        }
     }
 
-    private func received(summaryId: String, userId: String) async {
-        pending = (summaryId, userId)
+    private func received(_ route: AppRoute, userId: String) async {
+        pending = (route, userId)
         await openPendingSummary()
     }
+}
+
+extension Notification.Name {
+    /// A push about a trip arrived while the app is open; `object` is the trip id.
+    static let summaryTripPushReceived = Notification.Name("summaryTripPushReceived")
 }
 
 #if os(iOS)

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as apiKeysRoute from "@/app/api/v1/api-keys/route";
 import * as apiKeyRoute from "@/app/api/v1/api-keys/[id]/route";
 import * as mcpRoute from "@/app/api/mcp/route";
+import type { TripDocument } from "@/lib/contracts/trip";
 import { apiKeys } from "@/lib/db/schema";
 import { hashApiKey, MAX_API_KEYS_PER_USER } from "@/lib/services/api-keys";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
@@ -121,7 +122,7 @@ describe("/api/mcp", () => {
     expect((await mcpRequest(env.tokens.alice, "tools/list")).status).toBe(401);
   });
 
-  it("initializes and lists the three tools", async () => {
+  it("initializes and lists the tools", async () => {
     const { key } = await createKey();
     const init = await mcpRequest(key, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.status).toBe(200);
@@ -130,7 +131,10 @@ describe("/api/mcp", () => {
     expect(initBody.result.instructions).toContain("search_summaries");
 
     const list = await (await mcpRequest(key, "tools/list")).json();
-    expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(["add_summary", "list_summaries", "search_summaries"]);
+    expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
+      "add_summary", "add_to_trip_from_source", "create_trip", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_trip",
+    ]);
+    expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
     expect(add.inputSchema.required).toEqual(expect.arrayContaining(["title", "summary", "text"]));
   });
@@ -210,5 +214,94 @@ describe("/api/mcp", () => {
 
     const github = await callTool(key, "search_summaries", { query: "borrow checker", source: "github" });
     expect((github.structuredContent as { items: { title: string }[] }).items.map((item) => item.title)).toEqual(["Rust ownership"]);
+  });
+});
+
+describe("/api/mcp trip tools", () => {
+  const TRIP = {
+    title: "Hokkaido in winter",
+    startDate: "2027-02-01",
+    endDate: "2027-02-04",
+    timeZone: "Asia/Tokyo",
+    currency: "JPY",
+    places: [{ id: "sapporo", name: "Sapporo", kind: "city", coordinate: { lat: 43.0618, lng: 141.3545 }, major: true }],
+    days: [{ id: "day-1", date: "2027-02-01", title: "Snow festival" }],
+  };
+
+  it("creates, reads, lists and edits trips", async () => {
+    const { key } = await createKey();
+    const created = await callTool(key, "create_trip", { document: TRIP });
+    expect(created.isError).toBeFalsy();
+    expect(created.content[0].text).toContain("Created trip \"Hokkaido in winter\" (private).");
+    const trip = (created.structuredContent as { trip: { id: string; revision: number } }).trip;
+    expect(trip.revision).toBe(0);
+
+    const listed = await callTool(key, "list_trips", {});
+    expect(listed.structuredContent).toMatchObject({ count: 1, trips: [{ id: trip.id, title: "Hokkaido in winter", dayCount: 1, placeCount: 1 }] });
+
+    const updated = await callTool(key, "update_trip", {
+      tripId: trip.id,
+      revision: 0,
+      operations: [
+        { op: "upsert_place", place: { id: "otaru", name: "Otaru", kind: "city", coordinate: { lat: 43.1907, lng: 140.9947 } } },
+        { op: "upsert_transport", transport: {
+          id: "feb02-otaru", date: "2027-02-02", label: "Sapporo → Otaru", status: "booked", options: [{
+            id: "rapid-airport", label: "Rapid Airport", departure: "2027-02-02T09:30", arrival: "2027-02-02T10:02",
+            segments: [{ mode: "train", fromPlaceId: "sapporo", toPlaceId: "otaru", fromName: "Sapporo", toName: "Otaru", train: { name: "Rapid Airport", number: "3870M", category: "rapid" } }],
+          }],
+        } },
+        { op: "upsert_day", day: { id: "day-2", date: "2027-02-02", title: "Otaru canal", transportIds: ["feb02-otaru"] } },
+      ],
+    });
+    expect(updated.isError).toBeFalsy();
+    expect(updated.content[0].text).toBe("Updated \"Hokkaido in winter\" (revision 1).");
+
+    const read = await callTool(key, "get_trip", { tripId: trip.id });
+    const document = (read.structuredContent as { trip: { revision: number; document: { days: { id: string }[]; transports: { options: { segments: { train: { category: string } }[] }[] }[] } } }).trip;
+    expect(document.revision).toBe(1);
+    expect(document.document.days.map((day) => day.id)).toEqual(["day-1", "day-2"]);
+    expect(document.document.transports[0].options[0].segments[0].train.category).toBe("rapid");
+
+    const withView = await callTool(key, "update_trip", {
+      tripId: trip.id,
+      operations: [{ op: "upsert_view", view: { id: "pass-vs-ic", title: "Pass vs IC", dayId: "day-2", spec: { root: "root", elements: {
+        root: { type: "Card", props: { title: "Rail budget" }, children: ["fares"] },
+        fares: { type: "BarChart", props: { format: "money", items: [{ label: "Pass", value: 40000 }, { label: "IC", value: 35420 }] } },
+      } } } }],
+    });
+    expect(withView.isError).toBeFalsy();
+    expect((withView.structuredContent as { trip: { document: TripDocument } }).trip.document.views).toMatchObject([{ id: "pass-vs-ic", dayId: "day-2" }]);
+    const badView = await callTool(key, "update_trip", {
+      tripId: trip.id,
+      operations: [{ op: "upsert_view", view: { id: "broken", title: "Broken", spec: { root: "root", elements: { root: { type: "Stack", children: ["missing"] } } } } }],
+    });
+    expect(badView.isError).toBe(true);
+    expect(badView.content[0].text).toContain('unknown element "missing"');
+
+    const stale = await callTool(key, "update_trip", { tripId: trip.id, revision: 0, operations: [{ op: "delete", collection: "days", id: "day-2" }] });
+    expect(stale.isError).toBe(true);
+    expect(stale.content[0].text).toContain("TRIP_REVISION_CONFLICT");
+
+    // Trips are library items too.
+    await callTool(key, "add_summary", CHIP);
+    const trips = await callTool(key, "list_summaries", { kind: "trip" });
+    expect(trips.structuredContent).toMatchObject({ count: 1, items: [{ id: trip.id }] });
+  });
+
+  it("adds a shared source to a trip with the trip agent", async () => {
+    const { key } = await createKey();
+    const created = await callTool(key, "create_trip", { document: TRIP });
+    const tripId = (created.structuredContent as { trip: { id: string } }).trip.id;
+    const result = await callTool(key, "add_to_trip_from_source", { tripId, text: "Ryokan notes: bring cash for the onsen, check-in after 15:00.", instructions: "Keep it as a note" });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({ operationsApplied: 1, trip: { revision: 1, document: { notes: [{ id: "note-1" }] } } });
+    expect(env.ai.calls.updateTrip[0]).toMatchObject({ instructions: "Keep it as a note" });
+
+    const neither = await callTool(key, "add_to_trip_from_source", { tripId });
+    expect(neither.isError).toBe(true);
+    const bob = await createKey("Bob", env.tokens.bob);
+    const foreign = await callTool(bob.key, "get_trip", { tripId });
+    expect(foreign.isError).toBe(true);
+    expect(foreign.content[0].text).toContain("NOT_FOUND");
   });
 });
