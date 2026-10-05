@@ -1,3 +1,4 @@
+import type { SummaryKind } from "@/lib/db/schema";
 import { embedMany, experimental_evaluate as evaluate, generateImage, generateText, Output, type LanguageModel, type LanguageModelUsage } from "ai";
 import { TRANSLATION_LANGUAGES, type OutputLanguage, type TranslationLanguage } from "@/lib/contracts/api";
 import { ApiError } from "@/lib/http/errors";
@@ -19,6 +20,7 @@ import {
 } from "./models";
 import { splitIntoParts, stripFence, writeDocument, type DocumentSource } from "./document-agent";
 import { findDuplicate, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
+import { runTripAgent, type TripAgentInput, type TripAgentResult } from "./trip-agent";
 import { LANGUAGE_NAMES, llmSummarySchema, llmTranslationSchema, type LlmSummary, type LlmTranslation } from "./summary-schema";
 
 /**
@@ -26,6 +28,8 @@ import { LANGUAGE_NAMES, llmSummarySchema, llmTranslationSchema, type LlmSummary
  * and must finish within the create route's `maxDuration` (300 s).
  */
 const DOCUMENT_TIMEOUT_MS = 190_000;
+/** Budget for the trip agent; it runs after the ingest response or inside an MCP call (route `maxDuration` 300 s). */
+const TRIP_AGENT_TIMEOUT_MS = 200_000;
 /** Budget for the duplicate agent; the import route still designs and renders the cover after it (180 s in all). */
 const DUPLICATE_TIMEOUT_MS = 40_000;
 
@@ -42,6 +46,11 @@ export type MarkdownInput = DocumentSource;
 
 export interface MarkdownOptions {
   abortSignal?: AbortSignal;
+  /** Token usage of each model step, for points billing. */
+  onUsage?: (usage: LanguageModelUsage) => void;
+}
+
+export interface TripAgentCallOptions {
   /** Token usage of each model step, for points billing. */
   onUsage?: (usage: LanguageModelUsage) => void;
 }
@@ -75,6 +84,8 @@ export interface DesignInput {
   siteLabel?: string | null;
   /** BCP 47 language of the headline. */
   language?: string;
+  /** A trip diary gets a travel-journal cover instead of the editorial one. */
+  kind?: SummaryKind;
 }
 
 /** A summary's reader-facing text, to translate into `to`. */
@@ -122,6 +133,8 @@ export interface AiProvider {
   translateDocument(markdown: string, to: TranslationLanguage, options?: TranslateOptions): Promise<string | null>;
   /** Whether an imported chip duplicates one in the owner's library (by source, title and content), or null when the check failed. */
   findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null>;
+  /** Operations that bring a shared page or text into a trip, from the trip agent, or null when it failed. */
+  updateTrip(input: TripAgentInput, options?: TripAgentCallOptions): Promise<TripAgentResult | null>;
   /** The cover theme (palette, mode, emoji, accent, headline) for an imported summary, or null when it failed. */
   designCover(input: CoverInput): Promise<LlmSummary["design"] | null>;
   /** Raw SVG markup (unsanitised) for the OG background, or null. */
@@ -340,6 +353,19 @@ export class GatewayAiProvider implements AiProvider {
     }
   }
 
+  async updateTrip(input: TripAgentInput, options: TripAgentCallOptions = {}): Promise<TripAgentResult | null> {
+    try {
+      return await runTripAgent(textModel(), input, {
+        abortSignal: AbortSignal.timeout(TRIP_AGENT_TIMEOUT_MS),
+        onUsage: options.onUsage,
+        providerOptions: { openai: { reasoningEffort: "low" } },
+      });
+    } catch (error) {
+      console.warn("[ai] trip agent failed", error);
+      return null;
+    }
+  }
+
   async designCover(input: CoverInput): Promise<LlmSummary["design"] | null> {
     try {
       const result = await generateText({
@@ -426,6 +452,7 @@ export class GatewayAiProvider implements AiProvider {
  * especially), and the same artwork is shown bare behind the app's own titles.
  */
 export function illustrationInstruction(input: DesignInput): string {
+  if (input.kind === "trip") return tripIllustrationInstruction(input);
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
     "Create a 16:9 text-free editorial illustration to be used as the background artwork of a social preview card for this article.",
@@ -437,6 +464,21 @@ export function illustrationInstruction(input: DesignInput): string {
     "Place the illustrated subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
     "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, pages, books, signs, posters or labels in the scene must be blank or abstract.",
     "Reminder: a purely visual image with zero text, typography or lettering.",
+  ].join(" ");
+}
+
+/** A trip's cover: a hand-made travel-journal spread of the places on its route, still text-free. */
+function tripIllustrationInstruction(input: DesignInput): string {
+  const paper = input.mode === "dark" ? "dark kraft or charcoal paper with warm, glowing ink" : "warm cream sketchbook paper";
+  return [
+    "Create a 16:9 text-free illustration that looks like an open page of a hand-made travel diary for this trip.",
+    "ABSOLUTE RULE: never include any text in the image. The trip details below are context for choosing what to draw only; do not write the title, place names or any other words anywhere in the picture.",
+    `Trip: "${input.headline}". Places and themes: ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a travel journal or sketchbook spread on ${paper} with visible paper texture — loose ink line sketches with watercolor washes of recognisable landmarks, scenery, local food and transport (trains, ferries, streets) from these places, a hand-drawn dotted route line winding between them, plus scrapbook touches: washi tape, paper clips, a pressed leaf, a polaroid-style photo sketch, ticket stubs and postage stamps.`,
+    `Palette: ${input.colors.join(", ")}, used as the watercolor and accent colors over the paper tone.`,
+    "Fill the entire canvas edge to edge with the journal page, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
+    "The image must contain NO text of any kind: no handwriting, letters, words, characters in any script, numbers, dates, labels, captions, signs, logos or watermarks. Tickets, stamps, maps, postcards and signs must be blank or purely pictorial.",
+    "Reminder: a purely visual image with zero text, typography, handwriting or lettering.",
   ].join(" ");
 }
 

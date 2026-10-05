@@ -284,3 +284,10 @@ API creation and CLI imports send the owner's registered iOS/macOS devices a
 Settings sheet. Apply the `push_devices` migration and configure the server's
 `APNS_KEY_ID`, `APNS_TEAM_ID`, and `APNS_PRIVATE_KEY` for live delivery; see
 [notification setup and API](../docs/notifications.md).
+
+## Flight tracking
+
+Flight segments in trips are tracked by a Vercel Workflow per flight (`workflows/track-flight.ts`),
+which polls AeroDataBox, stores the result, sends delay/gate/boarding/landing alerts and drives the
+flight Live Activity. Apps only read the stored copy. Set `AERODATABOX_API_KEY` and apply the
+`flights` migration; see [flight tracking](../docs/flights.md).

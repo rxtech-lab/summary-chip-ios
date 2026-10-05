@@ -13,12 +13,17 @@ struct SidebarMainView: View {
     @State private var showsChat = true
     #endif
     @State private var showsNewSummary = false
+    @State private var showsNewTrip = false
     @State private var libraryPath: [Summary] = []
+    @State private var likesPath: [Summary] = []
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
                 Label("Library", systemImage: "square.stack").tag(MainTab.library)
+                Label("Likes", systemImage: "star")
+                    .tag(MainTab.likes)
+                    .accessibilityIdentifier("sidebar-likes")
                 Label("Settings", systemImage: "gearshape")
                     .tag(MainTab.settings)
                     .accessibilityIdentifier("mac-settings")
@@ -31,6 +36,7 @@ struct SidebarMainView: View {
             Group {
                 switch selection ?? .library {
                 case .library, .chat: LibraryView(environment: environment, path: $libraryPath)
+                case .likes: LikesView(environment: environment, path: $likesPath)
                 case .settings: SettingsView(environment: environment)
                 }
             }
@@ -44,7 +50,17 @@ struct SidebarMainView: View {
         .sheet(isPresented: $showsNewSummary) {
             NewSummarySheet(environment: environment)
         }
+        .sheet(isPresented: $showsNewTrip) {
+            NewTripSheet(api: environment.api) { trip in
+                Task {
+                    guard let summary = await environment.libraryItem(forCreated: trip) else { return }
+                    selection = .library
+                    libraryPath = [summary]
+                }
+            }
+        }
         .focusedSceneValue(\.newSummaryAction, { showsNewSummary = true })
+        .focusedSceneValue(\.newTripAction, { showsNewTrip = true })
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
     }
 
@@ -86,6 +102,10 @@ private struct NewSummaryActionKey: FocusedValueKey {
     typealias Value = () -> Void
 }
 
+private struct NewTripActionKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
 extension FocusedValues {
     var newSummaryAction: (() -> Void)? {
         get { self[NewSummaryActionKey.self] }
@@ -93,18 +113,27 @@ extension FocusedValues {
     }
 
     @Entry var chatPanelVisibility: Binding<Bool>?
+
+    var newTripAction: (() -> Void)? {
+        get { self[NewTripActionKey.self] }
+        set { self[NewTripActionKey.self] = newValue }
+    }
 }
 
 #if os(macOS)
 struct SummaryMacCommands: Commands {
     @FocusedValue(\.newSummaryAction) private var newSummary
     @FocusedValue(\.chatPanelVisibility) private var chatPanel
+    @FocusedValue(\.newTripAction) private var newTrip
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Summary", systemImage: "plus") { newSummary?() }
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(newSummary == nil)
+            Button("New Trip", systemImage: "map") { newTrip?() }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(newTrip == nil)
         }
         CommandGroup(after: .sidebar) {
             Button(chatPanel?.wrappedValue == true ? String(localized: "Hide Chat") : String(localized: "Show Chat")) {

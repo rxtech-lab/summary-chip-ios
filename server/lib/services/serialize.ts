@@ -3,12 +3,14 @@ import { siteNameFor } from "@/lib/extract/platforms";
 import { publicObjectUrl } from "@/lib/storage/r2";
 import { categoryLabel } from "@/lib/og/category-labels";
 import { translationLanguageFor } from "./translations";
-import type { ImageStyle, SourceType, SummaryRow, SummarySource, SummaryTheme, SummaryTranslationRow, Visibility } from "@/lib/db/schema";
+import type { ImageStyle, SourceType, SummaryKind, SummaryRow, SummarySource, SummaryTheme, SummaryTranslationRow, Visibility } from "@/lib/db/schema";
 
 /** The `Summary` JSON object from docs/ARCHITECTURE.md. Field order mirrors the contract. */
 export interface SummaryJson {
   id: string;
   slug: string;
+  /** `summary`, or `trip` for a trip diary (fetch its document from `GET /api/v1/trips/:id`). Open set. */
+  kind: SummaryKind;
   shareUrl: string;
   ogImageUrl: string;
   /** The OG artwork without text (for tiles that draw their own title); null when there is none. */
@@ -53,6 +55,8 @@ export interface SummaryJson {
   isOwner: boolean;
   /** When the caller last opened this (someone else's) summary; null for their own. */
   viewedAt: string | null;
+  /** When the caller starred this summary; null when they haven't (and for visitors). */
+  likedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -131,7 +135,7 @@ export interface SummaryReading {
 
 export const ORIGINAL_READING: SummaryReading = { translation: null, pending: false };
 
-export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt: Date | null = null, reading: SummaryReading = ORIGINAL_READING): SummaryJson {
+export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt: Date | null = null, reading: SummaryReading = ORIGINAL_READING, likedAt: Date | null = null): SummaryJson {
   const shareUrl = shareUrlFor(row.slug);
   const { translation } = reading;
   const isOwner = viewerId !== null && viewerId === row.ownerId;
@@ -139,6 +143,7 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
   return {
     id: row.id,
     slug: row.slug,
+    kind: row.kind,
     shareUrl,
     ogImageUrl: translation && row.artImageKey ? translatedOgImageUrlFor(row, translation) : publicOgImageUrl(row),
     artImageUrl: publicArtImageUrl(row),
@@ -171,6 +176,7 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     viewCount: row.viewCount,
     isOwner,
     viewedAt: viewedAt ? viewedAt.toISOString() : null,
+    likedAt: likedAt ? likedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

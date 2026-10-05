@@ -1,0 +1,27 @@
+# The Vercel project is linked at the repo root (.vercel/repo.json) with
+# root directory `server`, so the CLI uploads from here. Only ship the server.
+/*
+!/server
+
+# Build output, dependencies and local state inside server/
+/server/node_modules
+/server/.next
+/server/out
+/server/build
+/server/coverage
+/server/.vercel
+/server/*.tsbuildinfo
+/server/next-env.d.ts
+/server/.env*
+!/server/.env.example
+/server/*.db
+/server/*.db-*
+
+# Tests and Playwright artifacts
+/server/.e2e
+/server/test-results
+/server/playwright-report
+/server/blob-report
+
+.DS_Store
+*.pem

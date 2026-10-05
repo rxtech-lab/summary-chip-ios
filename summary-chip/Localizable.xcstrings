@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "· %@" : {
+      "shouldTranslate" : false
+    },
     "“%@” is ready to share." : {
       "localizations" : {
         "zh-Hans" : {
@@ -17,7 +20,20 @@
         }
       }
     },
+    "“%@” lists a child “%@” that isn't one of the elements." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” lists a child “%2$@” that isn't one of the elements."
+          }
+        }
+      }
+    },
     "%@" : {
+      "shouldTranslate" : false
+    },
+    "%@ · %@" : {
       "shouldTranslate" : false
     },
     "%@ · Last used %@" : {
@@ -51,6 +67,19 @@
           }
         }
       }
+    },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "%@ → %@" : {
+      "shouldTranslate" : false
     },
     "%@ added to your balance." : {
       "localizations" : {
@@ -150,6 +179,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已使用 %@"
+          }
+        }
+      }
+    },
+    "%lld changes saved" : {
+
+    },
+    "%lld days" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 天"
+          }
+        }
+      }
+    },
+    "%lld nights" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 晚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 晚"
+          }
+        }
+      }
+    },
+    "%lld places" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個地點"
           }
         }
       }
@@ -314,6 +394,9 @@
         }
       }
     },
+    "%lld." : {
+
+    },
     "%lld+ results" : {
       "localizations" : {
         "zh-Hans" : {
@@ -332,6 +415,63 @@
     },
     "•" : {
       "shouldTranslate" : false
+    },
+    "+%lld" : {
+      "shouldTranslate" : false
+    },
+    "≈ %@" : {
+
+    },
+    "1 change saved" : {
+
+    },
+    "1 day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 天"
+          }
+        }
+      }
+    },
+    "1 night" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 晚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 晚"
+          }
+        }
+      }
+    },
+    "1 place" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 个地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 個地點"
+          }
+        }
+      }
     },
     "1 result" : {
       "localizations" : {
@@ -365,6 +505,15 @@
         }
       }
     },
+    "1h 31m" : {
+      "shouldTranslate" : false
+    },
+    "5" : {
+      "shouldTranslate" : false
+    },
+    "A new illustration replaces the trip's current cover." : {
+
+    },
     "A new preview image replaces the current one. Links that were already shared show the new image once apps refresh their preview." : {
       "localizations" : {
         "zh-Hans" : {
@@ -393,6 +542,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "快速了解 Chippy 的使用方式。"
+          }
+        }
+      }
+    },
+    "A tip for the day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当天的小提示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當天的小提示"
           }
         }
       }
@@ -525,6 +690,233 @@
         }
       }
     },
+    "Add" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增"
+          }
+        }
+      }
+    },
+    "Add a day for each date" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为每个日期添加一天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為每個日期新增一天"
+          }
+        }
+      }
+    },
+    "Add Day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加一天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增一天"
+          }
+        }
+      }
+    },
+    "Add days to write the diary, or share a booking to Chippy and let the agent fill it in." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加日期来写日记，或把预订分享给 Chippy，让助手帮你填写。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增日期來寫日記，或把預訂分享給 Chippy，讓助手幫你填寫。"
+          }
+        }
+      }
+    },
+    "Add Expense" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加费用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增費用"
+          }
+        }
+      }
+    },
+    "Add Expense with AI" : {
+
+    },
+    "Add Hotel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增酒店"
+          }
+        }
+      }
+    },
+    "Add Leg" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加行程段"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增行程段"
+          }
+        }
+      }
+    },
+    "Add Moment" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加时刻"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增時刻"
+          }
+        }
+      }
+    },
+    "Add Note" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加备注"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增備註"
+          }
+        }
+      }
+    },
+    "Add Option" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增方案"
+          }
+        }
+      }
+    },
+    "Add Place" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增地點"
+          }
+        }
+      }
+    },
+    "Add places to draw routes on the map." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加地点后即可在地图上绘制路线。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增地點後即可在地圖上繪製路線。"
+          }
+        }
+      }
+    },
+    "Add places to the trip first; the route connects them in order." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先为行程添加地点；路线会按顺序连接它们。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請先為行程新增地點；路線會依序連接它們。"
+          }
+        }
+      }
+    },
+    "Add Stop" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加站点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增站點"
+          }
+        }
+      }
+    },
     "Add Summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -589,6 +981,73 @@
         }
       }
     },
+    "Add to Calendar" : {
+
+    },
+    "Add to Likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到喜欢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入喜歡"
+          }
+        }
+      }
+    },
+    "Add Transport" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增交通"
+          }
+        }
+      }
+    },
+    "Added to Likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已添加到喜欢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已加入喜歡"
+          }
+        }
+      }
+    },
+    "Address" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地址"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地址"
+          }
+        }
+      }
+    },
     "Adjustment" : {
       "localizations" : {
         "zh-Hans" : {
@@ -601,6 +1060,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "調整"
+          }
+        }
+      }
+    },
+    "Afternoon" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "午后"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "午後"
           }
         }
       }
@@ -649,6 +1124,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude 等 AI 代理程式使用 API 金鑰連接此 URL，即可新增、搜尋和列出你的摘要。它們以你的帳號身分操作，可在任何裝置上使用，新增的摘要會計入你的額度。"
+          }
+        }
+      }
+    },
+    "Airline" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航空公司"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航空公司"
+          }
+        }
+      }
+    },
+    "Airport" : {
+      "comment" : "Trip route kind: to or from the airport",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "机场"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "機場"
           }
         }
       }
@@ -745,6 +1253,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "同時會登出分享延伸功能。"
+          }
+        }
+      }
+    },
+    "Always label on map" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地图上始终显示名称"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地圖上始終顯示名稱"
+          }
+        }
+      }
+    },
+    "Amount" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金额"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金額"
           }
         }
       }
@@ -877,6 +1417,38 @@
         }
       }
     },
+    "Arrival" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到达"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抵達"
+          }
+        }
+      }
+    },
+    "Arrives %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 到达"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 抵達"
+          }
+        }
+      }
+    },
     "article" : {
       "localizations" : {
         "zh-Hans" : {
@@ -892,6 +1464,9 @@
           }
         }
       }
+    },
+    "Ask about the trip, or paste a booking, timetable or link — the agent updates the trip for you." : {
+
     },
     "Ask About This" : {
       "localizations" : {
@@ -956,6 +1531,12 @@
           }
         }
       }
+    },
+    "Ask Trip Agent" : {
+
+    },
+    "Ask, or paste a booking or link" : {
+
     },
     "Automatically check for updates" : {
       "localizations" : {
@@ -1037,6 +1618,58 @@
         }
       }
     },
+    "Booked" : {
+      "comment" : "Booking status",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已预订"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已預訂"
+          }
+        }
+      }
+    },
+    "Booking reference" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预订编号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預訂編號"
+          }
+        }
+      }
+    },
+    "Bookings" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预订"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預訂"
+          }
+        }
+      }
+    },
+    "Break down the costs by category" : {
+
+    },
     "Build" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1049,6 +1682,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建置版本"
+          }
+        }
+      }
+    },
+    "Build a table comparing a rail pass with paying each fare by IC card" : {
+
+    },
+    "Bus" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "巴士"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "巴士"
+          }
+        }
+      }
+    },
+    "Business" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "商务舱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "商務艙"
           }
         }
       }
@@ -1075,6 +1743,22 @@
         }
       }
     },
+    "Cabin" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "舱位"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "艙等"
+          }
+        }
+      }
+    },
     "Calculating…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1091,6 +1775,12 @@
         }
       }
     },
+    "Calendar Not Updated" : {
+
+    },
+    "Calendar updated" : {
+
+    },
     "Cancel" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1103,6 +1793,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
+          }
+        }
+      }
+    },
+    "Car" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "汽车"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "汽車"
+          }
+        }
+      }
+    },
+    "Car %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 号车厢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 號車廂"
           }
         }
       }
@@ -1122,6 +1844,9 @@
           }
         }
       }
+    },
+    "Changes needed fixing" : {
+
     },
     "Chat" : {
       "comment" : "Ledger entry: points charged for a chat turn",
@@ -1172,6 +1897,86 @@
         }
       }
     },
+    "Check-in" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入住"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入住"
+          }
+        }
+      }
+    },
+    "Check-in %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 入住"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 入住"
+          }
+        }
+      }
+    },
+    "Check-in time" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入住时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入住時間"
+          }
+        }
+      }
+    },
+    "Check-out" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退房"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退房"
+          }
+        }
+      }
+    },
+    "Checking flight…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查询航班…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查詢航班…"
+          }
+        }
+      }
+    },
     "Checkout opens securely in your browser. Points are added to your account once payment completes." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1200,6 +2005,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chippy"
+          }
+        }
+      }
+    },
+    "Chippy can't use your calendar. Allow full calendar access for Chippy in Settings." : {
+
+    },
+    "Chippy checks tracked flights and sends alerts when the gate, times or status change." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 会跟踪这些航班，并在登机口、时间或状态变化时提醒你。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 會追蹤這些航班，並在登機門、時間或狀態變更時提醒你。"
           }
         }
       }
@@ -1252,7 +2076,9 @@
         }
       }
     },
-    "Chippy translates the summary, key points, category, tags and source text into %@. The source text can take a minute to finish." : {},
+    "Chippy translates the summary, key points, category, tags and source text into %@. The source text can take a minute to finish." : {
+
+    },
     "Choose the original file to keep it with this summary. Chat reads it on this device to answer questions." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1265,6 +2091,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選擇原始檔案，將其與此摘要一併保存。聊天會在此裝置上讀取該檔案來回答問題。"
+          }
+        }
+      }
+    },
+    "Chosen" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已選"
+          }
+        }
+      }
+    },
+    "Chosen option" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选定方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選定方案"
+          }
+        }
+      }
+    },
+    "City" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "城市"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "城市"
           }
         }
       }
@@ -1381,6 +2255,9 @@
         }
       }
     },
+    "Compare two options side by side." : {
+
+    },
     "Completing purchase…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1429,6 +2306,41 @@
         }
       }
     },
+    "Confirmation %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认号 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認號 %@"
+          }
+        }
+      }
+    },
+    "Confirmation number" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認號"
+          }
+        }
+      }
+    },
+    "Confirmation: %@" : {
+
+    },
     "Connect an Agent" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1441,6 +2353,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連接代理程式"
+          }
+        }
+      }
+    },
+    "Connect to the internet to see the summaries you starred." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接互联网以查看你加星标的摘要。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接網際網路以查看你加上星號的摘要。"
           }
         }
       }
@@ -1477,6 +2405,12 @@
           }
         }
       }
+    },
+    "Convert Totals" : {
+
+    },
+    "Converted" : {
+
     },
     "Copy" : {
       "localizations" : {
@@ -1542,7 +2476,60 @@
         }
       }
     },
-    "Couldn't Change Language" : {},
+    "Costs covered by a pass are listed but left out of the totals." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由通票覆盖的费用会列出，但不计入总额。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由通票涵蓋的費用會列出，但不計入總額。"
+          }
+        }
+      }
+    },
+    "Couldn't Change Language" : {
+
+    },
+    "Couldn't Delete" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法删除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法刪除"
+          }
+        }
+      }
+    },
+    "Couldn't find your location. Try again." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法获取你的位置，请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得你的位置，請重試。"
+          }
+        }
+      }
+    },
+    "Couldn't Generate Cover" : {
+
+    },
     "Couldn't load more. Try again" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1571,6 +2558,105 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法載入你的資料庫"
+          }
+        }
+      }
+    },
+    "Couldn't load your likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法载入你喜欢的摘要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入你喜歡的摘要"
+          }
+        }
+      }
+    },
+    "Couldn't Look Up Flight" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法查询航班"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法查詢航班"
+          }
+        }
+      }
+    },
+    "Couldn't Save" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存"
+          }
+        }
+      }
+    },
+    "Couldn't Share Trip" : {
+
+    },
+    "Couldn't update Likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更新喜欢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法更新喜歡"
+          }
+        }
+      }
+    },
+    "Covered by" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由以下覆盖"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由以下涵蓋"
+          }
+        }
+      }
+    },
+    "Covered by %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由%@覆盖"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由%@涵蓋"
           }
         }
       }
@@ -1655,6 +2741,41 @@
         }
       }
     },
+    "Creating trip…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在创建行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在建立行程…"
+          }
+        }
+      }
+    },
+    "Currency" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "货币"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "貨幣"
+          }
+        }
+      }
+    },
+    "Currency Conversion" : {
+
+    },
     "Current balance" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1703,6 +2824,144 @@
         }
       }
     },
+    "Date" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
+          }
+        }
+      }
+    },
+    "Dates and times in this trip are local to its time zone." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此行程中的日期和时间均为其时区的当地时间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此行程中的日期和時間均為其時區的當地時間。"
+          }
+        }
+      }
+    },
+    "Day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
+          }
+        }
+      }
+    },
+    "DAY" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第"
+          }
+        }
+      }
+    },
+    "Day %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 天"
+          }
+        }
+      }
+    },
+    "DAY %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 天"
+          }
+        }
+      }
+    },
+    "Day %lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Day %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "Day %lld, %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 天，%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 天，%@"
+          }
+        }
+      }
+    },
+    "Days staying here will show no hotel." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住在这里的日期将不再显示酒店。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住在這裡的日期將不再顯示酒店。"
+          }
+        }
+      }
+    },
     "Delete" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1735,6 +2994,54 @@
         }
       }
     },
+    "Delete Day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这一天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除這一天"
+          }
+        }
+      }
+    },
+    "Delete Expense" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除费用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除費用"
+          }
+        }
+      }
+    },
+    "Delete Hotel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除酒店"
+          }
+        }
+      }
+    },
     "Delete My Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1747,6 +3054,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除我的帳號"
+          }
+        }
+      }
+    },
+    "Delete Place" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除地點"
           }
         }
       }
@@ -1766,6 +3089,41 @@
           }
         }
       }
+    },
+    "Delete Transport" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除交通"
+          }
+        }
+      }
+    },
+    "Delete Trip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除行程"
+          }
+        }
+      }
+    },
+    "Delete View" : {
+
     },
     "Delete Your Account" : {
       "localizations" : {
@@ -1847,6 +3205,22 @@
         }
       }
     },
+    "Deleting trip…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在删除行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在刪除行程…"
+          }
+        }
+      }
+    },
     "Deleting…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1879,6 +3253,57 @@
         }
       }
     },
+    "Departs %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 起飞"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 起飛"
+          }
+        }
+      }
+    },
+    "Departure" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出發"
+          }
+        }
+      }
+    },
+    "Description" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述"
+          }
+        }
+      }
+    },
+    "Designing a new cover…" : {
+
+    },
     "Designing…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1894,6 +3319,25 @@
           }
         }
       }
+    },
+    "Details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詳情"
+          }
+        }
+      }
+    },
+    "Diary" : {
+
     },
     "Disable Notifications" : {
       "localizations" : {
@@ -1991,6 +3435,22 @@
         }
       }
     },
+    "Duration" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时长"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時長"
+          }
+        }
+      }
+    },
     "e.g. Claude Code on my laptop" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2003,6 +3463,134 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "例如：我筆電上的 Claude Code"
+          }
+        }
+      }
+    },
+    "Economy" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经济舱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "經濟艙"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯"
+          }
+        }
+      }
+    },
+    "Edit day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑这一天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯這一天"
+          }
+        }
+      }
+    },
+    "Edit Day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑这一天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯這一天"
+          }
+        }
+      }
+    },
+    "Edit Expense" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑费用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯費用"
+          }
+        }
+      }
+    },
+    "Edit hotel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯酒店"
+          }
+        }
+      }
+    },
+    "Edit Hotel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯酒店"
+          }
+        }
+      }
+    },
+    "Edit Place" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯地點"
           }
         }
       }
@@ -2039,6 +3627,50 @@
         }
       }
     },
+    "Edit Sharing…" : {
+
+    },
+    "Edit Transport" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯交通"
+          }
+        }
+      }
+    },
+    "Edit trip details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑行程详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯行程詳情"
+          }
+        }
+      }
+    },
+    "Edit view" : {
+
+    },
+    "Edit View" : {
+
+    },
+    "Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link. Or ask the trip agent to build one." : {
+
+    },
     "Enable Notifications" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2067,6 +3699,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已開啟"
+          }
+        }
+      }
+    },
+    "Ends" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結束"
+          }
+        }
+      }
+    },
+    "Evening" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傍晚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傍晚"
           }
         }
       }
@@ -2103,6 +3767,41 @@
         }
       }
     },
+    "Exchange Rates" : {
+
+    },
+    "Expense" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "费用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "費用"
+          }
+        }
+      }
+    },
+    "Expenses" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "费用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "費用"
+          }
+        }
+      }
+    },
     "Explain this in simpler terms" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2119,6 +3818,22 @@
         }
       }
     },
+    "Fare" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "票价"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "票價"
+          }
+        }
+      }
+    },
     "Features added in recent updates." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2131,6 +3846,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "近期更新中新增的功能。"
+          }
+        }
+      }
+    },
+    "Ferry" : {
+      "comment" : "Trip route kind",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "渡轮"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "渡輪"
           }
         }
       }
@@ -2163,6 +3895,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已連結檔案。"
+          }
+        }
+      }
+    },
+    "Fill In Form" : {
+
+    },
+    "Fill with AI" : {
+
+    },
+    "Fills in the airline, airports, terminal, gate and times for this flight on %@." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填入该航班在 %@ 的航空公司、机场、航站楼、登机口和时间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填入該航班在 %@ 的航空公司、機場、航廈、登機門和時間。"
           }
         }
       }
@@ -2243,6 +3997,183 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "找出我分享的那份關於研究的 PDF"
+          }
+        }
+      }
+    },
+    "First" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "头等舱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頭等艙"
+          }
+        }
+      }
+    },
+    "First option" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第一个方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第一個方案"
+          }
+        }
+      }
+    },
+    "Flight" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班"
+          }
+        }
+      }
+    },
+    "Flight not found" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到航班"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到航班"
+          }
+        }
+      }
+    },
+    "Flight Not Found" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到航班"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到航班"
+          }
+        }
+      }
+    },
+    "Flight number" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班編號"
+          }
+        }
+      }
+    },
+    "Flight Status" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班动态"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班動態"
+          }
+        }
+      }
+    },
+    "Follow" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟隨"
+          }
+        }
+      }
+    },
+    "Following" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟隨中"
+          }
+        }
+      }
+    },
+    "Food" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "餐饮"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "餐飲"
+          }
+        }
+      }
+    },
+    "For" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用于"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用於"
           }
         }
       }
@@ -2359,6 +4290,38 @@
         }
       }
     },
+    "From" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发地"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出發地"
+          }
+        }
+      }
+    },
+    "From airport (IATA)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发机场（IATA）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出發機場（IATA）"
+          }
+        }
+      }
+    },
     "From Safari to a summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2371,6 +4334,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "從 Safari 到摘要"
+          }
+        }
+      }
+    },
+    "Gate" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登机口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登機門"
+          }
+        }
+      }
+    },
+    "Gate %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 号登机口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 號登機門"
           }
         }
       }
@@ -2390,6 +4385,12 @@
           }
         }
       }
+    },
+    "Generate a new cover?" : {
+
+    },
+    "Generate Cover" : {
+
     },
     "Get started" : {
       "localizations" : {
@@ -2422,6 +4423,41 @@
           }
         }
       }
+    },
+    "GranClass" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GranClass"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GranClass"
+          }
+        }
+      }
+    },
+    "Green Car" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "绿色车厢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "綠色車廂"
+          }
+        }
+      }
+    },
+    "Hayabusa" : {
+      "shouldTranslate" : false
     },
     "Help" : {
       "localizations" : {
@@ -2472,6 +4508,83 @@
         }
       }
     },
+    "Highlight" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重點"
+          }
+        }
+      }
+    },
+    "HKD" : {
+      "shouldTranslate" : false
+    },
+    "HND" : {
+      "shouldTranslate" : false
+    },
+    "Hotel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "酒店"
+          }
+        }
+      }
+    },
+    "Hotels" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "酒店"
+          }
+        }
+      }
+    },
+    "How much have I spent so far?" : {
+
+    },
+    "https://…" : {
+      "shouldTranslate" : false
+    },
+    "Idea" : {
+      "comment" : "Booking status: not planned yet",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想法"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "構想"
+          }
+        }
+      }
+    },
     "Integrations" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2488,6 +4601,28 @@
         }
       }
     },
+    "Introduction" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简介"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簡介"
+          }
+        }
+      }
+    },
+    "Item" : {
+
+    },
+    "JR East" : {
+      "shouldTranslate" : false
+    },
     "Just ask Siri" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2500,6 +4635,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "問問 Siri 就好"
+          }
+        }
+      }
+    },
+    "Keep alternatives (an earlier or later train) as options and pick the one you're taking." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把备选（更早或更晚的车次）保存为方案，并选出你要乘坐的那一个。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把備選（更早或更晚的車次）儲存為方案，並選出你要搭乘的那一個。"
           }
         }
       }
@@ -2568,6 +4719,54 @@
         }
       }
     },
+    "Kind" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "類型"
+          }
+        }
+      }
+    },
+    "Label" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名稱"
+          }
+        }
+      }
+    },
+    "Landed %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已降落"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已降落"
+          }
+        }
+      }
+    },
     "Language" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2616,6 +4815,38 @@
         }
       }
     },
+    "Latitude" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纬度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "緯度"
+          }
+        }
+      }
+    },
+    "Leave times empty to use the first and last legs' times." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留空时间则使用第一段和最后一段的时间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留空時間則使用第一段和最後一段的時間。"
+          }
+        }
+      }
+    },
     "Legal" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2632,6 +4863,22 @@
         }
       }
     },
+    "Legs" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程段"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程段"
+          }
+        }
+      }
+    },
     "Library" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2644,6 +4891,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "資料庫"
+          }
+        }
+      }
+    },
+    "Likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "喜欢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "喜歡"
+          }
+        }
+      }
+    },
+    "Limited express" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "特急"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "特急"
+          }
+        }
+      }
+    },
+    "Line" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "线路"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "路線"
           }
         }
       }
@@ -2724,6 +5019,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "依來源、分類、標籤或可見度列出摘要，最新的排在前面。"
+          }
+        }
+      }
+    },
+    "Live Status" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时动态"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即時動態"
           }
         }
       }
@@ -2840,6 +5151,22 @@
         }
       }
     },
+    "Loading your likes…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在载入你喜欢的摘要…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入你喜歡的摘要…"
+          }
+        }
+      }
+    },
     "Loading your summaries…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2852,6 +5179,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在載入你的摘要…"
+          }
+        }
+      }
+    },
+    "Local" : {
+      "comment" : "Train category: stops at every station",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "普通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "普通"
           }
         }
       }
@@ -2904,6 +5248,118 @@
         }
       }
     },
+    "Locate me" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定位我"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定位我"
+          }
+        }
+      }
+    },
+    "Location access is off. Allow it for Chippy in Settings." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置权限已关闭。请在“设置”中允许 Chippy 访问位置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置權限已關閉。請在「設定」中允許 Chippy 取用位置。"
+          }
+        }
+      }
+    },
+    "Location Unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法获取位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得位置"
+          }
+        }
+      }
+    },
+    "Lodging" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住宿"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住宿"
+          }
+        }
+      }
+    },
+    "Longitude" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "經度"
+          }
+        }
+      }
+    },
+    "Look Up Flight" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查询航班"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查詢航班"
+          }
+        }
+      }
+    },
+    "Looking up flight…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查询航班…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查詢航班…"
+          }
+        }
+      }
+    },
     "Manage…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2936,6 +5392,9 @@
         }
       }
     },
+    "Meet your Trip Diary" : {
+
+    },
     "Membership required" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2952,6 +5411,41 @@
         }
       }
     },
+    "Missing “%@”." : {
+
+    },
+    "Mode" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方式"
+          }
+        }
+      }
+    },
+    "Moments" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时刻"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時刻"
+          }
+        }
+      }
+    },
     "More" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2964,6 +5458,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更多"
+          }
+        }
+      }
+    },
+    "Morning" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上午"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上午"
           }
         }
       }
@@ -2996,6 +5506,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用使用它的代理程式或裝置來命名此金鑰。此金鑰擁有新增、搜尋和列出你摘要的完整權限。"
+          }
+        }
+      }
+    },
+    "New" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增"
           }
         }
       }
@@ -3049,6 +5575,73 @@
         }
       }
     },
+    "New cover ready" : {
+
+    },
+    "New Day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新的一天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新的一天"
+          }
+        }
+      }
+    },
+    "New Expense" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新费用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新費用"
+          }
+        }
+      }
+    },
+    "New Hotel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新酒店"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新酒店"
+          }
+        }
+      }
+    },
+    "New Place" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新地點"
+          }
+        }
+      }
+    },
     "New Summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3065,6 +5658,41 @@
         }
       }
     },
+    "New Transport" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新交通"
+          }
+        }
+      }
+    },
+    "New Trip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新行程"
+          }
+        }
+      }
+    },
+    "New View" : {
+
+    },
     "Next" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3077,6 +5705,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下一步"
+          }
+        }
+      }
+    },
+    "NH 12" : {
+      "shouldTranslate" : false
+    },
+    "Night" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜晚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜晚"
           }
         }
       }
@@ -3125,6 +5772,92 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有分類"
+          }
+        }
+      }
+    },
+    "No costs yet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有费用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有費用。"
+          }
+        }
+      }
+    },
+    "No days yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有日期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有日期"
+          }
+        }
+      }
+    },
+    "No flight %@ was found on %@. Check the flight number and the departure date." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No flight %1$@ was found on %2$@. Check the flight number and the departure date."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ 没有找到航班 %1$@。请检查航班号和出发日期。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ 找不到航班 %1$@。請檢查航班編號和出發日期。"
+          }
+        }
+      }
+    },
+    "No hotels yet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有酒店。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有酒店。"
+          }
+        }
+      }
+    },
+    "No Likes Yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有喜欢的摘要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚無喜歡的摘要"
           }
         }
       }
@@ -3193,6 +5926,9 @@
         }
       }
     },
+    "No places yet" : {
+
+    },
     "No point packs are available right now." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3205,6 +5941,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "目前沒有可用的點數方案。"
+          }
+        }
+      }
+    },
+    "No rates yet." : {
+
+    },
+    "No route" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无路线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無路線"
           }
         }
       }
@@ -3257,6 +6012,54 @@
         }
       }
     },
+    "No transport yet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有交通。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有交通。"
+          }
+        }
+      }
+    },
+    "Non-reserved" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自由席"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自由席"
+          }
+        }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無"
+          }
+        }
+      }
+    },
     "Not available" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3269,6 +6072,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法使用"
+          }
+        }
+      }
+    },
+    "Not covered" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未覆盖"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未涵蓋"
           }
         }
       }
@@ -3305,6 +6124,22 @@
         }
       }
     },
+    "Not paid" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未付款"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未付款"
+          }
+        }
+      }
+    },
     "Not right? Discard…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3317,6 +6152,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不滿意？捨棄…"
+          }
+        }
+      }
+    },
+    "Not set" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未設定"
+          }
+        }
+      }
+    },
+    "Note" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "備註"
+          }
+        }
+      }
+    },
+    "Notes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "備註"
+          }
+        }
+      }
+    },
+    "Nothing specific" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无特定项目"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無特定項目"
           }
         }
       }
@@ -3381,6 +6280,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知已開啟"
+          }
+        }
+      }
+    },
+    "Number" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "车次"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車次"
           }
         }
       }
@@ -3477,6 +6392,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "每個金鑰只儲存其雜湊值，因此無法再次顯示。如果遺失了金鑰，請撤銷它並建立新的金鑰。"
+          }
+        }
+      }
+    },
+    "Onward" : {
+      "comment" : "Trip route kind: travelling on to a new place",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前进"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前進"
           }
         }
       }
@@ -3609,6 +6541,22 @@
         }
       }
     },
+    "Opening trip…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打开行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在開啟行程…"
+          }
+        }
+      }
+    },
     "Opens a summary in Chippy." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3621,6 +6569,92 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 Chippy 中打開摘要。"
+          }
+        }
+      }
+    },
+    "Operator" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运营商"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "營運商"
+          }
+        }
+      }
+    },
+    "Option" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案"
+          }
+        }
+      }
+    },
+    "Option %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案 %lld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案 %lld"
+          }
+        }
+      }
+    },
+    "Option 1" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案 1"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案 1"
+          }
+        }
+      }
+    },
+    "Option A" : {
+
+    },
+    "Option B" : {
+
+    },
+    "Options" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方案"
           }
         }
       }
@@ -3641,7 +6675,42 @@
         }
       }
     },
-    "Original (%@)" : {},
+    "Original (%@)" : {
+
+    },
+    "Other" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        }
+      }
+    },
+    "Other Transport" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他交通"
+          }
+        }
+      }
+    },
     "Page %lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -3663,6 +6732,45 @@
           }
         }
       }
+    },
+    "Paid" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已付款"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已付款"
+          }
+        }
+      }
+    },
+    "Pass" : {
+      "comment" : "Expense category: a rail pass or bundle that covers other costs",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通票"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通票"
+          }
+        }
+      }
+    },
+    "Paste a receipt or booking, or describe what you paid — the agent adds it to the trip's costs." : {
+
+    },
+    "Paste a receipt or describe a cost" : {
+
     },
     "Payment disputed" : {
       "localizations" : {
@@ -3696,7 +6804,126 @@
         }
       }
     },
-    "Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points, category, tags and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {},
+    "Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points, category, tags and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
+
+    },
+    "Place" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地點"
+          }
+        }
+      }
+    },
+    "Place on map" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地图上的地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地圖上的地點"
+          }
+        }
+      }
+    },
+    "Places" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地點"
+          }
+        }
+      }
+    },
+    "Plan each day with places, transport and bookings, and follow your itinerary on the map. Track expenses in your chosen currency, share your trip, and ask the trip agent to help organise your plans. Find it all in Trips." : {
+
+    },
+    "Planned" : {
+      "comment" : "Booking status",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已计划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已計劃"
+          }
+        }
+      }
+    },
+    "Planning" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃"
+          }
+        }
+      }
+    },
+    "Planning Tab" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划标签页"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃分頁"
+          }
+        }
+      }
+    },
+    "Point of interest" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "景点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "景點"
+          }
+        }
+      }
+    },
     "Point packs" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3777,6 +7004,57 @@
         }
       }
     },
+    "Port" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "港口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "港口"
+          }
+        }
+      }
+    },
+    "Premium economy" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "超级经济舱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "豪華經濟艙"
+          }
+        }
+      }
+    },
+    "Preview" : {
+
+    },
+    "Price" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "价格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "價格"
+          }
+        }
+      }
+    },
     "Private" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3841,6 +7119,28 @@
         }
       }
     },
+    "Rapid" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速"
+          }
+        }
+      }
+    },
+    "Rates by Exchange Rate API" : {
+
+    },
+    "Rates From" : {
+
+    },
     "Read summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3872,6 +7172,9 @@
           }
         }
       }
+    },
+    "Read the page" : {
+
     },
     "Reading stopped" : {
       "localizations" : {
@@ -3921,6 +7224,9 @@
         }
       }
     },
+    "Reading the page…" : {
+
+    },
     "Receive a notification when a summary is added through the API or an AI agent. Tap the notification to open the summary. Summary titles may appear on your lock screen." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3936,6 +7242,25 @@
           }
         }
       }
+    },
+    "Ref %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编号 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編號 %@"
+          }
+        }
+      }
+    },
+    "Refresh Rates" : {
+
     },
     "Refresh Usage" : {
       "localizations" : {
@@ -4081,6 +7406,25 @@
         }
       }
     },
+    "Remove from Calendar" : {
+
+    },
+    "Remove from Likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从喜欢中移除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從喜歡中移除"
+          }
+        }
+      }
+    },
     "Remove the association with this summary and any saved copy. The original file in Files and the summary are kept." : {
       "localizations" : {
         "zh-Hans" : {
@@ -4093,6 +7437,44 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除與此摘要的連結及任何已儲存的副本。「檔案」App 中的原始檔案和摘要都會保留。"
+          }
+        }
+      }
+    },
+    "Remove this trip from your calendar?" : {
+
+    },
+    "Removed from calendar" : {
+
+    },
+    "Removed from Likes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从喜欢中移除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已從喜歡中移除"
+          }
+        }
+      }
+    },
+    "Rename" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新命名"
           }
         }
       }
@@ -4141,6 +7523,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取代連結的檔案…"
+          }
+        }
+      }
+    },
+    "Reserved" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指定席"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指定席"
           }
         }
       }
@@ -4209,6 +7607,39 @@
         }
       }
     },
+    "Return" : {
+      "comment" : "Trip route kind: heading back",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返程"
+          }
+        }
+      }
+    },
+    "Revoke" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤銷"
+          }
+        }
+      }
+    },
     "Revoke “%@”?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4269,6 +7700,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在撤銷金鑰…"
+          }
+        }
+      }
+    },
+    "Route" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "路线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "路線"
+          }
+        }
+      }
+    },
+    "Route summary" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "路线概要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "路線概要"
           }
         }
       }
@@ -4381,6 +7844,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "搜尋"
+          }
+        }
+      }
+    },
+    "Search Maps" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索地图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋地圖"
           }
         }
       }
@@ -4529,6 +8008,60 @@
         }
       }
     },
+    "Seat" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座位"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座位"
+          }
+        }
+      }
+    },
+    "Seat %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 座"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 座"
+          }
+        }
+      }
+    },
+    "Seat class" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座席"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座席"
+          }
+        }
+      }
+    },
+    "Second" : {
+
+    },
+    "Section" : {
+
+    },
     "Select some text or a link to summarize." : {
       "localizations" : {
         "zh-Hans" : {
@@ -4609,6 +8142,22 @@
         }
       }
     },
+    "Share a booking or timetable to Chippy later and the agent fills the trip in." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之后把预订或时刻表分享给 Chippy，助手会帮你补全行程。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之後把預訂或時刻表分享給 Chippy，助手會幫你補全行程。"
+          }
+        }
+      }
+    },
     "Share Link" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4657,6 +8206,38 @@
         }
       }
     },
+    "Shinkansen" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新干线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新幹線"
+          }
+        }
+      }
+    },
+    "Shopping" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "购物"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "購物"
+          }
+        }
+      }
+    },
     "Show" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4685,6 +8266,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "顯示聊天"
+          }
+        }
+      }
+    },
+    "Show In" : {
+
+    },
+    "Side trip" : {
+      "comment" : "Trip route kind",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支线游"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支線遊"
           }
         }
       }
@@ -4833,6 +8434,9 @@
         }
       }
     },
+    "Some edits didn't fit the trip, so the agent corrected them." : {
+
+    },
     "Source" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4861,6 +8465,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "來源文件"
+          }
+        }
+      }
+    },
+    "Source link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "來源連結"
           }
         }
       }
@@ -4913,6 +8533,73 @@
         }
       }
     },
+    "Sources" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "來源"
+          }
+        }
+      }
+    },
+    "Spec (JSON)" : {
+
+    },
+    "Star a summary to keep it here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为摘要加星标，即可保存在这里。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為摘要加上星號，即可保存在這裡。"
+          }
+        }
+      }
+    },
+    "Starts" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始"
+          }
+        }
+      }
+    },
+    "Station" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "车站"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "車站"
+          }
+        }
+      }
+    },
     "Status" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4925,6 +8612,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "狀態"
+          }
+        }
+      }
+    },
+    "Stay" : {
+      "comment" : "Trip route kind: staying in one place",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停留"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停留"
+          }
+        }
+      }
+    },
+    "Stay & Transport" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住宿与交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住宿與交通"
+          }
+        }
+      }
+    },
+    "Stay at %@" : {
+
+    },
+    "Staying at" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住在"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住在"
           }
         }
       }
@@ -4973,6 +8712,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "風格"
+          }
+        }
+      }
+    },
+    "Subtitle" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "副标题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "副標題"
           }
         }
       }
@@ -5153,6 +8908,9 @@
         }
       }
     },
+    "Summarise the trip day by day" : {
+
+    },
     "summarize" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5218,7 +8976,9 @@
         }
       }
     },
-    "Switching language…" : {},
+    "Switching language…" : {
+
+    },
     "Switching to the original…" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5268,6 +9028,38 @@
         }
       }
     },
+    "Terminal" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航站楼"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航廈"
+          }
+        }
+      }
+    },
+    "Terminal %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 号航站楼"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %@ 航廈"
+          }
+        }
+      }
+    },
     "text" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5283,6 +9075,25 @@
           }
         }
       }
+    },
+    "The day and its moments are removed from the diary." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一天及其时刻将从日记中移除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這一天及其時刻將從日記中移除。"
+          }
+        }
+      }
+    },
+    "The events Chippy added for this trip are deleted from your calendar." : {
+
     },
     "The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead." : {
       "localizations" : {
@@ -5316,6 +9127,25 @@
         }
       }
     },
+    "The place is removed from routes, moments and hotels that use it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该地点将从使用它的路线、时刻和酒店中移除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "該地點將從使用它的路線、時刻和酒店中移除。"
+          }
+        }
+      }
+    },
+    "The root “%@” isn't one of the elements." : {
+
+    },
     "The summary, key points and source text are translated the first time you pick a language. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5333,6 +9163,44 @@
         }
       }
     },
+    "The transport and its options are removed from the trip." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该交通及其方案将从行程中移除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "該交通及其方案將從行程中移除。"
+          }
+        }
+      }
+    },
+    "The trip, its diary and its share link are deleted. This can't be undone." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程、日记及其分享链接都会被删除，且无法撤销。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程、日記及其分享連結都會被刪除，且無法復原。"
+          }
+        }
+      }
+    },
+    "The view is removed from the trip." : {
+
+    },
+    "There is no calendar to add events to." : {
+
+    },
     "Thinking…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5345,6 +9213,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在思考…"
+          }
+        }
+      }
+    },
+    "This day has a drawn path; stops here mark the places it visits." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一天有绘制好的路径；这里的站点标记它经过的地点。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這一天有繪製好的路徑；這裡的站點標記它經過的地點。"
           }
         }
       }
@@ -5364,6 +9248,9 @@
           }
         }
       }
+    },
+    "This isn't valid JSON." : {
+
     },
     "This link is saved on this device. Chat reads the latest version of the file; changing it does not regenerate the summary." : {
       "localizations" : {
@@ -5393,6 +9280,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此摘要為私密、連結已到期或已被刪除。"
+          }
+        }
+      }
+    },
+    "Tight 8-minute transfer" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "换乘仅 8 分钟"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉乘僅 8 分鐘"
+          }
+        }
+      }
+    },
+    "Time" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間"
+          }
+        }
+      }
+    },
+    "Time of day" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时段"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時段"
+          }
+        }
+      }
+    },
+    "Time Zone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時區"
+          }
+        }
+      }
+    },
+    "Tip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示"
           }
         }
       }
@@ -5428,6 +9395,44 @@
           }
         }
       }
+    },
+    "To" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目的地"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目的地"
+          }
+        }
+      }
+    },
+    "To airport (IATA)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到达机场（IATA）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "抵達機場（IATA）"
+          }
+        }
+      }
+    },
+    "Tohoku Shinkansen" : {
+      "shouldTranslate" : false
+    },
+    "Tokyo → Sendai" : {
+      "shouldTranslate" : false
     },
     "Tools" : {
       "localizations" : {
@@ -5525,7 +9530,60 @@
         }
       }
     },
-    "Translate" : {},
+    "Total" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总计"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "總計"
+          }
+        }
+      }
+    },
+    "Totals in other currencies are also shown converted into this one. Applies to all your trips on this device." : {
+
+    },
+    "Train" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火车"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火車"
+          }
+        }
+      }
+    },
+    "Train name" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "列车名"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "列車名"
+          }
+        }
+      }
+    },
+    "Translate" : {
+
+    },
     "Translate to" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5542,8 +9600,12 @@
         }
       }
     },
-    "Translate to %@?" : {},
-    "Translated" : {},
+    "Translate to %@?" : {
+
+    },
+    "Translated" : {
+
+    },
     "Translated from %@ to %@" : {
       "localizations" : {
         "en" : {
@@ -5582,6 +9644,60 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在翻譯…"
+          }
+        }
+      }
+    },
+    "Transport" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "交通"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "交通"
+          }
+        }
+      }
+    },
+    "Trip Agent" : {
+
+    },
+    "Trip agent updated the trip" : {
+
+    },
+    "Trip Details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程詳情"
+          }
+        }
+      }
+    },
+    "Trip unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程不可用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程無法使用"
           }
         }
       }
@@ -5634,6 +9750,63 @@
         }
       }
     },
+    "Untitled option" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未命名方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未命名方案"
+          }
+        }
+      }
+    },
+    "Update Calendar" : {
+
+    },
+    "Update stopped" : {
+
+    },
+    "Updated %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新于 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新於 %@"
+          }
+        }
+      }
+    },
+    "Updated elsewhere — reloaded" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在别处更新，已重新载入"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在別處更新，已重新載入"
+          }
+        }
+      }
+    },
+    "Updated the trip" : {
+
+    },
     "Updating notifications…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5649,6 +9822,12 @@
           }
         }
       }
+    },
+    "Updating the trip…" : {
+
+    },
+    "Updating your calendar…" : {
+
     },
     "Uploaded PDFs and generated images" : {
       "localizations" : {
@@ -5730,6 +9909,38 @@
         }
       }
     },
+    "Use Current Location" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用当前位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用目前位置"
+          }
+        }
+      }
+    },
+    "Use These Details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用这些信息"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用這些資訊"
+          }
+        }
+      }
+    },
     "Used %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5794,6 +10005,9 @@
         }
       }
     },
+    "View" : {
+
+    },
     "View summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5838,6 +10052,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可見度"
+          }
+        }
+      }
+    },
+    "Walk" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步行"
+          }
+        }
+      }
+    },
+    "Warning" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注意事项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注意事項"
+          }
+        }
+      }
+    },
+    "Website" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网站"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "網站"
           }
         }
       }
@@ -5955,6 +10217,25 @@
         }
       }
     },
+    "What happens" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发生了什么"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "發生了什麼"
+          }
+        }
+      }
+    },
+    "What should I book next?" : {
+
+    },
     "What would you like to summarise?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6019,6 +10300,12 @@
         }
       }
     },
+    "Which costs are still unpaid?" : {
+
+    },
+    "Which nights don't have a hotel yet?" : {
+
+    },
     "Which shared links are about to expire?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6034,6 +10321,25 @@
           }
         }
       }
+    },
+    "Whole trip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全程"
+          }
+        }
+      }
+    },
+    "Whole Trip" : {
+
     },
     "Working…" : {
       "localizations" : {
@@ -6051,6 +10357,9 @@
         }
       }
     },
+    "Wrong type at “%@”." : {
+
+    },
     "You're offline" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6063,6 +10372,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你目前離線"
+          }
+        }
+      }
+    },
+    "You're offline. Showing likes saved on this device." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你已离线。正在显示此设备上保存的喜欢。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你已離線。正在顯示此裝置上儲存的喜歡。"
           }
         }
       }
@@ -6223,38 +10548,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的 RxLab 登入帳號"
-          }
-        }
-      }
-    },
-    "Rename" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重命名"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新命名"
-          }
-        }
-      }
-    },
-    "Revoke" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "撤销"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "撤銷"
           }
         }
       }

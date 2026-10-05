@@ -124,6 +124,60 @@ public enum SummaryOrigin: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+/// What a library item is: a summary card, or a trip diary (`/api/v1/trips/:id`, same id).
+/// Mirrors `kind` in the contract; older payloads without it are summaries, unknown kinds decode as `.other`.
+public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
+    case summary
+    case trip
+    case other(String)
+
+    /// Every kind the server knows, in the order the library's filter lists them.
+    public static let known: [SummaryKind] = [.summary, .trip]
+
+    public var id: String { rawValue }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "summary": self = .summary
+        case "trip": self = .trip
+        default: self = .other(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .summary: "summary"
+        case .trip: "trip"
+        case .other(let raw): raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    public var title: String {
+        switch self {
+        case .summary: String(localized: "Summaries", bundle: .module, comment: "Library kind filter: summary cards")
+        case .trip: String(localized: "Trips", bundle: .module, comment: "Library kind filter: trip diaries")
+        case .other(let raw): raw.capitalized
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .summary: "text.quote"
+        case .trip: "map"
+        case .other: "doc"
+        }
+    }
+}
+
 public enum ImageStyle: String, Codable, Sendable, CaseIterable, Identifiable {
     case graphic
     case illustration
@@ -225,6 +279,8 @@ public struct Theme: Codable, Sendable, Hashable {
 /// A generated summary, exactly as the contract's `Summary` JSON shape.
 public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var id: String
+    /// `.trip` items open as a trip diary; their structured data lives at `/api/v1/trips/:id`.
+    public var kind: SummaryKind
     public var slug: String
     public var shareUrl: URL
     public var ogImageUrl: URL?
@@ -268,20 +324,22 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var isOwner: Bool
     /// When the user last opened this (someone else's) summary; nil for their own.
     public var viewedAt: Date?
+    /// When the user starred this summary (it's listed under Likes); nil when not starred.
+    public var likedAt: Date?
     public var createdAt: Date
     public var updatedAt: Date
 
     public init(
-        id: String, slug: String, shareUrl: URL, ogImageUrl: URL?, artImageUrl: URL? = nil, sourceType: SummarySourceType,
+        id: String, kind: SummaryKind = .summary, slug: String, shareUrl: URL, ogImageUrl: URL?, artImageUrl: URL? = nil, sourceType: SummarySourceType,
         source: SummaryOrigin? = nil, sourceUrl: URL?, sourceTitle: String?, siteName: String?, sourceFileUrl: URL?,
         hasSourceMarkdown: Bool = false, sourceMarkdownPending: Bool = false, title: String, summary: String, highlights: [String], category: String, tags: [String],
         keywords: [String], language: String, displayCategory: String? = nil, displayTags: [String]? = nil,
         originalLanguage: String? = nil, displayLanguage: String? = nil,
         translationPending: Bool = false, sourceTranslationPending: Bool = false, theme: Theme, imageStyle: ImageStyle,
         visibility: SummaryVisibility, ttlDays: Int?, expiresAt: Date?, viewCount: Int,
-        isOwner: Bool, viewedAt: Date? = nil, createdAt: Date, updatedAt: Date
+        isOwner: Bool, viewedAt: Date? = nil, likedAt: Date? = nil, createdAt: Date, updatedAt: Date
     ) {
-        self.id = id; self.slug = slug; self.shareUrl = shareUrl; self.ogImageUrl = ogImageUrl; self.artImageUrl = artImageUrl
+        self.id = id; self.kind = kind; self.slug = slug; self.shareUrl = shareUrl; self.ogImageUrl = ogImageUrl; self.artImageUrl = artImageUrl
         self.sourceType = sourceType; self.source = source ?? SummaryOrigin(sourceType); self.sourceUrl = sourceUrl; self.sourceTitle = sourceTitle
         self.siteName = siteName; self.sourceFileUrl = sourceFileUrl; self.hasSourceMarkdown = hasSourceMarkdown
         self.sourceMarkdownPending = sourceMarkdownPending; self.title = title
@@ -294,7 +352,7 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         self.theme = theme
         self.imageStyle = imageStyle; self.visibility = visibility; self.ttlDays = ttlDays
         self.expiresAt = expiresAt; self.viewCount = viewCount; self.isOwner = isOwner
-        self.viewedAt = viewedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.viewedAt = viewedAt; self.likedAt = likedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 
     /// Tolerant decoding: the public API omits owner-only fields, so everything that is not
@@ -302,6 +360,7 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
+        kind = try c.decodeIfPresent(SummaryKind.self, forKey: .kind) ?? .summary
         slug = try c.decode(String.self, forKey: .slug)
         shareUrl = try c.decode(URL.self, forKey: .shareUrl)
         ogImageUrl = try c.decodeLenientURL(forKey: .ogImageUrl)
@@ -336,9 +395,13 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         viewCount = try c.decodeIfPresent(Int.self, forKey: .viewCount) ?? 0
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner) ?? false
         viewedAt = try c.decodeIfPresent(Date.self, forKey: .viewedAt)
+        likedAt = try c.decodeIfPresent(Date.self, forKey: .likedAt)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }
+
+    /// Starred by the user, so it appears under Likes.
+    public var isLiked: Bool { likedAt != nil }
 
     /// The title, summary and key points are shown translated from `originalLanguage`.
     public var isTranslated: Bool { language != originalLanguage }

@@ -7,12 +7,14 @@ public struct SummaryCardView: View {
     public enum DateKind: Sendable, Hashable {
         case created
         case viewed
+        case liked
 
-        /// The card's date line: the formatted date, or "Viewed <date>" for others' summaries.
+        /// The card's date line: the formatted date, "Viewed <date>" for others' summaries, or "Liked <date>" in Likes.
         func label(_ formattedDate: String) -> String {
             switch self {
             case .created: formattedDate
             case .viewed: String(localized: "Viewed \(formattedDate)", bundle: .module)
+            case .liked: String(localized: "Liked \(formattedDate)", bundle: .module, comment: "Card date line in Likes: when the summary was starred")
             }
         }
 
@@ -20,6 +22,7 @@ public struct SummaryCardView: View {
             switch self {
             case .created: "calendar"
             case .viewed: "eye"
+            case .liked: "star"
             }
         }
     }
@@ -41,10 +44,14 @@ public struct SummaryCardView: View {
             SummaryOGImage(summary: summary)
             VStack(alignment: .leading, spacing: compact ? 6 : 10) {
                 HStack(spacing: 6) {
-                    Text(summary.sourceLabel)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if summary.kind == .trip {
+                        TripKindBadge()
+                    } else {
+                        Text(summary.sourceLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     TranslationBadge(summary: summary)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -60,7 +67,7 @@ public struct SummaryCardView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                if !compact, !summary.summary.isEmpty {
+                if !compact, summary.kind != .trip, !summary.summary.isEmpty {
                     Text(summary.summary)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -129,6 +136,28 @@ public struct TranslationBadge: View {
     }
 }
 
+/// Marks a library item that opens as a trip diary.
+public struct TripKindBadge: View {
+    public init() {}
+
+    public var body: some View {
+        Label {
+            Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
+        } icon: {
+            Image(systemName: "map.fill")
+        }
+        .labelStyle(.titleAndIcon)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Color(red: 0.95, green: 0.5, blue: 0.35), in: Capsule())
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityIdentifier("trip-badge")
+    }
+}
+
 /// One card in a feed: the summary plus the date the feed sorts by.
 public struct SummaryFeedEntry: Identifiable, Hashable, Sendable {
     public var summary: Summary
@@ -146,6 +175,11 @@ public struct SummaryFeedEntry: Identifiable, Hashable, Sendable {
     public init(summary: Summary) {
         self.init(summary: summary, date: summary.activityDate, dateKind: summary.viewedAt == nil ? .created : .viewed)
     }
+
+    /// Likes entry: dated by when the summary was starred.
+    public init(likedSummary summary: Summary) {
+        self.init(summary: summary, date: summary.likedAt ?? summary.activityDate, dateKind: .liked)
+    }
 }
 
 /// Home-feed tile: a soft white card with the date on top, a large bold title, and either the
@@ -157,9 +191,11 @@ public struct SummaryTileView: View {
         case inset
         case hero
 
-        /// Stable per summary so a card keeps its look across launches and reloads.
+        /// Stable per summary so a card keeps its look across launches and reloads. Trips always
+        /// show their cover, with the title laid over it.
         public static func style(for summary: Summary) -> Style {
             let hash = summary.id.unicodeScalars.reduce(UInt64(5381)) { ($0 &* 33) &+ UInt64($1.value) }
+            if summary.kind == .trip { return .hero }
             switch hash % 5 {
             case 0, 1: return summary.summary.isEmpty ? .inset : .text
             case 2, 3: return .inset
@@ -238,36 +274,36 @@ public struct SummaryTileView: View {
         return Color.clear
             .aspectRatio(0.8, contentMode: .fit)
             .background { artwork }
-            // Progressive blur behind the title: the generated image often carries its own
-            // text, which clashes with ours. Fades out towards the bottom.
+            // Blur behind the title only: the generated image often carries its own text,
+            // which clashes with ours. Sized to the header, with a short fade below it.
             .overlay {
-                artwork
-                    .blur(radius: 18, opaque: true)
-                    .mask {
-                        LinearGradient(
-                            stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.5), .init(color: .clear, location: 0.8)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-                    .allowsHitTesting(false)
-            }
-            .overlay {
-                LinearGradient(
-                    stops: [
-                        .init(color: scrim.opacity(summary.theme.mode == .dark ? 0.5 : 0.6), location: 0),
-                        .init(color: scrim.opacity(summary.theme.mode == .dark ? 0.3 : 0.4), location: 0.5),
-                        .init(color: scrim.opacity(0), location: 0.8),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                ZStack {
+                    artwork
+                        .blur(radius: 18, opaque: true)
+                    scrim.opacity(summary.theme.mode == .dark ? 0.4 : 0.5)
+                }
+                .mask { headerMask(ink: ink) }
+                .allowsHitTesting(false)
             }
             .overlay(alignment: .topLeading) {
                 header(ink: ink, secondary: ink.opacity(0.8))
                     .shadow(color: .black.opacity(summary.theme.mode == .dark ? 0.25 : 0), radius: 3)
                     .padding(18)
             }
+    }
+
+    /// Opaque region matching the hero header's laid-out height, fading out just below it.
+    private func headerMask(ink: Color) -> some View {
+        VStack(spacing: 0) {
+            header(ink: ink, secondary: ink)
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .hidden()
+                .background(Color.black)
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 28)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var artwork: some View {
@@ -279,8 +315,14 @@ public struct SummaryTileView: View {
     private func header(ink: Color, secondary: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
+                if summary.kind == .trip {
+                    TripKindBadge()
+                        .padding(.trailing, 4)
+                }
                 if dateKind == .viewed {
                     Image(systemName: "eye.fill").imageScale(.small)
+                } else if dateKind == .liked {
+                    Image(systemName: "star.fill").imageScale(.small)
                 }
                 Text(stamp).lineLimit(1)
                     .accessibilityHidden(true)

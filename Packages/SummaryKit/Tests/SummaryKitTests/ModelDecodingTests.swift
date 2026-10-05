@@ -187,6 +187,16 @@ func fixture(_ name: String) throws -> Data {
         #expect(SummaryLanguage.translations.contains(.auto) == false)
     }
 
+    @Test func decodesLikedAtAndLikedScope() throws {
+        var json = try JSONSerialization.jsonObject(with: try fixture("summary.json")) as! [String: Any]
+        #expect(try SummaryJSON.decoder().decode(Summary.self, from: JSONSerialization.data(withJSONObject: json)).isLiked == false)
+        json["likedAt"] = "2026-10-05T10:00:00.000Z"
+        let liked = try SummaryJSON.decoder().decode(Summary.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(liked.likedAt == ISO8601DateFormatter().date(from: "2026-10-05T10:00:00Z"))
+        #expect(SummaryListQuery(scope: .liked).queryItems == [URLQueryItem(name: "scope", value: "liked")])
+        #expect(!LibraryScope.filterCases.contains(.liked))
+    }
+
     @Test func listQueryDropsEmptyValues() {
         let items = SummaryListQuery(q: "  ", category: "Technology", tag: nil, visibility: .private, cursor: "c", limit: 20).queryItems
         #expect(items.map(\.name) == ["category", "visibility", "cursor", "limit"])

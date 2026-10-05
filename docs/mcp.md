@@ -2,7 +2,8 @@
 
 The Chippy server hosts a [Model Context Protocol](https://modelcontextprotocol.io) server at
 `https://summary.rxlab.app/api/mcp`. With it, AI agents (Claude Code, Claude Desktop, Cursor and others)
-can add summaries to your library, search it in natural language and list it by filter, from any machine.
+can add summaries to your library, search it in natural language and list it by filter, and read, create
+and edit trip diaries, from any machine.
 Agents sign in with a personal **API key** and act as the account that owns it. The app doesn't need to
 be open.
 
@@ -87,10 +88,15 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `add_summary` | Saves a summary the agent wrote, with key points, tags and the raw source text. Nothing is re-summarised. | `importSummary` (as `POST /api/v1/summaries/import`) |
 | `search_summaries` | Natural-language search (meaning + keywords), most relevant first. Up to 50 per page. | `listSummaries` with `q` |
 | `list_summaries` | The library newest first, filtered. Up to 200 per call. | `listSummaries` |
+| `list_trips` | The user's trips, ongoing and upcoming first, then past ones. | `listTrips` (as `GET /api/v1/trips`) |
+| `get_trip` | A trip's full TripDocument and its revision. | `getTrip` |
+| `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance). | `createTrip` (as `POST /api/v1/trips`) |
+| `update_trip` | Applies operations (upsert/delete records by id, `set_meta`, `add_source`) in order, as one change. Free. | `applyTripOperations` (as `POST /api/v1/trips/:id/operations`) |
+| `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
 
 `search_summaries` and `list_summaries` accept the same filters: `source` (`web`, `x`, `facebook`,
-`youtube`, `github`, `pdf`, `text`), `category`, `tag`, `visibility` (`public` / `private`) and `scope`
-(`all`, `mine` or `viewed`). Both return `{count, items, nextCursor}`. Pass `nextCursor` back as `cursor`
+`youtube`, `github`, `pdf`, `text`), `category`, `tag`, `visibility` (`public` / `private`), `kind`
+(`summary` or `trip`) and `scope` (`all`, `mine`, `viewed` or `liked`). Both return `{count, items, nextCursor}`. Pass `nextCursor` back as `cursor`
 to get the next page. Each item has `id`, `title`, `summary`, `keyPoints`, `category`, `tags`, `source`,
 `sourceUrl`, `sourceTitle`, `siteName`, `shareUrl`, `visibility`, `language`, `isOwner`, `hasSourceText`,
 `createdAt` and `viewedAt`.
@@ -106,12 +112,29 @@ A chip that is already in the library (`409 DUPLICATE_SUMMARY`) comes back as a 
 names the existing chip and its link, and suggests `allowDuplicate: true`. Other API errors, such as an
 allowance that is used up, come back as tool errors carrying the server's message and code.
 
+### Trip tools
+
+The trip format and its operations are specified in [trips.md](trips.md).
+
+- `list_trips` takes no arguments and returns `{count, trips: [{id, slug, title, subtitle, startDate, endDate, revision, updatedAt, dayCount, placeCount}]}`.
+- `get_trip` takes `tripId` and returns `{trip: {id, revision, visibility, shareUrl, updatedAt, document}}`. Anyone may read
+  a public trip; only the owner's key may change it.
+- `create_trip` takes `document` (a TripDocument, validated including referential integrity) and optional `visibility`
+  (default `private`) and returns the same `{trip}`.
+- `update_trip` takes `tripId`, `operations` (1–200) and an optional `revision`. With `revision`, a trip that changed since
+  is refused (`TRIP_REVISION_CONFLICT`: call `get_trip` and retry); without it the operations apply to the latest document.
+  A result that would be invalid (`TRIP_INVALID`, e.g. a `stayId` naming no hotel) changes nothing.
+- `add_to_trip_from_source` takes `tripId`, exactly one of `url` or `text`, and optional `instructions`. It holds points
+  first (`TRIP_POINTS_EXHAUSTED` when the balance is empty), runs the trip agent synchronously (within the route's 300 s),
+  and returns `{changeSummary, operationsApplied, trip}`. Invalid operations the agent proposes are dropped.
+
 ## Implementation
 
 | File | Role |
 |---|---|
 | `server/app/api/mcp/route.ts` | `POST` handler: API key auth, then a fresh `McpServer` + `WebStandardStreamableHTTPServerTransport` per request (stateless, JSON responses). `GET`/`DELETE` answer `405` |
-| `server/lib/mcp/server.ts` | Tool catalog (zod input schemas), mapping to the summary services, results and usage counting |
+| `server/lib/mcp/server.ts` | Tool catalog (zod input schemas), mapping to the summary and trip services, results and usage counting |
+| `server/lib/services/trips.ts` | Trip create/read/list/edit and the trip agent run behind the trip tools |
 | `server/lib/services/api-keys.ts` | Key generation, hashing, list/create/rename/revoke, authentication and usage counters |
 | `server/lib/http/handler.ts` | `withApiKeyAuth`: `401 MISSING_API_KEY` / `INVALID_API_KEY` with `WWW-Authenticate: Bearer` |
 | `server/app/api/v1/api-keys/**` | Key management routes (OAuth) |

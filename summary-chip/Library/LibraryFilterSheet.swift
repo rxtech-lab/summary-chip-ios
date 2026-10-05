@@ -20,7 +20,7 @@ struct LibraryFilterSheet: View {
             Form {
                 Section {
                     Picker("Show", selection: $draft.scope) {
-                        ForEach(LibraryScope.allCases) { scope in
+                        ForEach(LibraryScope.filterCases) { scope in
                             Text(scope.title).tag(scope)
                         }
                     }
@@ -31,6 +31,19 @@ struct LibraryFilterSheet: View {
                     Text("Show")
                 } footer: {
                     Text("Viewed summaries are ones other people shared that you opened.")
+                }
+
+                Section("Kind") {
+                    Picker("Kind", selection: $draft.kind) {
+                        Text("All").tag(SummaryKind?.none)
+                        ForEach(SummaryKind.known) { kind in
+                            Text(kind.title).tag(SummaryKind?.some(kind))
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                    .accessibilityIdentifier("library-filter-kind")
                 }
 
                 if draft.scope != .viewed {

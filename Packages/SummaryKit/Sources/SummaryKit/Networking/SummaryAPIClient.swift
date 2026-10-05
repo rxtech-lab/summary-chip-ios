@@ -119,6 +119,15 @@ public final class SummaryAPIClient: Sendable {
         _ = try await sendRaw(request)
     }
 
+    /// Stars (`liked`) or unstars a summary; returns when it was starred, nil once unstarred.
+    public func setLiked(id: String, liked: Bool) async throws -> Date? {
+        struct Like: Decodable { let likedAt: Date? }
+        var request = request("/api/v1/summaries/\(id.urlPathEscaped)/like")
+        request.httpMethod = liked ? "PUT" : "DELETE"
+        let like: Like = try await send(request)
+        return like.likedAt
+    }
+
     public func regenerateImage(id: String, style: ImageStyle) async throws -> Summary {
         var request = try json("/api/v1/summaries/\(id.urlPathEscaped)/image", method: "POST", body: RegenerateImageRequest(imageStyle: style))
         request.timeoutInterval = Self.createTimeout
@@ -219,18 +228,22 @@ public final class SummaryAPIClient: Sendable {
         followLinks: Bool = true,
         onUploaded: (@Sendable () -> Void)? = nil
     ) async throws -> Summary {
-        let source: SummarySource
+        let source = try await source(for: input, onUploaded: onUploaded)
+        return try await createSummary(source, options: options, followLinks: followLinks)
+    }
+
+    /// The contract `source` for an input, uploading a PDF first.
+    func source(for input: SummaryInput, onUploaded: (@Sendable () -> Void)? = nil) async throws -> SummarySource {
         switch input {
-        case .url(let url): source = .url(url)
-        case .webpage(let page): source = .webpage(page)
-        case .text(let text, let title): source = .text(text, title: title)
-        case .localFile(let file): source = .local(file)
+        case .url(let url): return .url(url)
+        case .webpage(let page): return .webpage(page)
+        case .text(let text, let title): return .text(text, title: title)
+        case .localFile(let file): return .local(file)
         case .pdf(let fileURL, let filename, let sourceURL):
             let key = try await uploadPDF(fileURL: fileURL, filename: filename)
             onUploaded?()
-            source = .pdf(uploadKey: key, filename: filename, sourceUrl: sourceURL)
+            return .pdf(uploadKey: key, filename: filename, sourceUrl: sourceURL)
         }
-        return try await createSummary(source, options: options, followLinks: followLinks)
     }
 
     /// Links are read on the server first (plain fetch, then its headless browser). When it can't
@@ -347,7 +360,8 @@ public final class SummaryAPIClient: Sendable {
     func applyBillingProof(to request: inout URLRequest) async {
         let path = request.url?.path
         guard path == "/api/v1/billing" ||
-            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat")),
+            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat"
+                || Self.isTripIngestPath(path))),
             let proof = await billingProofProvider() else { return }
         switch proof {
         case .xcode:

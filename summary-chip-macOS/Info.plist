@@ -57,6 +57,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Chippy adds your trip's travel and hotel stays to your calendar and keeps them up to date when the trip changes.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Chippy shows where you are on your trip map and opens the diary on the day you're at.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Chippy shows where you are on your trip map and opens the diary on the day you're at.</string>
 	<key>NSServices</key>
 	<array>
 		<dict>

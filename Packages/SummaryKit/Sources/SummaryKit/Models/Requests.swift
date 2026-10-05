@@ -365,15 +365,19 @@ public struct RecordViewRequest: Encodable, Sendable {
 }
 
 /// Query for `GET /api/v1/summaries`.
-/// Which part of the library to list: everything, only your own summaries, or others' you opened.
+/// Which part of the library to list: everything, only your own summaries, others' you opened,
+/// or the ones you starred (shown in the Likes tab rather than as a library filter).
 public enum LibraryScope: String, CaseIterable, Identifiable, Sendable, Hashable {
-    case all, mine, viewed
+    case all, mine, viewed, liked
+    /// The scopes offered as library filters; `liked` has its own tab.
+    public static var filterCases: [LibraryScope] { [.all, .mine, .viewed] }
     public var id: String { rawValue }
     public var title: String {
         switch self {
         case .all: String(localized: "All", bundle: .module, comment: "Library scope: every summary")
         case .mine: String(localized: "Created", bundle: .module, comment: "Library scope: summaries you created")
         case .viewed: String(localized: "Viewed", bundle: .module, comment: "Library scope: others' summaries you opened")
+        case .liked: String(localized: "Liked", bundle: .module, comment: "Library scope: summaries you starred")
         }
     }
 }
@@ -385,16 +389,19 @@ public struct SummaryListQuery: Hashable, Sendable {
     public var tag: String?
     public var visibility: SummaryVisibility?
     public var source: SummaryOrigin?
+    /// Only summaries or only trips; nil lists both.
+    public var kind: SummaryKind?
     public var cursor: String?
     public var limit: Int?
 
-    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, cursor: String? = nil, limit: Int? = nil) {
+    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, kind: SummaryKind? = nil, cursor: String? = nil, limit: Int? = nil) {
         self.scope = scope
         self.q = q
         self.category = category
         self.tag = tag
         self.visibility = visibility
         self.source = source
+        self.kind = kind
         self.cursor = cursor
         self.limit = limit
     }
@@ -412,6 +419,7 @@ public struct SummaryListQuery: Hashable, Sendable {
         add("tag", tag)
         add("visibility", visibility?.rawValue)
         add("source", source?.rawValue)
+        add("kind", kind?.rawValue)
         add("cursor", cursor)
         add("limit", limit.map(String.init))
         return items

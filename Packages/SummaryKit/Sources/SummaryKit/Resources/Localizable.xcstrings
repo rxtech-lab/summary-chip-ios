@@ -181,6 +181,22 @@
         }
       }
     },
+    "%lld min early" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 分钟"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提早 %lld 分鐘"
+          }
+        }
+      }
+    },
     "%lld summaries" : {
       "localizations" : {
         "en" : {
@@ -245,6 +261,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 次瀏覽"
+          }
+        }
+      }
+    },
+    "+%lld min" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld 分钟"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld 分鐘"
           }
         }
       }
@@ -474,6 +506,54 @@
         }
       }
     },
+    "Approaching" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即将到达"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即將抵達"
+          }
+        }
+      }
+    },
+    "Belt %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 号行李转盘"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 號行李轉盤"
+          }
+        }
+      }
+    },
+    "Boarding" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登机中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登機中"
+          }
+        }
+      }
+    },
     "Cancel" : {
       "localizations" : {
         "zh-Hans" : {
@@ -490,6 +570,22 @@
         }
       }
     },
+    "Cancelled" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消"
+          }
+        }
+      }
+    },
     "Change language" : {
       "localizations" : {
         "zh-Hans" : {
@@ -502,6 +598,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更改語言"
+          }
+        }
+      }
+    },
+    "Check-in" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "值机中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "報到中"
           }
         }
       }
@@ -812,6 +924,38 @@
         }
       }
     },
+    "Delayed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "延误"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "延誤"
+          }
+        }
+      }
+    },
+    "Departed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已起飞"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已起飛"
+          }
+        }
+      }
+    },
     "Designing the preview image" : {
       "localizations" : {
         "zh-Hans" : {
@@ -888,6 +1032,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在捨棄…"
+          }
+        }
+      }
+    },
+    "Diverted" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已备降"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已轉降"
           }
         }
       }
@@ -1088,6 +1248,38 @@
         }
       }
     },
+    "Gate %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 号登机口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 號登機門"
+          }
+        }
+      }
+    },
+    "Gate closed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登机口已关闭"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登機門已關閉"
+          }
+        }
+      }
+    },
     "Generate summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1187,6 +1379,22 @@
         }
       }
     },
+    "In the air" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "飞行中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "飛行中"
+          }
+        }
+      }
+    },
     "Just now" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1251,6 +1459,22 @@
         }
       }
     },
+    "Landed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已降落"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已降落"
+          }
+        }
+      }
+    },
     "Language" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1279,6 +1503,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "稍後"
+          }
+        }
+      }
+    },
+    "Liked" : {
+      "comment" : "Library scope: summaries you starred",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已喜欢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已喜歡"
+          }
+        }
+      }
+    },
+    "Liked %@" : {
+      "comment" : "Card date line in Likes: when the summary was starred",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "喜欢于 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "喜歡於 %@"
           }
         }
       }
@@ -1493,6 +1751,9 @@
           }
         }
       }
+    },
+    "No" : {
+
     },
     "No expiry" : {
       "localizations" : {
@@ -2033,6 +2294,9 @@
         }
       }
     },
+    "Reading the page…" : {
+
+    },
     "Reading the source" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2110,6 +2374,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "將檔案文字與摘要一起儲存，並排版成文件，之後可從摘要的工具列中閱讀。使用免費摘要時不收費；之後排版會使用點數，點數不足時則保留純文字。只有你可以開啟。"
+          }
+        }
+      }
+    },
+    "Scheduled" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "计划中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預定"
           }
         }
       }
@@ -2323,6 +2603,23 @@
         }
       }
     },
+    "Summaries" : {
+      "comment" : "Library kind filter: summary cards",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要"
+          }
+        }
+      }
+    },
     "Summarise the text instead" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2355,6 +2652,22 @@
         }
       }
     },
+    "T%@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "T%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "T%@"
+          }
+        }
+      }
+    },
     "Tap the Share button (in the ⋯ menu if the toolbar is compact)." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2367,6 +2680,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "點一下「分享」按鈕（如果工具列為精簡樣式，則位於 ⋯ 選單中）。"
+          }
+        }
+      }
+    },
+    "Terminal %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 号航站楼"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %@ 航廈"
           }
         }
       }
@@ -2954,6 +3283,40 @@
     "Translating…" : {
 
     },
+    "Trip" : {
+      "comment" : "Badge on a library tile that is a trip diary",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程"
+          }
+        }
+      }
+    },
+    "Trips" : {
+      "comment" : "Library kind filter: trip diaries",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程"
+          }
+        }
+      }
+    },
     "Try again" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2966,6 +3329,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試一次"
+          }
+        }
+      }
+    },
+    "Unknown" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
           }
         }
       }
@@ -2985,6 +3364,9 @@
           }
         }
       }
+    },
+    "Updating the trip…" : {
+
     },
     "Uploading PDF" : {
       "localizations" : {
@@ -3147,6 +3529,9 @@
           }
         }
       }
+    },
+    "Yes" : {
+
     },
     "Yesterday" : {
       "localizations" : {

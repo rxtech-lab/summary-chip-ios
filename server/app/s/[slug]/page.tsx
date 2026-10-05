@@ -15,6 +15,7 @@ import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import { categoryLabel } from "@/lib/og/category-labels";
 import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
 import { findPublicSummaryBySlug, incrementViewCount } from "@/lib/services/summaries";
+import { findTripForViewer } from "@/lib/services/trips";
 import { findTranslation, preferredLanguage, readingLanguage, translationLanguageFor } from "@/lib/services/translations";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ lang?: string | string[] }> };
@@ -132,6 +133,8 @@ export default async function SummaryPage({ params, searchParams }: Props) {
   const site = siteNameFor(row.siteName ?? hostOf(row.sourceUrl), row.sourceUrl);
   const href = originalHref(row);
   const gradient = `linear-gradient(135deg, ${colors.join(", ")})`;
+  // A trip shows its days read-only; the map view is in the app.
+  const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null))?.trip.document : undefined;
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
@@ -163,7 +166,27 @@ export default async function SummaryPage({ params, searchParams }: Props) {
           </p>
         ) : null}
 
-        {text.highlights.length ? (
+        {trip ? (
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">{trip.startDate} – {trip.endDate}</h2>
+            <ol className="mt-4 space-y-3">
+              {trip.days.map((day, index) => (
+                <li key={day.id} className="md-card-outlined p-4 leading-relaxed">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Day {index + 1} · {day.date}{day.short ? ` · ${day.short}` : ""}</p>
+                  <h3 className="mt-1 text-lg">{day.title}</h3>
+                  {day.blurb ? <p className="md-text-secondary mt-2">{day.blurb}</p> : null}
+                  {day.moments.length ? (
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {day.moments.map((moment, momentIndex) => (
+                        <li key={momentIndex}>{moment.time ? `${moment.time} · ` : ""}{moment.text}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : text.highlights.length ? (
           <section className="mt-10">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Highlights</h2>
             <ul className="mt-4 space-y-3">

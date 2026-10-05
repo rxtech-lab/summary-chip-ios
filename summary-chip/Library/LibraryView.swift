@@ -5,10 +5,12 @@ struct LibraryView: View {
     @Bindable var environment: AppEnvironment
     @State private var showsFilters = false
     @State private var showsNewSummary = false
+    @State private var showsNewTrip = false
     @State private var showsCredits = false
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
     @State private var deletedCount = 0
+    @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
     /// Lets a parent (the macOS sidebar layout) push a summary, e.g. one picked in search.
     var path: Binding<[Summary]>?
@@ -27,7 +29,7 @@ struct LibraryView: View {
             content
                 .navigationTitle("Library")
                 .navigationDestination(for: Summary.self) { summary in
-                    SummaryDetailView(environment: environment, summary: summary)
+                    SummaryDestination(environment: environment, summary: summary)
                 }
                 .task { await model.reload() }
                 .refreshable { await model.reload() }
@@ -62,10 +64,23 @@ struct LibraryView: View {
                         }
                         .badge(model.filter.activeCount)
                         .accessibilityIdentifier("library-filter")
-                        Button {
-                            showsNewSummary = true
+                        Menu {
+                            Button {
+                                showsNewSummary = true
+                            } label: {
+                                Label("New Summary", systemImage: "text.quote")
+                            }
+                            .accessibilityIdentifier("new-summary-menu-summary")
+                            Button {
+                                showsNewTrip = true
+                            } label: {
+                                Label("New Trip", systemImage: "map")
+                            }
+                            .accessibilityIdentifier("new-trip")
                         } label: {
-                            Label("New Summary", systemImage: "plus")
+                            Label("New", systemImage: "plus")
+                        } primaryAction: {
+                            showsNewSummary = true
                         }
                         .accessibilityIdentifier("new-summary")
                         if let openSearch {
@@ -83,6 +98,16 @@ struct LibraryView: View {
                 .sheet(isPresented: $showsNewSummary) {
                     NewSummarySheet(environment: environment)
                 }
+                .sheet(isPresented: $showsNewTrip) {
+                    NewTripSheet(api: environment.api) { trip in
+                        Task {
+                            guard let summary = await environment.libraryItem(forCreated: trip) else { return }
+                            // Let the sheet finish dismissing before pushing.
+                            try? await Task.sleep(for: .milliseconds(350))
+                            if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
+                        }
+                    }
+                }
                 .sheet(isPresented: $showsCredits) {
                     SummaryCreditsSheet(environment: environment)
                 }
@@ -92,10 +117,12 @@ struct LibraryView: View {
                 .sheet(item: $deletingSummary) { summary in
                     DeleteSummarySheet(api: environment.api, summary: summary) {
                         withAnimation { model.remove(id: summary.id) }
+                        environment.likes.remove(id: summary.id)
                         deletedCount += 1
                     }
                 }
                 .sensoryFeedback(.success, trigger: deletedCount)
+                .likeStatusOverlay($likeStatus)
         }
     }
 
@@ -110,6 +137,9 @@ struct LibraryView: View {
             SummaryCardFeed(entries: model.entries, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
                 Task { await model.loadMore() }
             }, menuItems: { summary in
+                LikeMenuButton(summary: summary) {
+                    Task { likeStatus = await environment.toggleLike(summary).1 }
+                }
                 Button {
                     sharingSummary = summary
                 } label: {

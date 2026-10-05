@@ -72,11 +72,17 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
 
     public var isNotFound: Bool { statusCode == 404 }
     /// Out of free summaries or points (`SUMMARY_ALLOWANCE_EXHAUSTED`), or out of points to chat
-    /// (`CHAT_POINTS_EXHAUSTED`) or translate (`TRANSLATION_POINTS_EXHAUSTED`).
+    /// (`CHAT_POINTS_EXHAUSTED`), translate (`TRANSLATION_POINTS_EXHAUSTED`) or have the agent
+    /// update a trip (`TRIP_POINTS_EXHAUSTED`).
     public var needsTopUp: Bool {
         statusCode == 402
-            && (code == "SUMMARY_ALLOWANCE_EXHAUSTED" || code == "CHAT_POINTS_EXHAUSTED" || code == "TRANSLATION_POINTS_EXHAUSTED")
+            && (code == "SUMMARY_ALLOWANCE_EXHAUSTED" || code == "CHAT_POINTS_EXHAUSTED" || code == "TRANSLATION_POINTS_EXHAUSTED"
+                || code == "TRIP_POINTS_EXHAUSTED")
     }
+    /// The trip changed since it was loaded (`409 TRIP_REVISION_CONFLICT`); reload and reapply.
+    public var isTripRevisionConflict: Bool { statusCode == 409 && code == "TRIP_REVISION_CONFLICT" }
+    /// No such flight on that day (`404 FLIGHT_NOT_FOUND` from a flight lookup).
+    public var isFlightNotFound: Bool { statusCode == 404 && code == "FLIGHT_NOT_FOUND" }
     public var isUnauthorized: Bool { statusCode == 401 || self == .notSignedIn }
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ALLOWED_TTL_DAYS } from "@/lib/config";
-import { IMAGE_STYLES, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
+import { IMAGE_STYLES, SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 
 export const CATEGORIES = [
   "Technology", "Science", "Business", "Finance", "Politics", "World", "Health", "Sports",
@@ -21,7 +21,7 @@ export const MAX_WEBPAGE_CONTENT = 60_000;
 export const MAX_WEBPAGE_HTML = 400_000;
 export const MAX_TEXT_LENGTH = 200_000;
 
-const httpUrl = z.string().trim().max(4096).refine((value) => {
+export const httpUrl = z.string().trim().max(4096).refine((value) => {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
@@ -147,10 +147,10 @@ export const recordViewSchema = z.object({ slug: z.string().trim().min(1).max(64
 const limitSchema = z.coerce.number().int().min(1).max(50).default(20);
 const optionalString = (max: number) => z.string().trim().max(max).optional().transform((value) => value || undefined);
 
-export const LIBRARY_SCOPES = ["all", "mine", "viewed"] as const;
+export const LIBRARY_SCOPES = ["all", "mine", "viewed", "liked"] as const;
 
 export const listQuerySchema = z.object({
-  /** `mine` = created by the caller, `viewed` = others' public summaries the caller opened. */
+  /** `mine` = created by the caller, `viewed` = others' public summaries the caller opened, `liked` = starred by the caller (newest like first). */
   scope: z.enum(LIBRARY_SCOPES).default("all"),
   q: optionalString(200),
   category: z.enum(CATEGORIES).optional(),
@@ -158,6 +158,8 @@ export const listQuerySchema = z.object({
   visibility: z.enum(VISIBILITIES).optional(),
   /** What the summary was made from: a web page, PDF, text, or a post/video/repo on a platform. */
   source: z.enum(SUMMARY_SOURCES).optional(),
+  /** `summary` cards or `trip` diaries; both when absent. */
+  kind: z.enum(SUMMARY_KINDS).optional(),
   cursor: optionalString(200),
   limit: limitSchema,
 });

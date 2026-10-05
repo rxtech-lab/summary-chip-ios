@@ -1,4 +1,6 @@
 import { sql } from "drizzle-orm";
+import type { TripDocument } from "@/lib/contracts/trip";
+import type { ProviderFlight } from "@/lib/flights/provider";
 import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** `local`: a file on the user's device; its text is summarised but never stored. */
@@ -7,11 +9,14 @@ export const SOURCE_TYPES = ["url", "webpage", "pdf", "text", "local"] as const;
 export const SUMMARY_SOURCES = ["web", "pdf", "text", "x", "facebook", "youtube", "github"] as const;
 export const IMAGE_STYLES = ["graphic", "illustration"] as const;
 export const VISIBILITIES = ["public", "private"] as const;
+/** What a library item is: a summary card, or a trip diary (its structured document lives in `trips`). */
+export const SUMMARY_KINDS = ["summary", "trip"] as const;
 
 export type SourceType = (typeof SOURCE_TYPES)[number];
 export type SummarySource = (typeof SUMMARY_SOURCES)[number];
 export type ImageStyle = (typeof IMAGE_STYLES)[number];
 export type Visibility = (typeof VISIBILITIES)[number];
+export type SummaryKind = (typeof SUMMARY_KINDS)[number];
 
 export interface SummaryTheme {
   colors: string[];
@@ -40,6 +45,7 @@ export const summaries = sqliteTable("summaries", {
   id: text("id").primaryKey(),
   slug: text("slug").notNull(),
   ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: SUMMARY_KINDS }).notNull().default("summary"),
   sourceType: text("source_type", { enum: SOURCE_TYPES }).notNull(),
   source: text("source", { enum: SUMMARY_SOURCES }).notNull().default("web"),
   sourceUrl: text("source_url"),
@@ -100,6 +106,17 @@ export const summaryViews = sqliteTable("summary_views", {
   index("summary_views_summary_idx").on(table.summaryId),
 ]);
 
+/** Summaries a user starred: their own, or others' public ones. Listed with `scope=liked`, newest like first. */
+export const summaryLikes = sqliteTable("summary_likes", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  likedAt: integer("liked_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.summaryId] }),
+  index("summary_likes_user_liked_idx").on(table.userId, table.likedAt),
+  index("summary_likes_summary_idx").on(table.summaryId),
+]);
+
 /**
  * One embedding per summary for natural-language search. Kept out of `summaries` so list queries
  * never load the vectors. `embedding` holds a libSQL `vector32` blob and is only compared to
@@ -155,6 +172,22 @@ export const uploads = sqliteTable("uploads", {
 ]);
 
 export type SummaryRow = typeof summaries.$inferSelect;
+
+/**
+ * The structured trip diary of a `kind = "trip"` summary (1:1). `revision` counts saves, for
+ * optimistic concurrency between app edits and agent edits; `startDate`/`endDate` mirror the
+ * document for sorting. The summary row carries the title, search text and sharing.
+ */
+export const trips = sqliteTable("trips", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  document: text("document", { mode: "json" }).$type<TripDocument>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+export type TripRow = typeof trips.$inferSelect;
 export type NewSummaryRow = typeof summaries.$inferInsert;
 
 /** An installation belongs to its most recently signed-in account. */
@@ -164,10 +197,82 @@ export const pushDevices = sqliteTable("push_devices", {
   token: text("token").notNull(),
   environment: text("environment", { enum: ["sandbox", "production"] }).notNull(),
   platform: text("platform", { enum: ["ios", "macos"] }).notNull(),
+  /** ActivityKit push-to-start token for flight Live Activities (hex); null until the app sends one. */
+  liveActivityStartToken: text("live_activity_start_token"),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 }, (table) => [
   uniqueIndex("push_devices_token_environment_idx").on(table.token, table.environment),
   index("push_devices_owner_idx").on(table.ownerId),
+]);
+
+export const FLIGHT_STATES = ["pending", "found", "not_found"] as const;
+export const FLIGHT_TRACKING_STATES = ["idle", "tracking", "finished"] as const;
+export type FlightState = (typeof FLIGHT_STATES)[number];
+export type FlightTrackingState = (typeof FLIGHT_TRACKING_STATES)[number];
+
+/** What a flight's last alerts said, so the next refresh only alerts on real changes. */
+export interface FlightAlertState {
+  /** The departure delay (minutes) last announced. */
+  delayMinutes: number;
+}
+
+/**
+ * One flight on one day (`CX520-2026-10-12`), shared by every trip on it. `data` is the provider's
+ * normalized answer; the `trackFlight` workflow refreshes it. Spec: `docs/flights.md`.
+ */
+export const flights = sqliteTable("flights", {
+  id: text("id").primaryKey(),
+  flightNumber: text("flight_number").notNull(),
+  date: text("date").notNull(),
+  provider: text("provider").notNull(),
+  state: text("state", { enum: FLIGHT_STATES }).notNull().default("pending"),
+  data: text("data", { mode: "json" }).$type<ProviderFlight>(),
+  /** Best known departure / arrival (actual, else estimated, else scheduled). */
+  departureAt: integer("departure_at", { mode: "timestamp_ms" }),
+  arrivalAt: integer("arrival_at", { mode: "timestamp_ms" }),
+  /** When the plane landed (or when the backend first saw it landed). */
+  landedAt: integer("landed_at", { mode: "timestamp_ms" }),
+  alertState: text("alert_state", { mode: "json" }).$type<FlightAlertState>(),
+  fetchedAt: integer("fetched_at", { mode: "timestamp_ms" }),
+  trackingState: text("tracking_state", { enum: FLIGHT_TRACKING_STATES }).notNull().default("idle"),
+  trackingRunId: text("tracking_run_id"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  index("flights_tracking_idx").on(table.trackingState),
+]);
+
+export type FlightRow = typeof flights.$inferSelect;
+
+/** A flight segment of a trip that is tracked; rebuilt from the trip document on every save. */
+export const flightSubscriptions = sqliteTable("flight_subscriptions", {
+  tripId: text("trip_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  transportId: text("transport_id").notNull(),
+  optionId: text("option_id").notNull(),
+  segmentIndex: integer("segment_index").notNull(),
+  flightId: text("flight_id").notNull().references(() => flights.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  /** When the backend push-started (or the app reported) this flight's Live Activity for the owner. */
+  liveActivityStartedAt: integer("live_activity_started_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.tripId, table.transportId, table.optionId, table.segmentIndex] }),
+  index("flight_subscriptions_flight_idx").on(table.flightId),
+  index("flight_subscriptions_owner_idx").on(table.ownerId),
+]);
+
+export type FlightSubscriptionRow = typeof flightSubscriptions.$inferSelect;
+
+/** A running flight Live Activity on one installation, with its ActivityKit update token. */
+export const flightLiveActivities = sqliteTable("flight_live_activities", {
+  flightId: text("flight_id").notNull().references(() => flights.id, { onDelete: "cascade" }),
+  installationId: text("installation_id").notNull(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  environment: text("environment", { enum: ["sandbox", "production"] }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.flightId, table.installationId] }),
 ]);
 
 /**

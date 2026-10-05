@@ -36,6 +36,14 @@ nonisolated struct ChatEntry: Identifiable, Hashable, Codable, MessageListItem {
     var isUserMessage: Bool { role == .user }
 }
 
+/// The trip a chat with the trip agent is about. One conversation per trip; `isExpense` only
+/// steers the empty state and suggestions towards adding costs.
+nonisolated struct TripChat: Hashable {
+    let id: String
+    let title: String
+    var isExpense = false
+}
+
 /// Agent conversation against `POST /api/v1/chat`, saved to `ChatTranscriptStore` so it
 /// survives relaunches until the user starts a new chat or signs out.
 @Observable
@@ -45,6 +53,10 @@ final class ChatModel {
     private let storeKey: String
     /// Set when chatting from a summary's detail screen; the agent answers from its original text.
     let summaryID: String?
+    /// Set when chatting with the trip agent from a trip's screen; the agent can edit the trip.
+    let trip: TripChat?
+    /// Called after the trip agent saved an edit to `trip`.
+    @ObservationIgnored var onTripUpdated: (() -> Void)?
     private(set) var entries: [ChatEntry] = []
     private(set) var isStreaming = false
     /// The last turn was refused because the points balance is empty.
@@ -52,15 +64,21 @@ final class ChatModel {
     var draft = ""
     private var task: Task<Void, Never>?
 
-    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil) {
+    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil) {
         self.client = client
         self.store = store
-        self.summaryID = summaryID
-        storeKey = summaryID.map(ChatTranscriptStore.key(summaryID:)) ?? ChatTranscriptStore.libraryKey
+        self.summaryID = trip == nil ? summaryID : nil
+        self.trip = trip
+        storeKey = trip.map { ChatTranscriptStore.key(tripID: $0.id) }
+            ?? summaryID.map(ChatTranscriptStore.key(summaryID:))
+            ?? ChatTranscriptStore.libraryKey
         entries = Self.restored(store.load([ChatEntry].self, key: storeKey) ?? [])
     }
 
-    var suggestions: [String] { summaryID == nil ? Self.librarySuggestions : Self.summarySuggestions }
+    var suggestions: [String] {
+        if let trip { return trip.isExpense ? Self.expenseSuggestions : Self.tripSuggestions }
+        return summaryID == nil ? Self.librarySuggestions : Self.summarySuggestions
+    }
 
     static let librarySuggestions = [
         String(localized: "What did I save about AI this week?"),
@@ -74,6 +92,20 @@ final class ChatModel {
         String(localized: "What details did the summary leave out?"),
         String(localized: "What are the strongest arguments here?"),
         String(localized: "Find related summaries in my library"),
+    ]
+
+    static let tripSuggestions = [
+        String(localized: "Summarise the trip day by day"),
+        String(localized: "Which nights don't have a hotel yet?"),
+        String(localized: "What should I book next?"),
+        String(localized: "Build a table comparing a rail pass with paying each fare by IC card"),
+        String(localized: "How much have I spent so far?"),
+    ]
+
+    static let expenseSuggestions = [
+        String(localized: "How much have I spent so far?"),
+        String(localized: "Which costs are still unpaid?"),
+        String(localized: "Break down the costs by category"),
     ]
 
     func send(_ text: String? = nil) {
@@ -111,7 +143,7 @@ final class ChatModel {
         #endif
         do {
             let localContent = await Self.localContent(summaryID: summaryID)
-            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent) {
+            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id) {
                 apply(event, to: id)
             }
             finish(id)
@@ -194,6 +226,17 @@ final class ChatModel {
                 entry.tools[index].isSemantic = ChatToolOutput.isSemantic(output)
                 entry.tools[index].errorText = ChatToolOutput.errorText(from: output)
                 entry.tools[index].status = ChatToolOutput.localFileStatus(toolName: entry.tools[index].toolName, output: output)
+                if entry.tools[index].toolName == "updateTrip", entry.tools[index].errorText != nil {
+                    // Sent back to the agent to fix; the raw issues are for the model, not the reader.
+                    entry.tools[index].errorText = String(localized: "Some edits didn't fit the trip, so the agent corrected them.")
+                }
+                if let update = ChatToolOutput.tripUpdate(from: output) {
+                    entry.tools[index].detail = update.summary
+                    entry.tools[index].status = update.applied == 1 ? String(localized: "1 change saved") : String(localized: "\(update.applied) changes saved")
+                }
+            }
+            if ChatToolOutput.tripUpdate(from: output).map({ $0.applied > 0 }) == true {
+                onTripUpdated?()
             }
         case .error(let message):
             update(id) { $0.errorText = message }

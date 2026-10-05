@@ -17,6 +17,8 @@ struct SummaryDetailView: View {
     @State private var didDelete = false
     @State private var savedCount = 0
     @State private var showsNavigationTitle = false
+    @State private var isTogglingLike = false
+    @State private var likeStatus: LikeStatus?
     @Environment(\.dismiss) private var dismiss
 
     init(environment: AppEnvironment, summary: Summary, allowsChat: Bool = true) {
@@ -82,6 +84,16 @@ struct SummaryDetailView: View {
                     Label("Local File", systemImage: "doc.badge.gearshape")
                 }
                 .accessibilityIdentifier("summary-local-file")
+            }
+            ToolbarItem(placement: .summaryTrailing) {
+                Button {
+                    Task { await toggleLike() }
+                } label: {
+                    Label(summary.isLiked ? "Remove from Likes" : "Add to Likes",
+                          systemImage: summary.isLiked ? "star.fill" : "star")
+                }
+                .disabled(isTogglingLike)
+                .accessibilityIdentifier("summary-like")
             }
             ToolbarItem(placement: .summaryTrailing) {
                 Button {
@@ -151,6 +163,7 @@ struct SummaryDetailView: View {
             DeleteSummarySheet(api: environment.api, summary: summary) {
                 try? LocalFileStore().remove(summaryID: summary.id)
                 environment.library.remove(id: summary.id)
+                environment.likes.remove(id: summary.id)
                 didDelete = true
                 dismiss()
             }
@@ -162,11 +175,24 @@ struct SummaryDetailView: View {
         .task(id: summary.sourceMarkdownPending) { await pollSourceMarkdown() }
         .task(id: summary.translationPending) { await pollTranslation() }
         .sensoryFeedback(.success, trigger: summary.hasSourceMarkdown) { old, new in !old && new }
+        .likeStatusOverlay($likeStatus)
     }
 
     private func apply(_ updated: Summary) {
         summary = updated
         environment.library.upsert(updated)
+        environment.likes.upsert(updated)
+    }
+
+    /// The star flips at once; it flips back if the server refuses.
+    private func toggleLike() async {
+        let original = summary
+        isTogglingLike = true
+        summary.likedAt = original.isLiked ? nil : .now
+        let (updated, status) = await environment.toggleLike(original)
+        summary.likedAt = updated.likedAt
+        isTogglingLike = false
+        likeStatus = status
     }
 
     /// A sheet's edit went through; the sheet dismisses itself, so the feedback fires here.
@@ -202,6 +228,21 @@ struct SummaryDetailView: View {
 
 }
 
+/// The page a library item opens: a trip diary for trips, the summary detail otherwise.
+struct SummaryDestination: View {
+    let environment: AppEnvironment
+    let summary: Summary
+    var allowsChat = true
+
+    var body: some View {
+        if summary.kind == .trip {
+            TripDetailView(environment: environment, tripID: summary.id, title: summary.title)
+        } else {
+            SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat)
+        }
+    }
+}
+
 /// Loads a summary by id, then shows its detail (chat result cards, "Open in app").
 struct SummaryLoaderView: View {
     let environment: AppEnvironment
@@ -213,7 +254,7 @@ struct SummaryLoaderView: View {
     var body: some View {
         Group {
             if let summary {
-                SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat)
+                SummaryDestination(environment: environment, summary: summary, allowsChat: allowsChat)
             } else if let errorMessage {
                 ContentUnavailableView("Summary unavailable", systemImage: "exclamationmark.triangle", description: Text(errorMessage))
             } else {
@@ -240,7 +281,7 @@ struct SummaryLoaderView: View {
     }
 }
 
-/// Presented for universal links (`/s/<slug>`) and `summarychip://summary/<id>`.
+/// Presented for universal links (`/s/<slug>`), `summarychip://summary/<id>` and `summarychip://trip/<id>`.
 struct DeepLinkSheet: View {
     let environment: AppEnvironment
     let route: AppRoute
@@ -251,8 +292,10 @@ struct DeepLinkSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let summary {
-                    SummaryDetailView(environment: environment, summary: summary)
+                if case .tripID(let id) = route {
+                    TripDetailView(environment: environment, tripID: id)
+                } else if let summary {
+                    SummaryDestination(environment: environment, summary: summary)
                 } else if let errorMessage {
                     ContentUnavailableView {
                         Label("Summary unavailable", systemImage: "link.badge.plus")
@@ -273,13 +316,14 @@ struct DeepLinkSheet: View {
     }
 
     private func load() async {
+        if case .tripID = route { return }
         do {
             let fresh: Summary
             switch route {
             case .slug(let slug):
                 // Records the view (it then appears in the library as "Viewed") and returns the summary.
                 fresh = try await environment.api.recordView(slug: slug)
-            case .summaryID(let id):
+            case .summaryID(let id), .tripID(let id):
                 fresh = try await environment.api.summary(id: id)
             }
             environment.library.upsert(fresh)
@@ -300,7 +344,7 @@ struct DeepLinkSheet: View {
     private var saved: Summary? {
         switch route {
         case .slug(let slug): environment.library.offline.summary(slug: slug)
-        case .summaryID(let id): environment.library.offline.summary(id: id)
+        case .summaryID(let id), .tripID(let id): environment.library.offline.summary(id: id)
         }
     }
 }

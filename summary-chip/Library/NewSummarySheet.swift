@@ -68,7 +68,7 @@ private struct NewSummaryResult: View {
             }
         }
         .navigationDestination(for: Summary.self) { summary in
-            SummaryDetailView(environment: environment, summary: summary)
+            SummaryDestination(environment: environment, summary: summary)
         }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

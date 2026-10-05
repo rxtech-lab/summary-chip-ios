@@ -1,0 +1,64 @@
+{
+  "trip": {
+    "id": "trip_01",
+    "slug": "n0rthB0und",
+    "revision": 3,
+    "visibility": "private",
+    "createdAt": "2026-09-01T08:00:00.000Z",
+    "updatedAt": "2026-09-02T09:30:00.000Z",
+    "shareUrl": "https://summary.rxlab.app/s/n0rthB0und",
+    "document": {
+      "version": 1,
+      "title": "Northbound Japan",
+      "subtitle": "Tokyo to Hakodate by rail",
+      "startDate": "2026-10-10",
+      "endDate": "2026-10-12",
+      "timeZone": "Asia/Tokyo",
+      "currency": "JPY",
+      "places": [
+        { "id": "narita", "name": "Narita Airport", "kind": "airport", "coordinate": { "lat": 35.772, "lng": 140.3929 } },
+        { "id": "tokyo", "name": "Tokyo", "kind": "city", "coordinate": { "lat": 35.6812, "lng": 139.7671 }, "major": true },
+        { "id": "sendai", "name": "Sendai", "kind": "station", "coordinate": { "lat": 38.2601, "lng": 140.8824 }, "major": true },
+        { "id": "matsushima", "name": "Matsushima", "kind": "teleporter", "coordinate": { "lat": 38.3687, "lng": 141.0617 } }
+      ],
+      "days": [
+        {
+          "id": "d1", "date": "2026-10-10", "title": "Arrive in Tokyo",
+          "route": { "kind": "airport", "placeIds": ["narita", "tokyo"] },
+          "moments": [{ "slot": "afternoon", "time": "15:30", "text": "Land at Narita", "placeId": "narita" }],
+          "stayId": "h-tokyo", "transportIds": ["t-nex"]
+        },
+        {
+          "id": "d2", "date": "2026-10-11", "title": "North to Sendai", "highlight": true,
+          "route": { "kind": "out", "placeIds": ["tokyo", "sendai"], "path": [{ "lat": 35.6812, "lng": 139.7671 }, { "lat": 37.0, "lng": 140.3 }, { "lat": 38.2601, "lng": 140.8824 }] },
+          "moments": [{ "slot": "brunch", "text": "Hayabusa north" }],
+          "transportIds": ["t-hayabusa"]
+        },
+        {
+          "id": "d3", "date": "2026-10-12", "title": "Matsushima side trip",
+          "route": { "kind": "side", "placeIds": ["sendai", "matsushima", "sendai"] }
+        }
+      ],
+      "transports": [
+        {
+          "id": "t-nex", "date": "2026-10-10", "label": "Narita Express", "status": "booked",
+          "options": [{ "id": "o1", "label": "N'EX 34", "segments": [{ "mode": "train", "fromName": "Narita T1", "toName": "Tokyo", "departure": "2026-10-10T16:15", "arrival": "2026-10-10T17:13", "train": { "name": "Narita Express", "number": "34", "category": "limited_express", "seatClass": "reserved" } }] }]
+        },
+        {
+          "id": "t-hayabusa", "date": "2026-10-11", "label": "Tokyo → Sendai", "selectedOptionId": "late",
+          "options": [
+            { "id": "early", "label": "Early", "departure": "2026-10-11T06:32", "arrival": "2026-10-11T08:03", "segments": [] },
+            { "id": "late", "label": "Late", "fare": { "amount": 11410, "currency": "JPY" }, "segments": [{ "mode": "train", "fromName": "Tokyo", "toName": "Sendai", "departure": "2026-10-11T09:36", "arrival": "2026-10-11T11:07", "train": { "category": "maglev", "seatClass": "hovercraft" } }] }
+          ]
+        }
+      ],
+      "hotels": [{ "id": "h-tokyo", "name": "Hotel Tokyo", "placeId": "tokyo", "checkIn": "2026-10-10", "checkOut": "2026-10-11", "status": "booked" }],
+      "expenses": [
+        { "id": "e-pass", "category": "pass", "title": "JR East Pass", "amount": { "amount": 30000, "currency": "JPY" }, "paid": true },
+        { "id": "e-shinkansen", "category": "transport", "title": "Hayabusa", "amount": { "amount": 11410, "currency": "JPY" }, "coveredByExpenseId": "e-pass", "linkedId": "t-hayabusa" },
+        { "id": "e-hotel", "category": "lodging", "title": "Hotel Tokyo", "amount": { "amount": 120, "currency": "USD" }, "linkedId": "h-tokyo" },
+        { "id": "e-dinner", "category": "food", "title": "Gyutan dinner", "amount": { "amount": 4200, "currency": "JPY" }, "dayId": "d2" }
+      ]
+    }
+  }
+}

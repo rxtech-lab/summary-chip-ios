@@ -4,6 +4,7 @@ import { errorResponse } from "@/lib/http/errors";
 import { getAiProvider } from "@/lib/ai/provider";
 import { runCleanup } from "@/lib/services/cleanup";
 import { backfillEmbeddings } from "@/lib/services/embeddings";
+import { deleteStaleFlights, resumeFlightTracking } from "@/lib/services/flights";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,13 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
   try {
     const db = getDatabase();
-    const report = { ...await runCleanup(db), embeddings: await backfillEmbeddings(db, await getAiProvider()) };
+    const report = {
+      ...await runCleanup(db),
+      embeddings: await backfillEmbeddings(db, await getAiProvider()),
+      // Safety net for flight tracker runs that died; and lookups nobody tracks, long past.
+      flightTracking: await resumeFlightTracking(db),
+      staleFlights: await deleteStaleFlights(db),
+    };
     console.log(`[cron] cleanup ${JSON.stringify(report)}`);
     return Response.json({ ok: true, ...report }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

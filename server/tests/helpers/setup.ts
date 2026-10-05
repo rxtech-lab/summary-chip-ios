@@ -4,6 +4,9 @@ import { setAiProviderForTests } from "@/lib/ai/provider";
 import { setBearerConfigForTests } from "@/lib/auth/bearer";
 import { createDatabase, setDatabaseForTests, type DatabaseHandle } from "@/lib/db/client";
 import { setHostResolverForTests } from "@/lib/extract/ssrf";
+import { MockFlightProvider } from "@/lib/flights/mock";
+import { setFlightProviderForTests } from "@/lib/flights/provider";
+import { setFlightTrackerForTests, type FlightTracker } from "@/lib/flights/tracker";
 import { MemoryObjectStore, setObjectStoreForTests } from "@/lib/storage/r2";
 
 export const ISSUER = "https://auth.test.example";
@@ -26,6 +29,8 @@ export interface TestEnv {
   handle: DatabaseHandle;
   store: MemoryObjectStore;
   ai: MockAiProvider;
+  /** Records the flights whose tracking workflow was started (no workflow runtime in tests). */
+  tracker: FlightTracker & { started: string[] };
   tokens: Record<"alice" | "bob", string>;
   teardown: () => void;
 }
@@ -42,11 +47,16 @@ export async function setupTestEnv(): Promise<TestEnv> {
   const ai = new MockAiProvider();
   setAiProviderForTests(ai);
   setHostResolverForTests(async (hostname) => (hostname.endsWith(".internal-test") ? ["10.0.0.5"] : ["93.184.216.34"]));
+  setFlightProviderForTests(new MockFlightProvider());
+  const started: string[] = [];
+  const tracker = { started, start: async (flightId: string) => { started.push(flightId); return `run-${started.length}`; }, isActive: async () => true };
+  setFlightTrackerForTests(tracker);
   const tokens = { alice: await signToken("user-alice"), bob: await signToken("user-bob") };
   return {
     handle,
     store,
     ai,
+    tracker,
     tokens,
     teardown: () => {
       setDatabaseForTests(undefined);
@@ -54,6 +64,8 @@ export async function setupTestEnv(): Promise<TestEnv> {
       setAiProviderForTests(undefined);
       setBearerConfigForTests(undefined);
       setHostResolverForTests(undefined);
+      setFlightProviderForTests(undefined);
+      setFlightTrackerForTests(undefined);
       handle.close();
     },
   };

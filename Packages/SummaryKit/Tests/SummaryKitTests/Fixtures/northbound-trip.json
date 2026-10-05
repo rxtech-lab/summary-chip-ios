@@ -1,0 +1,4071 @@
+{
+  "version": 1,
+  "title": "一路向北 · 2026 秋",
+  "subtitle": "成田・千叶至函馆 11 日",
+  "intro": "成田机场抵达后，10、11 日都住千叶。东京可以当天往返走走，12 日再从千叶出发，经东京沿东北本线北上。17 日乘渡轮到函馆，19 日经东京回千叶住最后一晚，20 日从千叶去成田机场返回香港。",
+  "startDate": "2026-10-10",
+  "endDate": "2026-10-20",
+  "timeZone": "Asia/Tokyo",
+  "currency": "JPY",
+  "places": [
+    {
+      "id": "tokyo",
+      "name": "东京",
+      "kind": "city",
+      "coordinate": {
+        "lat": 35.685,
+        "lng": 139.7514
+      },
+      "address": null,
+      "note": "10.11 可选日游 / 10.12、19 转车 · 11 日可选从千叶当天往返；12 日北上、19 日回千叶在此转车，不在东京住宿。",
+      "major": true
+    },
+    {
+      "id": "sendai",
+      "name": "仙台",
+      "kind": "city",
+      "coordinate": {
+        "lat": 38.2667,
+        "lng": 140.8667
+      },
+      "address": null,
+      "note": "10.12–14 · 连住两晚，松岛安排当天往返。",
+      "major": true
+    },
+    {
+      "id": "matsushima",
+      "name": "松岛",
+      "kind": "city",
+      "coordinate": {
+        "lat": 38.3802,
+        "lng": 141.0671
+      },
+      "address": null,
+      "note": "10.13 · 当日往返 · 海岸、五大堂、瑞严寺；游船按天气选择。",
+      "major": false
+    },
+    {
+      "id": "hiraizumi",
+      "name": "平泉",
+      "kind": "city",
+      "coordinate": {
+        "lat": 38.9833,
+        "lng": 141.1167
+      },
+      "address": null,
+      "note": "10.14 · 途中停留 · 中尊寺与毛越寺留 3–4 小时，再往盛冈。",
+      "major": false
+    },
+    {
+      "id": "morioka",
+      "name": "盛冈",
+      "kind": "city",
+      "coordinate": {
+        "lat": 39.7,
+        "lng": 141.15
+      },
+      "address": null,
+      "note": "10.14–15 · 住一晚，再乘 IGR 与青い森铁道北上。",
+      "major": true
+    },
+    {
+      "id": "aomori",
+      "name": "青森",
+      "kind": "city",
+      "coordinate": {
+        "lat": 40.8167,
+        "lng": 140.7333
+      },
+      "address": null,
+      "note": "10.15–17 · 连住两晚，以这里为基地当天往返弘前。",
+      "major": true
+    },
+    {
+      "id": "hirosaki",
+      "name": "弘前",
+      "kind": "city",
+      "coordinate": {
+        "lat": 40.5931,
+        "lng": 140.4725
+      },
+      "address": null,
+      "note": "10.16 · 当日往返 · 公园、城郭外观与洋馆；天守内部关闭。",
+      "major": false
+    },
+    {
+      "id": "hakodate",
+      "name": "函馆",
+      "kind": "city",
+      "coordinate": {
+        "lat": 41.7758,
+        "lng": 140.7367
+      },
+      "address": null,
+      "note": "10.17–19 · 连住两晚；19 日暂定乘新干线回东京。",
+      "major": true
+    },
+    {
+      "id": "narita",
+      "name": "成田机场",
+      "kind": "airport",
+      "coordinate": {
+        "lat": 35.76858,
+        "lng": 140.388714
+      },
+      "address": null,
+      "note": "10.10 抵达 / 10.20 赴港 · 成田机场进出已确定，具体航站楼与航班时间待确认。地图为机场级示意位置。",
+      "major": false
+    },
+    {
+      "id": "chiba",
+      "name": "千叶",
+      "kind": "city",
+      "coordinate": {
+        "lat": 35.6133,
+        "lng": 140.1129
+      },
+      "address": null,
+      "note": "10.10–12 / 10.19–20 · 10、11、19 日都住千叶，暂按 JR 千叶站周边；东京只日游或转车。",
+      "major": false
+    }
+  ],
+  "days": [
+    {
+      "id": "day-1",
+      "date": "2026-10-10",
+      "title": "从机场，到千叶安顿",
+      "short": "成田 → 千叶",
+      "blurb": "抵达成田机场后先去千叶，连续住两晚。第一天放下行李、吃好晚餐；翌日不用换酒店，可按精神和天气决定留在千叶还是去东京走走。",
+      "highlight": false,
+      "route": {
+        "kind": "airport",
+        "placeIds": [
+          "narita",
+          "chiba"
+        ],
+        "path": [
+          {
+            "lat": 35.76858,
+            "lng": 140.388714
+          },
+          {
+            "lat": 35.6133,
+            "lng": 140.1129
+          }
+        ],
+        "summary": "10.10 成田机场抵达，前往千叶连住两晚；航班时间与航站楼待定"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "按实际落地时间完成入境、取行李，确认所在航站楼",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "搭适合落地时间的机场铁路前往千叶，入住后稍作休息",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "若还有精力，只在住宿附近散步与吃晚餐",
+          "placeId": null
+        }
+      ],
+      "tip": "JR 成田线普通／快速至千叶，成人纸票 ¥720（IC ¥715），乘车约 45–60 分钟、候车另计；优先找直达班次，部分时段需转车。实际班次待航班确认。机场交通对话框另列 N’EX 和京成方案。\n\n成田机场不等于成田市的 JR 成田站；第 3 航站楼须先前往第 2 航站楼的机场第 2 大楼站。晚到时优先确认末班交通，不安排赶场观光。",
+      "stayId": "stay-chiba-1010",
+      "transportIds": [
+        "narita-chiba-1010"
+      ]
+    },
+    {
+      "id": "day-2",
+      "date": "2026-10-11",
+      "title": "不搬酒店，东京当天往返",
+      "short": "千叶 ↔ 东京",
+      "blurb": "第二晚继续住千叶。若想保留东京散步，轻装当天往返；如果更想慢下来，就留在千叶，今天不必一定进东京。",
+      "highlight": false,
+      "route": {
+        "kind": "side",
+        "placeIds": [
+          "chiba",
+          "tokyo"
+        ],
+        "path": [
+          {
+            "lat": 35.6133,
+            "lng": 140.1129
+          },
+          {
+            "lat": 35.685,
+            "lng": 139.7514
+          },
+          {
+            "lat": 35.6133,
+            "lng": 140.1129
+          }
+        ],
+        "summary": "10.11 可选东京当天往返；第二晚仍住千叶，也可留在千叶休息"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "在千叶吃早餐；想去东京就选合适的总武快速班次",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "东京只选一个街区散步，不拖着行李换酒店；也可以留在千叶",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "晚上回千叶休息，整理翌日北上的行李",
+          "placeId": null
+        }
+      ],
+      "tip": "可选东京日游：JR 千叶至东京普通车单程纸票 ¥720，来回 ¥1,440；总武快速线自由席，无需预约。出发与回程按当天安排，具体选项见交通对话框。\n\n10 月 11 日是三连休的一天。无论是否去东京，今晚都住千叶；12 日须从千叶先去东京衔接北上列车。",
+      "stayId": "stay-chiba-1010",
+      "transportIds": [
+        "chiba-tokyo-1011"
+      ]
+    },
+    {
+      "id": "day-3",
+      "date": "2026-10-12",
+      "title": "东北本线的车窗日",
+      "short": "千叶 → 仙台",
+      "blurb": "从千叶出发，在东京接上北上的普通列车。把车窗本身当作旅行，沿途看关东慢慢接上东北。",
+      "highlight": false,
+      "route": {
+        "kind": "out",
+        "placeIds": [
+          "chiba",
+          "tokyo",
+          "sendai"
+        ],
+        "path": [
+          {
+            "lat": 35.6133,
+            "lng": 140.1129
+          },
+          {
+            "lat": 35.685,
+            "lng": 139.7514
+          },
+          {
+            "lat": 36.559,
+            "lng": 139.899
+          },
+          {
+            "lat": 36.962,
+            "lng": 140.059
+          },
+          {
+            "lat": 37.126,
+            "lng": 140.21
+          },
+          {
+            "lat": 37.398,
+            "lng": 140.388
+          },
+          {
+            "lat": 37.755,
+            "lng": 140.47
+          },
+          {
+            "lat": 38.2667,
+            "lng": 140.8667
+          }
+        ],
+        "summary": "10.12 从千叶出发，经东京接普通列车或新干线北上仙台"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "从千叶先到东京，预留总武线地下月台至北上列车的转乘时间",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "经新白河、郡山、福岛接续；午餐按换乘余量安排",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "抵达仙台后吃牛舌或尝枝豆甜品，轻松散步",
+          "placeId": null
+        }
+      ],
+      "tip": "普通／快速主组合：千叶 05:53→东京 06:31，07:07 接北上列车，14:04 到仙台；东京留 36 分钟转车。千叶至仙台通程基本票 ¥6,930。缩短版可从千叶 07:30 出发，直达新干线组合从 07:02 出发；详细接续在对话框。\n\n全普通车组合要早起，而且白石只有 4 分钟接续；若错过可改搭后班。千叶出发班次与东京转车已按 10 月 12 日假日表核对，仍需看当日运行。",
+      "stayId": "stay-sendai-1012",
+      "transportIds": [
+        "oct12-tokyo-sendai"
+      ]
+    },
+    {
+      "id": "day-4",
+      "date": "2026-10-13",
+      "title": "在海边，慢一天",
+      "short": "仙台 ↔ 松岛",
+      "blurb": "今天不搬酒店，也不赶远路。沿着松岛湾散步，让海风把昨天的乘车疲惫吹散。",
+      "highlight": false,
+      "route": {
+        "kind": "side",
+        "placeIds": [
+          "sendai",
+          "matsushima"
+        ],
+        "path": [
+          {
+            "lat": 38.2667,
+            "lng": 140.8667
+          },
+          {
+            "lat": 38.3802,
+            "lng": 141.0671
+          },
+          {
+            "lat": 38.2667,
+            "lng": 140.8667
+          }
+        ],
+        "summary": "仙石线去松岛海岸，当天返回仙台"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "搭仙石线去松岛海岸，走海岸与五大堂",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "逛瑞严寺；天气与运营允许时，选一班海湾游船",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "回仙台吃晚餐，留一段没有计划的城市散步",
+          "placeId": null
+        }
+      ],
+      "tip": "JR 仙石线，仙台至松岛海岸单程约 40 分钟。松岛海岸站与东北本线「松岛站」不同；后者到主要观光区仍约需步行 20 分钟。\n\n10 月 13 日已过三连休，游船仍需按当日天气与运营确认；今天不再叠加山寺或秋保。",
+      "stayId": "stay-sendai-1012",
+      "transportIds": [
+        "oct13-matsushima"
+      ]
+    },
+    {
+      "id": "day-5",
+      "date": "2026-10-14",
+      "title": "在寺院与河流间停步",
+      "short": "平泉 → 盛冈",
+      "blurb": "在平泉留出一个完整的白天片段，再向盛冈走。历史遗迹与小城的日常，都值得慢慢看。",
+      "highlight": false,
+      "route": {
+        "kind": "out",
+        "placeIds": [
+          "sendai",
+          "hiraizumi",
+          "morioka"
+        ],
+        "path": [
+          {
+            "lat": 38.2667,
+            "lng": 140.8667
+          },
+          {
+            "lat": 38.541,
+            "lng": 141.064
+          },
+          {
+            "lat": 38.929,
+            "lng": 141.138
+          },
+          {
+            "lat": 38.9833,
+            "lng": 141.1167
+          },
+          {
+            "lat": 39.7,
+            "lng": 141.15
+          }
+        ],
+        "summary": "平泉途中停留，随后普通列车北上盛冈"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "早出发，经小牛田、一之关接续到平泉",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "留 3–4 小时看中尊寺与毛越寺；若较晚到，只保留中尊寺",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "继续北上盛冈，沿中津川或城迹散步，吃盛冈冷面",
+          "placeId": null
+        }
+      ],
+      "tip": "仙台至平泉普通车预留约 2–2.5 小时；平泉至盛冈约 1.5 小时。寺院交通、行李寄存与接续需按日期核对。\n\n寺院游览放在白天，冬季尤其不要太晚到平泉。",
+      "stayId": "stay-morioka-1014",
+      "transportIds": [
+        "oct14-hiraizumi-morioka"
+      ]
+    },
+    {
+      "id": "day-6",
+      "date": "2026-10-15",
+      "title": "旧线的北方风景",
+      "short": "盛冈 → 青森",
+      "blurb": "沿旧东北本线的北段继续向前。穿过岩手与青森，傍晚把脚步交给港边。",
+      "highlight": false,
+      "route": {
+        "kind": "out",
+        "placeIds": [
+          "morioka",
+          "aomori"
+        ],
+        "path": [
+          {
+            "lat": 39.7,
+            "lng": 141.15
+          },
+          {
+            "lat": 40.271,
+            "lng": 141.306
+          },
+          {
+            "lat": 40.509,
+            "lng": 141.431
+          },
+          {
+            "lat": 40.683,
+            "lng": 141.37
+          },
+          {
+            "lat": 40.864,
+            "lng": 141.128
+          },
+          {
+            "lat": 40.8167,
+            "lng": 140.7333
+          }
+        ],
+        "summary": "IGR＋青い森铁道，经八户到青森；并非全段 JR"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "在盛冈短走中津川或红砖建筑街区",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "乘 IGR 与青い森铁道，经八户北上",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "若尚早，参观睡魔之家 WA RASSE；随后到青森港看海",
+          "placeId": null
+        }
+      ],
+      "tip": "IGR 岩手银河铁道＋青い森铁道，约 3.5–4.5 小时含基本换乘。盛冈至目时为 IGR，目时至青森为青い森铁道，并非全段 JR。\n\n睡魔之家若已近闭馆，移到 D7 或 D8。今天不额外绕进八户市区。",
+      "stayId": "stay-aomori-1015",
+      "transportIds": [
+        "2026-10-15-morioka-aomori"
+      ]
+    },
+    {
+      "id": "day-7",
+      "date": "2026-10-16",
+      "title": "苹果、洋馆与城郭",
+      "short": "青森 ↔ 弘前",
+      "blurb": "把今天留给弘前的街区尺度：护城河、老城门、洋馆，再加一份苹果派。晚上仍回青森住。",
+      "highlight": false,
+      "route": {
+        "kind": "side",
+        "placeIds": [
+          "aomori",
+          "hirosaki"
+        ],
+        "path": [
+          {
+            "lat": 40.8167,
+            "lng": 140.7333
+          },
+          {
+            "lat": 40.5931,
+            "lng": 140.4725
+          },
+          {
+            "lat": 40.8167,
+            "lng": 140.7333
+          }
+        ],
+        "summary": "奥羽本线到弘前，当天返回青森"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "搭奥羽本线到弘前，再步行或搭市内巴士去公园",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "逛弘前公园、城门与城郭外观，按施工动线游览",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "选一段洋馆街区与苹果派咖啡时间，随后回青森",
+          "placeId": null
+        }
+      ],
+      "tip": "JR 奥羽本线普通车，青森至弘前单程预留约 45–60 分钟；弘前站至公园还需市内接驳。\n\n弘前城天守内部已关闭，当前计划至 2033 年 3 月 31 日；不安排登天守。弘前红叶节 10 月 30 日才开始，本次不在节期内。",
+      "stayId": "stay-aomori-1015",
+      "transportIds": [
+        "oct16-hirosaki"
+      ]
+    },
+    {
+      "id": "day-8",
+      "date": "2026-10-17",
+      "title": "越过津轻海峡",
+      "short": "青森 → 函馆",
+      "blurb": "终于来到海峡的另一边。从红砖仓库走进元町，让坡道、港湾与暮色迎接这段北上旅行的终点。",
+      "highlight": true,
+      "route": {
+        "kind": "ferry",
+        "placeIds": [
+          "aomori",
+          "hakodate"
+        ],
+        "path": [
+          {
+            "lat": 40.8167,
+            "lng": 140.7333
+          },
+          {
+            "lat": 41.15,
+            "lng": 140.76
+          },
+          {
+            "lat": 41.7758,
+            "lng": 140.7367
+          }
+        ],
+        "summary": "10.17 乘渡轮从青森赴函馆；海上虚线为城市间示意，并非实际航线"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "青森出发，前往码头乘渡轮跨海",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "抵达函馆后，逛金森红砖仓库、元町与八幡坂",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "D8、D9 选能见度较好的一晚去函馆山",
+          "placeId": null
+        }
+      ],
+      "tip": "渡轮主方案：青森站西口 09:00 搭ねぶたん号，09:12 到码头；津轻海峡渡轮 10:15 出发、13:55 到函馆港，再接 14:15 巴士，14:45 到函馆站。成人 Standard 船票加两端巴士共 ¥3,780；其他船班与优惠见交通时刻选项。\n\n渡轮不包含在 JR 周游券内。推荐船班须 09:35 前办妥手续、10:00 前到登船口；函馆下船后 20 分钟接巴士，延误时改搭后续班次。",
+      "stayId": "stay-hakodate-1017",
+      "transportIds": [
+        "oct17-ferry"
+      ]
+    },
+    {
+      "id": "day-9",
+      "date": "2026-10-18",
+      "title": "朝市、电车与星形城郭",
+      "short": "函馆 · 慢游",
+      "blurb": "不用再搬行李的一天。从朝市早餐开始，乘电车看城市，把午后留给最想去的那一处。",
+      "highlight": true,
+      "route": {
+        "kind": "stay",
+        "placeIds": [
+          "hakodate"
+        ],
+        "path": null,
+        "summary": "函馆整日：朝市、五棱郭与市区；夜景按天气安排"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "在函馆朝市吃早餐，早些开始一天",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "搭市电去五棱郭公园与五棱郭塔",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "元町补一段步行；或把下午留给汤之川温泉",
+          "placeId": null
+        }
+      ],
+      "tip": "市电适合串联市区。「五棱郭公园前」电车站至公园仍需步行；JR 五棱郭站也不在景区门口。请给候车和步行留时间。\n\n函馆山缆车计划 10 月 20 日起检修，17、18 日在检修前，仍须查当日天气。可选香雪园 MOMI-G 灯光节（10 月 16 日起，16:00–21:00），需另计市区接驳与返程，不与函馆山硬塞同晚。",
+      "stayId": "stay-hakodate-1017",
+      "transportIds": []
+    },
+    {
+      "id": "day-10",
+      "date": "2026-10-19",
+      "title": "经东京，回到千叶",
+      "short": "函馆 → 千叶",
+      "blurb": "在新函馆北斗换新干线，经东京再回千叶。今晚不在东京过夜，明天从千叶去成田机场，把长距离移动留在离境前一天完成。",
+      "highlight": false,
+      "route": {
+        "kind": "back",
+        "placeIds": [
+          "hakodate",
+          "tokyo",
+          "chiba"
+        ],
+        "path": [
+          {
+            "lat": 41.7758,
+            "lng": 140.7367
+          },
+          {
+            "lat": 41.904,
+            "lng": 140.646
+          },
+          {
+            "lat": 40.828,
+            "lng": 140.693
+          },
+          {
+            "lat": 40.509,
+            "lng": 141.431
+          },
+          {
+            "lat": 39.7,
+            "lng": 141.15
+          },
+          {
+            "lat": 38.2667,
+            "lng": 140.8667
+          },
+          {
+            "lat": 36.559,
+            "lng": 139.899
+          },
+          {
+            "lat": 35.906,
+            "lng": 139.624
+          },
+          {
+            "lat": 35.685,
+            "lng": 139.7514
+          },
+          {
+            "lat": 35.6133,
+            "lng": 140.1129
+          }
+        ],
+        "summary": "10.19 函馆 Liner＋Hayabusa到东京，再接总武快速至千叶住最后一晚"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "按所选班次从函馆站出发，乘函馆 Liner 到新函馆北斗",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "乘 Hayabusa 到东京，预留时间换总武快速线去千叶",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "回千叶酒店安顿，轻松吃晚餐并整理赴港行李",
+          "placeId": null
+        }
+      ],
+      "tip": "三组回千叶搭配：函馆 08:50→千叶 15:20，12:05→18:16，或 14:17→20:14；均经新函馆北斗与东京。函馆至千叶通程票含普通车指定席 ¥24,530，东京至千叶不再另加 ¥720；持有效周游券亦涵盖。\n\n最后一晚住千叶，酒店暂按 JR 千叶站周边。不要把到东京的时间当作到酒店时间，还要留千叶接驳与站内步行。",
+      "stayId": "stay-chiba-1019",
+      "transportIds": [
+        "2026-10-19-hakodate-tokyo"
+      ]
+    },
+    {
+      "id": "day-11",
+      "date": "2026-10-20",
+      "title": "从成田，结束旅程",
+      "short": "千叶 → 成田 → 香港",
+      "blurb": "在千叶醒来，按赴港航班时间前往成田机场。今晚不再搬酒店、不再跨城追车，最后一天只保留能够从容完成的安排。",
+      "highlight": false,
+      "route": {
+        "kind": "airport",
+        "placeIds": [
+          "chiba",
+          "narita"
+        ],
+        "path": [
+          {
+            "lat": 35.6133,
+            "lng": 140.1129
+          },
+          {
+            "lat": 35.76858,
+            "lng": 140.388714
+          }
+        ],
+        "summary": "10.20 从千叶到成田机场赴香港；具体班次待航班确认，国际航段不绘入"
+      },
+      "moments": [
+        {
+          "slot": "morning",
+          "time": null,
+          "text": "按航班时间在千叶吃早餐、退房；早班机优先机场接驳",
+          "placeId": null
+        },
+        {
+          "slot": "afternoon",
+          "time": null,
+          "text": "乘合适的 JR 或京成线路去成田机场，核对航站楼",
+          "placeId": null
+        },
+        {
+          "slot": "evening",
+          "time": null,
+          "text": "留足报到、托运行李、安检与出境时间，从成田返回香港",
+          "placeId": null
+        }
+      ],
+      "tip": "从千叶前往成田机场，JR 普通／快速成人纸票 ¥720（IC ¥715）；可比较停千叶的 N’EX 或京成本线方案。具体班次必须等航班与航站楼确认后再定。\n\n终点按航空公司确认：第 1 航站楼为成田机场站，第 2／3 航站楼使用机场第 2 大楼站。去第 3 航站楼需另留站内步行或接驳时间。",
+      "stayId": null,
+      "transportIds": [
+        "tokyo-narita-1020"
+      ]
+    }
+  ],
+  "transports": [
+    {
+      "id": "narita-chiba-1010",
+      "date": "2026-10-10",
+      "label": "成田機場 → 千葉",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "airport-chiba-jr",
+          "label": "JR成田線普通／快速（預算基準）",
+          "departure": null,
+          "arrival": null,
+          "duration": "約45–60分鐘；候車另計",
+          "fare": {
+            "amount": 720,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人單程紙票 ¥720；IC ¥715",
+            "優先選直達千葉或經千葉的班次；部分班次需在成田／佐倉轉車，待落地時間確認。",
+            "只計普通車；快速列車Green車須另購Green券。",
+            "T1至千葉40.0公里，T2／3站至千葉39.0公里，同屬36–40公里票價級距。",
+            "「成田」站在成田市區，並非「成田空港」站；不要把到成田市的票當作到機場。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "narita",
+              "toPlaceId": "chiba",
+              "fromName": "成田空港（T1）／空港第2ビル（T2・T3）",
+              "toName": "千葉",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": "JR",
+                "line": "JR成田線普通／快速，經成田・佐倉",
+                "name": null,
+                "number": null,
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.jreast.co.jp/zh-CHT/2026unchin-kaitei/assets/pdf/pamphlet.pdf"
+            }
+          ]
+        },
+        {
+          "id": "airport-chiba-nex",
+          "label": "N’EX成田エクスプレス（須選停千葉班次）",
+          "departure": null,
+          "arrival": null,
+          "duration": "約30–40分鐘；候車另計",
+          "fare": {
+            "amount": 2010,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人單程紙票 ¥2,010；IC ¥2,005",
+            "不是每班N’EX都停千葉；待落地時間再核對停站。",
+            "列出的¥2,010為普通車正常紙票價；IC基本車資加正常特急券為¥2,005。",
+            "座席未指定券同樣須付特急費，不能保證有座；有訂位旅客到來時須讓座。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "narita",
+              "toPlaceId": "chiba",
+              "fromName": "成田空港（T1）／空港第2ビル（T2・T3）",
+              "toName": "千葉",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": null,
+                "line": "成田エクスプレス N’EX",
+                "name": "成田エクスプレス N’EX",
+                "number": null,
+                "category": "limited_express",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 2010,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.jreast.co.jp/press/2023/chiba/20231215_c01.pdf"
+            }
+          ]
+        },
+        {
+          "id": "airport-chiba-keisei",
+          "label": "京成本線 → 京成津田沼 → 京成千葉",
+          "departure": null,
+          "arrival": null,
+          "duration": "約65–85分鐘；轉車候車另計",
+          "fare": {
+            "amount": 890,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人單程紙票 ¥890；IC ¥883",
+            "T1、T2／3至京成千葉的本線票價相同。",
+            "京成千葉與JR千葉是相鄰但不同車站；酒店未定，最後步行距離待確認。",
+            "必須走京成本線經京成成田；Access特急及Skyliner走另一條路，並非這個千葉方案。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "narita",
+              "toPlaceId": null,
+              "fromName": "成田空港（T1）／空港第2ビル（T2・T3）",
+              "toName": "京成津田沼",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": null,
+                "line": "京成本線特急／快速特急／普通",
+                "name": null,
+                "number": null,
+                "category": "limited_express",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": null
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/145a.pdf"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "chiba",
+              "fromName": "京成津田沼",
+              "toName": "京成千葉",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": null,
+                "line": "京成千葉線普通，往千葉中央／ちはら台方向",
+                "name": null,
+                "number": null,
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/435.pdf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chiba-tokyo-1011",
+      "date": "2026-10-11",
+      "label": "千葉 ↔ 東京（可選日遊）",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "chiba-tokyo-roundtrip",
+          "label": "可選東京日遊｜當晚回千葉",
+          "departure": null,
+          "arrival": null,
+          "duration": "每程約 40–45 分鐘；候車與遊覽另計",
+          "fare": {
+            "amount": 1440,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人紙票來回 ¥1,440（¥720 × 2）；留在千葉則不需此項",
+            "本日為可選東京遊覽日，晚上仍住千葉；不是搬往東京酒店。",
+            "如整天留在千葉，毋須計東京往返車費。",
+            "時間保持彈性，未指定或預訂班次；東京市內額外交通另計。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": "tokyo",
+              "fromName": "千葉",
+              "toName": "東京",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速，往東京／橫須賀線方向",
+                "name": null,
+                "number": null,
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/timetable/tt0989/0989041.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": "chiba",
+              "fromName": "東京",
+              "toName": "千葉",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速，選停千葉班次",
+                "name": null,
+                "number": null,
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/timetable/list1039.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oct12-tokyo-sendai",
+      "date": "2026-10-12",
+      "label": "千葉 → 東京 → 仙台",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct12-all-local",
+          "label": "全程普通／快速｜通程基本票價",
+          "departure": "2026-10-12T05:53",
+          "arrival": "2026-10-12T14:04",
+          "duration": "8小時11分",
+          "fare": {
+            "amount": 6930,
+            "currency": "JPY"
+          },
+          "warning": "白石只有 4 分鐘轉車；若錯過，改搭 13:54 班次，14:43 抵達仙台。新白河另有 6 分鐘轉車，請直接換車。",
+          "notes": [
+            "成人普通車 ¥6,930；千葉→仙台通程基本運賃，無特急費",
+            "千葉 05:53 出發、仙台 14:04 抵達；8 班普通／快速、7 次轉車，全程 8 小時 11 分。",
+            "10月12日為日本運動之日，採JR假日時刻。",
+            "東京預留36分鐘；從地下總武月台前往地面上野東京線／東北新幹線月台。請預先準備乘車券，票務排隊時間不保證可在此緩衝內完成。",
+            "轉車：宇都宮 13 分、黒磯 17 分、新白河 6 分、郡山 10 分、福島 13 分、白石 4 分；新白河及白石請直接轉車",
+            "白石 4 分轉乘較短，不作保證；若錯過 13:16，可改搭 13:54 的 451M，14:43 抵達仙台。此備援亦列於 JR 10 月假日時刻表",
+            "普通車不可劃指定席；假日及長途乘坐可能需站立。建議用連續乘車券，別把八段各買一張",
+            "此處是千葉→仙台單程通程票。千葉→盛岡的跨日連續票與秋季普通列車通票優惠，另見全程費用比較"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": "tokyo",
+              "fromName": "千葉",
+              "toName": "東京",
+              "departure": "2026-10-12T05:53",
+              "arrival": "2026-10-12T06:31",
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速",
+                "name": null,
+                "number": "544F",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/130/131722.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": null,
+              "fromName": "東京",
+              "toName": "宇都宮",
+              "departure": "2026-10-12T07:07",
+              "arrival": "2026-10-12T08:59",
+              "train": {
+                "operator": null,
+                "line": "上野東京ライン・宇都宮線",
+                "name": null,
+                "number": "1524E",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/075/076811.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "宇都宮",
+              "toName": "黒磯",
+              "departure": "2026-10-12T09:12",
+              "arrival": "2026-10-12T10:04",
+              "train": {
+                "operator": null,
+                "line": "宇都宮線普通",
+                "name": null,
+                "number": "641M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/040/041561.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "黒磯",
+              "toName": "新白河",
+              "departure": "2026-10-12T10:21",
+              "arrival": "2026-10-12T10:44",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "4131M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/060/064781.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "新白河",
+              "toName": "郡山",
+              "departure": "2026-10-12T10:50",
+              "arrival": "2026-10-12T11:31",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "2131M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/085/089981.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "郡山",
+              "toName": "福島",
+              "departure": "2026-10-12T11:41",
+              "arrival": "2026-10-12T12:26",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1135M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/001071.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "福島",
+              "toName": "白石",
+              "departure": "2026-10-12T12:39",
+              "arrival": "2026-10-12T13:12",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1179M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/070/073041.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "sendai",
+              "fromName": "白石",
+              "toName": "仙台",
+              "departure": "2026-10-12T13:16",
+              "arrival": "2026-10-12T14:04",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "449M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/025/029021.html"
+            }
+          ]
+        },
+        {
+          "id": "oct12-fukushima-hybrid",
+          "label": "新幹線至福島＋普通列車",
+          "departure": "2026-10-12T07:30",
+          "arrival": "2026-10-12T12:06",
+          "duration": "4小時36分",
+          "fare": {
+            "amount": 11400,
+            "currency": "JPY"
+          },
+          "warning": "白石只有 4 分鐘轉車；若錯過，改搭 11:55 班次，12:43 抵達仙台。",
+          "notes": [
+            "指定席 ¥11,400；自由席 ¥10,670（全程基本運賃 ¥6,930 已含）",
+            "千葉 07:30 出發、仙台 12:06 抵達；東京轉車 37 分，福島 21 分，白石 4 分。",
+            "10月12日為日本運動之日，採JR假日時刻。",
+            "東京預留37分鐘；從地下總武月台前往地面上野東京線／東北新幹線月台。請預先準備乘車券與指定席，票務排隊時間不保證可在此緩衝內完成。",
+            "白石如未接上 11:18，可搭 11:55 的 443M，12:43 抵達仙台；4 分轉乘不作保證",
+            "10/12 新幹線指定席適用繁忙期加價 ¥200；自由席特急料金不受旺淡季調整",
+            "比直達 Hayabusa 指定席便宜 ¥1,090，但從千葉起計多花 1 小時 50 分；若以省體力為主，直達較合適",
+            "同一班 Yamabiko 53 若全程坐到仙台，東京 08:45→仙台 10:49（千葉 07:30 出發），千葉起計指定席 ¥12,170／自由席 ¥11,440；不必在福島或白石轉車"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": "tokyo",
+              "fromName": "千葉",
+              "toName": "東京",
+              "departure": "2026-10-12T07:30",
+              "arrival": "2026-10-12T08:08",
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速",
+                "name": null,
+                "number": "624F",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/110/114462.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": null,
+              "fromName": "東京",
+              "toName": "福島",
+              "departure": "2026-10-12T08:45",
+              "arrival": "2026-10-12T10:19",
+              "train": {
+                "operator": null,
+                "line": "やまびこ 53号",
+                "name": "やまびこ",
+                "number": "53",
+                "category": "shinkansen",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/010/013341.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "福島",
+              "toName": "白石",
+              "departure": "2026-10-12T10:40",
+              "arrival": "2026-10-12T11:14",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1175M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/070/073021.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "sendai",
+              "fromName": "白石",
+              "toName": "仙台",
+              "departure": "2026-10-12T11:18",
+              "arrival": "2026-10-12T12:06",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "441M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/020/020871.html"
+            }
+          ]
+        },
+        {
+          "id": "oct12-direct-hayabusa",
+          "label": "直達 Hayabusa｜省時省體力",
+          "departure": "2026-10-12T07:02",
+          "arrival": "2026-10-12T09:48",
+          "duration": "2小時46分",
+          "fare": {
+            "amount": 12490,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人普通車指定席 ¥12,490（千葉起計基本運賃 ¥6,930＋特急費 ¥5,560）",
+            "千葉 07:02 出發，東京 07:40 到站；08:18 接 Hayabusa 5，09:48 到仙台，共 2 小時 46 分。",
+            "10月12日為日本運動之日，採JR假日時刻。",
+            "東京預留38分鐘；從地下總武月台前往地面上野東京線／東北新幹線月台。請預先準備乘車券與指定席，票務排隊時間不保證可在此緩衝內完成。",
+            "はやぶさ 5 號普通車全車指定席；此處確認列車運行與票價，不代表尚有空位",
+            "10/12 是三連休最後一天，請在確認行程後優先預約座位"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": "tokyo",
+              "fromName": "千葉",
+              "toName": "東京",
+              "departure": "2026-10-12T07:02",
+              "arrival": "2026-10-12T07:40",
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速",
+                "name": null,
+                "number": "672F",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/130/131811.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": "sendai",
+              "fromName": "東京",
+              "toName": "仙台",
+              "departure": "2026-10-12T08:18",
+              "arrival": "2026-10-12T09:48",
+              "train": {
+                "operator": null,
+                "line": "はやぶさ 5号",
+                "name": "はやぶさ",
+                "number": "5",
+                "category": "shinkansen",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/110/110951.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oct13-matsushima",
+      "date": "2026-10-13",
+      "label": "仙台 ↔ 松島海岸",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct13-matsushima-early",
+          "label": "早去早回｜保留仙台傍晚",
+          "departure": "2026-10-13T09:00",
+          "arrival": "2026-10-13T16:08",
+          "duration": "去程 39 分／回程 37 分",
+          "fare": {
+            "amount": 880,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人往返 ¥880（¥440 × 2）；周遊券尚未生效",
+            "去程 09:00→09:39（39 分）；回程 15:31→16:08（37 分）",
+            "松島海岸停留 5 小時 52 分；15:31 回程為松島海岸始發，提早排隊較方便",
+            "去程 831S 為平日運行，已確認 10/13 運行"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "sendai",
+              "toPlaceId": "matsushima",
+              "fromName": "仙台",
+              "toName": "松島海岸",
+              "departure": "2026-10-13T09:00",
+              "arrival": "2026-10-13T09:39",
+              "train": {
+                "operator": null,
+                "line": "仙石線普通",
+                "name": null,
+                "number": "831S",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 440,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/031821.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "matsushima",
+              "toPlaceId": "sendai",
+              "fromName": "松島海岸",
+              "toName": "仙台",
+              "departure": "2026-10-13T15:31",
+              "arrival": "2026-10-13T16:08",
+              "train": {
+                "operator": null,
+                "line": "仙石線普通",
+                "name": null,
+                "number": "1584S",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 440,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/080/080441.html"
+            }
+          ]
+        },
+        {
+          "id": "oct13-matsushima-later",
+          "label": "稍晚出發｜松島多留一會",
+          "departure": "2026-10-13T09:30",
+          "arrival": "2026-10-13T17:51",
+          "duration": "去程 40 分／回程 39 分",
+          "fare": {
+            "amount": 880,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人往返 ¥880（¥440 × 2）；周遊券尚未生效",
+            "去程 09:30→10:10（40 分）；回程 17:12→17:51（39 分）",
+            "松島海岸停留 7 小時 02 分；可視當日天氣與體力改搭較早回程",
+            "回程 1622S 為平日運行，已確認 10/13 運行"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "sendai",
+              "toPlaceId": "matsushima",
+              "fromName": "仙台",
+              "toName": "松島海岸",
+              "departure": "2026-10-13T09:30",
+              "arrival": "2026-10-13T10:10",
+              "train": {
+                "operator": null,
+                "line": "仙石線普通",
+                "name": null,
+                "number": "921S",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 440,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/040/044331.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "matsushima",
+              "toPlaceId": "sendai",
+              "fromName": "松島海岸",
+              "toName": "仙台",
+              "departure": "2026-10-13T17:12",
+              "arrival": "2026-10-13T17:51",
+              "train": {
+                "operator": null,
+                "line": "仙石線普通",
+                "name": null,
+                "number": "1622S",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 440,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/040/044771.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oct14-hiraizumi-morioka",
+      "date": "2026-10-14",
+      "label": "仙台 → 平泉（停留 3–4 小時）→ 盛岡",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct14-local-balanced",
+          "label": "普通列車｜08:11 出發",
+          "departure": "2026-10-14T08:11",
+          "arrival": "2026-10-14T15:13",
+          "duration": "7 小時 02 分（含平泉停留 3 小時 30 分）",
+          "fare": {
+            "amount": 3520,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "單買：全日連續基本運賃 ¥3,520；周遊券：追加 ¥0",
+            "08:11 仙台出發→10:23 平泉；13:53 平泉出發→15:13 盛岡",
+            "平泉停留 3 小時 30 分；小牛田轉車 8 分、一ノ関轉車 22 分",
+            "全程普通列車自由席，不需指定席預約；到平泉後出站觀光，再搭下一班前往盛岡",
+            "單買請買仙台→盛岡連續乘車券並在平泉途中下車；若分成仙台→平泉 ¥2,090 與平泉→盛岡 ¥1,600，合計會是 ¥3,690"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "sendai",
+              "toPlaceId": null,
+              "fromName": "仙台",
+              "toName": "小牛田",
+              "departure": "2026-10-14T08:11",
+              "arrival": "2026-10-14T08:58",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "2527M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/070/073371.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "小牛田",
+              "toName": "一ノ関",
+              "departure": "2026-10-14T09:06",
+              "arrival": "2026-10-14T09:53",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "543M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/070/071631.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "hiraizumi",
+              "fromName": "一ノ関",
+              "toName": "平泉",
+              "departure": "2026-10-14T10:15",
+              "arrival": "2026-10-14T10:23",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1533M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/004601.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hiraizumi",
+              "toPlaceId": "morioka",
+              "fromName": "平泉",
+              "toName": "盛岡",
+              "departure": "2026-10-14T13:53",
+              "arrival": "2026-10-14T15:13",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1539M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/004721.html"
+            }
+          ]
+        },
+        {
+          "id": "oct14-local-early",
+          "label": "普通列車｜提早抵達盛岡",
+          "departure": "2026-10-14T06:44",
+          "arrival": "2026-10-14T14:14",
+          "duration": "7 小時 30 分（含平泉停留 3 小時 51 分）",
+          "fare": {
+            "amount": 3520,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "單買：全日連續基本運賃 ¥3,520；周遊券：追加 ¥0",
+            "06:44 仙台出發→09:03 平泉；12:54 平泉出發→14:14 盛岡",
+            "平泉停留 3 小時 51 分；小牛田轉車 11 分、一ノ関轉車 28 分",
+            "適合願意早起並想在盛岡多留下午時間的人；全部普通車自由席"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "sendai",
+              "toPlaceId": null,
+              "fromName": "仙台",
+              "toName": "小牛田",
+              "departure": "2026-10-14T06:44",
+              "arrival": "2026-10-14T07:29",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "2521M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/070/073331.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "小牛田",
+              "toName": "一ノ関",
+              "departure": "2026-10-14T07:40",
+              "arrival": "2026-10-14T08:27",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "541M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/010/013391.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "hiraizumi",
+              "fromName": "一ノ関",
+              "toName": "平泉",
+              "departure": "2026-10-14T08:55",
+              "arrival": "2026-10-14T09:03",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1531M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/004551.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hiraizumi",
+              "toPlaceId": "morioka",
+              "fromName": "平泉",
+              "toName": "盛岡",
+              "departure": "2026-10-14T12:54",
+              "arrival": "2026-10-14T14:14",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1537M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/004681.html"
+            }
+          ]
+        },
+        {
+          "id": "oct14-shinkansen-shortcut",
+          "label": "新幹線捷徑｜少一次轉車",
+          "departure": "2026-10-14T08:00",
+          "arrival": "2026-10-14T14:14",
+          "duration": "6 小時 14 分（含平泉停留 3 小時 51 分）",
+          "fare": {
+            "amount": 5920,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "單買：指定席 ¥5,920／自由席 ¥5,390；有效周遊券：追加 ¥0",
+            "08:00 仙台搭 Yamabiko 51，08:35 抵一ノ関；08:55 普通列車→09:03 平泉",
+            "平泉停留 3 小時 51 分；12:54 普通列車→14:14 盛岡",
+            "比 06:44 全普通方案晚出發 1 小時 16 分，但平泉、盛岡到達時間相同；一ノ関預留 20 分轉車",
+            "普通指定席可用有效周遊券預約；單買總價包含仙台→盛岡連續基本運賃 ¥3,520，只另加仙台→一ノ関的新幹線特急費",
+            "10/14 為通常期；此方案的新幹線是 Yamabiko，不應套用 Hayabusa 的較高指定席附加費"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "sendai",
+              "toPlaceId": null,
+              "fromName": "仙台",
+              "toName": "一ノ関",
+              "departure": "2026-10-14T08:00",
+              "arrival": "2026-10-14T08:35",
+              "train": {
+                "operator": null,
+                "line": "やまびこ 51号",
+                "name": "やまびこ",
+                "number": "51",
+                "category": "shinkansen",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/010/013001.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "hiraizumi",
+              "fromName": "一ノ関",
+              "toName": "平泉",
+              "departure": "2026-10-14T08:55",
+              "arrival": "2026-10-14T09:03",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1531M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/004551.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hiraizumi",
+              "toPlaceId": "morioka",
+              "fromName": "平泉",
+              "toName": "盛岡",
+              "departure": "2026-10-14T12:54",
+              "arrival": "2026-10-14T14:14",
+              "train": {
+                "operator": null,
+                "line": "東北本線普通",
+                "name": null,
+                "number": "1537M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/000/004681.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2026-10-15-morioka-aomori",
+      "date": "2026-10-15",
+      "label": "盛岡 → 八戶 → 青森",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct15-morning",
+          "label": "上午出發 · 轉車時間充裕",
+          "departure": "2026-10-15T09:14",
+          "arrival": "2026-10-15T13:36",
+          "duration": "4 小時 22 分鐘",
+          "fare": {
+            "amount": 5930,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥5,930",
+            "八戶轉車 71 分鐘，可留時間購買八戶至青森的下一段車票",
+            "這組搭配全部是普通線，第二班為快速列車，沒有新幹線或特急"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "morioka",
+              "toPlaceId": null,
+              "fromName": "盛岡",
+              "toName": "八戶",
+              "departure": "2026-10-15T09:14",
+              "arrival": "2026-10-15T11:01",
+              "train": {
+                "operator": "IGR／青い森鐵道",
+                "line": null,
+                "name": null,
+                "number": "4525M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 3230,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://igr.jp/wp-content/themes/igr/assets/pdf/20260314timetable.pdf"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "aomori",
+              "fromName": "八戶",
+              "toName": "青森",
+              "departure": "2026-10-15T12:12",
+              "arrival": "2026-10-15T13:36",
+              "train": {
+                "operator": "青い森鐵道",
+                "line": null,
+                "name": null,
+                "number": "501M",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 2700,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/180/182321.html"
+            }
+          ]
+        },
+        {
+          "id": "oct15-afternoon",
+          "label": "下午出發",
+          "departure": "2026-10-15T13:29",
+          "arrival": "2026-10-15T17:07",
+          "duration": "3 小時 38 分鐘",
+          "fare": {
+            "amount": 5930,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥5,930",
+            "八戶轉車 14 分鐘；如能預先準備好下一段車票，會較從容",
+            "票價按盛岡至八戶、八戶至青森分開買票計算"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "morioka",
+              "toPlaceId": null,
+              "fromName": "盛岡",
+              "toName": "八戶",
+              "departure": "2026-10-15T13:29",
+              "arrival": "2026-10-15T15:16",
+              "train": {
+                "operator": "IGR／青い森鐵道",
+                "line": null,
+                "name": null,
+                "number": "4531M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 3230,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://igr.jp/wp-content/themes/igr/assets/pdf/20260314timetable.pdf"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "aomori",
+              "fromName": "八戶",
+              "toName": "青森",
+              "departure": "2026-10-15T15:30",
+              "arrival": "2026-10-15T17:07",
+              "train": {
+                "operator": "青い森鐵道",
+                "line": null,
+                "name": null,
+                "number": "579M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 2700,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/095/097651.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oct16-hirosaki",
+      "date": "2026-10-16",
+      "label": "青森 ↔ 弘前",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct16-outward-0756-oct16-return-1616",
+          "label": "07:56 出發 · 16:16 回程",
+          "departure": "2026-10-16T07:56",
+          "arrival": "2026-10-16T17:04",
+          "duration": "9 小時 8 分鐘（含遊覽）",
+          "fare": {
+            "amount": 1440,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥1,440／成人來回",
+            "弘前站到站可停留 7 小時 37 分鐘；市內往返公園的巴士與步行另預留時間。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "aomori",
+              "toPlaceId": "hirosaki",
+              "fromName": "青森",
+              "toName": "弘前",
+              "departure": "2026-10-16T07:56",
+              "arrival": "2026-10-16T08:39",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "644M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/030651.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hirosaki",
+              "toPlaceId": "aomori",
+              "fromName": "弘前",
+              "toName": "青森",
+              "departure": "2026-10-16T16:16",
+              "arrival": "2026-10-16T17:04",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "665M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/034251.html"
+            }
+          ]
+        },
+        {
+          "id": "oct16-outward-0756-oct16-return-1651",
+          "label": "07:56 出發 · 16:51 回程",
+          "departure": "2026-10-16T07:56",
+          "arrival": "2026-10-16T17:45",
+          "duration": "9 小時 49 分鐘（含遊覽）",
+          "fare": {
+            "amount": 1440,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥1,440／成人來回",
+            "弘前站到站可停留 8 小時 12 分鐘；市內往返公園的巴士與步行另預留時間。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "aomori",
+              "toPlaceId": "hirosaki",
+              "fromName": "青森",
+              "toName": "弘前",
+              "departure": "2026-10-16T07:56",
+              "arrival": "2026-10-16T08:39",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "644M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/030651.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hirosaki",
+              "toPlaceId": "aomori",
+              "fromName": "弘前",
+              "toName": "青森",
+              "departure": "2026-10-16T16:51",
+              "arrival": "2026-10-16T17:45",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "667M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/045/046661.html"
+            }
+          ]
+        },
+        {
+          "id": "oct16-outward-0952-oct16-return-1616",
+          "label": "09:52 出發 · 16:16 回程",
+          "departure": "2026-10-16T09:52",
+          "arrival": "2026-10-16T17:04",
+          "duration": "7 小時 12 分鐘（含遊覽）",
+          "fare": {
+            "amount": 1440,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥1,440／成人來回",
+            "弘前站到站可停留 5 小時 39 分鐘；市內往返公園的巴士與步行另預留時間。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "aomori",
+              "toPlaceId": "hirosaki",
+              "fromName": "青森",
+              "toName": "弘前",
+              "departure": "2026-10-16T09:52",
+              "arrival": "2026-10-16T10:37",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "648M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/034311.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hirosaki",
+              "toPlaceId": "aomori",
+              "fromName": "弘前",
+              "toName": "青森",
+              "departure": "2026-10-16T16:16",
+              "arrival": "2026-10-16T17:04",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "665M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/034251.html"
+            }
+          ]
+        },
+        {
+          "id": "oct16-outward-0952-oct16-return-1651",
+          "label": "09:52 出發 · 16:51 回程",
+          "departure": "2026-10-16T09:52",
+          "arrival": "2026-10-16T17:45",
+          "duration": "7 小時 53 分鐘（含遊覽）",
+          "fare": {
+            "amount": 1440,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥1,440／成人來回",
+            "弘前站到站可停留 6 小時 14 分鐘；市內往返公園的巴士與步行另預留時間。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "aomori",
+              "toPlaceId": "hirosaki",
+              "fromName": "青森",
+              "toName": "弘前",
+              "departure": "2026-10-16T09:52",
+              "arrival": "2026-10-16T10:37",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "648M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/030/034311.html"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "hirosaki",
+              "toPlaceId": "aomori",
+              "fromName": "弘前",
+              "toName": "青森",
+              "departure": "2026-10-16T16:51",
+              "arrival": "2026-10-16T17:45",
+              "train": {
+                "operator": "JR",
+                "line": "JR 奧羽本線",
+                "name": null,
+                "number": "667M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/045/046661.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oct17-ferry",
+      "date": "2026-10-17",
+      "label": "青森 → 渡輪跨津輕海峽 → 函館",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct17-tsugaru-1015",
+          "label": "推薦｜上午船 + 兩端接駁",
+          "departure": "2026-10-17T09:00",
+          "arrival": "2026-10-17T14:45",
+          "duration": "站到站5小時45分；航程3小時40分",
+          "fare": {
+            "amount": 3780,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥3,780／成人（船¥3,160 + 巴士¥300 + ¥320）；提前5天優惠方案 ¥3,000",
+            "09:12到港，距開船63分鐘；須09:35前完成登船手續、10:00前到登船口",
+            "函館下船後20分鐘接巴士；如船晚點或錯過，下一班15:30→16:00",
+            "如住金森倉庫附近，14:15同班巴士14:35到 La Vista 函館灣，成人¥310",
+            "官方日文秋季船班為10:15–13:55，勿沿用旧中文網頁10:30–14:10"
+          ],
+          "segments": [
+            {
+              "mode": "bus",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "青森站西口②號站臺",
+              "toName": "津輕海峽渡輪碼頭",
+              "departure": "2026-10-17T09:00",
+              "arrival": "2026-10-17T09:12",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 300,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.city.aomori.aomori.jp/_res/projects/default_project/_page_/001/002/393/2026_jp.pdf"
+            },
+            {
+              "mode": "ferry",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "青森・津輕海峽渡輪碼頭",
+              "toName": "函館・津輕海峽渡輪碼頭",
+              "departure": "2026-10-17T10:15",
+              "arrival": "2026-10-17T13:55",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 3160,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.tsugarukaikyo.co.jp/service/timetable/hakodate-aomori/"
+            },
+            {
+              "mode": "bus",
+              "fromPlaceId": null,
+              "toPlaceId": "hakodate",
+              "fromName": "函館・津輕海峽渡輪碼頭",
+              "toName": "函館站",
+              "departure": "2026-10-17T14:15",
+              "arrival": "2026-10-17T14:45",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 320,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.tsugarukaikyo.co.jp/guide/terminal/hakodate/access/"
+            }
+          ]
+        },
+        {
+          "id": "oct17-tsugaru-1420",
+          "label": "晚一點出發｜下午船 + 兩端接駁",
+          "departure": "2026-10-17T13:10",
+          "arrival": "2026-10-17T19:00",
+          "duration": "站到站5小時50分；航程3小時40分",
+          "fare": {
+            "amount": 3780,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥3,780／成人；提前5天優惠方案 ¥3,000（均含兩端巴士）",
+            "13:22到港，須13:40前完成手續、14:05前到登船口",
+            "到函館市中心較晚，红砖倉庫、元町散步更適合移至次日"
+          ],
+          "segments": [
+            {
+              "mode": "bus",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "青森站西口②號站臺",
+              "toName": "津輕海峽渡輪碼頭",
+              "departure": "2026-10-17T13:10",
+              "arrival": "2026-10-17T13:22",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 300,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.city.aomori.aomori.jp/_res/projects/default_project/_page_/001/002/393/2026_jp.pdf"
+            },
+            {
+              "mode": "ferry",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "青森・津輕海峽渡輪碼頭",
+              "toName": "函館・津輕海峽渡輪碼頭",
+              "departure": "2026-10-17T14:20",
+              "arrival": "2026-10-17T18:00",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 3160,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.tsugarukaikyo.co.jp/service/timetable/hakodate-aomori/"
+            },
+            {
+              "mode": "bus",
+              "fromPlaceId": null,
+              "toPlaceId": "hakodate",
+              "fromName": "函館・津輕海峽渡輪碼頭",
+              "toName": "函館站",
+              "departure": "2026-10-17T18:30",
+              "arrival": "2026-10-17T19:00",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 320,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.tsugarukaikyo.co.jp/guide/terminal/hakodate/access/"
+            }
+          ]
+        },
+        {
+          "id": "oct17-tsugaru-0625",
+          "label": "早到函館｜清晨船，青森端需另安排",
+          "departure": "2026-10-17T06:25",
+          "arrival": "2026-10-17T11:00",
+          "duration": "航程3小時40分；10:05抵函館港",
+          "fare": {
+            "amount": 3480,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "船與函館端巴士¥3,480／成人；青森端出租車或步行另計",
+            "青森端沒有查到可接這班的直達碼頭早班巴士；勿將09:00ねぶたん號用於此班",
+            "須05:45前完成手續、06:10前到登船口；青森站西口步行碼頭官方约45分鐘，建议另留餘量",
+            "青森端車費未列入，不宜把此選项與含双端巴士總價直接比較"
+          ],
+          "segments": [
+            {
+              "mode": "ferry",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "青森・津輕海峽渡輪碼頭",
+              "toName": "函館・津輕海峽渡輪碼頭",
+              "departure": "2026-10-17T06:25",
+              "arrival": "2026-10-17T10:05",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 3160,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.tsugarukaikyo.co.jp/service/timetable/hakodate-aomori/"
+            },
+            {
+              "mode": "bus",
+              "fromPlaceId": null,
+              "toPlaceId": "hakodate",
+              "fromName": "函館・津輕海峽渡輪碼頭",
+              "toName": "函館站",
+              "departure": "2026-10-17T10:30",
+              "arrival": "2026-10-17T11:00",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 320,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.tsugarukaikyo.co.jp/guide/terminal/hakodate/access/"
+            }
+          ]
+        },
+        {
+          "id": "oct17-seikan-1135",
+          "label": "青函渡輪備選｜11:35 船",
+          "departure": "2026-10-17T11:35",
+          "arrival": "2026-10-17T15:25",
+          "duration": "3小時50分",
+          "fare": {
+            "amount": 2700,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "船票¥2,700／成人；碼頭接駁另計",
+            "另一家船公司，碼頭不同。官網现行正常時刻；未查指定日期餘位，函館側巴士票價未完成官方核驗",
+            "青森端可乘周六運行的十和田觀光电铁巴士：青森站東口10號10:25→青森港渡輪碼頭10:43，¥300；下車確認是青函碼頭",
+            "普通徒步旅客11:05前須到窗口填表辦手續；需無障礙升降設備者提前60分鐘並預報",
+            "函館青函碼頭16:00→函館站16:10有北海道巴士；票價官網未核實，不合計",
+            "青函徒步乘客在車輛下船後最後下船，應保留等待時間",
+            "青函渡輪其他日間班次：08:10→12:10（はやぶさⅢ）、14:35→18:25（はやぶさⅡ）、18:00→21:50（あさかぜ21）",
+            "兩家渡輪不能混用碼頭或接駁車；青函函館碼頭在浅野町5-11，津輕海峽函館碼頭在港町3-19-2",
+            "青函10月–5月成人2等¥2,700，為固定季節票價；32%燃油加價僅適用6米以上車輛"
+          ],
+          "segments": [
+            {
+              "mode": "ferry",
+              "fromPlaceId": null,
+              "toPlaceId": null,
+              "fromName": "青森港フェリーターミナル（青函）",
+              "toName": "函館・青函渡輪碼頭（浅野町）",
+              "departure": "2026-10-17T11:35",
+              "arrival": "2026-10-17T15:25",
+              "train": null,
+              "flight": null,
+              "price": {
+                "amount": 2700,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.seikan-ferry.co.jp/schedule/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2026-10-19-hakodate-tokyo",
+      "date": "2026-10-19",
+      "label": "函館 → 新函館北斗 → 東京 → 千葉",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "oct19-early",
+          "label": "早出發 · 轉車餘量最多",
+          "departure": "2026-10-19T08:50",
+          "arrival": "2026-10-19T15:20",
+          "duration": "6小時30分",
+          "fare": {
+            "amount": 24530,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥24,530／函館至千葉通程紙本票（含 Hayabusa 普通車指定席）",
+            "東京新幹線下車後預留33分鐘，到地下總武月台轉乘快速返回千葉住宿。",
+            "時刻僅供已公布行程規劃；列車延誤時搭下一班合適快速，不需預訂普通車座位。",
+            "新函館北斗轉車 26 分鐘",
+            "¥24,530 按通程紙本票計價，已含函館 Liner、Hayabusa 普通車指定席與東京至千葉總武快速，請勿再加上分段單買票價",
+            "函館至千葉與函館至東京都落在同一通程基本運賃級距；本選項用函館至千葉的通程票，沒有把兩張分段票重複相加。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "hakodate",
+              "toPlaceId": null,
+              "fromName": "函館",
+              "toName": "新函館北斗",
+              "departure": "2026-10-19T08:50",
+              "arrival": "2026-10-19T09:09",
+              "train": {
+                "operator": null,
+                "line": "はこだてライナー",
+                "name": null,
+                "number": "3329M",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=2810&d=20261019"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "tokyo",
+              "fromName": "新函館北斗",
+              "toName": "東京",
+              "departure": "2026-10-19T09:35",
+              "arrival": "2026-10-19T14:08",
+              "train": {
+                "operator": null,
+                "line": "Hayabusa 16",
+                "name": "Hayabusa",
+                "number": "16",
+                "category": "shinkansen",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=31&d=20261019"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": "chiba",
+              "fromName": "東京",
+              "toName": "千葉",
+              "departure": "2026-10-19T14:41",
+              "arrival": "2026-10-19T15:20",
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速",
+                "name": null,
+                "number": "1341F",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/115/115791.html"
+            }
+          ]
+        },
+        {
+          "id": "oct19-midday",
+          "label": "中午出發 · 保留轉車餘量",
+          "departure": "2026-10-19T12:05",
+          "arrival": "2026-10-19T18:16",
+          "duration": "6小時11分",
+          "fare": {
+            "amount": 24530,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "¥24,530／函館至千葉通程紙本票（含 Hayabusa 普通車指定席）",
+            "東京新幹線下車後預留31分鐘，到地下總武月台轉乘快速返回千葉住宿。",
+            "時刻僅供已公布行程規劃；列車延誤時搭下一班合適快速，不需預訂普通車座位。",
+            "新函館北斗轉車 21 分鐘",
+            "¥24,530 按通程紙本票計價，已含函館 Liner、Hayabusa 普通車指定席與東京至千葉總武快速，請勿再加上分段單買票價",
+            "函館至千葉與函館至東京都落在同一通程基本運賃級距；本選項用函館至千葉的通程票，沒有把兩張分段票重複相加。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "hakodate",
+              "toPlaceId": null,
+              "fromName": "函館",
+              "toName": "新函館北斗",
+              "departure": "2026-10-19T12:05",
+              "arrival": "2026-10-19T12:27",
+              "train": {
+                "operator": null,
+                "line": "はこだてライナー",
+                "name": null,
+                "number": "1339M",
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=2810&d=20261019"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "tokyo",
+              "fromName": "新函館北斗",
+              "toName": "東京",
+              "departure": "2026-10-19T12:48",
+              "arrival": "2026-10-19T17:04",
+              "train": {
+                "operator": null,
+                "line": "Hayabusa 24",
+                "name": "Hayabusa",
+                "number": "24",
+                "category": "shinkansen",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=31&d=20261019"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": "chiba",
+              "fromName": "東京",
+              "toName": "千葉",
+              "departure": "2026-10-19T17:35",
+              "arrival": "2026-10-19T18:16",
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速",
+                "name": null,
+                "number": "1753F",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/105/108021.html"
+            }
+          ]
+        },
+        {
+          "id": "oct19-afternoon",
+          "label": "下午出發",
+          "departure": "2026-10-19T14:17",
+          "arrival": "2026-10-19T20:14",
+          "duration": "5小時57分",
+          "fare": {
+            "amount": 24530,
+            "currency": "JPY"
+          },
+          "warning": "新函館北斗轉車 12 分鐘，是三組中最短的接續；須預先準備車票與指定席。",
+          "notes": [
+            "¥24,530／函館至千葉通程紙本票（含 Hayabusa 普通車指定席）",
+            "東京新幹線下車後預留29分鐘，到地下總武月台轉乘快速返回千葉住宿。",
+            "時刻僅供已公布行程規劃；列車延誤時搭下一班合適快速，不需預訂普通車座位。",
+            "新函館北斗轉車 12 分鐘",
+            "¥24,530 按通程紙本票計價，已含函館 Liner、Hayabusa 普通車指定席與東京至千葉總武快速，請勿再加上分段單買票價",
+            "這是三組中轉車時間最短的選項；提前備好票，直接前往新幹線轉乘閘口",
+            "函館至千葉與函館至東京都落在同一通程基本運賃級距；本選項用函館至千葉的通程票，沒有把兩張分段票重複相加。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "hakodate",
+              "toPlaceId": null,
+              "fromName": "函館",
+              "toName": "新函館北斗",
+              "departure": "2026-10-19T14:17",
+              "arrival": "2026-10-19T14:36",
+              "train": {
+                "operator": null,
+                "line": "はこだてライナー",
+                "name": null,
+                "number": "3347M",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=2810&d=20261019"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "tokyo",
+              "fromName": "新函館北斗",
+              "toName": "東京",
+              "departure": "2026-10-19T14:48",
+              "arrival": "2026-10-19T19:04",
+              "train": {
+                "operator": null,
+                "line": "Hayabusa 32",
+                "name": "Hayabusa",
+                "number": "32",
+                "category": "shinkansen",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=31&d=20261019"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": "tokyo",
+              "toPlaceId": "chiba",
+              "fromName": "東京",
+              "toName": "千葉",
+              "departure": "2026-10-19T19:33",
+              "arrival": "2026-10-19T20:14",
+              "train": {
+                "operator": "JR",
+                "line": "JR總武線快速",
+                "name": null,
+                "number": "1907F",
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://timetables.jreast.co.jp/2610/train/115/116061.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tokyo-narita-1020",
+      "date": "2026-10-20",
+      "label": "千葉 → 成田機場 → 香港",
+      "status": "planned",
+      "selectedOptionId": null,
+      "options": [
+        {
+          "id": "chiba-airport-jr",
+          "label": "JR 成田線普通／快速（預算基準）",
+          "departure": null,
+          "arrival": null,
+          "duration": "約45–60分鐘；候車另計",
+          "fare": {
+            "amount": 720,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人單程紙票 ¥720；IC ¥715",
+            "成人紙票 ¥720，IC ¥715；不含 Green 車。優先找成田空港方向直達班次，其他時段可能轉車。",
+            "只計普通車；快速列車Green車須另購Green券。",
+            "「成田」站在成田市區，並非「成田空港」站；不要把到成田市的票當作到機場。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": "narita",
+              "fromName": "千葉",
+              "toName": "成田空港（T1）／空港第2ビル（T2・T3）",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": "JR",
+                "line": "JR 成田線普通／快速，經佐倉・成田前往機場",
+                "name": null,
+                "number": null,
+                "category": "rapid",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 720,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.jreast.co.jp/zh-CHT/2026unchin-kaitei/assets/pdf/pamphlet.pdf"
+            }
+          ]
+        },
+        {
+          "id": "chiba-airport-nex",
+          "label": "N’EX 成田エクスプレス（從千葉上車）",
+          "departure": null,
+          "arrival": null,
+          "duration": "約30–40分鐘；候車另計",
+          "fare": {
+            "amount": 2010,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人單程紙票 ¥2,010；IC ¥2,005",
+            "只有停靠千葉的 N’EX 才能在此上車；實際班次待航班確認。普通車紙票 ¥2,010，IC 基本車資加特急券 ¥2,005。",
+            "列出的¥2,010為普通車正常紙票價；IC基本車資加正常特急券為¥2,005。",
+            "座席未指定券同樣須付特急費，不能保證有座；有訂位旅客到來時須讓座。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": "narita",
+              "fromName": "千葉",
+              "toName": "成田空港（T1）／空港第2ビル（T2・T3）",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": null,
+                "line": "成田エクスプレス N’EX",
+                "name": "成田エクスプレス N’EX",
+                "number": null,
+                "category": "limited_express",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "reserved"
+              },
+              "flight": null,
+              "price": {
+                "amount": 2010,
+                "currency": "JPY"
+              },
+              "sourceUrl": "https://www.jreast.co.jp/press/2023/chiba/20231215_c01.pdf"
+            }
+          ]
+        },
+        {
+          "id": "chiba-airport-keisei",
+          "label": "京成千葉 → 京成津田沼 → 成田機場",
+          "departure": null,
+          "arrival": null,
+          "duration": "約65–85分鐘；轉車候車另計",
+          "fare": {
+            "amount": 890,
+            "currency": "JPY"
+          },
+          "warning": null,
+          "notes": [
+            "成人單程紙票 ¥890；IC ¥883",
+            "京成千葉站出發，在京成津田沼換本線；成人紙票全程 ¥890，IC ¥883。兩站名稱和月台須確認。",
+            "T1、T2／3至京成千葉的本線票價相同。",
+            "必須走京成本線經京成成田；Access特急及Skyliner走另一條路，並非這個千葉方案。"
+          ],
+          "segments": [
+            {
+              "mode": "train",
+              "fromPlaceId": "chiba",
+              "toPlaceId": null,
+              "fromName": "京成千葉",
+              "toName": "京成津田沼",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": null,
+                "line": "京成千葉線普通，往京成津田沼方向",
+                "name": null,
+                "number": null,
+                "category": "local",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": "non_reserved"
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/435.pdf"
+            },
+            {
+              "mode": "train",
+              "fromPlaceId": null,
+              "toPlaceId": "narita",
+              "fromName": "京成津田沼",
+              "toName": "成田空港（T1）／空港第2ビル（T2・T3）",
+              "departure": null,
+              "arrival": null,
+              "train": {
+                "operator": null,
+                "line": "京成本線特急／快速特急／普通，往成田空港方向",
+                "name": null,
+                "number": null,
+                "category": "limited_express",
+                "carNumber": null,
+                "seat": null,
+                "seatClass": null
+              },
+              "flight": null,
+              "price": null,
+              "sourceUrl": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/145a.pdf"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "hotels": [
+    {
+      "id": "stay-chiba-1010",
+      "name": "千叶住宿（待定）",
+      "placeId": "chiba",
+      "address": null,
+      "checkIn": "2026-10-10",
+      "checkOut": "2026-10-12",
+      "checkInTime": null,
+      "confirmation": null,
+      "price": null,
+      "url": null,
+      "status": "idea"
+    },
+    {
+      "id": "stay-sendai-1012",
+      "name": "仙台住宿（待定）",
+      "placeId": "sendai",
+      "address": null,
+      "checkIn": "2026-10-12",
+      "checkOut": "2026-10-14",
+      "checkInTime": null,
+      "confirmation": null,
+      "price": null,
+      "url": null,
+      "status": "idea"
+    },
+    {
+      "id": "stay-morioka-1014",
+      "name": "盛冈住宿（待定）",
+      "placeId": "morioka",
+      "address": null,
+      "checkIn": "2026-10-14",
+      "checkOut": "2026-10-15",
+      "checkInTime": null,
+      "confirmation": null,
+      "price": null,
+      "url": null,
+      "status": "idea"
+    },
+    {
+      "id": "stay-aomori-1015",
+      "name": "青森住宿（待定）",
+      "placeId": "aomori",
+      "address": null,
+      "checkIn": "2026-10-15",
+      "checkOut": "2026-10-17",
+      "checkInTime": null,
+      "confirmation": null,
+      "price": null,
+      "url": null,
+      "status": "idea"
+    },
+    {
+      "id": "stay-hakodate-1017",
+      "name": "函馆住宿（待定）",
+      "placeId": "hakodate",
+      "address": null,
+      "checkIn": "2026-10-17",
+      "checkOut": "2026-10-19",
+      "checkInTime": null,
+      "confirmation": null,
+      "price": null,
+      "url": null,
+      "status": "idea"
+    },
+    {
+      "id": "stay-chiba-1019",
+      "name": "千叶住宿（待定）",
+      "placeId": "chiba",
+      "address": null,
+      "checkIn": "2026-10-19",
+      "checkOut": "2026-10-20",
+      "checkInTime": null,
+      "confirmation": null,
+      "price": null,
+      "url": null,
+      "status": "idea"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "jr-east-south-hokkaido-pass",
+      "date": "2026-10-14",
+      "dayId": "day-5",
+      "category": "pass",
+      "title": "JR 東日本・南北海道鐵路周遊券（2026-10-14 – 2026-10-19）",
+      "amount": {
+        "amount": 40000,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": null
+    },
+    {
+      "id": "narita-chiba",
+      "date": "2026-10-10",
+      "dayId": "day-1",
+      "category": "transport",
+      "title": "成田機場 → 千葉",
+      "amount": {
+        "amount": 720,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": "narita-chiba-1010"
+    },
+    {
+      "id": "chiba-tokyo",
+      "date": "2026-10-11",
+      "dayId": "day-2",
+      "category": "transport",
+      "title": "千葉 ↔ 東京站（可选）",
+      "amount": {
+        "amount": 1440,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": "chiba-tokyo-1011"
+    },
+    {
+      "id": "tokyo-sendai",
+      "date": "2026-10-12",
+      "dayId": "day-3",
+      "category": "transport",
+      "title": "千葉 → 東京 → 仙台",
+      "amount": {
+        "amount": 6930,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": "oct12-tokyo-sendai"
+    },
+    {
+      "id": "sendai-matsushima",
+      "date": "2026-10-13",
+      "dayId": "day-4",
+      "category": "transport",
+      "title": "仙台 ↔ 松島海岸",
+      "amount": {
+        "amount": 880,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": "oct13-matsushima"
+    },
+    {
+      "id": "sendai-hiraizumi-morioka",
+      "date": "2026-10-14",
+      "dayId": "day-5",
+      "category": "transport",
+      "title": "仙台 → 平泉 → 盛岡",
+      "amount": {
+        "amount": 3520,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": "jr-east-south-hokkaido-pass",
+      "linkedId": "oct14-hiraizumi-morioka"
+    },
+    {
+      "id": "morioka-aomori",
+      "date": "2026-10-15",
+      "dayId": "day-6",
+      "category": "transport",
+      "title": "盛岡 → 八戶 → 青森",
+      "amount": {
+        "amount": 5930,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": "jr-east-south-hokkaido-pass",
+      "linkedId": "2026-10-15-morioka-aomori"
+    },
+    {
+      "id": "aomori-hirosaki",
+      "date": "2026-10-16",
+      "dayId": "day-7",
+      "category": "transport",
+      "title": "青森 ↔ 弘前",
+      "amount": {
+        "amount": 1440,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": "jr-east-south-hokkaido-pass",
+      "linkedId": "oct16-hirosaki"
+    },
+    {
+      "id": "aomori-hakodate-ferry",
+      "date": "2026-10-17",
+      "dayId": "day-8",
+      "category": "transport",
+      "title": "青森 → 渡輪 → 函館（含兩端港口巴士）",
+      "amount": {
+        "amount": 3780,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": "oct17-ferry"
+    },
+    {
+      "id": "hakodate-tokyo",
+      "date": "2026-10-19",
+      "dayId": "day-10",
+      "category": "transport",
+      "title": "函館 → 新函館北斗 → 東京 → 千葉",
+      "amount": {
+        "amount": 24530,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": "jr-east-south-hokkaido-pass",
+      "linkedId": "2026-10-19-hakodate-tokyo"
+    },
+    {
+      "id": "tokyo-narita",
+      "date": "2026-10-20",
+      "dayId": "day-11",
+      "category": "transport",
+      "title": "千葉 → 成田機場",
+      "amount": {
+        "amount": 720,
+        "currency": "JPY"
+      },
+      "paid": false,
+      "coveredByExpenseId": null,
+      "linkedId": "tokyo-narita-1020"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-plan",
+      "title": "行程说明",
+      "text": "2026 年 10 月 10–20 日，共 11 天 10 夜。10、11、19 日都住千叶，不在东京过夜；暂按 JR 千叶站周边规划，酒店未定。11 日东京当天往返是可选行程。航班时间及航站楼待确认，机场段不预设班次。"
+    },
+    {
+      "id": "note-1",
+      "title": "假日北上，先确认车次",
+      "text": "10 月 10–12 日为日本三连休，12 日是体育之日，也是北上仙台这一天。按周末 / 假日時刻查普通车；如选新干线缩短版，优先确认指定席。千叶前两晚与仙台住宿也请尽早核对。 青森县国スポ于 10 月 10–20 日举行，与本次青森停留重叠；建议尽早核对住宿与需要预约的座位，未确认余位。"
+    },
+    {
+      "id": "note-2",
+      "title": "渡轮跨海后，单买票更省",
+      "text": "按千叶出发与回千叶的新路线，主行程逐程购票约 ¥48,450；6 天 JR 周游券加自费路段约 ¥53,030。两边均未计 11 日可选东京往返，选择去东京就各加 ¥1,440。北上用千叶至盛冈通程票的版本约 ¥47,570，具体见比较表。"
+    },
+    {
+      "id": "note-3",
+      "title": "天气与夜景，都留备选",
+      "text": "函馆两晚为 10 月 17–18 日，在本次缆车计划检修前，仍需核对当日天气与运营。香雪园灯光节可作为另一晚选项；沿途红叶进度不作保证。"
+    },
+    {
+      "id": "note-summary",
+      "title": "住宿分配与待定事项",
+      "text": "10 晚分配：千叶 2＋仙台 2＋盛冈 1＋青森 2＋函馆 2＋千叶 1。东京只作为可选日游与转车点，没有东京住宿。还需确定：成田航班时间／航站楼 · 千叶酒店 · 11 日是否去东京 · 12 日北上组合 · 17 日船班 · 19 日回千叶接续。本页没有实时余票或任何预订。"
+    },
+    {
+      "id": "note-fare-optimized",
+      "title": "千葉 → 盛岡通程票版本",
+      "text": "以 ¥9,570 的千葉 → 盛岡普通乘車券，取代 12 日千葉 → 仙台 ¥6,930 ＋14 日仙台 → 盛岡 ¥3,520，省 ¥880。10 月 12 日起有效 4 天至 15 日，可在仙台住宿，14 日平泉途中下車後繼續到盛岡；松島往返另買。這是北上通程票的比較版本，並非聲稱所有票券組合的最低價。"
+    }
+  ],
+  "sources": [
+    {
+      "title": "JR 东日本 · 时刻表",
+      "url": "https://timetables.jreast.co.jp/en/"
+    },
+    {
+      "title": "松岛 · 交通与车站",
+      "url": "https://www.matsushima-kanko.com/access/"
+    },
+    {
+      "title": "平泉 · 官方观光",
+      "url": "https://hiraizumi.or.jp/"
+    },
+    {
+      "title": "盛冈 · 步行路线",
+      "url": "https://www.odette.or.jp/?page_id=1717"
+    },
+    {
+      "title": "IGR · 车站时刻表",
+      "url": "https://igr.jp/timetable/station-timetable/"
+    },
+    {
+      "title": "青い森铁道 · 官方",
+      "url": "https://aoimorirailway.com/"
+    },
+    {
+      "title": "睡魔之家 · 开馆信息",
+      "url": "https://www.nebuta.jp/warasse/foreign/english.html"
+    },
+    {
+      "title": "弘前城 · 关闭公告",
+      "url": "https://www.city.hirosaki.aomori.jp/gaiyou/shisetsu/park/2025-0730-1628-48.html"
+    },
+    {
+      "title": "JR 北海道 · 新干线与 Liner",
+      "url": "https://www.jrhokkaido.co.jp/global/english/shinkansen/"
+    },
+    {
+      "title": "津轻海峡渡轮 · 青森—函馆",
+      "url": "https://www.tsugarukaikyo.co.jp/guide/searoute/hakodate-aomori/"
+    },
+    {
+      "title": "函馆 · 城际交通",
+      "url": "https://www.hakodate.travel/en/information/access/"
+    },
+    {
+      "title": "函馆 · 市内交通",
+      "url": "https://www.hakodate.travel/en/information/transportation/"
+    },
+    {
+      "title": "函馆山 · 交通与检修",
+      "url": "https://www.hakodate.travel/en/information/mt-hakodate/"
+    },
+    {
+      "title": "日本内阁府 · 2026 假日",
+      "url": "https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html"
+    },
+    {
+      "title": "北海道 · 香雪园 MOMI-G 2026",
+      "url": "https://www.visit-hokkaido.jp/event/detail_10211.html"
+    },
+    {
+      "title": "JR 东日本・南北海道铁路周游券",
+      "url": "https://www.jreast.co.jp/zh-CHT/multi/pass/easthokkaido.html"
+    },
+    {
+      "title": "周游券 · 使用资格",
+      "url": "https://www.jreast.co.jp/zh-CHT/multi/pass/purchase_hokkaido.html"
+    },
+    {
+      "title": "青森国スポ 2026 · 会期",
+      "url": "https://aomorikokuspo2026.pref.aomori.lg.jp/kokuspo/kaiki/"
+    },
+    {
+      "title": "成田机场 · 铁路与航站楼",
+      "url": "https://www.narita-airport.jp/en/access/train/"
+    },
+    {
+      "title": "JR · N’EX 票价与指定席",
+      "url": "https://www.jreast.co.jp/multi/nex/tickets/"
+    },
+    {
+      "title": "地图位置 · 成田机场",
+      "url": "https://ourairports.com/airports/RJAA/"
+    },
+    {
+      "title": "地图位置 · JR 千叶站",
+      "url": "https://www.getty.edu/vow/TGNFullDisplay?english=Y&find=&nation=&place=&subjectid=9025386"
+    },
+    {
+      "title": "JR 東日本 · 2026 票價表",
+      "url": "https://www.jreast.co.jp/2026unchin-kaitei/assets/pdf/pamphlet.pdf"
+    },
+    {
+      "title": "IGR · 連絡票販售範圍",
+      "url": "https://igr.jp/fare/ticket-guide/"
+    },
+    {
+      "title": "青い森鐵道 · 盛岡連絡票價",
+      "url": "https://aoimorirailway.com/wp/wp-content/uploads/2026/02/54225e36477d4525e34dc2f0d0f74723.pdf"
+    },
+    {
+      "title": "青い森鐵道 · 八戶票價",
+      "url": "https://aoimorirailway.com/smart/unchin/aoi_20_01.html"
+    },
+    {
+      "title": "JR · 新幹線指定席費用",
+      "url": "https://www.jr-odekake.net/ticket/guide/ebook/pages/pageindices/index7.html"
+    },
+    {
+      "title": "JR 東日本 · 乘車券有效期",
+      "url": "https://www.jreast.co.jp/kippu/04.html"
+    },
+    {
+      "title": "津輕海峽渡輪 · 票價",
+      "url": "https://www.tsugarukaikyo.co.jp/service/fare/hakodate-aomori/"
+    },
+    {
+      "title": "渡輪 · 青森港接駁",
+      "url": "https://www.tsugarukaikyo.co.jp/guide/terminal/aomori/access/"
+    },
+    {
+      "title": "渡輪 · 函館港接駁",
+      "url": "https://www.tsugarukaikyo.co.jp/guide/terminal/hakodate/access/"
+    },
+    {
+      "title": "JR · 秋の乗り放題パス",
+      "url": "https://www.jrhokkaido.co.jp/CM/Otoku/007264/"
+    },
+    {
+      "title": "JR 東日本 · 成田與千葉普通票價",
+      "url": "https://www.jreast.co.jp/zh-CHT/2026unchin-kaitei/assets/pdf/pamphlet.pdf"
+    },
+    {
+      "title": "JR East-South Hokkaido Rail Pass：¥40,000、連續6日及適用路線",
+      "url": "https://www.jreast.co.jp/en/multi/pass/easthokkaido.html"
+    },
+    {
+      "title": "JR東日本 途中下車規則",
+      "url": "https://www.jreast.co.jp/kippu/05.html"
+    },
+    {
+      "title": "JR東日本 2026秋の乗り放題パス：連續3日、¥7,850、10月3–18日可用",
+      "url": "https://www.jreast.co.jp/tickets/info.aspx?GoodsCd=3013"
+    },
+    {
+      "title": "JR西日本 2026年3月 票券規則第7頁：Hayabusa普通車指定席特急費",
+      "url": "https://www.jr-odekake.net/ticket/guide/ebook/pages_2603/pageindices/index7.html"
+    },
+    {
+      "title": "JR西日本 2026年3月 票券規則第8頁：東京至東北各站及新函館北斗營業公里",
+      "url": "https://www.jr-odekake.net/ticket/guide/ebook/pages_2603/pageindices/index8.html"
+    },
+    {
+      "title": "JR北海道 各站營業公里：函館至新函館北斗17.9公里",
+      "url": "https://www.jrhokkaido.co.jp/fare/pdf/05.pdf"
+    },
+    {
+      "title": "JR北海道營業區域：新青森至新函館北斗148.8公里",
+      "url": "https://www.jrhokkaido.co.jp/corporate/company/com_02.html"
+    },
+    {
+      "title": "國土交通省首都圈鐵路資料：東京至千葉總武快速線39.2公里（第56頁）",
+      "url": "https://www.mlit.go.jp/common/000208774.pdf"
+    },
+    {
+      "title": "JR東日本 指定席旺淡季規則：10月12日繁忙期；10月19日通常期",
+      "url": "https://www.jreast.co.jp/kippu/1202.html"
+    },
+    {
+      "title": "青森市2026年ねぶたん號巴士",
+      "url": "https://www.city.aomori.aomori.jp/_res/projects/default_project/_page_/001/002/393/2026_jp.pdf"
+    },
+    {
+      "title": "JR成田空港站官方時刻表（可選平日／假日）",
+      "url": "https://timetables.jreast.co.jp/timetable/list1130.html"
+    },
+    {
+      "title": "駅探：千葉—成田空港 JR普通車票價、40.0公里（交叉核對）",
+      "url": "https://ekitan.com/transit/fare/sf-2532/st-2692"
+    },
+    {
+      "title": "JR官方快速列車設備例：普通車自由席／Green車自由席",
+      "url": "https://timetables.jreast.co.jp/2610/train/110/114401.html"
+    },
+    {
+      "title": "JR官方 N’EX特急料金表：含機場50公里內¥1,290",
+      "url": "https://www.jreast.co.jp/press/2023/chiba/20231215_c01.pdf"
+    },
+    {
+      "title": "JRE官方千葉站成田エクスプレス指南",
+      "url": "https://media.jreast.co.jp/articles/2374"
+    },
+    {
+      "title": "京成千葉站官方票價表（2025-04-01）",
+      "url": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/435.pdf"
+    },
+    {
+      "title": "京成成田空港站官方本線票價表（2025-04-01）",
+      "url": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/145a.pdf"
+    },
+    {
+      "title": "京成空港第2ビル站官方本線票價表（2025-04-01）",
+      "url": "https://www.keisei.co.jp/keisei/tetudou/fare/pdf/144a.pdf"
+    },
+    {
+      "title": "京成官方本線特急／快速特急：毋須特急附加費",
+      "url": "https://www.keisei.co.jp/keisei/tetudou/skyliner/us/traffic/main.php"
+    },
+    {
+      "title": "JR千葉站2026年10月總武快速假日時刻表",
+      "url": "https://timetables.jreast.co.jp/2610/timetable/tt0989/0989041.html"
+    },
+    {
+      "title": "JR東京站官方時刻表（選總武線快速土曜・休日）",
+      "url": "https://timetables.jreast.co.jp/timetable/list1039.html"
+    },
+    {
+      "title": "JR 官方 上野東京ライン・宇都宮線 1524E 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/075/076811.html"
+    },
+    {
+      "title": "JR 官方 宇都宮線普通 641M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/040/041561.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 4131M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/060/064781.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 2131M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/085/089981.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1135M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/000/001071.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1179M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/070/073041.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 449M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/025/029021.html"
+    },
+    {
+      "title": "JR 官方新幹線特急料金表",
+      "url": "https://railway.jr-central.co.jp/ticket-rule/cjr-regulation/_pdf/000045002.pdf"
+    },
+    {
+      "title": "JR 東日本自由席特急料金規則",
+      "url": "https://www.jreast.co.jp/kippu/1203.html"
+    },
+    {
+      "title": "JR 東北本線黒磯→仙台假日時刻（含備援）",
+      "url": "https://timetables.jreast.co.jp/2610/timetable-v/247d2.html"
+    },
+    {
+      "title": "JR東日本 2026年10月官方時刻表 · 544F",
+      "url": "https://timetables.jreast.co.jp/2610/train/130/131722.html"
+    },
+    {
+      "title": "JR東日本東京站構內圖與新幹線轉乘標準時間",
+      "url": "https://www.jreast.co.jp/estation/stations/1039.html"
+    },
+    {
+      "title": "JR 官方 やまびこ 53号 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/010/013341.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1175M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/070/073021.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 441M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/020/020871.html"
+    },
+    {
+      "title": "JR東日本 2026年10月官方時刻表 · 624F",
+      "url": "https://timetables.jreast.co.jp/2610/train/110/114462.html"
+    },
+    {
+      "title": "JR 官方 はやぶさ 5号 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/110/110951.html"
+    },
+    {
+      "title": "JR東日本 2026年10月官方時刻表 · 672F",
+      "url": "https://timetables.jreast.co.jp/2610/train/130/131811.html"
+    },
+    {
+      "title": "JR 官方 仙石線普通 831S 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/030/031821.html"
+    },
+    {
+      "title": "JR 官方 仙石線普通 1584S 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/080/080441.html"
+    },
+    {
+      "title": "JR 官方 仙石線普通 921S 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/040/044331.html"
+    },
+    {
+      "title": "JR 官方 仙石線普通 1622S 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/040/044771.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 2527M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/070/073371.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 543M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/070/071631.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1533M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/000/004601.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1539M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/000/004721.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 2521M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/070/073331.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 541M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/010/013391.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1531M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/000/004551.html"
+    },
+    {
+      "title": "JR 官方 東北本線普通 1537M 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/000/004681.html"
+    },
+    {
+      "title": "JR 官方 やまびこ 51号 停站時刻與運行日曆",
+      "url": "https://timetables.jreast.co.jp/2610/train/010/013001.html"
+    },
+    {
+      "title": "IGR 官方時刻表 · 2026.03.14 起適用",
+      "url": "https://igr.jp/wp-content/themes/igr/assets/pdf/20260314timetable.pdf"
+    },
+    {
+      "title": "JR 東日本 · 2026 年 10 月列車時刻",
+      "url": "https://timetables.jreast.co.jp/2610/train/180/182321.html"
+    },
+    {
+      "title": "JR 東日本 · 2026 年 10 月列車時刻",
+      "url": "https://timetables.jreast.co.jp/2610/train/095/097651.html"
+    },
+    {
+      "title": "JR 東日本 · 2026 年 10 月列車時刻",
+      "url": "https://timetables.jreast.co.jp/2610/train/030/030651.html"
+    },
+    {
+      "title": "JR 東日本 · 2026 年 10 月列車時刻",
+      "url": "https://timetables.jreast.co.jp/2610/train/030/034251.html"
+    },
+    {
+      "title": "JR 東日本 · 2026 年 10 月列車時刻",
+      "url": "https://timetables.jreast.co.jp/2610/train/045/046661.html"
+    },
+    {
+      "title": "JR 東日本 · 2026 年 10 月列車時刻",
+      "url": "https://timetables.jreast.co.jp/2610/train/030/034311.html"
+    },
+    {
+      "title": "津輕海峽渡輪：9月17日–12月29日正式時刻",
+      "url": "https://www.tsugarukaikyo.co.jp/service/timetable/hakodate-aomori/"
+    },
+    {
+      "title": "海割ウォーク：提前5天優惠",
+      "url": "https://www.tsugarukaikyo.co.jp/plan/umiwari/umiwariwalk/"
+    },
+    {
+      "title": "登船辦理與截止時間",
+      "url": "https://www.tsugarukaikyo.co.jp/guide/embarkation/"
+    },
+    {
+      "title": "青函渡輪時刻",
+      "url": "https://www.seikan-ferry.co.jp/schedule/"
+    },
+    {
+      "title": "青函渡輪票價",
+      "url": "https://www.seikan-ferry.co.jp/fare/"
+    },
+    {
+      "title": "青函渡輪辦理手續",
+      "url": "https://www.seikan-ferry.co.jp/reservation/"
+    },
+    {
+      "title": "青函碼頭→函館站巴士",
+      "url": "https://www.seikan-ferry.co.jp/news/%E5%87%BD%E9%A4%A8%E3%82%BF%E3%83%BC%E3%83%9F%E3%83%8A%E3%83%AB-%E2%87%8B-%E5%87%BD%E9%A4%A8%E9%A7%85%E5%89%8D%E3%81%AE%E8%B7%AF%E7%B7%9A%E3%83%90%E3%82%B9%E3%80%90%E6%96%B0%E8%A8%AD%E3%83%BB%E5%A2%97/"
+    },
+    {
+      "title": "JR 北海道 · 2026.10.19 函館本線時刻",
+      "url": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=2810&d=20261019"
+    },
+    {
+      "title": "JR 北海道 · 2026.10.19 新幹線時刻",
+      "url": "https://jrhokkaidonorikae.com/vtime/vtime.php?s=31&d=20261019"
+    },
+    {
+      "title": "JR東日本 2026年10月官方時刻表 · 1341F",
+      "url": "https://timetables.jreast.co.jp/2610/train/115/115791.html"
+    },
+    {
+      "title": "JR東日本 2026年10月官方時刻表 · 1753F",
+      "url": "https://timetables.jreast.co.jp/2610/train/105/108021.html"
+    },
+    {
+      "title": "JR東日本 2026年10月官方時刻表 · 1907F",
+      "url": "https://timetables.jreast.co.jp/2610/train/115/116061.html"
+    },
+    {
+      "title": "JR千葉站官方時刻表（成田空港方向）",
+      "url": "https://timetables.jreast.co.jp/timetable/list0989.html"
+    }
+  ],
+  "views": [
+    {
+      "id": "view-jr-pass-vs-ic",
+      "title": "JR Pass vs IC 卡逐程付款",
+      "dayId": null,
+      "spec": {
+        "root": "root",
+        "elements": {
+          "root": {
+            "type": "Stack",
+            "props": {
+              "gap": "large"
+            },
+            "children": [
+              "intro",
+              "stats",
+              "verdict",
+              "chart",
+              "table",
+              "optional",
+              "how"
+            ]
+          },
+          "intro": {
+            "type": "Text",
+            "props": {
+              "text": "JR 東日本・南北海道鐵路周遊券 ¥40,000，连续 6 天（10.14–10.19）。同一行程、成人 1 人：一边买周游券，有效期外的车程用 IC 卡；一边全程用 IC 卡（不能用 IC 的车程买纸票）逐程付款。",
+              "tone": "muted"
+            }
+          },
+          "stats": {
+            "type": "Grid",
+            "props": {
+              "columns": 2
+            },
+            "children": [
+              "stat-pass",
+              "stat-ic"
+            ]
+          },
+          "stat-pass": {
+            "type": "Stat",
+            "props": {
+              "label": "周游券方案",
+              "value": 53020,
+              "format": "money",
+              "detail": "含周游券 ¥40,000",
+              "tone": "default"
+            }
+          },
+          "stat-ic": {
+            "type": "Stat",
+            "props": {
+              "label": "IC 卡逐程付款",
+              "value": 48440,
+              "format": "money",
+              "detail": "不买周游券",
+              "tone": "positive"
+            }
+          },
+          "verdict": {
+            "type": "Callout",
+            "props": {
+              "title": "IC 卡逐程付款约省 ¥4,580",
+              "text": "10.14–10.19 有效期内的车费合计 ¥35,420，低于周游券本身 ¥40,000。",
+              "tone": "success"
+            }
+          },
+          "chart": {
+            "type": "BarChart",
+            "props": {
+              "title": "主行程交通合计",
+              "format": "money",
+              "items": [
+                {
+                  "label": "周游券方案",
+                  "value": 53020,
+                  "tone": "accent"
+                },
+                {
+                  "label": "IC 卡逐程付款",
+                  "value": 48440,
+                  "tone": "positive"
+                }
+              ]
+            }
+          },
+          "table": {
+            "type": "Table",
+            "props": {
+              "caption": "各段车费（日元）",
+              "columns": [
+                {
+                  "key": "date",
+                  "label": "日期"
+                },
+                {
+                  "key": "route",
+                  "label": "路段"
+                },
+                {
+                  "key": "ic",
+                  "label": "IC 卡逐程",
+                  "align": "trailing",
+                  "format": "money",
+                  "total": true
+                },
+                {
+                  "key": "pass",
+                  "label": "周游券方案",
+                  "align": "trailing",
+                  "format": "money",
+                  "total": true
+                }
+              ],
+              "rows": [
+                {
+                  "cells": {
+                    "date": "—",
+                    "route": {
+                      "value": "周游券本身",
+                      "detail": "连续 6 天 · 10.14–10.19"
+                    },
+                    "ic": {
+                      "value": "不购买",
+                      "tone": "muted"
+                    },
+                    "pass": 40000
+                  },
+                  "style": "emphasis"
+                },
+                {
+                  "cells": {
+                    "date": "10.10",
+                    "route": {
+                      "value": "成田機場 → 千葉",
+                      "detail": "JR成田線普通／快速，成人紙票；T1與T2／3同价。10/14起周遊券尚未生效"
+                    },
+                    "ic": {
+                      "value": 715,
+                      "detail": "IC"
+                    },
+                    "pass": {
+                      "value": 715,
+                      "detail": "IC"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.12",
+                    "route": {
+                      "value": "千葉 → 東京 → 仙台",
+                      "detail": "全程普通／快速；一張通程普通乘車券，391.0公里，381–400公里級距¥6,930；不另加千葉→東京¥720"
+                    },
+                    "ic": {
+                      "value": 6930,
+                      "detail": "纸票"
+                    },
+                    "pass": {
+                      "value": 6930,
+                      "detail": "纸票"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.13",
+                    "route": {
+                      "value": "仙台 ↔ 松島海岸",
+                      "detail": "JR仙石線來回，¥440×2；周遊券尚未生效"
+                    },
+                    "ic": {
+                      "value": 880,
+                      "detail": "纸票"
+                    },
+                    "pass": {
+                      "value": 880,
+                      "detail": "纸票"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.14",
+                    "route": {
+                      "value": "仙台 → 平泉 → 盛岡",
+                      "detail": "JR東北本線普通；183.5公里通程票，平泉途中下車；周遊券第1日"
+                    },
+                    "ic": {
+                      "value": 3520,
+                      "detail": "纸票"
+                    },
+                    "pass": {
+                      "value": "已包含",
+                      "detail": "有效期内",
+                      "tone": "positive"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.15",
+                    "route": {
+                      "value": "盛岡 → 八戶 → 青森",
+                      "detail": "沿用已核對IGR＋青い森鐵道分段票基準；兩鐵道均在本周遊券範圍"
+                    },
+                    "ic": {
+                      "value": 5930,
+                      "detail": "纸票"
+                    },
+                    "pass": {
+                      "value": "已包含",
+                      "detail": "有效期内",
+                      "tone": "positive"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.16",
+                    "route": {
+                      "value": "青森 ↔ 弘前",
+                      "detail": "JR奧羽本線普通來回，¥720×2"
+                    },
+                    "ic": {
+                      "value": 1440,
+                      "detail": "纸票"
+                    },
+                    "pass": {
+                      "value": "已包含",
+                      "detail": "有效期内",
+                      "tone": "positive"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.17",
+                    "route": {
+                      "value": "青森 → 渡輪 → 函館（含兩端港口巴士）",
+                      "detail": "津輕海峽渡輪Standard普通票¥3,160＋青森巴士¥300＋函館接駁¥320；全部自費"
+                    },
+                    "ic": {
+                      "value": 3780,
+                      "detail": "渡轮另付"
+                    },
+                    "pass": {
+                      "value": 3780,
+                      "detail": "渡轮另付"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.19",
+                    "route": {
+                      "value": "函館 → 新函館北斗 → 東京 → 千葉",
+                      "detail": "函館Liner＋Hayabusa普通車指定席＋總武快速；通程基本運賃¥13,200＋指定席特急費¥11,330；已含東京→千葉，勿另加¥720；周遊券第6日"
+                    },
+                    "ic": {
+                      "value": 24530,
+                      "detail": "纸票"
+                    },
+                    "pass": {
+                      "value": "已包含",
+                      "detail": "有效期内",
+                      "tone": "positive"
+                    }
+                  },
+                  "style": null
+                },
+                {
+                  "cells": {
+                    "date": "10.20",
+                    "route": {
+                      "value": "千葉 → 成田機場",
+                      "detail": "JR普通／快速；10/14–19周遊券已到期"
+                    },
+                    "ic": {
+                      "value": 715,
+                      "detail": "IC"
+                    },
+                    "pass": {
+                      "value": 715,
+                      "detail": "IC"
+                    }
+                  },
+                  "style": null
+                }
+              ],
+              "totalLabel": "主行程合计"
+            }
+          },
+          "optional": {
+            "type": "Disclosure",
+            "props": {
+              "title": "可选：10.11 东京日游"
+            },
+            "children": [
+              "optional-list"
+            ]
+          },
+          "optional-list": {
+            "type": "KeyValue",
+            "props": {
+              "items": [
+                {
+                  "label": "千葉 ↔ 東京站",
+                  "value": 1430,
+                  "format": "money"
+                }
+              ]
+            }
+          },
+          "how": {
+            "type": "Disclosure",
+            "props": {
+              "title": "怎么算"
+            },
+            "children": [
+              "how-list"
+            ]
+          },
+          "how-list": {
+            "type": "List",
+            "props": {
+              "items": [
+                "IC 票价只有成田机场 ↔ 千叶、千叶 ↔ 东京已核对；其余车程按纸票价计。",
+                "IC 卡不能跨 IC 区域使用，新干线也须另买车票：千叶 → 仙台、函馆 → 千叶等车程两种方案都按纸票计。",
+                "周游券只在 10.14–10.19 有效；渡轮及港口巴士两种方案都另付。",
+                "预算比较，不是订票报价或实时余票。"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "view-pass-day-1",
+      "title": "周游券第 1 天",
+      "dayId": "day-5",
+      "spec": {
+        "root": "card",
+        "elements": {
+          "card": {
+            "type": "Card",
+            "props": {
+              "title": "JR 東日本・南北海道鐵路周遊券",
+              "subtitle": "连续 6 天 · 10.14–10.19"
+            },
+            "children": [
+              "facts",
+              "note"
+            ]
+          },
+          "facts": {
+            "type": "KeyValue",
+            "props": {
+              "items": [
+                {
+                  "label": "周游券",
+                  "value": 40000,
+                  "format": "money"
+                },
+                {
+                  "label": "有效期内车费合计",
+                  "value": 35420,
+                  "format": "money"
+                },
+                {
+                  "label": "差额",
+                  "value": -4580,
+                  "format": "money",
+                  "tone": "negative"
+                }
+              ]
+            }
+          },
+          "note": {
+            "type": "Callout",
+            "props": {
+              "text": "有效期内车费低于周游券价格时，用 IC 卡或纸票逐程付款更省。",
+              "tone": "tip"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

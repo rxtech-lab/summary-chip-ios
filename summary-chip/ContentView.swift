@@ -102,7 +102,8 @@ struct ContentView: View {
     private var presentationBinding: Binding<RootPresentation?> {
         Binding(get: { presentation }, set: { value in
             if value == nil, case .summary(let route) = presentation,
-               environment.pendingRoute == route {
+               environment.pendingRoute == route
+            {
                 environment.pendingRoute = nil
             }
             if value == nil, case .topUp = presentation { environment.pendingTopUp = false }
@@ -157,6 +158,7 @@ private struct NewSummaryRequest {
 
 enum MainTab: Hashable {
     case library
+    case likes
     case chat
     case settings
 }
@@ -166,22 +168,38 @@ struct MainTabView: View {
     @Bindable var environment: AppEnvironment
     @State private var selection: MainTab = .library
     @State private var libraryPath: [Summary] = []
+    @State private var likesPath: [Summary] = []
 
     var body: some View {
         TabView(selection: $selection) {
             Tab("Library", systemImage: "square.stack", value: MainTab.library) {
                 LibraryView(environment: environment, path: $libraryPath)
             }
-            Tab("Chat", systemImage: "bubble.left.and.text.bubble.right", value: MainTab.chat) {
-                ChatView(environment: environment)
+            Tab("Likes", systemImage: "star", value: MainTab.likes) {
+                LikesView(environment: environment, path: $likesPath)
             }
             Tab("Settings", systemImage: "gearshape", value: MainTab.settings) {
                 SettingsView(environment: environment)
+            }
+            Tab("Chat", systemImage: "bubble.left.and.text.bubble.right", value: MainTab.chat, role: chatTabRole) {
+                ChatView(environment: environment)
             }
         }
         .summarySearchPresentation(environment: environment) { summary in
             selection = .library
             libraryPath = [summary]
         }
+    }
+
+    /// iOS 27 sets the chat tab apart from the others as the prominent tab.
+    private var chatTabRole: TabRole? {
+        if #available(iOS 27.0, *) {
+            if #available(anyAppleOS 27.0, *) {
+                return .prominent
+            } else {
+                // Fallback on earlier versions
+            }
+        }
+        return nil
     }
 }

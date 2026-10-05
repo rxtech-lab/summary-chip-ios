@@ -9,9 +9,11 @@ struct LibraryFilter: Hashable {
     var tag: String?
     var visibility: SummaryVisibility?
     var source: SummaryOrigin?
+    /// Only summaries or only trips.
+    var kind: SummaryKind?
 
     var isActive: Bool { activeCount > 0 }
-    var activeCount: Int { [scope != .all, category != nil, tag != nil, visibility != nil, source != nil].filter { $0 }.count }
+    var activeCount: Int { [scope != .all, category != nil, tag != nil, visibility != nil, source != nil, kind != nil].filter { $0 }.count }
 }
 
 /// The library (`GET /api/v1/summaries`): your own summaries plus others' you opened from shared
@@ -54,6 +56,7 @@ final class LibraryModel {
             tag: filter.tag,
             visibility: filter.visibility,
             source: filter.source,
+            kind: filter.kind,
             cursor: cursor,
             limit: Self.pageSize
         )

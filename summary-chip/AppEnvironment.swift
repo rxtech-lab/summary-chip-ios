@@ -9,11 +9,14 @@ nonisolated enum AuthenticationPresentationState: Sendable, Equatable { case che
 enum AppRoute: Identifiable, Hashable {
     case slug(String)
     case summaryID(String)
+    /// A trip diary: `summarychip://trip/<id>` or a `tripId` push.
+    case tripID(String)
 
     var id: String {
         switch self {
         case .slug(let slug): "slug:\(slug)"
         case .summaryID(let id): "id:\(id)"
+        case .tripID(let id): "trip:\(id)"
         }
     }
 
@@ -22,6 +25,8 @@ enum AppRoute: Identifiable, Hashable {
             self = .slug(slug)
         } else if let id = SummaryLink.summaryID(from: url) {
             self = .summaryID(id)
+        } else if let id = SummaryLink.tripID(from: url) {
+            self = .tripID(id)
         } else {
             return nil
         }
@@ -38,6 +43,7 @@ final class AppEnvironment {
     let chatStore = ChatTranscriptStore()
     let assetLoader: SummaryAssetLoader
     let library: LibraryModel
+    let likes: LikesModel
     let credits = SummaryCreditsStore()
     var pendingTopUp = false
     private(set) var authenticationState: AuthenticationPresentationState
@@ -58,7 +64,9 @@ final class AppEnvironment {
         self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker)
         self.chatClient = ChatStreamClient(api: api)
         self.assetLoader = SummaryAssetLoader(tokenProvider: tokenBroker)
-        self.library = LibraryModel(api: api, offline: OfflineSummaryStore())
+        let offline = OfflineSummaryStore()
+        self.library = LibraryModel(api: api, offline: offline)
+        self.likes = LikesModel(api: api, offline: offline)
         SummaryAssetLoader.retainImagesForOfflineUse()
         self.authenticationState = authenticationState
     }
@@ -142,6 +150,15 @@ final class AppEnvironment {
         return file
     }
 
+    /// Stars or unstars a summary, then updates it in the library and Likes. Returns the updated summary.
+    func setLiked(_ summary: Summary, _ liked: Bool) async throws -> Summary {
+        var updated = summary
+        updated.likedAt = try await api.setLiked(id: summary.id, liked: liked)
+        library.upsert(updated)
+        likes.apply(updated)
+        return updated
+    }
+
     func sessionExpired() async {
         await signOut()
     }
@@ -165,6 +182,7 @@ final class AppEnvironment {
         await authManager.logout()
         SharedLogoutPurger.purge()
         library.reset()
+        likes.reset()
         credits.reset()
         pendingTopUp = false
         pendingRoute = nil

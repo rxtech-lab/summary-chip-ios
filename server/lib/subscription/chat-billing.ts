@@ -199,3 +199,24 @@ export function reserveTranslationPoints(userId: string, key: string, model: str
     },
   });
 }
+
+/**
+ * Holds points for the trip agent bringing a shared page into a trip; an empty balance is
+ * `402 TRIP_POINTS_EXHAUSTED`. `runId` names the run (one per request).
+ */
+export function reserveTripAgentPoints(userId: string, tripId: string, runId: string, model: string, environment?: BillingEnvironment): Promise<ChatCharge | null> {
+  return holdPoints({
+    userId,
+    key: `trip:${runId}`,
+    description: `Trip agent (${model})`,
+    metadata: { tripId, runId, model },
+    environment,
+    codes: {
+      exhausted: "TRIP_POINTS_EXHAUSTED",
+      exhaustedMessage: "Updating a trip from a shared page uses points and your balance is empty. Top up to keep using the trip agent.",
+      notConfigured: "TRIP_BILLING_NOT_CONFIGURED",
+      unavailable: "TRIP_BILLING_UNAVAILABLE",
+      unavailableMessage: "Your points balance could not be checked. Please try again.",
+    },
+  });
+}

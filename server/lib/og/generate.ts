@@ -1,5 +1,5 @@
 import type { AiProvider } from "@/lib/ai/provider";
-import type { ImageStyle, SummaryTheme } from "@/lib/db/schema";
+import type { ImageStyle, SummaryKind, SummaryTheme } from "@/lib/db/schema";
 import { fallbackSvg } from "./fallback-svg";
 import { renderArtPng, renderOgPng } from "./render";
 import { sanitizeSvg } from "./sanitize-svg";
@@ -13,6 +13,7 @@ export interface OgSubject {
   theme: SummaryTheme;
   siteLabel: string | null;
   language: string;
+  kind?: SummaryKind;
 }
 
 export interface OgImages {
@@ -40,6 +41,7 @@ export async function generateOgImages(subject: OgSubject, imageStyle: ImageStyl
     mode: subject.theme.mode,
     siteLabel: subject.siteLabel,
     language: subject.language,
+    kind: subject.kind,
   };
   const card = {
     headline: subject.headline,
