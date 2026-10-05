@@ -47,6 +47,7 @@ public enum ChatStreamEvent: Sendable, Hashable {
     case textEnd(id: String)
     case toolInputAvailable(toolCallId: String, toolName: String, input: JSONValue)
     case toolOutputAvailable(toolCallId: String, output: JSONValue)
+    case toolOutputError(toolCallId: String, errorText: String)
     case error(String)
     case finish
     /// `data: [DONE]`
@@ -88,6 +89,8 @@ public struct ChatStreamParser: Sendable {
             )
         case "tool-output-available":
             return .toolOutputAvailable(toolCallId: value["toolCallId"]?.stringValue ?? "", output: value["output"] ?? .null)
+        case "tool-output-error", "tool-input-error":
+            return .toolOutputError(toolCallId: value["toolCallId"]?.stringValue ?? "", errorText: value["errorText"]?.stringValue ?? String(localized: "The tool could not finish.", bundle: .module))
         case "error":
             return .error(value["errorText"]?.stringValue ?? String(localized: "Something went wrong.", bundle: .module))
         case "finish":
@@ -213,7 +216,28 @@ public struct SummaryReference: Codable, Sendable, Hashable, Identifiable {
 }
 
 public enum ChatToolOutput {
-    /// Extracts summary cards from a `searchSummaries` (`{results:[…]}`) or `getSummary`
+    public static func webReferences(from output: JSONValue) -> [ChatWebReference] {
+        guard case .array(let results)? = output["results"] else { return [] }
+        var seen = Set<URL>()
+        return results.compactMap { result in
+            guard let raw = result["url"]?.stringValue, let url = URL(string: raw),
+                  ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil,
+                  seen.insert(url).inserted else { return nil }
+            return ChatWebReference(title: result["title"]?.stringValue ?? url.host ?? raw,
+                                    url: url, snippet: result["snippet"]?.stringValue,
+                                    date: result["date"]?.stringValue)
+        }
+    }
+
+    public static func renderedUI(from output: JSONValue) -> ChatRenderedUI? {
+        guard output["error"] == nil, let ui = output["ui"],
+              let result = try? ui.decode(ChatRenderedUI.self),
+              !result.title.isEmpty, result.spec.elements[result.spec.root] != nil,
+              result.spec.elements.count <= 300 else { return nil }
+        return result
+    }
+
+    /// Extracts library cards from `searchSummaries` / `listTrips` (`{results:[…]}`) or `getSummary` / `getTrip`
     /// (`{summary:{…}}`) output. Unknown shapes yield an empty list.
     public static func references(from output: JSONValue) -> [SummaryReference] {
         if case .array(let results)? = output["results"] {
@@ -228,6 +252,14 @@ public enum ChatToolOutput {
     /// The query or id a tool call was made with, shown on its card (`nil` when there's nothing to show).
     public static func detail(toolName: String, input: JSONValue) -> String? {
         switch toolName {
+        case "searchWeb":
+            if let query = input["query"]?.stringValue { return query }
+            if case .array(let queries)? = input["query"] {
+                return queries.compactMap(\.stringValue).joined(separator: " · ")
+            }
+            return nil
+        case "renderUI":
+            return input["title"]?.stringValue
         case "searchSummaries":
             let query = input["query"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let filters = [input["category"]?.stringValue, input["tag"]?.stringValue.map { "#\($0)" }].compactMap { $0 }
@@ -276,17 +308,26 @@ public enum ChatToolOutput {
 
     /// The error a tool reported in its output (e.g. `getSummary` on an inaccessible id).
     public static func errorText(from output: JSONValue) -> String? {
-        output["error"]?.stringValue
+        guard let error = output["error"]?.stringValue else { return nil }
+        return output["message"]?.stringValue ?? error
     }
 
     /// Human readable label for an in-flight tool call.
     public static func activityLabel(toolName: String, input: JSONValue) -> String {
         switch toolName {
+        case "searchWeb":
+            return String(localized: "Searching the web…", bundle: .module)
+        case "renderUI":
+            return String(localized: "Creating a view…", bundle: .module)
         case "searchSummaries":
             if let query = input["query"]?.stringValue, !query.isEmpty { return String(localized: "Searching for “\(query)”…", bundle: .module) }
             return String(localized: "Searching summaries…", bundle: .module)
         case "getSummary":
             return String(localized: "Reading summary…", bundle: .module)
+        case "listTrips":
+            return String(localized: "Finding your trips…", bundle: .module)
+        case "getTrip":
+            return String(localized: "Reading the trip…", bundle: .module)
         case "grepLocalFile":
             return String(localized: "Searching the file…", bundle: .module)
         case "readLocalFile":
@@ -299,4 +340,24 @@ public enum ChatToolOutput {
             return String(localized: "Working…", bundle: .module)
         }
     }
+}
+
+/// A web result stays separate from the user's saved summaries.
+public struct ChatWebReference: Codable, Sendable, Hashable, Identifiable {
+    public var title: String
+    public var url: URL
+    public var snippet: String?
+    public var date: String?
+    public var id: String { url.absoluteString }
+
+    public init(title: String, url: URL, snippet: String? = nil, date: String? = nil) {
+        self.title = title; self.url = url; self.snippet = snippet; self.date = date
+    }
+}
+
+/// A validated JSON component tree, rendered with the same native catalog as trip views.
+public struct ChatRenderedUI: Codable, Sendable, Hashable {
+    public var title: String
+    public var currency: String
+    public var spec: TripViewSpec
 }

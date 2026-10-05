@@ -394,6 +394,9 @@
         }
       }
     },
+    "%lld web sources" : {
+
+    },
     "%lld." : {
 
     },
@@ -2869,6 +2872,9 @@
         }
       }
     },
+    "Creating a view…" : {
+
+    },
     "Creating key…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4238,6 +4244,22 @@
         }
       }
     },
+    "Finding your trips…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查找你的行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在尋找你的行程…"
+          }
+        }
+      }
+    },
     "First" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5340,6 +5362,22 @@
         }
       }
     },
+    "Listed your trips" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已列出你的行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已列出你的行程"
+          }
+        }
+      }
+    },
     "Live Status" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6361,6 +6399,9 @@
         }
       }
     },
+    "No web results" : {
+
+    },
     "Non-reserved" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6838,6 +6879,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打開摘要"
+          }
+        }
+      }
+    },
+    "Open Trip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟行程"
           }
         }
       }
@@ -7653,6 +7710,22 @@
     "Read the page" : {
 
     },
+    "Read the trip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已读取行程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已讀取行程"
+          }
+        }
+      }
+    },
     "Reading stopped" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7703,6 +7776,22 @@
     },
     "Reading the page…" : {
 
+    },
+    "Reading the trip…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取行程…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取行程…"
+          }
+        }
+      }
     },
     "Receive a notification when a summary is added through the API or an AI agent. Tap the notification to open the summary. Summary titles may appear on your lock screen." : {
       "localizations" : {
@@ -8389,7 +8478,11 @@
         }
       }
     },
+    "Search your summaries and the web, and explore answers in tables and charts." : {
+
+    },
     "Search, compare and recall everything you've saved or viewed." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8420,6 +8513,9 @@
           }
         }
       }
+    },
+    "Searched the web" : {
+
     },
     "Searched your library" : {
       "localizations" : {
@@ -8452,6 +8548,9 @@
           }
         }
       }
+    },
+    "Searching the web…" : {
+
     },
     "Searching your library…" : {
       "localizations" : {
@@ -10536,6 +10635,18 @@
     "View Details" : {
 
     },
+    "View needs correction" : {
+
+    },
+    "View ready" : {
+
+    },
+    "View Sources (%lld)" : {
+
+    },
+    "View stopped" : {
+
+    },
     "View summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10647,6 +10758,12 @@
           }
         }
       }
+    },
+    "Web search unavailable" : {
+
+    },
+    "Web Sources" : {
+
     },
     "Website" : {
       "localizations" : {

@@ -3,7 +3,7 @@ import AgentMessageListUI
 import SummaryKit
 import SwiftUI
 
-struct ChatSummaryRoute: Hashable { let id: String }
+private struct ChatSummaryReference: Identifiable { let id: String }
 
 /// The library-wide agent (Chat tab, or the trailing chat column on large screens), or —
 /// with `summary` — a chat about one summary, presented as a sheet from its detail screen, or —
@@ -14,11 +14,17 @@ struct ChatView: View {
     /// Shown as a column beside other content rather than as its own page or sheet.
     let isPanel: Bool
     @State private var model: ChatModel
-    @State private var path: [ChatSummaryRoute] = []
+    @State private var transcriptEntries: [ChatEntry]
+    @State private var transcriptUpdateTask: Task<Void, Never>?
     @State private var isAtBottom = true
+    @State private var selectedReference: ChatSummaryReference?
+    @State private var referenceToOpen: Summary?
     @State private var inputBarHeight: CGFloat = 0
+    @State private var toolDetail: ChatToolActivity?
+    @State private var interactionFeedback = 0
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openLibraryItem) private var openLibraryItem
 
     init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil) {
         self.environment = environment
@@ -27,6 +33,7 @@ struct ChatView: View {
         let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip)
         model.onTripUpdated = onTripUpdated
         self._model = State(initialValue: model)
+        self._transcriptEntries = State(initialValue: model.entries)
     }
 
     private var trip: TripChat? { model.trip }
@@ -46,70 +53,132 @@ struct ChatView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                if model.entries.isEmpty {
-                    emptyState
-                } else {
-                    transcript
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The composer floats over the transcript with no backing bar; its height
-            // becomes the list's bottom inset so the last row still rests above it.
-            .overlay(alignment: .bottom) {
-                inputBar
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                        guard abs(height - inputBarHeight) > 0.5 else { return }
-                        inputBarHeight = height
-                    }
-            }
-            .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
-                if isStreaming { return .impact(weight: .light) }
-                return model.entries.last?.errorText == nil ? .impact(flexibility: .soft) : .error
-            }
-            .onChange(of: model.isStreaming) { _, isStreaming in
-                // Each answer spends points; keep the balance shown elsewhere current.
-                guard !isStreaming else { return }
-                Task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
-            }
-            .alert("Not Enough Points", isPresented: $model.needsTopUp) {
-                Button("Top Up") {
-                    // The top-up sheet is presented from the root, so close this chat sheet first.
-                    if isSheet { dismiss() }
-                    environment.pendingTopUp = true
-                }
-                Button("Later", role: .cancel) {}
-            } message: {
-                Text("Chatting uses points based on the AI's usage. Top up to keep chatting.")
-            }
-            .navigationTitle(title)
-            .summaryInlineNavigationTitle()
-            .summarySearchToolbar(isEnabled: !isSheet && !isPanel)
-            .navigationDestination(for: ChatSummaryRoute.self) { route in
-                // Already inside a summary chat sheet: don't offer another one on top.
-                SummaryLoaderView(environment: environment, id: route.id, allowsChat: !isSheet)
-            }
-            .toolbar {
-                if isSheet {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") { dismiss() }
-                    }
-                }
-                if !isSheet && !isPanel {
-                    ToolbarSpacer(.fixed, placement: .summaryTrailing)
-                }
-                ToolbarItem(placement: .summaryTrailing) {
-                    Button {
-                        model.newChat()
-                    } label: {
-                        Label("New Chat", systemImage: "square.and.pencil")
-                    }
-                    .disabled(model.entries.isEmpty)
+        Group {
+            if isPanel {
+                // The inspector already belongs to the detail column's navigation container.
+                chatContent
+            } else {
+                NavigationStack {
+                    chatContent
+                        .navigationTitle(title)
+                        .summaryInlineNavigationTitle()
                 }
             }
         }
         .modifier(SheetSizeUnlessPanel(isPanel: isPanel))
+    }
+
+    private var chatContent: some View {
+        Group {
+            if model.entries.isEmpty {
+                emptyState
+            } else {
+                transcript
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { transcriptEntries = model.entries }
+        .onChange(of: model.entries) { oldEntries, newEntries in
+            updateTranscript(oldEntries: oldEntries, newEntries: newEntries)
+        }
+        .onChange(of: model.isStreaming) { _, isStreaming in
+            if !isStreaming { flushTranscript() }
+        }
+        .onDisappear {
+            transcriptUpdateTask?.cancel()
+            transcriptUpdateTask = nil
+        }
+        // The composer floats over the transcript with no backing bar; its height
+        // becomes the list's bottom inset so the last row still rests above it.
+        .overlay(alignment: .bottom) {
+            inputBar
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    guard abs(height - inputBarHeight) > 0.5 else { return }
+                    inputBarHeight = height
+                }
+        }
+        .overlay(alignment: .top) {
+            if let activity = model.entries.last?.tools.last(where: { $0.isRunning && ["renderUI", "readWebPage", "updateTrip"].contains($0.toolName) }) {
+                ChatStatusChip(text: activity.label)
+                    .equatable()
+                    .padding(.top, 8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .sheet(item: $toolDetail) { tool in
+            ChatToolDetailSheet(tool: tool)
+        }
+        .sheet(item: $selectedReference, onDismiss: openSelectedTrip) { reference in
+            ChatSummarySheet(
+                environment: environment,
+                reference: reference,
+                allowsChat: !isSheet,
+                onOpenTrip: openLibraryItem == nil ? nil : { summary in
+                    referenceToOpen = summary
+                    selectedReference = nil
+                }
+            )
+        }
+        .sensoryFeedback(.selection, trigger: interactionFeedback)
+        .sensoryFeedback(trigger: model.entries.last?.tools.filter { $0.finished == true }) { _, tools in
+            guard let tool = tools?.last, ["renderUI", "searchWeb", "updateTrip"].contains(tool.toolName) else { return nil }
+            return tool.errorText == nil ? .success : .error
+        }
+        .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
+            if isStreaming { return .impact(weight: .light) }
+            return model.entries.last?.errorText == nil ? .impact(flexibility: .soft) : .error
+        }
+        .onChange(of: model.isStreaming) { _, isStreaming in
+            // Each answer spends points; keep the balance shown elsewhere current.
+            guard !isStreaming else { return }
+            Task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
+        }
+        .alert("Not Enough Points", isPresented: $model.needsTopUp) {
+            Button("Top Up") {
+                // The top-up sheet is presented from the root, so close this chat sheet first.
+                if isSheet { dismiss() }
+                environment.pendingTopUp = true
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("Chatting uses points based on the AI's usage. Top up to keep chatting.")
+        }
+        .summarySearchToolbar(isEnabled: !isSheet && !isPanel)
+        .toolbar {
+            if isSheet {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+            if !isSheet && !isPanel {
+                ToolbarSpacer(.fixed, placement: .summaryTrailing)
+            }
+            ToolbarItem(placement: .summaryTrailing) {
+                Button {
+                    model.newChat()
+                    interactionFeedback += 1
+                } label: {
+                    Label("New Chat", systemImage: "square.and.pencil")
+                }
+                .disabled(model.entries.isEmpty)
+            }
+        }
+    }
+
+    private func openSelectedTrip() {
+        interactionFeedback += 1
+        guard let summary = referenceToOpen, let openLibraryItem else { return }
+        referenceToOpen = nil
+        if isSheet {
+            // Close the summary/trip chat as well before changing its underlying page.
+            dismiss()
+            Task {
+                do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+                openLibraryItem(summary)
+            }
+        } else {
+            openLibraryItem(summary)
+        }
     }
 
     private var emptyState: some View {
@@ -140,7 +209,7 @@ struct ChatView: View {
                             .multilineTextAlignment(.center)
                     } else {
                         Text("Ask about your summaries").font(.title2.weight(.bold))
-                        Text("Search, compare and recall everything you've saved or viewed.")
+                        Text("Search your summaries and the web, and explore answers in tables and charts.")
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -169,25 +238,72 @@ struct ChatView: View {
     }
 
     private var transcript: some View {
-        // The native list pins the sent question, follows growing row heights, and
-        // releases that anchor when the reader scrolls away. Extra scroll pulses
-        // on token updates compete with its layout and reset the reader's position.
+        // Let the SDK pin the latest question and manage native scrolling.
         GeometryReader { geometry in
-            // AppKit hosts each row separately. Give it the viewport's width so a
-            // horizontal result strip cannot determine the width of the whole row.
+            // Constrain horizontal result strips to the transcript's width.
             let rowWidth = max(0, geometry.size.width - 32)
             MessageList(
-                messages: model.entries,
+                messages: transcriptEntries,
                 isStreaming: model.isStreaming,
+                scrollToBottomAnimated: false,
                 bottomInset: inputBarHeight,
                 isAtBottom: $isAtBottom
             ) { entry in
-                ChatEntryView(entry: entry) { path.append(ChatSummaryRoute(id: $0)) }
+                ChatEntryView(entry: entry, openSummary: {
+                    selectedReference = ChatSummaryReference(id: $0)
+                    interactionFeedback += 1
+                }, openTool: {
+                    toolDetail = $0
+                    interactionFeedback += 1
+                })
+                    .equatable()
+                    .id(entry.id)
                     .frame(width: rowWidth, alignment: .leading)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
+                    // While streaming text grows a row, its cell resizes a beat later. Keep
+                    // the row at its natural height and pinned to the cell's top so the
+                    // cards above the text never shift or get squeezed meanwhile.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+                    .transition(.identity)
+                    .transaction {
+                        $0.animation = nil
+                        $0.disablesAnimations = true
+                    }
+            }
+            .transaction {
+                $0.animation = nil
+                $0.disablesAnimations = true
             }
         }
+    }
+
+    private func updateTranscript(oldEntries: [ChatEntry], newEntries: [ChatEntry]) {
+        // A new turn, cleared chat, or settled reply should appear immediately.
+        guard model.isStreaming, oldEntries.map(\.id) == newEntries.map(\.id) else {
+            flushTranscript()
+            return
+        }
+        // Keep the pending deadline while tokens arrive so a continuous stream
+        // still advances every half second instead of waiting until it goes quiet.
+        guard transcriptUpdateTask == nil else { return }
+        transcriptUpdateTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(500))
+                try Task.checkCancellation()
+            } catch {
+                return
+            }
+            transcriptEntries = model.entries
+            transcriptUpdateTask = nil
+        }
+    }
+
+    private func flushTranscript() {
+        transcriptUpdateTask?.cancel()
+        transcriptUpdateTask = nil
+        transcriptEntries = model.entries
     }
 
     private var canSend: Bool {
@@ -245,9 +361,35 @@ private struct SheetSizeUnlessPanel: ViewModifier {
     }
 }
 
-private struct ChatEntryView: View {
+/// References open in a separate presentation, with navigation independent of the chat's host.
+private struct ChatSummarySheet: View {
+    let environment: AppEnvironment
+    let reference: ChatSummaryReference
+    let allowsChat: Bool
+    let onOpenTrip: ((Summary) -> Void)?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            SummaryLoaderView(environment: environment, id: reference.id, allowsChat: allowsChat, onOpenTrip: onOpenTrip)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { dismiss() }
+                    }
+                }
+        }
+        .summarySheetSize()
+    }
+}
+
+private struct ChatEntryView: View, Equatable {
     let entry: ChatEntry
     let openSummary: (String) -> Void
+    let openTool: (ChatToolActivity) -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.entry == rhs.entry
+    }
 
     var body: some View {
         switch entry.role {
@@ -263,22 +405,27 @@ private struct ChatEntryView: View {
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(entry.tools) { tool in
-                    ChatToolCallCard(tool: tool, openSummary: openSummary)
-                }
-                if !entry.text.isEmpty {
-                    // Keep the live parse path, but render each delta without a
-                    // fade transaction that can animate existing blocks and sizing.
-                    MarkdownView(text: entry.text, showsTrailingCursor: entry.isStreaming, fadeNewText: false)
-                        .textSelection(.enabled)
+                ForEach(entry.tools.filter { !$0.isRunning || !["renderUI", "readWebPage", "updateTrip"].contains($0.toolName) }) { tool in
+                    ChatToolCallCard(tool: tool, openSummary: openSummary, openTool: openTool)
+                        .equatable()
                         .transaction { transaction in
                             transaction.animation = nil
                             transaction.disablesAnimations = true
                         }
                 }
-                // A running tool card already pulses; don't stack a second status under it.
+                if entry.isStreaming || !entry.text.isEmpty {
+                    // Keep the live renderer mounted and show each chunk immediately.
+                    MarkdownView(
+                        text: entry.text,
+                        showsTrailingCursor: entry.isStreaming,
+                        fadeNewText: false
+                    )
+                        .textSelection(.enabled)
+                }
+                // A running tool card already shows its status.
                 if entry.isStreaming, !entry.tools.contains(where: \.isRunning) {
                     ChatStatusChip(text: String(localized: "Thinking…"))
+                        .equatable()
                 }
                 if let error = entry.errorText {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -292,20 +439,53 @@ private struct ChatEntryView: View {
 }
 
 /// One agent tool call as a card: what the agent did and with which query, its state, and the
-/// summaries it found (tappable). Running calls pulse instead of showing a spinner.
-private struct ChatToolCallCard: View {
+/// summaries it found (tappable). Running calls show a static status.
+private struct ChatToolCallCard: View, Equatable {
     let tool: ChatToolActivity
     let openSummary: (String) -> Void
+    let openTool: (ChatToolActivity) -> Void
+
+    // Text deltas change the parent entry, but not a completed tool's content.
+    // Ignore rebuilt navigation closures so its images and effects stay mounted.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.tool == rhs.tool
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if let ui = tool.renderedUI {
+                Button {
+                    openTool(tool)
+                } label: {
+                    HStack {
+                        Label(ui.title, systemImage: "rectangle.3.group")
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .padding(10)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityIdentifier("chat-rendered-ui-\(tool.id)")
+            } else if let sources = tool.webReferences, !sources.isEmpty {
+                Button {
+                    openTool(tool)
+                } label: {
+                    Label("View Sources (\(sources.count))", systemImage: "globe")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(10)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityIdentifier("chat-web-sources-\(tool.id)")
+            }
             if !tool.references.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(tool.references) { reference in
-                            // Rows live in a UICollectionView cell, outside the NavigationStack's
-                            // reach, so navigation goes through the view's path instead of a link.
+                            // Open each reference in its dedicated detail sheet.
                             Button {
                                 openSummary(reference.id)
                             } label: {
@@ -331,7 +511,6 @@ private struct ChatToolCallCard: View {
                 .foregroundStyle(tool.errorText == nil ? AnyShapeStyle(.tint) : AnyShapeStyle(.orange))
                 .frame(width: 32, height: 32)
                 .background(.tint.opacity(0.12), in: Circle())
-                .symbolEffect(.pulse, options: .repeating, isActive: tool.isRunning)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
@@ -358,13 +537,16 @@ private struct ChatToolCallCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var isSearch: Bool { tool.toolName == "searchSummaries" }
+    private var isSearch: Bool { ["searchSummaries", "listTrips"].contains(tool.toolName) }
 
     private var symbol: String {
         if tool.errorText != nil { return "exclamationmark.magnifyingglass" }
         switch tool.toolName {
+        case "searchWeb": return "globe"
+        case "renderUI": return "rectangle.3.group"
         case "searchSummaries": return tool.isSemantic == true ? "sparkle.magnifyingglass" : "magnifyingglass"
         case "getSummary": return "doc.text.magnifyingglass"
+        case "listTrips", "getTrip": return "suitcase"
         case "grepLocalFile": return "text.magnifyingglass"
         case "readLocalFile": return "doc.plaintext"
         case "readWebPage": return "globe"
@@ -375,12 +557,26 @@ private struct ChatToolCallCard: View {
 
     private var title: String {
         switch tool.toolName {
+        case "searchWeb":
+            if tool.isRunning { return String(localized: "Searching the web…") }
+            if tool.errorText != nil { return String(localized: "Web search unavailable") }
+            return tool.finished == true ? String(localized: "Searched the web") : String(localized: "Search stopped")
+        case "renderUI":
+            if tool.isRunning { return String(localized: "Creating a view…") }
+            if tool.errorText != nil { return String(localized: "View needs correction") }
+            return tool.renderedUI != nil ? String(localized: "View ready") : String(localized: "View stopped")
         case "searchSummaries":
             if tool.isRunning { return String(localized: "Searching your library…") }
             return tool.finished == true ? String(localized: "Searched your library") : String(localized: "Search stopped")
         case "getSummary":
             if tool.isRunning { return String(localized: "Reading summary…") }
             return tool.finished == true ? String(localized: "Read summary") : String(localized: "Reading stopped")
+        case "listTrips":
+            if tool.isRunning { return String(localized: "Finding your trips…") }
+            return tool.finished == true ? String(localized: "Listed your trips") : String(localized: "Search stopped")
+        case "getTrip":
+            if tool.isRunning { return String(localized: "Reading the trip…") }
+            return tool.finished == true ? String(localized: "Read the trip") : String(localized: "Reading stopped")
         case "grepLocalFile":
             if tool.isRunning { return String(localized: "Searching the file…") }
             return tool.finished == true ? String(localized: "Searched the file") : String(localized: "Search stopped")
@@ -402,11 +598,15 @@ private struct ChatToolCallCard: View {
 
     private var detail: String? {
         if let error = tool.errorText { return error }
-        if tool.toolName == "getSummary" { return tool.references.first?.title }
+        if ["getSummary", "getTrip"].contains(tool.toolName) { return tool.references.first?.title }
         return tool.detail
     }
 
     private var status: String? {
+        if tool.toolName == "searchWeb", tool.finished == true, tool.errorText == nil {
+            let count = tool.webReferences?.count ?? 0
+            return count == 0 ? String(localized: "No web results") : String(localized: "\(count) web sources")
+        }
         if let status = tool.status { return status }
         guard isSearch, tool.finished == true else { return nil }
         let count = tool.references.count
@@ -419,15 +619,80 @@ private struct ChatToolCallCard: View {
     }
 }
 
-/// In-progress status shown as a pulsing capsule rather than a spinner.
-private struct ChatStatusChip: View {
+/// JSON views and web research each have a dedicated sheet instead of expanding the transcript.
+private struct ChatToolDetailSheet: View {
+    let tool: ChatToolActivity
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @State private var feedback = 0
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let ui = tool.renderedUI {
+                    ScrollView {
+                        TripViewRenderer(spec: ui.spec, currency: ui.currency)
+                            .padding()
+                            .environment(\.openURL, OpenURLAction { url in
+                                feedback += 1
+                                openURL(url)
+                                return .handled
+                            })
+                    }
+                    .accessibilityIdentifier("chat-native-ui")
+                } else {
+                    List(tool.webReferences ?? []) { source in
+                        Button {
+                            feedback += 1
+                            openURL(source.url)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label(source.title, systemImage: "arrow.up.right.square")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Text(source.url.host() ?? source.url.absoluteString)
+                                    .font(.caption)
+                                    .foregroundStyle(.tint)
+                                if let snippet = source.snippet, !snippet.isEmpty {
+                                    Text(snippet).font(.subheadline).foregroundStyle(.secondary)
+                                }
+                                if let date = source.date {
+                                    Text(date).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .accessibilityIdentifier("chat-web-sources")
+                }
+            }
+            .navigationTitle(tool.renderedUI?.title ?? String(localized: "Web Sources"))
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        feedback += 1
+                        dismiss()
+                    }
+                }
+            }
+            .sensoryFeedback(.selection, trigger: feedback)
+        }
+        .summarySheetSize()
+    }
+}
+
+/// In-progress status shown as a static capsule.
+private struct ChatStatusChip: View, Equatable {
     let text: String
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .foregroundStyle(.tint)
-                .symbolEffect(.pulse, options: .repeating)
             Text(text)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -437,6 +702,11 @@ private struct ChatStatusChip: View {
         .padding(.vertical, 7)
         .background(.quaternary.opacity(0.6), in: Capsule())
         .accessibilityElement(children: .combine)
+        .transition(.identity)
+        .transaction {
+            $0.animation = nil
+            $0.disablesAnimations = true
+        }
     }
 }
 
@@ -467,5 +737,10 @@ private struct ChatReferenceCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.quaternary) }
         .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
+        .transition(.identity)
+        .transaction {
+            $0.animation = nil
+            $0.disablesAnimations = true
+        }
     }
 }

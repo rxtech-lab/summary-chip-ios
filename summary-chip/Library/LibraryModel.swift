@@ -70,9 +70,7 @@ final class LibraryModel {
         do {
             let page = try await api.listSummaries(query(cursor: nil))
             guard generation == loadGeneration else { return }
-            // Animate only when refreshing an already-shown feed, so new cards slide in
-            // instead of the whole list snapping.
-            withAnimation(hasLoaded ? .spring(duration: 0.4) : nil) { items = page.items }
+            items = page.items
             nextCursor = page.nextCursor
             errorMessage = nil
             isOffline = false
@@ -91,7 +89,7 @@ final class LibraryModel {
             // Fall back to what's saved on the device, filtered locally.
             let saved = offline.summaries(matching: query(cursor: nil))
             if !saved.isEmpty || error.isOffline {
-                withAnimation(hasLoaded ? .spring(duration: 0.4) : nil) { items = saved }
+                items = saved
                 nextCursor = nil
             }
             isOffline = error.isOffline
