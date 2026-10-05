@@ -8,6 +8,7 @@ import * as tripsRoute from "@/app/api/v1/trips/route";
 import * as tripRoute from "@/app/api/v1/trips/[id]/route";
 import * as operationsRoute from "@/app/api/v1/trips/[id]/operations/route";
 import * as ingestRoute from "@/app/api/v1/trips/[id]/ingest/route";
+import * as pdfRoute from "@/app/api/v1/trips/[id]/pdf/route";
 import * as chatRoute from "@/app/api/v1/chat/route";
 import { tripChatTools } from "@/lib/ai/chat";
 import type { TripDocument } from "@/lib/contracts/trip";
@@ -42,7 +43,7 @@ function doc(overrides: Partial<TripDocument> = {}): Partial<TripDocument> {
     endDate: "2026-11-09",
     timeZone: "Europe/Lisbon",
     currency: "EUR",
-    places: [{ id: "lisbon", name: "Lisbon", kind: "city", coordinate: { lat: 38.7223, lng: -9.1393 }, major: true, address: null, note: null }],
+    places: [{ id: "lisbon", name: "Lisbon", kind: "city", coordinate: { lat: 38.7223, lng: -9.1393 }, major: true, address: null, note: null, photos: [], pricing: [] }],
     days: [{ id: "day-1", date: "2026-11-06", title: "Alfama at dusk", highlight: false, moments: [], transportIds: [], route: null, stayId: null }],
     ...overrides,
   };
@@ -209,6 +210,93 @@ describe("/api/v1/trips", () => {
     const other = await create();
     expect((await summaryRoute.DELETE(apiRequest("DELETE", `/api/v1/summaries/${other.id}`, { token: env.tokens.alice }), params({ id: other.id }))).status).toBe(204);
     expect(await storedTrip(other.id)).toBeUndefined();
+  });
+});
+
+describe("/api/v1/trips/:id/pdf", () => {
+  const PDF_ENDPOINT = "https://api.cloudflare.com/client/v4/accounts/acct-123/browser-run/pdf";
+  const pdf = (id: string, token = env.tokens.alice, query = "") =>
+    pdfRoute.GET(apiRequest("GET", `/api/v1/trips/${id}/pdf${query}`, { token }), params({ id }));
+
+  it("prints the trip as an A4 report through Cloudflare Browser Run", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "acct-123");
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "cf-token");
+    const fetchMock = vi.fn(async () => new Response(new TextEncoder().encode("%PDF-1.7 fake"), { headers: { "content-type": "application/pdf" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const trip = await create();
+
+    const response = await pdf(trip.id, env.tokens.alice, "?lang=zh-Hant");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-disposition")).toContain("filename*=UTF-8''Lisbon-long-weekend.pdf");
+    expect(new TextDecoder().decode(await response.arrayBuffer())).toBe("%PDF-1.7 fake");
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(PDF_ENDPOINT);
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer cf-token");
+    const body = JSON.parse(String(init.body));
+    expect(body.pdfOptions).toMatchObject({ format: "a4", printBackground: true, displayHeaderFooter: true, margin: { top: "22mm", left: "16mm" } });
+    expect(body.pdfOptions.footerTemplate).toContain("pageNumber");
+    expect(body.html).toContain("Alfama at dusk");
+    expect(body.html).toContain("第 1 天");
+  });
+
+  it("prints trips saved before places had photos and prices", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "acct-123");
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "cf-token");
+    const fetchMock = vi.fn(async () => new Response(new TextEncoder().encode("%PDF-1.7 fake"), { headers: { "content-type": "application/pdf" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const trip = await create();
+    // As stored by the previous release: places without `photos` / `pricing`, no `views`.
+    const { document } = await storedTrip(trip.id);
+    const legacy = { ...document, places: document.places.map(({ photos: _photos, pricing: _pricing, ...place }) => place) } as Record<string, unknown>;
+    delete legacy.views;
+    await env.handle.db.update(trips).set({ document: legacy as unknown as TripDocument }).where(eq(trips.summaryId, trip.id));
+
+    const response = await pdf(trip.id);
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body)).html).toContain("Lisbon");
+    expect((await (await get(trip.id)).json()).trip.document.places[0]).toMatchObject({ photos: [], pricing: [] });
+  });
+
+  it("is 404 for trips the viewer can't open and 503 when Browser Run isn't configured", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "");
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "");
+    const trip = await create();
+    expect((await pdf(trip.id, env.tokens.bob)).status).toBe(404);
+    const response = await pdf(trip.id);
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("PDF_UNAVAILABLE");
+  });
+
+  it("reports a failed render as 502", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "acct-123");
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "cf-token");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ success: false, errors: [{ message: "timeout" }] }, { status: 422 })));
+    const trip = await create();
+    const response = await pdf(trip.id);
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe("PDF_RENDER_FAILED");
+  });
+
+  it("returns an export error instead of an internal error when the PDF download terminates", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "acct-123");
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "cf-token");
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("%PDF-1.7 partial"));
+      },
+      pull(controller) {
+        controller.error(new TypeError("terminated", { cause: { code: "UND_ERR_SOCKET" } }));
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body)));
+    const trip = await create();
+    const response = await pdf(trip.id);
+    expect(response.status).toBe(502);
+    expect((await response.json()).error).toMatchObject({
+      code: "PDF_RENDER_FAILED", message: "The PDF download was interrupted. Please try exporting again.",
+    });
   });
 });
 

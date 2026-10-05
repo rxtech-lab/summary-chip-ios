@@ -111,6 +111,37 @@ public struct TripMoney: Codable, Sendable, Hashable {
     }
 }
 
+/// A photo of a place: a direct https image URL, what it shows and who took it.
+public struct TripPhoto: Codable, Sendable, Hashable {
+    public var url: String
+    public var caption: String?
+    /// Attribution shown under the photo ("Photo: Wikimedia Commons / Jane Doe").
+    public var credit: String?
+    /// The page the photo came from.
+    public var sourceUrl: String?
+
+    public init(url: String, caption: String? = nil, credit: String? = nil, sourceUrl: String? = nil) {
+        self.url = url; self.caption = caption; self.credit = credit; self.sourceUrl = sourceUrl
+    }
+
+    /// Only https images load (the server refuses anything else).
+    public var imageURL: URL? {
+        guard let url = URL(string: url), url.scheme == "https" else { return nil }
+        return url
+    }
+}
+
+/// One line of a place's price list: an admission tier, a set menu. No price means free.
+public struct TripPriceItem: Codable, Sendable, Hashable {
+    public var label: String
+    public var price: TripMoney?
+    public var note: String?
+
+    public init(label: String, price: TripMoney? = nil, note: String? = nil) {
+        self.label = label; self.price = price; self.note = note
+    }
+}
+
 public struct TripPlace: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var name: String
@@ -120,10 +151,26 @@ public struct TripPlace: Codable, Sendable, Hashable, Identifiable {
     public var note: String?
     /// Major places keep their label on the map.
     public var major: Bool
+    /// What the place is and why it's worth the visit, like a guidebook entry.
+    public var description: String?
+    public var photos: [TripPhoto]
+    /// Opening hours as written ("9:00–17:00, closed Mondays").
+    public var hours: String?
+    /// How long a visit takes ("1–2 h").
+    public var visitDuration: String?
+    public var pricing: [TripPriceItem]
+    public var website: String?
+    public var phone: String?
 
-    public init(id: String, name: String, kind: TripPlaceKind = .poi, coordinate: TripCoordinate, address: String? = nil, note: String? = nil, major: Bool = false) {
+    public init(
+        id: String, name: String, kind: TripPlaceKind = .poi, coordinate: TripCoordinate, address: String? = nil,
+        note: String? = nil, major: Bool = false, description: String? = nil, photos: [TripPhoto] = [],
+        hours: String? = nil, visitDuration: String? = nil, pricing: [TripPriceItem] = [], website: String? = nil, phone: String? = nil
+    ) {
         self.id = id; self.name = name; self.kind = kind; self.coordinate = coordinate
-        self.address = address; self.note = note; self.major = major
+        self.address = address; self.note = note; self.major = major; self.description = description
+        self.photos = photos; self.hours = hours; self.visitDuration = visitDuration; self.pricing = pricing
+        self.website = website; self.phone = phone
     }
 
     public init(from decoder: any Decoder) throws {
@@ -135,6 +182,18 @@ public struct TripPlace: Codable, Sendable, Hashable, Identifiable {
         address = try c.decodeIfPresent(String.self, forKey: .address)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         major = try c.decodeIfPresent(Bool.self, forKey: .major) ?? false
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        photos = try c.decodeIfPresent([TripPhoto].self, forKey: .photos) ?? []
+        hours = try c.decodeIfPresent(String.self, forKey: .hours)
+        visitDuration = try c.decodeIfPresent(String.self, forKey: .visitDuration)
+        pricing = try c.decodeIfPresent([TripPriceItem].self, forKey: .pricing) ?? []
+        website = try c.decodeIfPresent(String.self, forKey: .website)
+        phone = try c.decodeIfPresent(String.self, forKey: .phone)
+    }
+
+    /// Whether there's more to show than the pin: photos, a description, hours, prices or contacts.
+    public var hasDetails: Bool {
+        !photos.isEmpty || !pricing.isEmpty || [description, hours, visitDuration, website, phone, note].contains { $0?.isEmpty == false }
     }
 }
 

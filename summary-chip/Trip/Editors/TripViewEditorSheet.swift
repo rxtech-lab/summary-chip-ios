@@ -51,7 +51,7 @@ struct TripViewEditorSheet: View {
             } header: {
                 Text("Spec (JSON)")
             } footer: {
-                Text("Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link. Or ask the trip agent to build one.")
+                Text("Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link, Image, Gallery, Place. Or ask the trip agent to build one.")
             }
             Section("Preview") {
                 switch parsed {

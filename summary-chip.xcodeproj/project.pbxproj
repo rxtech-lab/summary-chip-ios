@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */; };
 		0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
 		075EC82989959A4C8A7E69C5 /* SummaryCreditsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BEBC1DCD62F1EF24ECF546 /* SummaryCreditsTests.swift */; };
 		07AC26FBE6AFDDDD4A9309E0 /* ChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4588BFD6242B1A98762EE95A /* ChatModel.swift */; };
@@ -242,6 +243,7 @@
 		2719F635F4138E9669D90258 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
 		29C5DE12C6C878AEE055785D /* PointsUsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointsUsageView.swift; sourceTree = "<group>"; };
 		2CC8DB98FCE639E0092D5022 /* DayEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayEditorSheet.swift; sourceTree = "<group>"; };
+		2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlaceDetailSheet.swift; sourceTree = "<group>"; };
 		30BDDEFD839800D2C35B62FE /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		34E23BC2AD4A0B46589FE56D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		3649A0D60A27E6BD17E2B7C9 /* RxAuthTokenStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RxAuthTokenStorage.swift; sourceTree = "<group>"; };
@@ -653,6 +655,7 @@
 				8C701057B10532B2E37EAD1A /* TripDiaryView.swift */,
 				F6165D5EEFE21F50D353DBE4 /* TripEditorModel.swift */,
 				668A7FEAA95408549C61CC30 /* TripMapView.swift */,
+				2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */,
 				853B4341050169BFBBC48CC1 /* TripStyle.swift */,
 			);
 			path = Trip;
@@ -1219,6 +1222,7 @@
 				953D0EE9504CFED416C23FD6 /* TripEditorScaffold.swift in Sources */,
 				648137054CDF63C2F61C6C28 /* TripMapView.swift in Sources */,
 				099F4D8EE629B42B71A07FD0 /* TripMetaEditorSheet.swift in Sources */,
+				01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */,
 				CE40302BFB17B541D454C812 /* TripStyle.swift in Sources */,
 				BB923035EDDB9A1B8B0331A6 /* TripViewEditorSheet.swift in Sources */,
 				80E879BD308582FC7BD94229 /* UpdateService.swift in Sources */,

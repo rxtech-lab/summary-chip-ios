@@ -1,6 +1,7 @@
 import MapKit
 import SummaryKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// A trip diary whose scroll drives the map: the camera frames the day being read and a traveler
 /// moves along its route. iPad and Mac show map and diary side by side; iPhone shows the map
@@ -38,6 +39,12 @@ struct TripDetailView: View {
     @State private var isDeletingRecord = false
     @State private var deleteError: String?
     @State private var deleteFailed = 0
+    /// The printed report while the Save dialog is up.
+    @State private var exportedPDF: TripPDFDocument?
+    @State private var isExportingPDF = false
+    @State private var exportError: String?
+    @State private var exportFinished = 0
+    @State private var exportFailed = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -86,6 +93,8 @@ struct TripDetailView: View {
         .toolbar { toolbar }
         .environment(\.tripEditable, canEdit)
         .environment(\.tripFlights, model.flights)
+        .environment(\.tripPlaces, model.document?.places ?? [])
+        .environment(\.tripShowPlace, showPlace)
         .overlay(alignment: .top) {
             if let notice = model.notice {
                 Label(notice.message, systemImage: notice.systemImage)
@@ -147,6 +156,7 @@ struct TripDetailView: View {
         }
         .sensoryFeedback(.selection, trigger: activeDayID)
         .sensoryFeedback(.selection, trigger: pane)
+        .sensoryFeedback(.selection, trigger: activeSheet)
         .sensoryFeedback(.success, trigger: model.savedCount)
         .sensoryFeedback(trigger: model.notice) { _, notice in
             [.coverUpdated, .agentDone, .calendarSynced, .calendarRemoved].contains(notice) ? .success : nil
@@ -182,6 +192,9 @@ struct TripDetailView: View {
                     }
                 }
         }
+        .overlay {
+            if isExportingPDF { ActionStatusOverlay(String(localized: "Preparing PDF…")) }
+        }
         .sheet(item: $activeSheet) { sheet in sheetContent(sheet) }
     }
 
@@ -209,13 +222,22 @@ struct TripDetailView: View {
                         sheetHeight = height
                         updateObscured()
                     }
-                    .presentationDetents([Self.collapsedDetent, .medium, .large], selection: $detent)
-                    .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                    // Cover the diary bar too; the collapsed sheet has no room for the export status.
+                    .overlay {
+                        if isExportingPDF { ActionStatusOverlay(String(localized: "Preparing PDF…")) }
+                    }
+                    .presentationDetents(
+                        isExportingPDF ? [.medium, .large] : [Self.collapsedDetent, .medium, .large],
+                        selection: $detent
+                    )
+                    .presentationBackgroundInteraction(isExportingPDF ? .disabled : .enabled(upThrough: .medium))
                     .presentationContentInteraction(.scrolls)
                     .presentationDragIndicator(.visible)
                     .interactiveDismissDisabled()
                     .environment(\.tripEditable, canEdit)
                     .environment(\.tripFlights, model.flights)
+                    .environment(\.tripPlaces, model.document?.places ?? [])
+                    .environment(\.tripShowPlace, showPlace)
                     // Editors present from the diary sheet, over it.
                     .sheet(item: $activeSheet) { sheet in sheetContent(sheet) }
             }
@@ -245,7 +267,10 @@ struct TripDetailView: View {
             location: location,
             onSelectPlace: { place in
                 if let day = document.orderedDays.first(where: { document.placeIDs(for: $0).contains(place.id) }) { jump(to: day.id) }
-            }
+                camera.center(on: place.coordinate.clCoordinate)
+            },
+            onOpenPlace: { showPlace($0.id) },
+            usesInlinePlaceCallout: isCompact
         )
         .overlay(alignment: .topTrailing) {
             TripMapControls(
@@ -311,6 +336,24 @@ struct TripDetailView: View {
             Text(record.deleteMessage)
         }
         .sensoryFeedback(.error, trigger: deleteFailed)
+        // Present the save dialog and errors from the diary sheet on iPhone.
+        .statusAlert("Couldn't Export PDF", message: exportError) { exportError = nil }
+        .fileExporter(
+            isPresented: Binding(get: { exportedPDF != nil }, set: { if !$0 { exportedPDF = nil } }),
+            document: exportedPDF,
+            contentType: .pdf,
+            defaultFilename: exportedPDF?.filename
+        ) { result in
+            switch result {
+            case .success: exportFinished += 1
+            case .failure(let error):
+                exportFailed += 1
+                exportError = error.localizedDescription
+            }
+        }
+        .sensoryFeedback(.success, trigger: exportFinished)
+        .sensoryFeedback(.error, trigger: exportFailed)
+        .sensoryFeedback(.selection, trigger: isExportingPDF) { _, exporting in exporting }
     }
 
     /// The diary's scroll moved to another day, or further through one; the map follows.
@@ -411,6 +454,11 @@ struct TripDetailView: View {
                             .accessibilityIdentifier("trip-edit-sharing")
                         Divider()
                     }
+                    Button { exportPDF() } label: {
+                        Label("Export PDF…", systemImage: "doc.richtext")
+                    }
+                    .disabled(isExportingPDF)
+                    .accessibilityIdentifier("trip-export-pdf")
                     Button { syncCalendar() } label: {
                         Label(calendarSynced ? "Update Calendar" : "Add to Calendar", systemImage: "calendar.badge.plus")
                     }
@@ -474,6 +522,27 @@ struct TripDetailView: View {
         }
     }
 
+    // MARK: Export
+
+    /// Has the server print the trip as an A4 report, then asks where to save it (Files on iPhone and iPad).
+    private func exportPDF() {
+        guard !isExportingPDF else { return }
+        let title = model.document?.title ?? title
+        if isCompact, detent == Self.collapsedDetent { detent = .medium }
+        isExportingPDF = true
+        Task {
+            defer { isExportingPDF = false }
+            do {
+                let data = try await environment.api.tripPDF(id: model.id)
+                exportedPDF = TripPDFDocument(data: data, title: title)
+            } catch is CancellationError {
+            } catch {
+                exportFailed += 1
+                exportError = error.localizedDescription
+            }
+        }
+    }
+
     // MARK: Sharing
 
     /// Trips share through their library item: same link, same sharing settings as a summary.
@@ -502,12 +571,17 @@ struct TripDetailView: View {
     private func present(_ sheet: TripSheet) {
         // Read-only sheets open for anyone; editors only for the owner.
         switch sheet {
-        case .transportDetail, .places, .notes, .sources, .currency, .share: break
+        case .transportDetail, .placeDetail, .places, .notes, .sources, .currency, .share: break
         default: if !canEdit { return }
         }
         // On iPhone the diary sheet presents editors; make sure it's up.
         if isCompact && !showsDiary { showsDiary = true }
         activeSheet = sheet
+    }
+
+    /// A place's details, from the map, places list, diary or a custom view's place card.
+    private func showPlace(_ id: String) {
+        present(.placeDetail(id))
     }
 
     /// The trip agent's chat, like the other agents'; its edits reload the trip underneath.
@@ -542,8 +616,12 @@ struct TripDetailView: View {
                     ExpenseEditorSheet(model: model, document: document, expense: document.expense(id: id))
                 case .view(let id):
                     TripViewEditorSheet(model: model, document: document, view: document.view(id: id), dayID: pane == .diary ? activeDayID : nil)
+                case .placeDetail(let id):
+                    if let place = document.place(id: id) {
+                        TripPlaceDetailSheet(document: document, place: place) { activeSheet = .place(id) }
+                    }
                 case .places:
-                    TripPlacesSheet(places: document.places) { activeSheet = .place($0?.id) }
+                    TripPlacesSheet(places: document.places, onOpen: { activeSheet = .placeDetail($0.id) }, onAdd: { activeSheet = .place(nil) })
                 case .notes:
                     TripNotesSheet(notes: document.notes)
                 case .sources:
@@ -566,6 +644,8 @@ struct TripDetailView: View {
             }
             .environment(\.tripEditable, canEdit)
             .environment(\.tripFlights, model.flights)
+            .environment(\.tripPlaces, model.document?.places ?? [])
+            .environment(\.tripShowPlace, showPlace)
         }
     }
 
@@ -646,3 +726,28 @@ struct TripDetailView: View {
     }
 }
 
+
+/// A trip's printed report, for the Save dialog.
+struct TripPDFDocument: FileDocument {
+    static let readableContentTypes: [UTType] = [.pdf]
+
+    let data: Data
+    /// "Kyoto weekend", from the trip's title.
+    let filename: String
+
+    init(data: Data, title: String) {
+        self.data = data
+        let name = title.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        self.filename = name.isEmpty ? String(localized: "Trip") : name
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+        self.data = data
+        self.filename = configuration.file.filename ?? String(localized: "Trip")
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}

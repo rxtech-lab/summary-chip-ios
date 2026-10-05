@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import sharp from "sharp";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as apiKeysRoute from "@/app/api/v1/api-keys/route";
 import * as apiKeyRoute from "@/app/api/v1/api-keys/[id]/route";
 import * as mcpRoute from "@/app/api/mcp/route";
+import * as tripImageRoute from "@/app/api/public/trip-images/[file]/route";
 import type { TripDocument } from "@/lib/contracts/trip";
 import { apiKeys } from "@/lib/db/schema";
 import { hashApiKey, MAX_API_KEYS_PER_USER } from "@/lib/services/api-keys";
@@ -16,6 +18,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   env.teardown();
+  vi.unstubAllGlobals();
 });
 
 async function createKey(name = "Claude Code", token = env.tokens.alice) {
@@ -132,7 +135,7 @@ describe("/api/mcp", () => {
 
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
-      "add_summary", "add_to_trip_from_source", "create_trip", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_trip",
+      "add_summary", "add_to_trip_from_source", "create_trip", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_trip", "upload_trip_image",
     ]);
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
@@ -286,6 +289,58 @@ describe("/api/mcp trip tools", () => {
     await callTool(key, "add_summary", CHIP);
     const trips = await callTool(key, "list_summaries", { kind: "trip" });
     expect(trips.structuredContent).toMatchObject({ count: 1, items: [{ id: trip.id }] });
+  });
+
+  it("uploads photos and patches a place's details", async () => {
+    const { key } = await createKey();
+    const tripId = ((await callTool(key, "create_trip", { document: TRIP })).structuredContent as { trip: { id: string } }).trip.id;
+    // A 3000×1500 PNG comes back as a JPEG of at most 2048 px.
+    const png = await sharp({ create: { width: 3000, height: 1500, channels: 3, background: "#3366cc" } }).png().toBuffer();
+    const uploaded = await callTool(key, "upload_trip_image", { tripId, data: png.toString("base64") });
+    expect(uploaded.isError).toBeFalsy();
+    const image = (uploaded.structuredContent as { image: { url: string; width: number; height: number } }).image;
+    expect(image).toMatchObject({ width: 2048, height: 1024 });
+    const file = image.url.split("/api/public/trip-images/")[1];
+    expect(file).toMatch(/^.+-\d+-[0-9a-f]{16}\.jpg$/);
+    const served = await tripImageRoute.GET(apiRequest("GET", `/api/public/trip-images/${file}`), { params: Promise.resolve({ file }) });
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("image/jpeg");
+    expect((await sharp(new Uint8Array(await served.arrayBuffer())).metadata()).format).toBe("jpeg");
+    const guessed = await tripImageRoute.GET(apiRequest("GET", "/api/public/trip-images/x.jpg"), { params: Promise.resolve({ file: "../og/x.png" }) });
+    expect(guessed.status).toBe(404);
+
+    // From a URL, through the SSRF-checked fetch.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array(png), { headers: { "content-type": "image/png" } })));
+    const copied = await callTool(key, "upload_trip_image", { tripId, url: "https://example.com/sapporo.png" });
+    expect(copied.isError).toBeFalsy();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html></html>", { headers: { "content-type": "text/html" } })));
+    const notImage = await callTool(key, "upload_trip_image", { tripId, url: "https://example.com/page" });
+    expect(notImage.isError).toBe(true);
+    expect((await callTool(key, "upload_trip_image", { tripId, data: Buffer.from("not an image").toString("base64") })).isError).toBe(true);
+    expect((await callTool(key, "upload_trip_image", { tripId })).isError).toBe(true);
+    const bob = await createKey("Bob", env.tokens.bob);
+    expect((await callTool(bob.key, "upload_trip_image", { tripId, data: png.toString("base64") })).isError).toBe(true);
+
+    const updated = await callTool(key, "update_place", {
+      tripId,
+      placeId: "sapporo",
+      changes: { description: "Hokkaido's capital, home of the Snow Festival.", hours: "Open all day", pricing: [{ label: "Odori Park", note: "Free entry" }] },
+      addPhotos: [{ url: image.url, caption: "Odori Park", credit: "Photo: Chippy" }],
+    });
+    expect(updated.isError).toBeFalsy();
+    expect(updated.structuredContent).toMatchObject({
+      revision: 1,
+      place: { id: "sapporo", name: "Sapporo", major: true, kind: "city", hours: "Open all day", photos: [{ url: image.url, caption: "Odori Park" }], pricing: [{ label: "Odori Park" }] },
+    });
+    // Photos are appended once; other fields stay.
+    const again = await callTool(key, "update_place", { tripId, placeId: "sapporo", changes: { hours: null }, addPhotos: [{ url: image.url }] });
+    expect(again.structuredContent).toMatchObject({ place: { hours: null, description: "Hokkaido's capital, home of the Snow Festival.", photos: [{ url: image.url }] } });
+    expect((again.structuredContent as { place: { photos: unknown[] } }).place.photos).toHaveLength(1);
+    const unknown = await callTool(key, "update_place", { tripId, placeId: "nowhere", changes: { hours: "x" } });
+    expect(unknown.isError).toBe(true);
+    expect(unknown.content[0].text).toContain("sapporo");
+    const insecure = await callTool(key, "update_place", { tripId, placeId: "sapporo", addPhotos: [{ url: "http://example.com/a.jpg" }] });
+    expect(insecure.isError).toBe(true);
   });
 
   it("adds a shared source to a trip with the trip agent", async () => {

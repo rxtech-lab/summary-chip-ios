@@ -2,7 +2,8 @@ import MapKit
 import SummaryKit
 import SwiftUI
 
-/// Creates or edits a place: found with Maps search or the current location, or typed in.
+/// Creates or edits a place: found with Maps search or the current location, or typed in, with its
+/// guidebook details (description, hours, prices, website, phone) and photos.
 struct PlaceEditorSheet: View {
     let model: TripEditorModel
     let document: TripDocument
@@ -14,6 +15,8 @@ struct PlaceEditorSheet: View {
     @State private var isLocating = false
     @State private var lookupError: String?
     @State private var picked = 0
+    @State private var editingPrice: TripListDraft<TripPriceItem>?
+    @State private var editingPhoto: TripListDraft<TripPhoto>?
 
     init(model: TripEditorModel, document: TripDocument, place: TripPlace?) {
         self.model = model
@@ -100,6 +103,86 @@ struct PlaceEditorSheet: View {
                 TextField("Note", text: $place.note.text, axis: .vertical)
                     .lineLimit(1...5)
             }
+
+            Section("About") {
+                TextField("Description", text: $place.description.text, axis: .vertical)
+                    .lineLimit(2...8)
+                TextField("Opening hours", text: $place.hours.text)
+                TextField("Visit duration", text: $place.visitDuration.text, prompt: Text("1–2 h"))
+                TextField("Website", text: $place.website.text)
+                    .textContentType(.URL)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                TextField("Phone", text: $place.phone.text)
+                    .textContentType(.telephoneNumber)
+                    #if os(iOS)
+                    .keyboardType(.phonePad)
+                    #endif
+            }
+
+            Section {
+                ForEach(place.pricing.indices, id: \.self) { index in
+                    let item = place.pricing[index]
+                    Button { editingPrice = TripListDraft(index: index, value: item) } label: {
+                        LabeledContent(item.label, value: item.price?.formatted ?? String(localized: "Free"))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .onDelete { place.pricing.remove(atOffsets: $0) }
+                .onMove { place.pricing.move(fromOffsets: $0, toOffset: $1) }
+                Button {
+                    editingPrice = TripListDraft(index: nil, value: TripPriceItem(label: "", price: TripMoney(amount: 0, currency: document.currency)))
+                } label: { Label("Add Price", systemImage: "plus") }
+                .accessibilityIdentifier("place-add-price")
+            } header: {
+                Text("Prices")
+            } footer: {
+                Text("Admission tiers, set menus or rates. Leave the amount empty for free.")
+            }
+
+            Section {
+                ForEach(place.photos.indices, id: \.self) { index in
+                    let photo = place.photos[index]
+                    Button { editingPhoto = TripListDraft(index: index, value: photo) } label: {
+                        HStack(spacing: 10) {
+                            SummaryRemoteImage(url: photo.imageURL) { Rectangle().fill(.quaternary) }
+                                .frame(width: 52, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            Text(photo.caption?.nilIfBlank ?? photo.url)
+                                .lineLimit(1)
+                                .foregroundStyle(photo.caption?.nilIfBlank == nil ? .secondary : .primary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .onDelete { place.photos.remove(atOffsets: $0) }
+                .onMove { place.photos.move(fromOffsets: $0, toOffset: $1) }
+                if place.photos.count < 12 {
+                    Button { editingPhoto = TripListDraft(index: nil, value: TripPhoto(url: "")) } label: {
+                        Label("Add Photo", systemImage: "photo.badge.plus")
+                    }
+                    .accessibilityIdentifier("place-add-photo")
+                }
+            } header: {
+                Text("Photos")
+            } footer: {
+                Text("Link to images on the web (https). The trip agent adds photos from pages you share.")
+            }
+        }
+        .sheet(item: $editingPrice) { draft in
+            TripPriceItemSheet(item: draft.value, isNew: draft.index == nil, defaultCurrency: document.currency) { item in
+                if let index = draft.index { place.pricing[index] = item } else { place.pricing.append(item) }
+            }
+        }
+        .sheet(item: $editingPhoto) { draft in
+            TripPhotoEditorSheet(photo: draft.value, isNew: draft.index == nil) { photo in
+                if let index = draft.index { place.photos[index] = photo } else { place.photos.append(photo) }
+            }
         }
         .sensoryFeedback(.selection, trigger: picked)
         .onDisappear { location.stopLiveUpdates() }
@@ -162,6 +245,11 @@ struct PlaceEditorSheet: View {
         place.name = place.name.nilIfBlank ?? place.name
         place.address = place.address?.nilIfBlank
         place.note = place.note?.nilIfBlank
+        place.description = place.description?.nilIfBlank
+        place.hours = place.hours?.nilIfBlank
+        place.visitDuration = place.visitDuration?.nilIfBlank
+        place.phone = place.phone?.nilIfBlank
+        place.website = place.website?.nilIfBlank.map { $0.contains("://") ? $0 : "https://\($0)" }
         place.coordinate.lat = min(90, max(-90, place.coordinate.lat))
         place.coordinate.lng = min(180, max(-180, place.coordinate.lng))
         try await model.update { $0.upsert(place) }
@@ -170,6 +258,106 @@ struct PlaceEditorSheet: View {
     private func delete() async throws {
         let id = place.id
         try await model.update { $0.remove(.places, id: id) }
+    }
+}
+
+/// A list item being edited in its own sheet: its index, or nil for a new one.
+struct TripListDraft<Value>: Identifiable {
+    let id = UUID()
+    let index: Int?
+    var value: Value
+}
+
+/// Adds or edits one line of a place's prices.
+struct TripPriceItemSheet: View {
+    @State var item: TripPriceItem
+    let isNew: Bool
+    let defaultCurrency: String
+    let onDone: (TripPriceItem) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Label", text: $item.label, prompt: Text("Adult"))
+                TripMoneyField(title: String(localized: "Price"), value: $item.price, defaultCurrency: defaultCurrency)
+                TextField("Note", text: $item.note.text, prompt: Text("Optional"))
+            }
+            .formStyle(.grouped)
+            .navigationTitle(isNew ? String(localized: "Add Price") : String(localized: "Edit Price"))
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        var item = item
+                        item.label = item.label.nilIfBlank ?? item.label
+                        item.note = item.note?.nilIfBlank
+                        onDone(item)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(item.label.nilIfBlank == nil)
+                }
+            }
+        }
+        .summarySheetSize()
+    }
+}
+
+/// Adds or edits a photo of a place by its image link, with a preview.
+struct TripPhotoEditorSheet: View {
+    @State var photo: TripPhoto
+    let isNew: Bool
+    let onDone: (TripPhoto) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Image URL", text: $photo.url, prompt: Text(verbatim: "https://"))
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                        .accessibilityIdentifier("photo-url-field")
+                    if photo.imageURL != nil {
+                        TripPhotoView(photo: TripPhoto(url: photo.url), aspectRatio: 16.0 / 9.0)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                    }
+                } footer: {
+                    if !photo.url.isEmpty, photo.imageURL == nil {
+                        Text("Use an https link to an image.").foregroundStyle(.red)
+                    }
+                }
+                Section {
+                    TextField("Caption", text: $photo.caption.text)
+                    TextField("Credit", text: $photo.credit.text, prompt: Text("Photo: …"))
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(isNew ? String(localized: "Add Photo") : String(localized: "Edit Photo"))
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        var photo = photo
+                        photo.url = photo.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                        photo.caption = photo.caption?.nilIfBlank
+                        photo.credit = photo.credit?.nilIfBlank
+                        onDone(photo)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(photo.imageURL == nil)
+                }
+            }
+        }
+        .summarySheetSize()
     }
 }
 

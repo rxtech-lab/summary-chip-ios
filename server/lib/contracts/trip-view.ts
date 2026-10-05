@@ -22,6 +22,10 @@ const currency = z.string().trim().regex(/^[A-Z]{3}$/, "must be an ISO 4217 code
 /** A displayed value: text as is, numbers formatted by the surrounding `format`. */
 const value = z.union([z.string().trim().max(300), z.number(), z.null()]);
 
+/** A direct https image URL; clients display it and PDF export embeds a resized copy. */
+const imageUrl = z.string().trim().max(4096).url().refine((v) => v.startsWith("https://"), "must be an https URL");
+const imageItem = z.object({ url: imageUrl, caption: label.nullish(), credit: label.nullish() });
+
 /** A table cell: a bare value, or a value with a line of detail under it and its own tone. */
 const cell = z.union([value, z.object({ value, detail: label.nullish(), tone })]);
 
@@ -87,6 +91,17 @@ export const viewElementSchema = z.discriminatedUnion("type", [
   }),
   withoutChildren("Divider", {}),
   withoutChildren("Link", { title: label.min(1), url: z.string().trim().url().max(4096) }),
+  /** One photo, full width. `aspect` crops it (default wide, 16:9). */
+  withoutChildren("Image", {
+    url: imageUrl,
+    caption: label.nullish(),
+    credit: label.nullish(),
+    aspect: z.enum(["wide", "square", "portrait"]).nullish(),
+  }),
+  /** A row of photos the reader swipes through. */
+  withoutChildren("Gallery", { images: z.array(imageItem).min(1).max(12) }),
+  /** A place of the trip as a card: its photo, info, prices and a button for directions. Draws nothing when the place is gone. */
+  withoutChildren("Place", { placeId: elementId }),
 ]);
 export type ViewElement = z.infer<typeof viewElementSchema>;
 
@@ -163,6 +178,12 @@ export function viewText(spec: ViewSpec): string[] {
             return c !== null && typeof c === "object" ? show(c.value) : show(c);
           }).join(" | "));
         }
+        break;
+      case "Image":
+        if (element.props.caption) lines.push(element.props.caption);
+        break;
+      case "Gallery":
+        lines.push(...element.props.images.flatMap((image) => (image.caption ? [image.caption] : [])));
         break;
       case "BarChart":
         if (element.props.title) lines.push(element.props.title);

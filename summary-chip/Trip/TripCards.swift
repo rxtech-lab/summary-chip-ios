@@ -122,7 +122,7 @@ struct TripEditButton: View {
 }
 
 /// One diary day: DAY number, title, where the night is spent, the moments timeline, the
-/// transport taken and a tip. Highlighted while it's the day being read.
+/// transport taken, place guides and a tip. The reading outline is shown on macOS.
 /// Equatable on its data so scrolling, which re-renders the diary for the map, skips the cards;
 /// the actions only route to sheets.
 struct TripDayCard: View, Equatable {
@@ -133,8 +133,38 @@ struct TripDayCard: View, Equatable {
     let onEdit: () -> Void
     let onOpenTransport: (TripTransport) -> Void
     var onEditView: (TripView) -> Void = { _ in }
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
 
     private var accent: Color { TripStyle.color(for: day.route?.kind) }
+
+    private var highlightsReadingOutline: Bool {
+        #if os(iOS)
+        false
+        #else
+        isReading
+        #endif
+    }
+
+    private var isCompact: Bool {
+        #if os(iOS)
+        sizeClass == .compact
+        #else
+        false
+        #endif
+    }
+
+    /// Include moment stops even when the route only names the cities between them.
+    private var guidePlaces: [TripPlace] {
+        let ids = (day.route?.placeIds ?? []) + day.moments.compactMap(\.placeId)
+            + [document.hotel(id: day.stayId)?.placeId].compactMap { $0 }
+        var seen = Set<String>()
+        return ids.compactMap { id in
+            guard seen.insert(id).inserted, let place = document.place(id: id), place.hasDetails else { return nil }
+            return place
+        }
+    }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.document == rhs.document && lhs.day == rhs.day && lhs.number == rhs.number && lhs.isReading == rhs.isReading
@@ -142,20 +172,15 @@ struct TripDayCard: View, Equatable {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            VStack(spacing: 0) {
-                Text("DAY")
-                    .font(.caption2.weight(.heavy))
-                    .foregroundStyle(.secondary)
-                Text(number, format: .number.precision(.integerLength(2...)))
-                    .font(.title.weight(.bold))
-                    .monospacedDigit()
-                    .foregroundStyle(isReading ? accent : .primary)
+            if !isCompact {
+                dayNumber
             }
-            .frame(width: 44)
-            .accessibilityElement(children: .combine)
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
+                    if isCompact {
+                        dayNumber
+                    }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(document.dayLabel(day.date))
                             .font(.caption.weight(.semibold))
@@ -184,6 +209,24 @@ struct TripDayCard: View, Equatable {
                 if !day.moments.isEmpty {
                     MomentsTimeline(document: document, moments: day.moments, tint: accent)
                 }
+                let places = guidePlaces
+                if !places.isEmpty {
+                    ScrollView(.horizontal) {
+                        HStack(alignment: .top, spacing: 10) {
+                            ForEach(places) { place in
+                                TripPlacePreviewCard(place: place)
+                                    .containerRelativeFrame(.horizontal) { width, _ in
+                                        places.count > 1 ? min(320, width * 0.88) : width
+                                    }
+                            }
+                        }
+                        .scrollTargetLayout()
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .scrollTargetBehavior(.viewAligned)
+                    .scrollIndicators(.hidden)
+                    .accessibilityIdentifier("trip-day-places-\(day.id)")
+                }
                 let transports = day.transportIds.compactMap { document.transport(id: $0) }
                 if !transports.isEmpty {
                     VStack(spacing: 8) {
@@ -204,16 +247,31 @@ struct TripDayCard: View, Equatable {
                         .background(Color.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.summaryCardBackground, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(isReading ? accent : (day.highlight ? accent.opacity(0.4) : Color.primary.opacity(0.06)), lineWidth: isReading ? 2 : 1)
+                .strokeBorder(highlightsReadingOutline ? accent : (day.highlight ? accent.opacity(0.4) : Color.primary.opacity(0.06)), lineWidth: highlightsReadingOutline ? 2 : 1)
         }
         .animation(.easeInOut(duration: 0.2), value: isReading)
         .accessibilityIdentifier("trip-day-\(day.id)")
+    }
+
+    private var dayNumber: some View {
+        VStack(spacing: 0) {
+            Text("DAY")
+                .font(.caption2.weight(.heavy))
+                .foregroundStyle(.secondary)
+            Text(number, format: .number.precision(.integerLength(2...)))
+                .font(.title.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(isReading ? accent : .primary)
+        }
+        .frame(width: 44)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -221,6 +279,7 @@ private struct MomentsTimeline: View {
     let document: TripDocument
     let moments: [TripMoment]
     let tint: Color
+    @Environment(\.tripShowPlace) private var showPlace
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -239,7 +298,15 @@ private struct MomentsTimeline: View {
                             Text(moment.slot.title)
                             if let time = moment.time { Text(time).monospacedDigit() }
                             if let place = document.place(id: moment.placeId) {
-                                Text("· \(place.name)").lineLimit(1)
+                                if let showPlace {
+                                    Button { showPlace(place.id) } label: {
+                                        Text("· \(place.name)").lineLimit(1).foregroundStyle(.tint)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityHint("Shows the place's details")
+                                } else {
+                                    Text("· \(place.name)").lineLimit(1)
+                                }
                             }
                         }
                         .font(.caption.weight(.semibold))
@@ -611,38 +678,43 @@ struct ExpensesSummaryView: View {
     }
 }
 
-/// The trip's places, like Notes in its own sheet. Tapping a place opens its editor in place of
-/// this sheet; the add button opens a blank one.
+/// The trip's places, like Notes in its own sheet. Tapping a place opens its details (photos,
+/// info, prices, directions) in place of this sheet; the add button opens a blank editor.
 struct TripPlacesSheet: View {
     let places: [TripPlace]
-    let onEdit: (TripPlace?) -> Void
+    let onOpen: (TripPlace) -> Void
+    let onAdd: () -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tripEditable) private var editable
 
     var body: some View {
         NavigationStack {
             List(places) { place in
-                Button { onEdit(place) } label: {
+                Button { onOpen(place) } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: place.kind.systemImage)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 22)
+                        if let photo = place.photos.first?.imageURL {
+                            SummaryRemoteImage(url: photo) { Rectangle().fill(.quaternary) }
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        } else {
+                            Image(systemName: place.kind.systemImage)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 22)
+                        }
                         VStack(alignment: .leading, spacing: 1) {
                             Text(place.name).foregroundStyle(.primary)
-                            if let address = place.address {
-                                Text(address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            if let detail = place.address ?? place.description {
+                                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             }
                         }
                         Spacer()
-                        if editable {
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(!editable)
                 .padding(.vertical, 2)
+                .accessibilityIdentifier("trip-place-\(place.id)")
             }
             .overlay {
                 if places.isEmpty {
@@ -661,7 +733,7 @@ struct TripPlacesSheet: View {
                 }
                 if editable {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { onEdit(nil) } label: { Label("Add Place", systemImage: "plus") }
+                        Button(action: onAdd) { Label("Add Place", systemImage: "plus") }
                             .accessibilityIdentifier("trip-add-place")
                     }
                 }
