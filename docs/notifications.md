@@ -8,10 +8,21 @@ body. Private summaries are included. Tapping opens the summary by ID through th
 authenticated API, so private and expired public links still work for the owner.
 Failed or rejected creation requests do not send an alert.
 
-When the trip agent finishes adding a shared page to a trip (`POST /api/v1/trips/:id/ingest`), the
-owner gets a “Trip updated” alert (title localized from the trip's language) with the trip's title
-and what changed. Its payload carries `tripId` (equal to `summaryId`) so the app opens the trip view;
-see [trips.md](trips.md).
+Every persisted trip edit (app PUT, operations, chat agent, ingest, and MCP) queues a “Trip updated”
+alert for the creator and signed-in users who opened its shared link. Each recipient needs a registered
+device with notifications enabled. Anonymous link opens cannot receive push notifications.
+
+The Vercel Workflow in `server/workflows/notify-trip-changes.ts` waits until **five minutes after the
+latest edit**. Later edits extend that quiet period. A read-only agent compares the batch's first and
+final saved documents and writes one short summary in the trip's language; reverted edits are omitted.
+No-op or rejected edits do not queue notifications. An edit during generation invalidates the agent's
+result and restarts the delay. Edits after a batch is frozen start the next batch.
+
+The alert includes the trip title and grouped changes. Its payload carries `tripId` (equal to
+`summaryId`) and the **recipient's** `userId`, so the app opens the trip for the signed-in recipient.
+Shared readers are excluded if the link becomes private or expires; sharing, view history and device
+ownership are checked again during delivery. The creator still receives private-trip updates.
+See [trips.md](trips.md).
 
 ## Enable delivery
 
@@ -22,8 +33,8 @@ see [trips.md](trips.md).
    The key can contain actual newlines or literal `\n` escapes. Use a key authorized
    for both sandbox and production, or configure each deployment accordingly.
 3. Apply the database migration using `cd server && bun run db:migrate` before
-   deploying the updated API. It creates `push_devices`; account deletion removes
-   registrations through its cascading foreign key.
+   deploying the updated API. It creates `push_devices` and, in `0019_trip_notifications.sql`, the
+   trip notification outbox and delivery receipts. Account/trip deletion cascades to pending work.
 4. Install a signed build and open **Settings → Notifications → Enable
    Notifications**. The native system prompt asks permission. Each device must opt
    in. Debug uses the sandbox APNs environment; Release uses production. The
@@ -40,7 +51,7 @@ their own sheet, operation overlays, native error alerts, and mobile haptics.
 Disable and sign-out stop registration with Apple and remove the server record
 while credentials are available. If server cleanup fails, the app retries disabled
 registration cleanup on its next signed-in activation. Foreground notifications
-and notification taps verify the payload's owner against the signed-in account.
+and notification taps verify the payload's recipient against the signed-in account.
 
 ## Device API
 
@@ -65,17 +76,28 @@ return `204` and do not expose device tokens in responses.
 
 ## Delivery behavior
 
-The existing Next.js `after()` lifecycle runs notifications after persistence,
+For new summaries, the existing Next.js `after()` lifecycle runs notifications after persistence,
 separately from source-document formatting. An APNs outage never changes a
 successful creation response. The provider uses HTTP/2, ES256 authentication, a
 10-second request timeout, and a per-summary collapse ID. Invalid/unregistered
 tokens are removed; transient failures retain registrations. Credentials and
 device tokens are not logged. Unconfigured APNs skips delivery.
 
-Delivery is best effort: there is no durable outbox or retry worker, and APNs
+Summary creation delivery is best effort: it has no durable outbox or retry worker, and APNs
 acceptance does not guarantee that the system displays an alert (permissions,
 Focus, and device connectivity affect presentation). Live delivery requires the
 Apple and server configuration above.
+
+Trip edits save their outbox in the same transaction as the revision update. `after()` starts the
+workflow; if starting fails, `/api/cron/trip-notifications` recovers overdue batches every five minutes
+(requires `CRON_SECRET` and the configured Vercel cron schedule). Durable `sleep()` releases compute
+while waiting. Workflow steps retry agent and APNs failures; leases fence duplicate runs, and the cron
+also recovers expired leases. Accepted installations are recorded so retries skip them. A crash after
+APNs accepts a push but before its receipt is stored can still resend; the per-batch APNs collapse ID
+reduces duplicate pending alerts. APNs acceptance does not guarantee presentation. Completed batches
+and receipts are deleted, including their document snapshots. Unconfigured APNs skips delivery.
+
+Workflow behavior follows Vercel's [workflows and steps documentation](https://github.com/vercel/workflow/blob/main/docs/content/docs/v5/foundations/workflows-and-steps.mdx).
 
 Protocol references: [registering with APNs](https://developer.apple.com/documentation/usernotifications/registering-your-app-with-apns)
 and [sending requests to APNs](https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns).

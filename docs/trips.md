@@ -166,7 +166,7 @@ The result must be a valid document, else `422 TRIP_INVALID` (`details.issues`) 
 
 ## Revisions
 
-Every save bumps `revision`. `PUT` requires the revision the client edited, and operations accept
+Every changed document save bumps `revision`; no-op edits keep it. `PUT` requires the revision the client edited, and operations accept
 it optionally; a trip that changed since is `409 TRIP_REVISION_CONFLICT` with `details.revision`
 (the current one). The app then reloads and tells the user the trip was updated (e.g. by the agent).
 
@@ -179,7 +179,9 @@ it into operations. Each operation is validated on its own (malformed ones are d
 leaves the trip invalid is sent back to the agent once with the issues; whatever still doesn't fit is
 dropped one operation at a time. A page with a URL is added to `sources`. The agent is charged in
 points (`402 TRIP_POINTS_EXHAUSTED` when the balance is empty, checked before anything runs); direct
-edits are free. After `ingest`, the owner's devices get a "Trip updated" push with `tripId`.
+edits are free. All persisted edits queue a debounced "Trip updated" push with `tripId` for the creator
+and signed-in shared-link readers. Vercel Workflow waits five minutes after the last edit, then a
+read-only agent summarizes the batch's net changes. See [notifications.md](notifications.md).
 
 ## Photos
 

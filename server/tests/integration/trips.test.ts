@@ -12,7 +12,7 @@ import * as pdfRoute from "@/app/api/v1/trips/[id]/pdf/route";
 import * as chatRoute from "@/app/api/v1/chat/route";
 import { tripChatTools } from "@/lib/ai/chat";
 import type { TripDocument } from "@/lib/contracts/trip";
-import { summaries, trips } from "@/lib/db/schema";
+import { summaries, trips, tripNotificationBatches } from "@/lib/db/schema";
 import type { TripJson } from "@/lib/services/trips";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -336,7 +336,7 @@ describe("/api/v1/trips/:id/ingest", () => {
     .filter(([url]) => new URL(String(url)).pathname === path)
     .map(([, init]) => JSON.parse(init?.body as string));
 
-  it("queues the trip agent, applies its operations, charges points and pushes \"Trip updated\"", async () => {
+  it("queues the trip agent, applies its operations, charges points and queues a delayed update", async () => {
     expect((await devicesRoute.POST(apiRequest("POST", "/api/v1/devices", { token: env.tokens.alice, body: device }))).status).toBe(204);
     const trip = await create();
     env.ai.tripAgent = (input) => ({
@@ -361,13 +361,10 @@ describe("/api/v1/trips/:id/ingest", () => {
     expect(env.ai.calls.updateTrip[0]).toMatchObject({ instructions: "Add the hotel", source: { title: "Memmo Alfama booking" } });
     expect(env.ai.calls.updateTrip[0].source.text).toContain("MA-5521");
 
-    await vi.waitFor(() => expect(sendPush).toHaveBeenCalledTimes(1));
-    expect(sendPush).toHaveBeenCalledWith(expect.objectContaining({ token: device.token }), {
-      aps: { alert: { title: "Trip updated", body: "Lisbon long weekend: Booked Memmo Alfama for 6–9 November." }, sound: "default" },
-      summaryId: trip.id,
-      tripId: trip.id,
-      userId: "user-alice",
-    });
+    expect(sendPush).not.toHaveBeenCalled();
+    const [notification] = await env.handle.db.select().from(tripNotificationBatches);
+    expect(notification).toMatchObject({ tripId: trip.id, revision: 1, status: "pending", changeSummary: null });
+    expect(notification.afterDocument.hotels.map((hotel) => hotel.id)).toEqual(["hotel-memmo-alfama"]);
 
     await vi.waitFor(() => expect(bodies(fetch, "/api/v1/balances/reservations/res-trip/settle")).toHaveLength(1));
     const [reserve] = bodies(fetch, "/api/v1/balances/reserve");

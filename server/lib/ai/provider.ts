@@ -22,6 +22,7 @@ import {
 import { splitIntoParts, stripFence, writeDocument, type DocumentSource } from "./document-agent";
 import { findDuplicate, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import { runTripAgent, type TripAgentInput, type TripAgentResult } from "./trip-agent";
+import { summarizeTripChanges, type TripChangeInput } from "./trip-change-agent";
 import { LANGUAGE_NAMES, llmSummarySchema, llmTranslationSchema, type LlmSummary, type LlmTranslation } from "./summary-schema";
 
 /**
@@ -143,6 +144,8 @@ export interface AiProvider {
   findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null>;
   /** Operations that bring a shared page or text into a trip, from the trip agent, or null when it failed. */
   updateTrip(input: TripAgentInput, options?: TripAgentCallOptions): Promise<TripAgentResult | null>;
+  /** A notification agent summarizing persisted net changes; failures are retried by Workflow. */
+  summarizeTripChanges(input: TripChangeInput): Promise<string>;
   /** The cover theme (palette, mode, emoji, accent, headline) for an imported summary, or null when it failed. */
   designCover(input: CoverInput): Promise<LlmSummary["design"] | null>;
   /** Raw SVG markup (unsanitised) for the OG background, or null. */
@@ -240,6 +243,10 @@ Answer true when the text is mainly a pointer to the linked page: a share-sheet 
 Answer false when the text is substantial content in its own right (an article, notes, a message or a document) that merely mentions or cites a link.`;
 
 export class GatewayAiProvider implements AiProvider {
+  async summarizeTripChanges(input: TripChangeInput): Promise<string> {
+    return summarizeTripChanges(textModel(), input);
+  }
+
   async isSharedLink(text: string): Promise<boolean> {
     const id = evaluationModelId();
     if (!id) return false;

@@ -31,7 +31,7 @@ export const TOOL_NAMES = {
   getProfile: "get_profile",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
-export const MAX_LIST_RESULTS = 200;
+export const MAX_LIST_RESULTS = 10;
 
 export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"chips\"). Use search_summaries to find chips by meaning "
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
@@ -256,12 +256,12 @@ export function createMcpServer(context: McpContext): McpServer {
       + "nextCursor back to continue.",
     inputSchema: {
       ...filters,
-      limit: z.number().int().min(1).max(MAX_LIST_RESULTS).optional().describe(`How many chips to return, 1–${MAX_LIST_RESULTS}. Default 50.`),
+      limit: z.number().int().min(1).max(MAX_LIST_RESULTS).optional().describe(`How many chips to return, 1–${MAX_LIST_RESULTS}. Default ${MAX_LIST_RESULTS}.`),
       cursor: z.string().max(200).optional().describe("nextCursor from a previous list_summaries call, for the next page."),
     },
     annotations: { title: "List Summaries", readOnlyHint: true, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.listSummaries, async () => {
-    const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? 50 }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
+    const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? MAX_LIST_RESULTS }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
     return { result: success(listPayload(page)) };
   }));
 
