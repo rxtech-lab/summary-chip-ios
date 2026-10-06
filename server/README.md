@@ -224,7 +224,7 @@ the env var is unset or the call fails, the graphic style uses the same assigned
 | `bun run build` | Production build (no env vars needed at build time; clients are created lazily). |
 | `bun run lint` / `bun run typecheck` | ESLint / `tsc --noEmit`. |
 | `bun run test` | Vitest: in-memory libsql migrated with the real migrations, mock AI, memory R2. |
-| `bun run test:e2e` | Playwright API tests (`tests/e2e`) against a real `next dev` on :3100 with mock services, a fresh `.e2e/e2e.db`, and bearer tokens from a local mock issuer on :3101 (`tests/e2e/mock-issuer.ts`). No browsers needed. CI: `.github/workflows/server-tests.yaml`. |
+| `bun run test:e2e` | Playwright API and Chromium consent-form tests (`tests/e2e`) against a real `next dev` on :3100 with mock services, a fresh `.e2e/e2e.db`, and bearer tokens from a local mock issuer on :3101 (`tests/e2e/mock-issuer.ts`). Run `bunx playwright install chromium` once locally; CI installs Chromium and its OS dependencies. CI: `.github/workflows/server-tests.yaml`. |
 | `bun run db:generate` / `bun run db:migrate` | drizzle-kit generate / apply migrations to `TURSO_DATABASE_URL`. |
 | `bun run db:backfill-embeddings` | Embed every summary missing a search embedding (or one from an older `AI_EMBEDDING_MODEL`). |
 | `TURSO_DATABASE_URL=file:local.db bun scripts/seed-dev.ts` | Seed one sample summary locally (mock AI). `OG_OUT=og.png` also writes its OG image. |

@@ -2,11 +2,12 @@ import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getBearerVerifierConfig, verifyBearerToken } from "@/lib/auth/bearer";
 import { getDatabase } from "@/lib/db/client";
-import { mcpOAuthClients, mcpOAuthCodes, mcpOAuthGrants, mcpOAuthRequests } from "@/lib/db/schema";
+import { mcpOAuthClients, mcpOAuthCodes, mcpOAuthGrants, mcpOAuthRequests, users } from "@/lib/db/schema";
 import { ApiError, noStoreJson } from "@/lib/http/errors";
 import { ensureUser } from "@/lib/services/users";
 import { challenge, digest, LOGIN_SECONDS, MCP_SCOPES, mcpOrigin, mcpResource, oauthUrl, secret } from "./oauth-config";
 import { exchangeCode, exchangeRefresh, grantExpiry, OAuthError, revokeToken } from "./oauth-tokens";
+import { renderConsentPage } from "./oauth-consent";
 
 const MAX_BODY_BYTES = 16_384;
 const FLOW_COOKIE_PREFIX = "chippy_mcp_";
@@ -85,7 +86,7 @@ function setFlowCookie(response: Response, id: string, value: string, maxAge = L
 function validRedirect(value: string): boolean {
   try {
     const url = new URL(value);
-    return !url.hash && !url.username && !url.password && (url.protocol === "https:"
+    return !url.hash && !url.username && !url.password && !/[\s;'"<>]/.test(url.origin) && (url.protocol === "https:"
       || (url.protocol === "http:" && ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname)));
   } catch { return false; }
 }
@@ -198,8 +199,9 @@ export async function callback(request: Request): Promise<Response> {
 }
 
 async function consentRequest(request: Request, id: string) {
-  const [row] = await getDatabase().select({ flow: mcpOAuthRequests, client: mcpOAuthClients }).from(mcpOAuthRequests)
+  const [row] = await getDatabase().select({ flow: mcpOAuthRequests, client: mcpOAuthClients, account: { name: users.name, email: users.email } }).from(mcpOAuthRequests)
     .innerJoin(mcpOAuthClients, eq(mcpOAuthClients.id, mcpOAuthRequests.clientId))
+    .innerJoin(users, eq(users.id, mcpOAuthRequests.ownerId))
     .where(and(eq(mcpOAuthRequests.id, id), gt(mcpOAuthRequests.expiresAt, new Date()))).limit(1);
   const cookie = cookieValue(request, id);
   if (!row?.flow.ownerId || !row.flow.consentHash || !cookie || digest(cookie) !== row.flow.consentHash) {
@@ -208,21 +210,16 @@ async function consentRequest(request: Request, id: string) {
   return { ...row, cookie };
 }
 
-function htmlEscape(value: string) { return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!); }
-
 export async function consentPage(request: Request): Promise<Response> {
   const id = required(new URL(request.url).searchParams, "request");
-  const { flow, client, cookie } = await consentRequest(request, id);
-  const permissions = flow.scope.split(" ").map(scope => scope === "chippy:read"
-    ? "Read and search your summaries and trip diaries" : "Save summaries and create or edit trip diaries");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect to Chippy</title>
-<style>body{font:17px system-ui,sans-serif;background:#f5f5f7;color:#202023;margin:0;padding:24px}main{max-width:480px;margin:10vh auto;background:white;padding:32px;border-radius:20px}h1{font-size:26px}li{margin:12px 0}small{overflow-wrap:anywhere;color:#666}button{font:inherit;padding:12px 18px;border-radius:12px;border:0;cursor:pointer;margin:8px 8px 0 0}button[value=allow]{background:#235cb5;color:white}</style></head>
-<body><main><h1>Connect ${htmlEscape(client.name)} to Chippy?</h1><p>This agent is requesting permission to:</p><ul>${permissions.map(p => `<li>${htmlEscape(p)}</li>`).join("")}</ul>
-<p><small>Agent callback: ${htmlEscape(new URL(flow.redirectUri).origin)}</small></p><p>You can disconnect the agent from its settings.</p>
-<form method="post" action="${oauthUrl("consent")}"><input type="hidden" name="request" value="${htmlEscape(id)}"><input type="hidden" name="csrf" value="${htmlEscape(cookie)}">
-<button name="decision" value="allow">Allow access</button><button name="decision" value="deny">Cancel</button></form></main></body></html>`;
-  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer",
-    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'", "x-content-type-options": "nosniff" } });
+  const { flow, client, cookie, account } = await consentRequest(request, id);
+  const html = renderConsentPage({ clientName: client.name, redirectUri: flow.redirectUri, scope: flow.scope,
+    requestId: id, csrf: cookie, action: oauthUrl("consent"), accountName: account.name, accountEmail: account.email });
+  // `no-referrer` makes native form POSTs send Origin: null. Preserve the origin for this
+  // same-origin submission while suppressing referrers to the external agent callback.
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "same-origin",
+    // Chromium applies form-action to the 302 too; allow only this flow's registered callback origin.
+    "content-security-policy": `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${new URL(flow.redirectUri).origin}; frame-ancestors 'none'; base-uri 'none'`, "x-content-type-options": "nosniff" } });
 }
 
 export async function approveConsent(request: Request): Promise<Response> {
