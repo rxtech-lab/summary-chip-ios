@@ -24,7 +24,7 @@ import { embedSummary, indexSummary } from "./embeddings";
 import { syncTripFlights } from "./flights";
 import { notifyTripUpdated } from "./notifications";
 import { shareUrlFor } from "./serialize";
-import { coverImages, extractSource, findSummaryById, getOwnedSummary, insertSummary, isLinkLive, resolveDeps, type ServiceDeps } from "./summaries";
+import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, isLinkLive, resolveDeps, type ServiceDeps } from "./summaries";
 import { applyOperations, tripDayCount, tripDigest, tripText } from "./trip-document";
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;
@@ -44,6 +44,8 @@ export interface TripJson {
   updatedAt: string;
   shareUrl: string;
   document: TripDocument;
+  /** `GET` only: when the caller starred the trip (it's listed under Likes); null when they haven't. */
+  likedAt?: string | null;
 }
 
 /** One row of `GET /api/v1/trips`. */
@@ -123,7 +125,8 @@ export async function findTripForViewer(db: Database, id: string, viewerId: stri
 export async function getTrip(db: Database, id: string, viewerId: string): Promise<TripJson> {
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
-  return toTripJson(found.summary, found.trip, viewerId);
+  const likedAt = await findLikedAt(db, viewerId, id);
+  return { ...toTripJson(found.summary, found.trip, viewerId), likedAt: likedAt ? likedAt.toISOString() : null };
 }
 
 /** Only the owner edits; others who can see a public trip get 403, everyone else 404. */

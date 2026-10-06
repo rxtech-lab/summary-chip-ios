@@ -122,7 +122,7 @@ export async function readSummaryJson(
   return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading, likedAt);
 }
 
-async function findLikedAt(db: Database, userId: string, summaryId: string): Promise<Date | null> {
+export async function findLikedAt(db: Database, userId: string, summaryId: string): Promise<Date | null> {
   const [like] = await db.select({ likedAt: summaryLikes.likedAt }).from(summaryLikes)
     .where(and(eq(summaryLikes.userId, userId), eq(summaryLikes.summaryId, summaryId))).limit(1);
   return like?.likedAt ?? null;
@@ -618,8 +618,8 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const view = and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId));
   const mine = eq(summaries.ownerId, userId);
   const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), isPublicAndLive())!;
-  // Starred summaries stay listed only while the caller can still read them.
-  const liked = and(isNotNull(summaryLikes.userId), or(mine, isPublicAndLive()))!;
+  // Starred summaries stay listed after others' links expire; they come back as `isExpired`.
+  const liked = isNotNull(summaryLikes.userId);
   const scope = query.scope === "mine" ? mine
     : query.scope === "viewed" ? viewed
     : query.scope === "liked" ? liked
@@ -652,11 +652,16 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     .limit(query.limit + 1);
   const page = rows.slice(0, query.limit);
   const last = page[page.length - 1];
-  const readings = await readSummaries(db, page.map((row) => row.summary), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
+  const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
     items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt)),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
+}
+
+/** Rows the caller may still read; expired likes are sent without their text, so they aren't translated. */
+function readable(page: { summary: SummaryRow }[], userId: string): SummaryRow[] {
+  return page.map((row) => row.summary).filter((row) => row.ownerId === userId || isLinkLive(row));
 }
 
 function likeOf(userId: string): SQL {
@@ -687,7 +692,7 @@ async function searchLibrary(
     .limit(query.limit + 1)
     .offset(offset);
   const page = rows.slice(0, query.limit);
-  const readings = await readSummaries(db, page.map((row) => row.summary), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
+  const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
     items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt)),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,

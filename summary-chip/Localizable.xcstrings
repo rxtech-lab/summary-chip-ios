@@ -11228,6 +11228,70 @@
           }
         }
       }
+    },
+    "Link Expired" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接已过期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結已過期"
+          }
+        }
+      }
+    },
+    "“%@” can't be opened anymore. Its share link expired, or its owner made it private." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”已无法打开。它的分享链接已过期，或所有者已将其设为私密。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」已無法開啟。它的分享連結已過期，或擁有者已將其設為私密。"
+          }
+        }
+      }
+    },
+    "Removing from Likes…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在从喜欢中移除…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在從喜歡中移除…"
+          }
+        }
+      }
+    },
+    "Open in Library" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在资料库中打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在資料庫中開啟"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

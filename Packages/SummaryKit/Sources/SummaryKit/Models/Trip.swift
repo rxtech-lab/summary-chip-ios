@@ -646,9 +646,11 @@ public struct Trip: Codable, Sendable, Hashable, Identifiable {
     /// Only the owner can edit; others see the diary read-only.
     public var isOwner: Bool
     public var document: TripDocument
+    /// When the user starred the trip; only `GET /api/v1/trips/:id` sends it, saves leave it nil.
+    public var likedAt: Date?
 
-    public init(id: String, slug: String, revision: Int, visibility: SummaryVisibility = .private, createdAt: Date, updatedAt: Date, shareUrl: URL?, isOwner: Bool = true, document: TripDocument) {
-        self.id = id; self.slug = slug; self.revision = revision; self.visibility = visibility; self.isOwner = isOwner
+    public init(id: String, slug: String, revision: Int, visibility: SummaryVisibility = .private, createdAt: Date, updatedAt: Date, shareUrl: URL?, isOwner: Bool = true, document: TripDocument, likedAt: Date? = nil) {
+        self.id = id; self.slug = slug; self.revision = revision; self.visibility = visibility; self.isOwner = isOwner; self.likedAt = likedAt
         self.createdAt = createdAt; self.updatedAt = updatedAt; self.shareUrl = shareUrl; self.document = document
     }
 
@@ -663,6 +665,7 @@ public struct Trip: Codable, Sendable, Hashable, Identifiable {
         shareUrl = try c.decodeLenientURL(forKey: .shareUrl)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner) ?? true
         document = try c.decode(TripDocument.self, forKey: .document)
+        likedAt = try c.decodeIfPresent(Date.self, forKey: .likedAt)
     }
 }
 

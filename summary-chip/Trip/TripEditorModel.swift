@@ -52,6 +52,8 @@ final class TripEditorModel {
     private(set) var savedCount = 0
     /// The trip's tracked flight segments, as the backend last stored them.
     private(set) var flights: [TripFlight] = []
+    /// When the user starred the trip (it's under Likes). Only reads carry it, so saves keep it as is.
+    var likedAt: Date?
 
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var pendingFlightsTask: Task<Void, Never>?
@@ -67,7 +69,9 @@ final class TripEditorModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            trip = try await api.trip(id: id)
+            let fresh = try await api.trip(id: id)
+            trip = fresh
+            likedAt = fresh.likedAt
             loadError = nil
             await loadFlights()
         } catch is CancellationError {
@@ -153,6 +157,7 @@ final class TripEditorModel {
     /// Refreshes after a push or returning to the app; tells the user when the trip changed.
     func refresh() async {
         guard let current = trip, let fresh = try? await api.trip(id: id) else { return }
+        likedAt = fresh.likedAt
         if fresh.revision != current.revision {
             trip = fresh
             show(.reloaded)

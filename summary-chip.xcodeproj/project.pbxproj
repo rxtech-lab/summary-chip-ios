@@ -32,6 +32,7 @@
 		2CEAA41C97A094BD52A600DB /* SourceMarkdownSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */; };
 		34E085E6A8C7BF8C596322F6 /* CreditsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA57F609F06BEE5244D87D8A /* CreditsUITests.swift */; };
 		35471ED19EC8581225457621 /* CurrencyConversionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487B956EC8E5981B4B6719D9 /* CurrencyConversionSheet.swift */; };
+		3A70B49ED4D615DBEFE3BE63 /* DeepLinkLikesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 095D3B67DF34AC1B37AEBEDB /* DeepLinkLikesUITests.swift */; };
 		3DE10AED250D3C8974418412 /* SummaryNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC36488449D790D8DD6ECAC /* SummaryNotifications.swift */; };
 		3E0FE6EEC3187F91C800BD86 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8ABE31F705BC142E5E1193 /* SearchView.swift */; };
 		41B37588EE14979AFC018A9C /* FlightViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4BD2979A7EA7157386A67A /* FlightViews.swift */; };
@@ -75,6 +76,7 @@
 		778C65CC484111EF946501C3 /* ChatStreamingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EE92E3D91BF8D316B87E40 /* ChatStreamingUITests.swift */; };
 		77BAA8ED5D9C33E15B7DA099 /* AppShortcuts.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = DE84265B7F8C9AA488D20CAB /* AppShortcuts.xcstrings */; };
 		79A04458D9B574AFAF37B4AC /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2719F635F4138E9669D90258 /* MessagesViewController.swift */; };
+		7BA1D05FB693DF27C5CDA1F9 /* LikesPreviewFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081582646A80A90DCFF80871 /* LikesPreviewFixture.swift */; };
 		7CBD89FC124DB1D258F3264D /* ChatScrollDiagUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9236C39688F07F83A5447905 /* ChatScrollDiagUITests.swift */; };
 		7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */; };
 		7E9967902150357183A256C2 /* RxAuthTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3649A0D60A27E6BD17E2B7C9 /* RxAuthTokenStorage.swift */; };
@@ -92,6 +94,7 @@
 		9A2556677B57023C7F0F31B0 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FF456F2C5EBA0F4D915B8D /* LegalDocumentView.swift */; };
 		9C543B84D7077B898C8F8BEF /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6EDD0A7C7072436E8022984E /* SummaryKit */; };
 		9F0EA9CC1D1013114E22494F /* TripEditorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6165D5EEFE21F50D353DBE4 /* TripEditorModel.swift */; };
+		A112FEB21084F38266ED6DE0 /* ExpiredSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A1E82976A1D45A28B24431 /* ExpiredSummaryView.swift */; };
 		A40212A0F93F0C25157C5FE2 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BDDEFD839800D2C35B62FE /* ChatView.swift */; };
 		A764E3595ADB70374738A904 /* TripMapCameraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEF01AC803F12B398A189AB /* TripMapCameraTests.swift */; };
 		AC2DE7F7EDCB47315AD79606 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */; };
@@ -229,7 +232,10 @@
 /* Begin PBXFileReference section */
 		03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMarkdownSheet.swift; sourceTree = "<group>"; };
 		05A43C52A80A84D95466F332 /* ChippyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChippyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		07A1E82976A1D45A28B24431 /* ExpiredSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpiredSummaryView.swift; sourceTree = "<group>"; };
+		081582646A80A90DCFF80871 /* LikesPreviewFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikesPreviewFixture.swift; sourceTree = "<group>"; };
 		0871168308F08E98FC6F6407 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		095D3B67DF34AC1B37AEBEDB /* DeepLinkLikesUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkLikesUITests.swift; sourceTree = "<group>"; };
 		096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		0B3EFE9B2794FB2ECA140DBE /* PointsTopUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointsTopUpView.swift; sourceTree = "<group>"; };
 		110D70A5356536439A37CBC9 /* PlaceEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceEditorSheet.swift; sourceTree = "<group>"; };
@@ -485,7 +491,9 @@
 		26B7443DC68CC679AF4D69CA /* Likes */ = {
 			isa = PBXGroup;
 			children = (
+				07A1E82976A1D45A28B24431 /* ExpiredSummaryView.swift */,
 				23D047252F3DAC2206A78EE1 /* LikesModel.swift */,
+				081582646A80A90DCFF80871 /* LikesPreviewFixture.swift */,
 				DFC3FBD94895B7A9B674DF02 /* LikeStatusOverlay.swift */,
 				4FFC9B14C68BCD30FAD007BB /* LikesView.swift */,
 			);
@@ -768,6 +776,7 @@
 			children = (
 				9236C39688F07F83A5447905 /* ChatScrollDiagUITests.swift */,
 				A0EE92E3D91BF8D316B87E40 /* ChatStreamingUITests.swift */,
+				095D3B67DF34AC1B37AEBEDB /* DeepLinkLikesUITests.swift */,
 				81068B73DA4992674C619696 /* LocalFileUITests.swift */,
 				096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */,
 			);
@@ -1177,6 +1186,7 @@
 				FD146E53E9F93BB20E50FA51 /* DisplayLanguageSheet.swift in Sources */,
 				DD67A328AA32E34C1E031B7E /* EditSharingSheet.swift in Sources */,
 				7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */,
+				A112FEB21084F38266ED6DE0 /* ExpiredSummaryView.swift in Sources */,
 				E620586B187E44C1ED844963 /* FlightLiveActivities.swift in Sources */,
 				41B37588EE14979AFC018A9C /* FlightViews.swift in Sources */,
 				2BD9746F78F9F68D2A7D490F /* HotelExpenseEditorSheets.swift in Sources */,
@@ -1186,6 +1196,7 @@
 				C07D0758570700338E8522EC /* LibraryView.swift in Sources */,
 				2567C76201792A53D41B4146 /* LikeStatusOverlay.swift in Sources */,
 				CDF75158A97985A2C95BA81C /* LikesModel.swift in Sources */,
+				7BA1D05FB693DF27C5CDA1F9 /* LikesPreviewFixture.swift in Sources */,
 				1C679C5425128987EEAB252A /* LikesView.swift in Sources */,
 				C8B46B338CD9D0940CDD8C65 /* LocalFilePreviewHost.swift in Sources */,
 				EF27A46E415868551CC10B0F /* LocalFileSheet.swift in Sources */,
@@ -1235,6 +1246,7 @@
 			files = (
 				7CBD89FC124DB1D258F3264D /* ChatScrollDiagUITests.swift in Sources */,
 				778C65CC484111EF946501C3 /* ChatStreamingUITests.swift in Sources */,
+				3A70B49ED4D615DBEFE3BE63 /* DeepLinkLikesUITests.swift in Sources */,
 				C723705078F709EBE7A4ED72 /* LocalFileUITests.swift in Sources */,
 				AC2DE7F7EDCB47315AD79606 /* OnboardingUITests.swift in Sources */,
 			);

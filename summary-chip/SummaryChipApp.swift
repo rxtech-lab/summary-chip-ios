@@ -17,7 +17,11 @@ struct SummaryChipApp: App {
     #endif
 
     init() {
+        #if DEBUG
+        let environment = LikesPreviewFixture.isEnabled ? LikesPreviewFixture.environment() : AppEnvironment.live()
+        #else
         let environment = AppEnvironment.live()
+        #endif
         _environment = State(initialValue: environment)
         SummaryNotifications.shared.configure(environment: environment)
         // Siri / Shortcuts intents run in this process and share the signed-in environment.
@@ -46,6 +50,7 @@ struct SummaryChipApp: App {
                     #endif
                     if ProcessInfo.processInfo.arguments.contains("--preview-education") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-credits") { return }
+                    if LikesPreviewFixture.isEnabled { return }
                     #if os(macOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-mac") { return }
                     #endif

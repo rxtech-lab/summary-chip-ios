@@ -61,6 +61,12 @@ struct SidebarMainView: View {
                 }
             }
         }
+        // "Open in Library" from a link sheet.
+        .onChange(of: environment.pendingLibraryItem) { _, item in
+            guard let item else { return }
+            environment.pendingLibraryItem = nil
+            openFromSearch(item)
+        }
         .focusedSceneValue(\.newSummaryAction, { showsNewSummary = true })
         .focusedSceneValue(\.newTripAction, { showsNewTrip = true })
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
