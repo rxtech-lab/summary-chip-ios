@@ -11,5 +11,5 @@ export async function GET(request: Request, { params }: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
     return noStoreJson(await tripFlights(db, id, principal.sub));
-  });
+  }, { feature: "trips" });
 }

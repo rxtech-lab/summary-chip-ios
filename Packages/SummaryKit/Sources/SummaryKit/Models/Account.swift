@@ -41,6 +41,7 @@ public enum LegalDocument: String, Sendable, Hashable, CaseIterable {
     public func load(baseURL: URL, session: URLSession = .shared) async throws -> String {
         var request = URLRequest(url: url(relativeTo: baseURL))
         request.setValue("text/markdown", forHTTPHeaderField: "Accept")
+        request.setAppVersionHeaders()
         request.timeoutInterval = 30
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }

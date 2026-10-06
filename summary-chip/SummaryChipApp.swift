@@ -39,6 +39,11 @@ struct SummaryChipApp: App {
                 .frame(minWidth: 820, minHeight: 620)
                 #endif
                 .environment(\.summaryAssetLoader, environment.assetLoader)
+                #if os(macOS)
+                .appUpdateAlert { UpdateService.shared.checkForUpdates() }
+                #else
+                .appUpdateAlert()
+                #endif
                 .task {
                     #if os(macOS)
                     UpdateService.shared.start()

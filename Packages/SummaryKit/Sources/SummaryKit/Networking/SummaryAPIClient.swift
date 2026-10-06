@@ -323,6 +323,7 @@ public final class SummaryAPIClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         // Others' summaries come back translated into the user's language.
         request.setValue(Locale.acceptLanguageHeader, forHTTPHeaderField: "Accept-Language")
+        request.setAppVersionHeaders()
         request.timeoutInterval = 30
         return request
     }
@@ -418,7 +419,9 @@ public final class SummaryAPIClient: Sendable {
     static func validate(data: Data, response: HTTPURLResponse) throws {
         guard !(200..<300).contains(response.statusCode) else { return }
         if let envelope = try? SummaryJSON.decoder().decode(APIErrorEnvelope.self, from: data) {
-            throw SummaryAPIError.server(status: response.statusCode, body: envelope.error)
+            let error = SummaryAPIError.server(status: response.statusCode, body: envelope.error)
+            AppUpdateCenter.report(error)
+            throw error
         }
         throw SummaryAPIError.http(status: response.statusCode)
     }
@@ -438,6 +441,7 @@ public final class PublicSummaryClient: Sendable {
         var request = URLRequest(url: baseURL.appending(path: "/api/public/summaries/\(slug.urlPathEscaped)"))
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(Locale.acceptLanguageHeader, forHTTPHeaderField: "Accept-Language")
+        request.setAppVersionHeaders()
         request.timeoutInterval = 30
         let data: Data
         let response: URLResponse

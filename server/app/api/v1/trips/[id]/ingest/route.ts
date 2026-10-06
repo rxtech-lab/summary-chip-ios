@@ -19,5 +19,5 @@ export async function POST(request: Request, { params }: Context) {
     const { id } = await params;
     const input = await readJson(request, (body) => ingestTripSchema.parse(body));
     return noStoreJson(await ingestTrip(db, principal, id, input, { billingEnvironment: await billingEnvironment(request, principal) }), { status: 202 });
-  });
+  }, { feature: "trips" });
 }

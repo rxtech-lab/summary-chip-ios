@@ -123,7 +123,7 @@ app/
 lib/
   auth/bearer.ts                    RxAuth JWT verification (JWKS, RS256, client_id allow list)
   mcp/server.ts                     MCP tools: add_summary, search_summaries, list_summaries
-  http/                             handler wrapper, error envelope, cron auth
+  http/                             handler wrapper, error envelope, cron auth, app-version gating
   db/                               drizzle schema + libsql client
   extract/                          URL fetch (SSRF-guarded) + Cloudflare Browser Rendering, Readability/linkedom, unpdf
   ai/                               models, structured summarisation, mock provider, chat agent
@@ -252,6 +252,50 @@ and the cron allow 300.
   `APP_STORE_ID` is set).
 * Apple caches AASA via its CDN; after changes, verify with
   `curl https://app-site-association.cdn-apple.com/a/v1/summary.rxlab.app`.
+
+## App versions and incompatible changes
+
+Every request from the iOS/macOS app (and its extensions) carries the app's version
+(`SummaryKit/Networking/AppVersionHeaders.swift`):
+
+| Header | Example | Source |
+|--------|---------|--------|
+| `X-App-Version` | `1.9.0` | `CFBundleShortVersionString` (`MARKETING_VERSION`) |
+| `X-App-Build` | `42` | `CFBundleVersion` |
+| `X-App-Platform` | `ios` / `macos` / `visionos` | build platform |
+
+The server reads them in `lib/http/app-version.ts`. API logs include the app version too. Requests without
+a valid `X-App-Version` (tests, scripts, and app builds up to 1.9.x, released before the header) are
+**always accepted**.
+
+**If you add a feature that older app versions can't handle, gate it so the app shows an update
+dialog instead of breaking.** Trips are an example: they need app 1.9.0 or later.
+
+1. Add the feature and the first app version that supports it to `FEATURE_MIN_APP_VERSIONS`
+   (`lib/http/app-version.ts`), e.g. `trips: "1.9.0"`. Use the version the app will ship in
+   (the release tag), not the current one.
+2. Gate the routes: `withApiAuth(request, action, { feature: "trips" })` (also on `withPublicApi`),
+   or call `requireAppFeature(request, "trips")` inside a handler when only some requests need it
+   (e.g. `POST /api/v1/chat` with a `tripId`).
+3. Older apps then get `426 APP_UPDATE_REQUIRED`:
+
+   ```json
+   { "error": { "code": "APP_UPDATE_REQUIRED",
+       "message": "This feature needs Chippy 1.9.0 or later. Update the app to keep using it.",
+       "details": { "feature": "trips", "requiredVersion": "1.9.0", "currentVersion": "1.8.0",
+                    "updateUrl": "https://apps.apple.com/app/id…" } } }
+   ```
+
+   The app shows a native **Update Chippy** alert: "This feature needs Chippy {requiredVersion} or later."
+   (`AppUpdateCenter` + `.appUpdateAlert()` in SummaryKit). **Update** opens `updateUrl` on iOS (the App
+   Store listing, when `APP_STORE_ID` is set) and runs a Sparkle update check on macOS. Error messages
+   in the share extensions say the same.
+4. Add a test that a request with an older `X-App-Version` gets the 426 (see `tests/integration/trips.test.ts`).
+
+Don't gate changes that older apps already tolerate (new optional fields, new enum values that decode as
+"other"). For a breaking change to an *existing* endpoint, prefer keeping the old response for apps where
+`supportsAppFeature(request, feature)` is false; use `requireAppFeature` only when the old behaviour
+can't be kept.
 
 ## Behaviour notes
 

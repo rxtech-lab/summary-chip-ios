@@ -1,4 +1,5 @@
 import { requireApiPrincipal, type ApiPrincipal } from "@/lib/auth/bearer";
+import { appClient, requireAppFeature, type AppFeature } from "@/lib/http/app-version";
 import { getDatabase, type Database } from "@/lib/db/client";
 import { ApiError, errorResponse } from "@/lib/http/errors";
 import { authenticateApiKey, type ApiKeyPrincipal } from "@/lib/services/api-keys";
@@ -16,11 +17,23 @@ function log(request: Request, requestId: string, status: number, startedAt: num
     status,
     durationMs: Math.round(performance.now() - startedAt),
     user: principal?.sub,
+    app: formatApp(request),
   };
   const line = `[api] ${JSON.stringify(entry)}`;
   if (status >= 500) console.error(line);
   else if (status >= 400) console.warn(line);
   else if (process.env.NODE_ENV !== "test") console.log(line);
+}
+
+function formatApp(request: Request): string | undefined {
+  const client = appClient(request);
+  if (!client) return undefined;
+  return [client.platform, client.version, client.build && `(${client.build})`].filter(Boolean).join(" ");
+}
+
+export interface ApiHandlerOptions {
+  /** Answers `426 APP_UPDATE_REQUIRED` to apps older than the feature needs (`FEATURE_MIN_APP_VERSIONS`). */
+  feature?: AppFeature;
 }
 
 export interface ApiContext {
@@ -29,13 +42,18 @@ export interface ApiContext {
   requestId: string;
 }
 
-/** Bearer-authenticated `/api/v1` handler: auth → ensure user row → action → consistent errors. */
-export async function withApiAuth(request: Request, action: (context: ApiContext) => Promise<Response>): Promise<Response> {
+/** Bearer-authenticated `/api/v1` handler: app version → auth → ensure user row → action → consistent errors. */
+export async function withApiAuth(
+  request: Request,
+  action: (context: ApiContext) => Promise<Response>,
+  options: ApiHandlerOptions = {},
+): Promise<Response> {
   const requestId = requestIdFor(request);
   const startedAt = performance.now();
   let principal: ApiPrincipal | undefined;
   let status = 500;
   try {
+    if (options.feature) requireAppFeature(request, options.feature);
     principal = await requireApiPrincipal(request);
     const db = getDatabase();
     await ensureUser(db, principal);
@@ -86,11 +104,16 @@ export async function withApiKeyAuth(request: Request, action: (context: ApiKeyC
 }
 
 /** Unauthenticated JSON handler with the same error envelope. */
-export async function withPublicApi(request: Request, action: (context: { db: Database; requestId: string }) => Promise<Response>): Promise<Response> {
+export async function withPublicApi(
+  request: Request,
+  action: (context: { db: Database; requestId: string }) => Promise<Response>,
+  options: ApiHandlerOptions = {},
+): Promise<Response> {
   const requestId = requestIdFor(request);
   const startedAt = performance.now();
   let status = 500;
   try {
+    if (options.feature) requireAppFeature(request, options.feature);
     const response = await action({ db: getDatabase(), requestId });
     status = response.status;
     response.headers.set("x-request-id", requestId);
