@@ -35,6 +35,8 @@ struct TripDetailView: View {
     @State private var shareItem: Summary?
     @State private var isLoadingShare = false
     @State private var shareError: String?
+    @State private var isTogglingLike = false
+    @State private var likeStatus: LikeStatus?
     /// The transport or hotel waiting for the user to confirm its deletion.
     @State private var pendingDeletion: TripRecord?
     @State private var isDeletingRecord = false
@@ -145,6 +147,7 @@ struct TripDetailView: View {
             }
         }
         .animation(.spring(duration: 0.35), value: model.notice)
+        .likeStatusOverlay($likeStatus)
         .task {
             await model.load()
             await openOnRelevantDay()
@@ -464,6 +467,9 @@ struct TripDetailView: View {
         if model.document != nil {
             if !isCompact {
                 ToolbarItem(placement: .summaryTrailing) {
+                    likeButton
+                }
+                ToolbarItem(placement: .summaryTrailing) {
                     Button { openSharing(.share) } label: {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
@@ -485,6 +491,7 @@ struct TripDetailView: View {
                             Button { present(.agent) } label: { Label("Ask Trip Agent", systemImage: "sparkles") }
                                 .accessibilityIdentifier("trip-agent")
                         }
+                        likeButton
                         Button { openSharing(.share) } label: { Label("Share", systemImage: "square.and.arrow.up") }
                             .disabled(isLoadingShare)
                             .accessibilityIdentifier("trip-share")
@@ -526,6 +533,18 @@ struct TripDetailView: View {
         }
     }
 
+    private var likeButton: some View {
+        Button {
+            toggleLike()
+        } label: {
+            Label(model.likedAt == nil ? "Add to Likes" : "Remove from Likes",
+                  systemImage: model.likedAt == nil ? "star" : "star.fill")
+        }
+        .help(model.likedAt == nil ? "Add to Likes" : "Remove from Likes")
+        .disabled(isTogglingLike)
+        .accessibilityIdentifier("trip-like")
+    }
+
     @ViewBuilder
     private var addMenuItems: some View {
         Button { present(.day(nil)) } label: { Label("Day", systemImage: "calendar.badge.plus") }
@@ -565,6 +584,26 @@ struct TripDetailView: View {
                 calendarSynced = false
             } catch {
                 calendarError = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: Likes
+
+    /// The star flips at once; it flips back if the server refuses.
+    private func toggleLike() {
+        let original = model.likedAt
+        let liked = original == nil
+        isTogglingLike = true
+        model.likedAt = liked ? .now : nil
+        Task {
+            defer { isTogglingLike = false }
+            do {
+                model.likedAt = try await environment.setTripLiked(id: model.id, liked)
+                likeStatus = LikeStatus(outcome: liked ? .liked : .unliked)
+            } catch {
+                model.likedAt = original
+                likeStatus = LikeStatus(outcome: .failed(error.localizedDescription))
             }
         }
     }

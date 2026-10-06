@@ -326,6 +326,9 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var viewedAt: Date?
     /// When the user starred this summary (it's listed under Likes); nil when not starred.
     public var likedAt: Date?
+    /// Someone else's starred summary that can no longer be opened: its link expired or it was made
+    /// private. Only the title, cover and source come back; Likes shows it as expired.
+    public var isExpired: Bool
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -337,7 +340,7 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         originalLanguage: String? = nil, displayLanguage: String? = nil,
         translationPending: Bool = false, sourceTranslationPending: Bool = false, theme: Theme, imageStyle: ImageStyle,
         visibility: SummaryVisibility, ttlDays: Int?, expiresAt: Date?, viewCount: Int,
-        isOwner: Bool, viewedAt: Date? = nil, likedAt: Date? = nil, createdAt: Date, updatedAt: Date
+        isOwner: Bool, viewedAt: Date? = nil, likedAt: Date? = nil, isExpired: Bool = false, createdAt: Date, updatedAt: Date
     ) {
         self.id = id; self.kind = kind; self.slug = slug; self.shareUrl = shareUrl; self.ogImageUrl = ogImageUrl; self.artImageUrl = artImageUrl
         self.sourceType = sourceType; self.source = source ?? SummaryOrigin(sourceType); self.sourceUrl = sourceUrl; self.sourceTitle = sourceTitle
@@ -352,7 +355,7 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         self.theme = theme
         self.imageStyle = imageStyle; self.visibility = visibility; self.ttlDays = ttlDays
         self.expiresAt = expiresAt; self.viewCount = viewCount; self.isOwner = isOwner
-        self.viewedAt = viewedAt; self.likedAt = likedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.viewedAt = viewedAt; self.likedAt = likedAt; self.isExpired = isExpired; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 
     /// Tolerant decoding: the public API omits owner-only fields, so everything that is not
@@ -396,6 +399,7 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner) ?? false
         viewedAt = try c.decodeIfPresent(Date.self, forKey: .viewedAt)
         likedAt = try c.decodeIfPresent(Date.self, forKey: .likedAt)
+        isExpired = try c.decodeIfPresent(Bool.self, forKey: .isExpired) ?? false
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }

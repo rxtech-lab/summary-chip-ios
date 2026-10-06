@@ -104,7 +104,7 @@ describe("POST /api/v1/summaries", () => {
       "id", "slug", "kind", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
       "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "displayCategory", "displayTags", "keywords", "language",
       "originalLanguage", "displayLanguage", "translationPending", "sourceTranslationPending", "theme", "imageStyle", "visibility",
-      "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "likedAt", "createdAt", "updatedAt",
+      "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "likedAt", "isExpired", "createdAt", "updatedAt",
     ]);
     // Readability extracted the article, not the nav/footer chrome.
     const sent = env.ai.calls.summarize[0];
@@ -647,7 +647,7 @@ describe("likes", () => {
   const like = (id: string, token: string, method: "PUT" | "DELETE" = "PUT") =>
     likeRoute[method](apiRequest(method, `/api/v1/summaries/${id}/like`, { token }), params({ id }));
   const liked = async (token: string) =>
-    (await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?scope=liked", { token }))).json()).items as { id: string; likedAt: string }[];
+    (await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?scope=liked", { token }))).json()).items as { id: string; likedAt: string; isExpired: boolean; title: string; summary: string }[];
 
   it("stars own and others' public summaries, lists them newest like first, and unstars", async () => {
     const mine = await createText("Sourdough starters need regular feeding with flour and water to stay active.", { title: "Sourdough" });
@@ -670,9 +670,17 @@ describe("likes", () => {
     const all = await (await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries", { token: env.tokens.alice }))).json();
     expect(all.items.find((item: { id: string }) => item.id === mine.id).likedAt).toBe(first.likedAt);
 
-    // Someone else's summary going private drops out of Likes.
+    expect((await liked(env.tokens.alice)).map((item) => item.isExpired)).toEqual([false, false]);
+
+    // Someone else's summary going private stays in Likes as expired, without its text.
     await summaryRoute.PATCH(apiRequest("PATCH", `/api/v1/summaries/${theirs.id}`, { token: env.tokens.bob, body: { visibility: "private" } }), params({ id: theirs.id }));
-    expect((await liked(env.tokens.alice)).map((item) => item.id)).toEqual([mine.id]);
+    const [expired, still] = await liked(env.tokens.alice);
+    expect(still.id).toBe(mine.id);
+    expect(still.isExpired).toBe(false);
+    expect(expired).toMatchObject({ id: theirs.id, title: "Night trains", summary: "", highlights: [], hasSourceMarkdown: false, isExpired: true });
+    expect((await summaryRoute.GET(apiRequest("GET", `/api/v1/summaries/${theirs.id}`, { token: env.tokens.alice }), params({ id: theirs.id }))).status).toBe(404);
+    // It can still be unstarred.
+    expect(await (await like(theirs.id, env.tokens.alice, "DELETE")).json()).toEqual({ likedAt: null });
 
     expect(await (await like(mine.id, env.tokens.alice, "DELETE")).json()).toEqual({ likedAt: null });
     expect(await liked(env.tokens.alice)).toEqual([]);

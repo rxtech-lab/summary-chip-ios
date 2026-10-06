@@ -57,6 +57,11 @@ export interface SummaryJson {
   viewedAt: string | null;
   /** When the caller starred this summary; null when they haven't (and for visitors). */
   likedAt: string | null;
+  /**
+   * Someone else's summary the caller starred but can no longer open: its link expired or it was
+   * made private. Only the title, cover and source are sent; the summary text is left out.
+   */
+  isExpired: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,7 +144,8 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
   const shareUrl = shareUrlFor(row.slug);
   const { translation } = reading;
   const isOwner = viewerId !== null && viewerId === row.ownerId;
-  const hasSourceMarkdown = sourceMarkdownFor(row, viewerId) !== null;
+  const isExpired = !isOwner && !(row.visibility === "public" && (row.expiresAt === null || row.expiresAt > new Date()));
+  const hasSourceMarkdown = !isExpired && sourceMarkdownFor(row, viewerId) !== null;
   return {
     id: row.id,
     slug: row.slug,
@@ -152,17 +158,17 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     sourceUrl: row.sourceUrl,
     sourceTitle: row.sourceTitle,
     siteName: siteNameFor(row.siteName, row.sourceUrl),
-    sourceFileUrl: row.sourceType === "pdf" && row.sourceFileKey ? `${shareUrl}/source` : null,
+    sourceFileUrl: !isExpired && row.sourceType === "pdf" && row.sourceFileKey ? `${shareUrl}/source` : null,
     hasSourceMarkdown,
-    sourceMarkdownPending: isSourceMarkdownPending(row, viewerId),
+    sourceMarkdownPending: !isExpired && isSourceMarkdownPending(row, viewerId),
     title: translation?.title ?? row.title,
-    summary: translation?.summary ?? row.summary,
-    highlights: translation?.highlights ?? row.highlights,
+    summary: isExpired ? "" : translation?.summary ?? row.summary,
+    highlights: isExpired ? [] : translation?.highlights ?? row.highlights,
     category: row.category,
     tags: row.tags,
     displayCategory: categoryLabel(row.category, translationLanguageFor(translation?.language ?? row.language) ?? "en"),
     displayTags: translation?.tags?.length === row.tags.length ? translation.tags : row.tags,
-    keywords: row.keywords,
+    keywords: isExpired ? [] : row.keywords,
     language: translation?.language ?? row.language,
     originalLanguage: row.language,
     displayLanguage: isOwner ? row.displayLanguage : null,
@@ -177,6 +183,7 @@ export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt
     isOwner,
     viewedAt: viewedAt ? viewedAt.toISOString() : null,
     likedAt: likedAt ? likedAt.toISOString() : null,
+    isExpired,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

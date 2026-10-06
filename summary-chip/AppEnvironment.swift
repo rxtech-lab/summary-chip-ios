@@ -48,6 +48,8 @@ final class AppEnvironment {
     var pendingTopUp = false
     private(set) var authenticationState: AuthenticationPresentationState
     var pendingRoute: AppRoute?
+    /// An item from a link sheet to open in the main navigation (Library) once the sheet closes.
+    var pendingLibraryItem: Summary?
     /// Text or link sent from another app through the macOS Services menu.
     var pendingServiceText: String?
     /// A file dropped on the window or opened with the app (Finder "Open With", the Dock icon).
@@ -57,11 +59,11 @@ final class AppEnvironment {
     }
     @ObservationIgnored private var isHandingOffFile = false
 
-    init(configuration: SummaryConfiguration, authManager: OAuthManager, tokenBroker: SharedTokenBroker, authenticationState: AuthenticationPresentationState = .checking) {
+    init(configuration: SummaryConfiguration, authManager: OAuthManager, tokenBroker: SharedTokenBroker, authenticationState: AuthenticationPresentationState = .checking, session: URLSession = .shared) {
         self.configuration = configuration
         self.authManager = authManager
         self.tokenBroker = tokenBroker
-        self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker)
+        self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker, session: session)
         self.chatClient = ChatStreamClient(api: api)
         self.assetLoader = SummaryAssetLoader(tokenProvider: tokenBroker)
         let offline = OfflineSummaryStore()
@@ -73,7 +75,16 @@ final class AppEnvironment {
 
     static func live() -> AppEnvironment {
         let configuration = SummaryConfiguration.live()
-        let vault = SharedKeychainTokenVault(accessGroup: configuration.keychainAccessGroup)
+        return live(configuration: configuration, vault: SharedKeychainTokenVault(accessGroup: configuration.keychainAccessGroup))
+    }
+
+    /// `vault`, `session` and `authenticationState` are swapped for offline preview fixtures.
+    static func live(
+        configuration: SummaryConfiguration,
+        vault: any SharedTokenVaultProtocol,
+        session: URLSession = .shared,
+        authenticationState: AuthenticationPresentationState = .checking
+    ) -> AppEnvironment {
         let storage = RxAuthSharedTokenStorage(vault: vault)
         let manager = OAuthManager(
             configuration: RxAuthConfiguration(
@@ -101,7 +112,8 @@ final class AppEnvironment {
             tokenURL: configuration.oauthTokenURL,
             clientID: configuration.oauthClientID
         )
-        return AppEnvironment(configuration: configuration, authManager: manager, tokenBroker: broker)
+        return AppEnvironment(configuration: configuration, authManager: manager, tokenBroker: broker,
+                              authenticationState: authenticationState, session: session)
     }
 
     func start() async {
@@ -157,6 +169,22 @@ final class AppEnvironment {
         library.upsert(updated)
         likes.apply(updated)
         return updated
+    }
+
+    /// Stars or unstars a trip, which is known by id only while its diary is open. Returns the new date.
+    func setTripLiked(id: String, _ liked: Bool) async throws -> Date? {
+        let likedAt = try await api.setLiked(id: id, liked: liked)
+        if let item = library.items.first(where: { $0.id == id }) {
+            var updated = item
+            updated.likedAt = likedAt
+            library.upsert(updated)
+        }
+        if liked {
+            Task { await likes.reload() }
+        } else {
+            likes.remove(id: id)
+        }
+        return likedAt
     }
 
     func sessionExpired() async {

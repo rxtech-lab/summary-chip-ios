@@ -42,6 +42,7 @@ public struct SummaryCardView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SummaryOGImage(summary: summary)
+                .grayscale(summary.isExpired ? 1 : 0)
             VStack(alignment: .leading, spacing: compact ? 6 : 10) {
                 HStack(spacing: 6) {
                     if summary.kind == .trip {
@@ -52,9 +53,13 @@ public struct SummaryCardView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    TranslationBadge(summary: summary)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    if summary.isExpired {
+                        ExpiredBadge()
+                    } else {
+                        TranslationBadge(summary: summary)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer(minLength: 8)
                     Label(dateKind.label(SummaryDateFormatter.display(date)), systemImage: dateKind.systemImage)
                         .font(.caption.weight(.medium))
@@ -104,6 +109,24 @@ public struct SummaryCardView: View {
             $0.animation = nil
             $0.disablesAnimations = true
         }
+    }
+}
+
+/// Marks a starred summary whose link expired (or went private), so it can no longer be opened.
+public struct ExpiredBadge: View {
+    public init() {}
+
+    public var body: some View {
+        Label {
+            Text("Expired", bundle: .module, comment: "Badge on a liked summary whose share link expired")
+        } icon: {
+            Image(systemName: "hourglass.bottomhalf.filled")
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.red)
+        .labelStyle(.titleAndIcon)
+        .lineLimit(1)
+        .accessibilityIdentifier("expired-badge")
     }
 }
 

@@ -7,6 +7,8 @@ struct ContentView: View {
     @Bindable var environment: AppEnvironment
     @State private var onboarding = SummaryOnboardingStore()
     @State private var presentation: RootPresentation?
+    /// Chosen with "Open in Library" in a link sheet; shown in the main navigation once the sheet is gone.
+    @State private var itemToOpen: Summary?
     @State private var checkedLaunchEducation = false
     @State private var isDropTargeted = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -48,15 +50,18 @@ struct ContentView: View {
             }
         }
         .tint(.indigo)
-        .sheet(item: presentationBinding, onDismiss: presentNext) { presentation in
+        .sheet(item: presentationBinding, onDismiss: sheetDismissed) { presentation in
             switch presentation {
             case .education(let flow):
                 EducationSheet(pages: flow.pages, onAcknowledged: onboarding.acknowledge) {
                     self.presentation = nil
                 }
             case .summary(let route):
-                DeepLinkSheet(environment: environment, route: route)
-                    .summarySheetSize()
+                DeepLinkSheet(environment: environment, route: route) { summary in
+                    itemToOpen = summary
+                    presentationBinding.wrappedValue = nil
+                }
+                .summarySheetSize()
             case .topUp:
                 SummaryCreditsSheet(environment: environment, opensTopUps: true)
             case .newSummary(let request):
@@ -109,6 +114,14 @@ struct ContentView: View {
             if value == nil, case .topUp = presentation { environment.pendingTopUp = false }
             presentation = value
         })
+    }
+
+    private func sheetDismissed() {
+        if let itemToOpen {
+            self.itemToOpen = nil
+            environment.pendingLibraryItem = itemToOpen
+        }
+        presentNext()
     }
 
     private func presentNext() {
@@ -193,6 +206,12 @@ struct MainTabView: View {
             selection = .library
             libraryPath = [summary]
         })
+        .onChange(of: environment.pendingLibraryItem) { _, item in
+            guard let item else { return }
+            environment.pendingLibraryItem = nil
+            selection = .library
+            libraryPath = [item]
+        }
     }
 
     /// iOS 27 sets the chat tab apart from the others as the prominent tab.

@@ -36,8 +36,15 @@ final class LikesModel {
         SummaryListQuery(scope: .liked, cursor: cursor, limit: Self.pageSize)
     }
 
+    /// Others' links that ran out since they were saved show as expired, as the server would send them.
     private func savedLikes() -> [Summary] {
-        offline.summaries(matching: query(cursor: nil))
+        let now = Date.now
+        return offline.summaries(matching: query(cursor: nil))
+            .map { summary in
+                var summary = summary
+                if !summary.isOwner, let expiresAt = summary.expiresAt, expiresAt <= now { summary.isExpired = true }
+                return summary
+            }
             .sorted { ($0.likedAt ?? .distantPast) > ($1.likedAt ?? .distantPast) }
     }
 

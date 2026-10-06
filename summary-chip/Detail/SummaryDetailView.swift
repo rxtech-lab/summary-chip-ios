@@ -289,20 +289,26 @@ struct SummaryLoaderView: View {
 }
 
 /// Presented for universal links (`/s/<slug>`), `summarychip://summary/<id>` and `summarychip://trip/<id>`.
+/// "Open in Library" closes the sheet and shows the item in the main navigation via `onOpen`.
 struct DeepLinkSheet: View {
     let environment: AppEnvironment
     let route: AppRoute
+    var onOpen: ((Summary) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var summary: Summary?
+    @State private var expiredLike: Summary?
     @State private var errorMessage: String?
+    @State private var openCount = 0
 
     var body: some View {
         NavigationStack {
             Group {
                 if case .tripID(let id) = route {
-                    TripDetailView(environment: environment, tripID: id)
+                    TripDetailView(environment: environment, tripID: id, title: summary?.title ?? "")
                 } else if let summary {
                     SummaryDestination(environment: environment, summary: summary)
+                } else if let expiredLike {
+                    ExpiredSummaryView(environment: environment, summary: expiredLike)
                 } else if let errorMessage {
                     ContentUnavailableView {
                         Label("Summary unavailable", systemImage: "link.badge.plus")
@@ -317,13 +323,31 @@ struct DeepLinkSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                 }
+                if let onOpen, let summary {
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            openCount += 1
+                            onOpen(summary)
+                        } label: {
+                            Label(summary.kind == .trip ? "Open Trip" : "Open in Library", systemImage: "arrow.up.right.square")
+                        }
+                        .help(summary.kind == .trip ? "Open Trip" : "Open in Library")
+                        .accessibilityIdentifier("deep-link-open")
+                    }
+                }
             }
         }
         .task(id: route) { await load() }
+        .sensoryFeedback(.impact(weight: .light), trigger: openCount)
     }
 
     private func load() async {
-        if case .tripID = route { return }
+        if case .tripID(let id) = route {
+            // The diary loads itself; its library item is only needed to open it in the Library.
+            summary = environment.library.items.first { $0.id == id } ?? environment.likes.items.first { $0.id == id }
+            if summary == nil { summary = try? await environment.api.summary(id: id) }
+            return
+        }
         do {
             let fresh: Summary
             switch route {
@@ -334,10 +358,17 @@ struct DeepLinkSheet: View {
                 fresh = try await environment.api.summary(id: id)
             }
             environment.library.upsert(fresh)
+            environment.likes.upsert(fresh)
             summary = fresh
         } catch let error as SummaryAPIError where error.isNotFound {
             if let saved { environment.library.remove(id: saved.id) }
-            errorMessage = String(localized: "This summary is private, its link has expired, or it was deleted.")
+            // A summary in Likes stays there after its link expires; show it as expired.
+            if var liked = likedCopy {
+                liked.isExpired = true
+                expiredLike = liked
+            } else {
+                errorMessage = String(localized: "This summary is private, its link has expired, or it was deleted.")
+            }
         } catch {
             // Offline (or the server is down): show the copy saved on this device.
             if let saved {
@@ -352,6 +383,13 @@ struct DeepLinkSheet: View {
         switch route {
         case .slug(let slug): environment.library.offline.summary(slug: slug)
         case .summaryID(let id), .tripID(let id): environment.library.offline.summary(id: id)
+        }
+    }
+
+    private var likedCopy: Summary? {
+        switch route {
+        case .slug(let slug): environment.likes.items.first { $0.slug == slug }
+        case .summaryID(let id), .tripID(let id): environment.likes.items.first { $0.id == id }
         }
     }
 }

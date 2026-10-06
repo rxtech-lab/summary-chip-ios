@@ -20,7 +20,11 @@ struct LikesView: View {
             content
                 .navigationTitle("Likes")
                 .navigationDestination(for: Summary.self) { summary in
-                    SummaryDestination(environment: environment, summary: summary)
+                    if summary.isExpired {
+                        ExpiredSummaryView(environment: environment, summary: summary)
+                    } else {
+                        SummaryDestination(environment: environment, summary: summary)
+                    }
                 }
                 .task { await model.reload() }
                 .refreshable { await model.reload() }
@@ -56,10 +60,12 @@ struct LikesView: View {
                 Task { await model.loadMore() }
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) { toggleLike(summary) }
-                Button {
-                    sharingSummary = summary
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                if !summary.isExpired {
+                    Button {
+                        sharingSummary = summary
+                    } label: {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
                 }
             }) {
                 if model.isLoadingMore {
