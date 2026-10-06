@@ -14,12 +14,14 @@ export async function serveSummaryImage(
   request: Request,
   params: Promise<{ slug: string }>,
   keyOf: (row: SummaryRow) => string | null | Promise<string | null>,
+  options: { invitedPreview?: boolean } = {},
 ): Promise<Response> {
   try {
     const { slug } = await params;
     const principal = request.headers.has("authorization") ? await optionalApiPrincipal(request) : null;
     const resolved = await resolveShareKey(getDatabase(), slug, principal ? { id: principal.sub, email: principal.email } : null);
-    const row = resolved.status === "ok" ? resolved.row : null;
+    // `invitedPreview`: the cover of an invited-only link is shown signed out, so link previews work.
+    const row = resolved.status === "ok" || (options.invitedPreview && resolved.status === "sign-in") ? resolved.row : null;
     const key = row ? await keyOf(row) : null;
     if (!row || !key) throw notFound("The image does not exist");
     // Public summaries: hand off to the R2 custom domain (Cloudflare CDN) when one is configured.

@@ -113,13 +113,17 @@ with its own TTL (same allowed values; changing it restarts the clock). They ope
 and keep working while the summary is **private** — visibility only governs the summary's own link.
 An `anyone` link opens for whoever holds it. An `invited` link opens only for a signed-in user whose
 email (the access token's `email` claim, kept on `users.email`) is on its list: the website and
-public API answer `403 SIGN_IN_REQUIRED` (the page says to open it in the app), and `POST /views`
+public API answer `403 SIGN_IN_REQUIRED` (the page shows only the title and cover and says to open
+it in the app; its `og:*` tags carry the title and cover, and `og.png` serves signed out, so link
+previews still show the card — never the summary text), and `POST /views`
 answers `403 NOT_INVITED` for anyone else. A signed-in viewer's access is remembered through the
 link they opened it with (`summary_views.share_link_id`), so it lasts while that link would still
 let them in: deleting the link, letting it expire, or revoking their address ends access to the
 summary everywhere (library, `GET /summaries/:id`, trips, chat, trip pushes) at once. All checks
 live in `lib/services/share-access.ts`. For such viewers `Summary.shareUrl` (and the image URLs)
-use the link's token while the summary's own link is closed.
+use the link's token while the summary's own link is closed. The owner's share sheet lists the
+summary's own link first ("Default link", "Default link (private)" while private, when it can't be
+shared) and then the live share links.
 
 ## JSON shapes (camelCase, ISO-8601 dates)
 
@@ -452,10 +456,11 @@ After generation the user picks:
 * **Share as image** — shares the rendered OG PNG plus a caption with the title and `shareUrl`.
 * **Copy link**.
 
-In the share sheet (`ShareModeSheet`) the owner also picks **which link** to share — the summary's
-own link or one of its live share links — and opens **Manage Links** (`ShareLinksView`): the
-summary link opens `EditSharingSheet` (visibility + TTL); each share link opens
-`ShareLinkEditorSheet` (name, anyone / invited emails, TTL, revoke addresses, delete).
+The app has no default link: the owner shares only through share links they created
+(`ShareLinkSections`, in the share sheet, the new-summary result and the share extension). They
+pick a live link, or create the first one before the share button is enabled, and open **Manage
+Links** (`ShareLinksView`); each link opens `ShareLinkEditorSheet` (name, anyone / invited emails,
+TTL, revoke addresses, delete). Someone else's summary is shared with the link they opened it with.
 
 ## Environment variables (server)
 

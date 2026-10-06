@@ -216,9 +216,14 @@ public struct ExpiryLabel: View {
             let text = TTLFormatter.countdown(until: expiresAt, now: context.date)
             let soon = TTLFormatter.isExpiringSoon(expiresAt, now: context.date)
             let expired = expiresAt.map { $0 <= context.date } ?? false
-            Label(text, systemImage: expiresAt == nil ? "infinity" : "hourglass")
-                .font(.caption)
-                .foregroundStyle(expired ? .red : (soon ? .orange : .secondary))
+            // HStack rather than Label: inside List rows a Label takes the row's icon-column layout.
+            HStack(spacing: 4) {
+                Image(systemName: expiresAt == nil ? "infinity" : "hourglass")
+                Text(text).lineLimit(1)
+            }
+            .font(.caption)
+            .foregroundStyle(expired ? .red : (soon ? .orange : .secondary))
+            .accessibilityElement(children: .combine)
         }
         // TimelineView is greedy; keep the label at its intrinsic size inside rows.
         .fixedSize()

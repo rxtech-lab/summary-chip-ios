@@ -64,8 +64,11 @@ export interface ShareViewer {
 export type ShareKeyResolution =
   /** `link` is the share link it was opened with; null for the summary's own link. */
   | { status: "ok"; row: SummaryRow; link: ShareLinkRow | null }
-  /** An invited-only link opened by someone signed out: they have to sign in first. */
-  | { status: "sign-in"; link: ShareLinkRow }
+  /**
+   * An invited-only link opened by someone signed out: they have to sign in first. `row` is only
+   * for the link preview (title and cover), never the summary's text.
+   */
+  | { status: "sign-in"; row: SummaryRow; link: ShareLinkRow }
   /** An invited-only link opened by a signed-in user whose email isn't on the list. */
   | { status: "not-invited"; link: ShareLinkRow }
   | { status: "missing" };
@@ -87,7 +90,7 @@ export async function resolveShareKey(db: Database, key: string, viewer: ShareVi
   if (row.ownerId === viewer?.id) return { status: "ok", row, link };
   if (!isShareLinkLive(link, now)) return { status: "missing" };
   if (link.access === "anyone") return { status: "ok", row, link };
-  if (!viewer) return { status: "sign-in", link };
+  if (!viewer) return { status: "sign-in", row, link };
   return await isInvited(db, link.id, viewer) ? { status: "ok", row, link } : { status: "not-invited", link };
 }
 

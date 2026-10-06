@@ -121,6 +121,10 @@ describe("share links", () => {
     const anonymous = await openPublic(key);
     expect(anonymous.status).toBe(403);
     expect((await anonymous.json()).error.code).toBe("SIGN_IN_REQUIRED");
+    // Its cover still loads signed out, so link previews show the card.
+    const cover = await ogRoute.GET(apiRequest("GET", `/s/${key}/og.png`), params({ slug: key }));
+    expect(cover.status).toBe(200);
+    expect(cover.headers.get("cache-control")).toBe("private, no-store");
     const dave = await signToken("user-dave", { email: "dave@example.com" });
     const notInvited = await view(key, dave);
     expect(notInvited.status).toBe(403);

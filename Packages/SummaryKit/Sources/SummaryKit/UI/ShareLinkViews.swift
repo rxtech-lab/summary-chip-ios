@@ -1,16 +1,14 @@
 #if os(iOS) || os(macOS)
 import SwiftUI
 
-/// Every link to a summary: its own link (visibility + lifetime) and the extra share links, each
-/// with its own lifetime and, optionally, a list of invited emails. Pushed from the share sheet.
+/// A summary's share links, each with its own lifetime and, optionally, a list of invited emails.
+/// Summaries are shared only through links made here. Pushed from the share sheet.
 public struct ShareLinksView: View {
     let api: SummaryAPIClient
-    @Binding var summary: Summary
+    let summaryID: String
     @Binding var links: [SummaryShareLink]
-    let onSummaryChanged: (Summary) -> Void
 
     @State private var editor: EditorTarget?
-    @State private var showsSummaryLink = false
     @State private var deleting: SummaryShareLink?
     @State private var status: String?
     @State private var errorMessage: String?
@@ -18,11 +16,10 @@ public struct ShareLinksView: View {
     @State private var deletedCount = 0
     @State private var savedCount = 0
 
-    public init(api: SummaryAPIClient, summary: Binding<Summary>, links: Binding<[SummaryShareLink]>, onSummaryChanged: @escaping (Summary) -> Void) {
+    public init(api: SummaryAPIClient, summaryID: String, links: Binding<[SummaryShareLink]>) {
         self.api = api
-        self._summary = summary
+        self.summaryID = summaryID
         self._links = links
-        self.onSummaryChanged = onSummaryChanged
     }
 
     enum EditorTarget: Identifiable {
@@ -40,22 +37,14 @@ public struct ShareLinksView: View {
     public var body: some View {
         List {
             Section {
-                Button { showsSummaryLink = true } label: { summaryLinkRow }
-                    .accessibilityIdentifier("summary-link-row")
-            } header: {
-                Text("Summary link", bundle: .module)
-            } footer: {
-                Text("The summary's own link. Making the summary private turns it off; the links below keep working.", bundle: .module)
-            }
-
-            Section {
                 if links.isEmpty {
-                    Text("No other links yet. Add one to share with its own expiry, or only with certain people.", bundle: .module)
+                    Text("No links yet. Add one to share the summary, with its own expiry, or only with certain people.", bundle: .module)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
                 ForEach(links) { link in
                     Button { editor = .edit(link) } label: { ShareLinkRow(link: link, copied: copiedID == link.id) }
+                        .tint(.primary)
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) { deleting = link } label: {
                                 Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
@@ -80,8 +69,8 @@ public struct ShareLinksView: View {
                 }
                 .disabled(links.count >= 20)
                 .accessibilityIdentifier("add-share-link")
-            } header: {
-                Text("Other links", bundle: .module)
+            } footer: {
+                Text("Anyone who opened the summary with a link loses access when you delete it or it expires.", bundle: .module)
             }
         }
         .navigationTitle(Text("Links", bundle: .module, comment: "Title of the screen managing a summary's share links"))
@@ -97,24 +86,18 @@ public struct ShareLinksView: View {
         .sheet(item: $editor) { target in
             switch target {
             case .create:
-                ShareLinkEditorSheet(api: api, summaryID: summary.id, link: nil) { created in
+                ShareLinkEditorSheet(api: api, summaryID: summaryID, link: nil) { created in
                     links.append(created)
                     savedCount += 1
                 } onDeleted: { _ in }
             case .edit(let link):
-                ShareLinkEditorSheet(api: api, summaryID: summary.id, link: link) { updated in
+                ShareLinkEditorSheet(api: api, summaryID: summaryID, link: link) { updated in
                     if let index = links.firstIndex(where: { $0.id == updated.id }) { links[index] = updated }
                     savedCount += 1
                 } onDeleted: { id in
                     links.removeAll { $0.id == id }
                     deletedCount += 1
                 }
-            }
-        }
-        .sheet(isPresented: $showsSummaryLink) {
-            EditSharingSheet(api: api, summary: summary) { updated in
-                summary = updated
-                onSummaryChanged(updated)
             }
         }
         .confirmationDialog(
@@ -139,25 +122,6 @@ public struct ShareLinksView: View {
         .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
     }
 
-    private var summaryLinkRow: some View {
-        let isPublic = summary.visibility == .public
-        return HStack(spacing: 12) {
-            ShareLinkIcon(systemImage: summary.visibility.systemImage, tint: isPublic ? .green : .orange)
-            VStack(alignment: .leading, spacing: 3) {
-                (isPublic ? Text("Public link", bundle: .module) : Text("Turned off", bundle: .module))
-                    .foregroundStyle(.primary)
-                if isPublic {
-                    ExpiryLabel(summary.expiresAt)
-                } else {
-                    Text("The summary is private", bundle: .module).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-        }
-        .contentShape(Rectangle())
-    }
-
     private func copy(_ link: SummaryShareLink) {
         #if os(iOS)
         UIPasteboard.general.url = link.url
@@ -176,7 +140,7 @@ public struct ShareLinksView: View {
         status = String(localized: "Deleting link…", bundle: .module)
         defer { status = nil }
         do {
-            try await api.deleteShareLink(summaryID: summary.id, linkID: link.id)
+            try await api.deleteShareLink(summaryID: summaryID, linkID: link.id)
             links.removeAll { $0.id == link.id }
             deletedCount += 1
         } catch {
@@ -207,21 +171,26 @@ struct ShareLinkRow: View {
         HStack(spacing: 12) {
             ShareLinkIcon(systemImage: link.access.systemImage, tint: link.isExpired ? .gray : (link.access == .invited ? .indigo : .blue))
             VStack(alignment: .leading, spacing: 3) {
-                Text(link.displayName).foregroundStyle(.primary)
+                Text(link.displayName)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
                 HStack(spacing: 8) {
                     if link.access == .invited {
-                        Label(String(localized: "\(link.emails.count) invited", bundle: .module), systemImage: "envelope")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "envelope")
+                            Text("\(link.emails.count) invited", bundle: .module)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                     ExpiryLabel(link.expiresAt)
                 }
             }
             Spacer(minLength: 0)
             if copied {
-                Label(String(localized: "Copied", bundle: .module), systemImage: "checkmark")
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(.tint)
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel(Text("Copied", bundle: .module))
             }
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }

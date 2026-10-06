@@ -1,118 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Outdated" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要更新"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要更新"
-          }
-        }
-      }
-    },
-    "Update the %@ translation?" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新%@翻译？"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新%@翻譯？"
-          }
-        }
-      }
-    },
-    "Update Translation" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新翻译"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新翻譯"
-          }
-        }
-      }
-    },
-    "The trip changed since it was translated into %@. Chippy translates what's new or changed; the rest is reused for free. While it's shown translated, the trip can't be edited." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "行程在翻译为%@后有所变动。Chippy 只会翻译新增或修改的内容，其余部分免费沿用。以翻译显示时，行程无法编辑。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "行程在翻譯為%@後有所變動。Chippy 只會翻譯新增或修改的內容，其餘部分免費沿用。以翻譯顯示時，行程無法編輯。"
-          }
-        }
-      }
-    },
-    "Translating to %@…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在翻译为%@…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在翻譯為%@…"
-          }
-        }
-      }
-    },
-    "Translating — we'll notify you" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在翻译，完成后会通知你"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在翻譯，完成後會通知你"
-          }
-        }
-      }
-    },
-    "You'll get a notification when it's ready." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完成后会通知你。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完成後會通知你。"
-          }
-        }
-      }
-    },
     "· %@" : {
       "shouldTranslate" : false
     },
@@ -3137,6 +3025,7 @@
       }
     },
     "Current status" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -4002,6 +3891,7 @@
       }
     },
     "Edit Sharing" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -5511,6 +5401,7 @@
       }
     },
     "Link disabled" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -7403,6 +7294,22 @@
         }
       }
     },
+    "Outdated" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要更新"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要更新"
+          }
+        }
+      }
+    },
     "Page %lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -7860,6 +7767,7 @@
       }
     },
     "Private" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -7876,6 +7784,7 @@
       }
     },
     "Public link" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -10095,6 +10004,22 @@
         }
       }
     },
+    "The trip changed since it was translated into %@. Chippy translates what's new or changed; the rest is reused for free. While it's shown translated, the trip can't be edited." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程在翻译为%@后有所变动。Chippy 只会翻译新增或修改的内容，其余部分免费沿用。以翻译显示时，行程无法编辑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程在翻譯為%@後有所變動。Chippy 只會翻譯新增或修改的內容，其餘部分免費沿用。以翻譯顯示時，行程無法編輯。"
+          }
+        }
+      }
+    },
     "The trip, its diary and its share link are deleted. This can't be undone." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10544,6 +10469,22 @@
         }
       }
     },
+    "Translating — we'll notify you" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻译，完成后会通知你"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻譯，完成後會通知你"
+          }
+        }
+      }
+    },
     "Translating the source text… Showing the original for now." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10556,6 +10497,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在翻譯來源文字… 暫時顯示原文。"
+          }
+        }
+      }
+    },
+    "Translating to %@…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻译为%@…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻譯為%@…"
           }
         }
       }
@@ -10715,6 +10672,38 @@
     },
     "Update stopped" : {
 
+    },
+    "Update the %@ translation?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新%@翻译？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新%@翻譯？"
+          }
+        }
+      }
+    },
+    "Update Translation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新翻译"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新翻譯"
+          }
+        }
+      }
     },
     "Updated %@" : {
       "localizations" : {
@@ -11372,6 +11361,22 @@
     },
     "Wrong type at “%@”." : {
 
+    },
+    "You'll get a notification when it's ready." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成后会通知你。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成後會通知你。"
+          }
+        }
+      }
     },
     "You're offline" : {
       "localizations" : {

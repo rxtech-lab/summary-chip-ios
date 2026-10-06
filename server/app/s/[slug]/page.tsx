@@ -89,41 +89,73 @@ function appleItunesApp(): string {
     .join(", ");
 }
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  if ((await resolve(slug)).status === "sign-in") return { title: "Invited only · Chippy", robots: { index: false }, other: { "apple-itunes-app": appleItunesApp() } };
-  const loaded = await loadSummary(slug);
-  const row = loaded?.row;
-  const text = await loadText(slug, firstValue((await searchParams).lang));
-  if (!row || !text) return { title: "Summary not found", robots: { index: false } };
-  const expiresAt = loaded.link ? loaded.link.expiresAt : row.expiresAt;
+/** What a link preview shows: `row.slug` is the key the link was opened with. */
+interface Preview {
+  row: SummaryRow;
+  title: string;
+  description: string;
+  language: string;
+  expiresAt: Date | null;
+  tags: string[];
+}
+
+function previewMetadata({ row, title, description, language, expiresAt, tags }: Preview): Metadata {
   const shareUrl = shareUrlFor(row.slug);
-  const image = { url: publicOgImageUrl(row), width: 1200, height: 630, alt: row.title, type: "image/png" };
+  const image = { url: publicOgImageUrl(row), width: 1200, height: 630, alt: title, type: "image/png" };
   return {
-    title: text.title,
-    description: text.summary,
+    title,
+    description,
     alternates: { canonical: shareUrl },
     robots: { index: false, follow: true },
     openGraph: {
       type: "article",
       url: shareUrl,
       siteName: "Chippy",
-      title: text.title,
-      description: text.summary,
+      title,
+      description,
       images: [image],
-      locale: text.language.replace("-", "_"),
+      locale: language.replace("-", "_"),
       publishedTime: row.createdAt.toISOString(),
       ...(expiresAt ? { expirationTime: expiresAt.toISOString() } : {}),
-      tags: row.tags,
+      tags,
     },
     twitter: {
       card: "summary_large_image",
-      title: text.title,
-      description: text.summary,
+      title,
+      description,
       images: [image],
     },
     other: { "apple-itunes-app": appleItunesApp() },
   };
+}
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const resolved = await resolve(slug);
+  // Invited-only, signed out: the preview has the title and cover (link previews and bots get the
+  // card), but not the summary's text.
+  if (resolved.status === "sign-in") {
+    return previewMetadata({
+      row: { ...resolved.row, slug: resolved.link.token },
+      title: resolved.row.title,
+      description: "Shared with specific people on Chippy. Open it in the app to read it.",
+      language: resolved.row.language,
+      expiresAt: resolved.link.expiresAt,
+      tags: [],
+    });
+  }
+  const loaded = await loadSummary(slug);
+  const row = loaded?.row;
+  const text = await loadText(slug, firstValue((await searchParams).lang));
+  if (!row || !text) return { title: "Summary not found", robots: { index: false } };
+  return previewMetadata({
+    row,
+    title: text.title,
+    description: text.summary,
+    language: text.language,
+    expiresAt: loaded.link ? loaded.link.expiresAt : row.expiresAt,
+    tags: row.tags,
+  });
 }
 
 function formatDate(date: Date): string {
@@ -135,17 +167,22 @@ function originalHref(row: SummaryRow): string | null {
   return row.sourceUrl;
 }
 
-/** An invited-only link opened on the web: the content is only shown in the app, signed in. */
-function InvitedOnly() {
+/** An invited-only link opened on the web: its title and cover; the content only in the app, signed in. */
+function InvitedOnly({ row }: { row: SummaryRow }) {
   return (
     <main className="relative min-h-dvh">
       <article className="mx-auto max-w-xl px-5 pb-16 pt-8 sm:px-8 sm:pt-14">
         <header className="text-sm">
           <Link href="/" className="md-brand-link text-lg font-semibold">Chippy</Link>
         </header>
-        <div className="md-card-outlined mt-10 p-8 text-center">
+        <div className="md-card mt-6 overflow-hidden" style={{ backgroundImage: `linear-gradient(135deg, ${row.theme.colors.join(", ")})` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- served from our own route with its own caching */}
+          <img src={publicOgImageUrl(row)} alt={row.title} width={1200} height={630} className="block aspect-[1200/630] w-full object-cover" />
+        </div>
+        <h1 lang={row.language} className="mt-6 text-2xl font-normal leading-tight">{row.title}</h1>
+        <div className="md-card-outlined mt-8 p-8 text-center">
           <p className="text-4xl" aria-hidden>🔒</p>
-          <h1 className="mt-4 text-2xl font-normal">This link is invite-only</h1>
+          <h2 className="mt-4 text-xl font-normal">This link is invite-only</h2>
           <p className="md-text-secondary mt-3 leading-relaxed">
             It was shared with specific people. Open it in the Chippy app and sign in with the email address it was shared with.
           </p>
@@ -157,7 +194,8 @@ function InvitedOnly() {
 
 export default async function SummaryPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  if ((await resolve(slug)).status === "sign-in") return <InvitedOnly />;
+  const resolved = await resolve(slug);
+  if (resolved.status === "sign-in") return <InvitedOnly row={{ ...resolved.row, slug: resolved.link.token }} />;
   const loaded = await loadSummary(slug);
   const text = await loadText(slug, firstValue((await searchParams).lang));
   if (!loaded || !text) notFound();

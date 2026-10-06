@@ -259,6 +259,8 @@ public struct ShareActionsSection: View {
     let actionInToolbar: Bool
     /// Notes below the picker that a private summary's link only opens for its owner.
     let showsPrivateNote: Bool
+    /// False while there is no link to share yet; the share button is disabled.
+    let canShare: Bool
 
     @Environment(\.summaryAssetLoader) private var loader
     @AppStorage("shareMode") private var mode: ShareMode = .system
@@ -268,10 +270,11 @@ public struct ShareActionsSection: View {
     @State private var errorMessage: String?
 
     /// `summary.shareUrl` is what gets shared; pass a copy with another link's URL to share that one.
-    public init(summary: Summary, actionInToolbar: Bool = false, showsPrivateNote: Bool = true) {
+    public init(summary: Summary, actionInToolbar: Bool = false, showsPrivateNote: Bool = true, canShare: Bool = true) {
         self.summary = summary
         self.actionInToolbar = actionInToolbar
         self.showsPrivateNote = showsPrivateNote
+        self.canShare = canShare
     }
 
     public var body: some View {
@@ -317,7 +320,7 @@ public struct ShareActionsSection: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isPreparing)
+                    .disabled(isPreparing || !canShare)
                     .background(ActivityPresenterAnchor(presenter: presenter))
                     .accessibilityIdentifier("share-action")
                 }
@@ -345,7 +348,7 @@ public struct ShareActionsSection: View {
                     .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(isPreparing)
+                .disabled(isPreparing || !canShare)
                 .background(ActivityPresenterAnchor(presenter: presenter))
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -397,33 +400,214 @@ public struct ShareActionsSection: View {
     }
 }
 
-/// Sheet asking how to share a summary. With an `api`, its owner also picks which link to share
-/// and manages the links (`ShareLinksView`) without leaving the sheet.
-public struct ShareModeSheet: View {
-    let api: SummaryAPIClient?
-    let onSummaryChanged: (Summary) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var summary: Summary
-    @State private var links: [SummaryShareLink] = []
-    /// The extra link to share; nil shares the summary's own link.
-    @State private var selectedLinkID: String?
-    @State private var loadedLinks = false
+/// The owner picks the link to share: the summary's own `/s/<slug>` link (which only opens for
+/// others while the summary is public) or a share link they made, then shares it as a link, image
+/// or copy. The default link's visibility is edited in place; Manage Links edits, adds and deletes
+/// links. Use inside a `List` in a navigation stack.
+public struct ShareLinkSections: View {
+    let api: SummaryAPIClient
+    let summary: Summary
+    let actionInToolbar: Bool
+    /// The summary after its visibility or lifetime was saved from here.
+    let onSummaryUpdated: (Summary) -> Void
 
-    public init(summary: Summary, api: SummaryAPIClient? = nil, onSummaryChanged: @escaping (Summary) -> Void = { _ in }) {
-        self._summary = State(initialValue: summary)
+    @State private var links: [SummaryShareLink] = []
+    @State private var selectedLinkID: String?
+    @State private var loaded = false
+    @State private var loadError: String?
+    @State private var creating = false
+    @State private var createdCount = 0
+    @State private var editingSharing = false
+    @State private var sharingSavedCount = 0
+
+    public init(api: SummaryAPIClient, summary: Summary, actionInToolbar: Bool = false, onSummaryUpdated: @escaping (Summary) -> Void = { _ in }) {
         self.api = api
-        self.onSummaryChanged = onSummaryChanged
+        self.summary = summary
+        self.actionInToolbar = actionInToolbar
+        self.onSummaryUpdated = onSummaryUpdated
     }
 
-    private var managesLinks: Bool { api != nil && summary.isOwner }
+    /// Picker tag of the summary's own link; share link ids are UUIDs, so it never collides.
+    private static let defaultLinkID = "default"
+
     private var liveLinks: [SummaryShareLink] { links.filter { !$0.isExpired } }
     private var selectedLink: SummaryShareLink? { liveLinks.first { $0.id == selectedLinkID } }
+    private var isDefaultSelected: Bool { selectedLinkID == Self.defaultLinkID }
+    /// The summary's own link opens for others only while it's public and hasn't expired.
+    private var defaultLinkWorks: Bool {
+        summary.visibility == .public && !(summary.expiresAt.map { $0 <= .now } ?? false)
+    }
+    private var canShare: Bool { selectedLink != nil || (isDefaultSelected && defaultLinkWorks) }
 
     /// The summary as shared: with the chosen link's URL.
     private var shared: Summary {
         var copy = summary
         if let selectedLink { copy.shareUrl = selectedLink.url }
         return copy
+    }
+
+    public var body: some View {
+        Section {
+            if !loaded {
+                if let loadError {
+                    Label(loadError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                    Button(String(localized: "Try Again", bundle: .module)) { Task { await load() } }
+                } else {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Loading links…", bundle: .module).foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                Picker(selection: $selectedLinkID) {
+                    Text(summary.visibility == .private
+                        ? String(localized: "Default link (private)", bundle: .module)
+                        : String(localized: "Default link", bundle: .module))
+                        .tag(Optional(Self.defaultLinkID))
+                    ForEach(liveLinks) { link in
+                        Text(link.displayName).tag(Optional(link.id))
+                    }
+                } label: {
+                    Label(String(localized: "Link", bundle: .module), systemImage: "link")
+                }
+                .pickerStyle(.menu)
+                .sensoryFeedback(.selection, trigger: selectedLinkID)
+                .accessibilityIdentifier("share-link-picker")
+                if liveLinks.isEmpty {
+                    Button { creating = true } label: {
+                        Label(String(localized: "Create Link", bundle: .module), systemImage: "plus.circle.fill")
+                    }
+                    .accessibilityIdentifier("create-share-link")
+                }
+            }
+            if loaded {
+                Button { editingSharing = true } label: {
+                    DefaultLinkRow(summary: summary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("edit-default-link-sharing")
+                NavigationLink {
+                    ShareLinksView(api: api, summaryID: summary.id, links: $links)
+                } label: {
+                    Label(String(localized: "Manage Links", bundle: .module), systemImage: "slider.horizontal.3")
+                }
+                .accessibilityIdentifier("manage-share-links")
+            }
+        } header: {
+            // The section's one stable view hosts the sheet and the loading: modifiers on a group or
+            // section of list rows are applied to every row, which presents the sheet more than once
+            // (dismissing the share sheet), and a row is torn down when the create button is replaced.
+            Text("Link to share", bundle: .module)
+                .task { await load() }
+                .onChange(of: links) { keepSelection() }
+                .sheet(isPresented: $creating) {
+                    ShareLinkEditorSheet(api: api, summaryID: summary.id, link: nil) { created in
+                        links.append(created)
+                        selectedLinkID = created.id
+                        createdCount += 1
+                    } onDeleted: { _ in }
+                }
+                .sensoryFeedback(.success, trigger: createdCount)
+                .sheet(isPresented: $editingSharing) {
+                    EditSharingSheet(api: api, summary: summary) { updated in
+                        onSummaryUpdated(updated)
+                        sharingSavedCount += 1
+                    }
+                }
+                .sensoryFeedback(.success, trigger: sharingSavedCount)
+        } footer: {
+            footer
+        }
+        ShareActionsSection(summary: shared, actionInToolbar: actionInToolbar, showsPrivateNote: false, canShare: canShare)
+    }
+
+    @ViewBuilder
+    private var footer: some View {
+        if let selectedLink {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(selectedLink.access == .invited
+                        ? String(localized: "Opens for \(selectedLink.emails.count) invited people.", bundle: .module)
+                        : String(localized: "Opens for anyone with the link.", bundle: .module))
+                    ExpiryLabel(selectedLink.expiresAt)
+                }
+                Text(selectedLink.url.absoluteString).textSelection(.enabled)
+            }
+        } else if isDefaultSelected {
+            VStack(alignment: .leading, spacing: 4) {
+                if summary.visibility == .private {
+                    Text("This summary is private, so its default link only opens for you. Make it public above, or create a link to share it.", bundle: .module)
+                } else {
+                    HStack(spacing: 6) {
+                        Text("Opens for anyone with the link.", bundle: .module)
+                        ExpiryLabel(summary.expiresAt)
+                    }
+                }
+                Text(summary.shareUrl.absoluteString).textSelection(.enabled)
+            }
+        }
+    }
+
+    private func load() async {
+        guard !loaded else { return }
+        loadError = nil
+        do {
+            links = try await api.shareLinks(summaryID: summary.id)
+            loaded = true
+            keepSelection()
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    /// Keeps the chosen link while it's live; otherwise the newest live one, or the default link.
+    private func keepSelection() {
+        if selectedLink == nil, !isDefaultSelected { selectedLinkID = liveLinks.last?.id ?? Self.defaultLinkID }
+    }
+}
+
+/// The summary's own link and who can open it; opens the Edit Sharing sheet.
+private struct DefaultLinkRow: View {
+    let summary: Summary
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ShareLinkIcon(systemImage: summary.visibility.systemImage, tint: summary.visibility.tint)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Default link", bundle: .module)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if summary.visibility == .public {
+                    ExpiryLabel(summary.expiresAt)
+                } else {
+                    Text("Only you can open it", bundle: .module)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            Text(summary.visibility.title).foregroundStyle(.secondary)
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text("Edit sharing", bundle: .module))
+    }
+}
+
+/// Sheet asking how to share a summary. Its owner shares through one of their share links
+/// (`ShareLinkSections`); anyone else shares the link they opened it with.
+public struct ShareModeSheet: View {
+    @State private var summary: Summary
+    let api: SummaryAPIClient?
+    /// The summary after its owner changed its visibility or lifetime from the sheet.
+    let onSummaryChanged: (Summary) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    public init(summary: Summary, api: SummaryAPIClient? = nil, onSummaryChanged: @escaping (Summary) -> Void = { _ in }) {
+        self._summary = State(initialValue: summary)
+        self.api = api
+        self.onSummaryChanged = onSummaryChanged
     }
 
     public var body: some View {
@@ -434,17 +618,24 @@ public struct ShareModeSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                 } footer: {
-                    Text(shared.shareUrl.absoluteString)
-                        .textSelection(.enabled)
+                    if !manages {
+                        Text(summary.shareUrl.absoluteString)
+                            .textSelection(.enabled)
+                    }
                 }
-                if let api, managesLinks {
-                    linkSection(api: api)
+                if let api, manages {
+                    #if os(macOS)
+                    ShareLinkSections(api: api, summary: summary, actionInToolbar: true, onSummaryUpdated: updated)
+                    #else
+                    ShareLinkSections(api: api, summary: summary, onSummaryUpdated: updated)
+                    #endif
+                } else {
+                    #if os(macOS)
+                    ShareActionsSection(summary: summary, actionInToolbar: true)
+                    #else
+                    ShareActionsSection(summary: summary)
+                    #endif
                 }
-                #if os(macOS)
-                ShareActionsSection(summary: shared, actionInToolbar: true, showsPrivateNote: !managesLinks)
-                #else
-                ShareActionsSection(summary: shared, showsPrivateNote: !managesLinks)
-                #endif
             }
             .navigationTitle(Text("Share", bundle: .module, comment: "Title of the share sheet"))
             .summaryInlineNavigationTitle()
@@ -460,69 +651,16 @@ public struct ShareModeSheet: View {
                 }
                 #endif
             }
-            .task { await loadLinks() }
-            .onChange(of: links) {
-                if selectedLinkID != nil, selectedLink == nil { selectedLinkID = nil }
-            }
         }
         .presentationDetents([.medium, .large])
         .summarySheetSize()
     }
 
-    private func linkSection(api: SummaryAPIClient) -> some View {
-        Section {
-            Picker(selection: $selectedLinkID) {
-                Text("Summary link", bundle: .module).tag(String?.none)
-                ForEach(liveLinks) { link in
-                    Text(link.displayName).tag(Optional(link.id))
-                }
-            } label: {
-                Label(String(localized: "Link", bundle: .module), systemImage: "link")
-            }
-            .pickerStyle(.menu)
-            .sensoryFeedback(.selection, trigger: selectedLinkID)
-            .accessibilityIdentifier("share-link-picker")
-            NavigationLink {
-                ShareLinksView(api: api, summary: $summary, links: $links) { updated in
-                    onSummaryChanged(updated)
-                }
-            } label: {
-                Label(String(localized: "Manage Links", bundle: .module), systemImage: "slider.horizontal.3")
-            }
-            .accessibilityIdentifier("manage-share-links")
-        } header: {
-            Text("Link to share", bundle: .module)
-        } footer: {
-            linkFooter
-        }
-    }
+    private var manages: Bool { api != nil && summary.isOwner }
 
-    @ViewBuilder
-    private var linkFooter: some View {
-        if let selectedLink {
-            HStack(spacing: 6) {
-                Text(selectedLink.access == .invited
-                    ? String(localized: "Opens for \(selectedLink.emails.count) invited people.", bundle: .module)
-                    : String(localized: "Opens for anyone with the link.", bundle: .module))
-                ExpiryLabel(selectedLink.expiresAt)
-            }
-        } else if summary.visibility == .private {
-            Text("The summary is private, so its own link only opens for you. Pick or add another link to share it.", bundle: .module)
-        } else {
-            HStack(spacing: 6) {
-                Text("Opens for anyone with the link.", bundle: .module)
-                ExpiryLabel(summary.expiresAt)
-            }
-        }
-    }
-
-    private func loadLinks() async {
-        guard let api, managesLinks, !loadedLinks else { return }
-        guard let fetched = try? await api.shareLinks(summaryID: summary.id) else { return }
-        links = fetched
-        loadedLinks = true
-        // A private summary's own link doesn't open for anyone else; offer a link that does.
-        if summary.visibility == .private, selectedLinkID == nil { selectedLinkID = liveLinks.first?.id }
+    private func updated(_ updated: Summary) {
+        summary = updated
+        onSummaryChanged(updated)
     }
 }
 #endif
