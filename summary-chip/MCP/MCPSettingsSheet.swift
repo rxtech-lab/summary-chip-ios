@@ -33,10 +33,13 @@ struct MCPSettingsSheet: View {
                     Button("Done") { dismiss() }
                         .accessibilityIdentifier("mcp-done")
                 }
+                #if os(iOS)
+                // macOS sheets don't show primary-action items, so the keys section also has a button.
                 ToolbarItem(placement: .primaryAction) {
                     Button("New API Key", systemImage: "plus") { showsCreate = true }
                         .accessibilityIdentifier("mcp-new-key")
                 }
+                #endif
             }
             .refreshable { await load() }
             .task { await load() }
@@ -106,7 +109,7 @@ struct MCPSettingsSheet: View {
                 }
             }
         } footer: {
-            Text("AI agents such as Claude connect to this URL with an API key to add, search and list your summaries. They act as your account, from any device, and added summaries count against your allowance.")
+            Text("AI agents such as Claude connect to this URL with an API key to add, search and list your summaries and trips. They act as your account, from any device, and added summaries count against your allowance.")
         }
     }
 
@@ -129,6 +132,8 @@ struct MCPSettingsSheet: View {
                     ForEach(keys) { key in
                         APIKeyRow(key: key, onRename: { renaming = key }, onRevoke: { revoking = key })
                     }
+                    Button("New API Key…", systemImage: "plus") { showsCreate = true }
+                        .accessibilityIdentifier("mcp-add-key")
                 }
             } else if let loadError {
                 VStack(alignment: .leading, spacing: 8) {
@@ -267,5 +272,12 @@ private struct MCPToolSummary: Identifiable {
         MCPToolSummary(name: "add_summary", detail: String(localized: "Save a summary, its key points, tags and raw source text.")),
         MCPToolSummary(name: "search_summaries", detail: String(localized: "Find summaries by meaning, optionally from one source.")),
         MCPToolSummary(name: "list_summaries", detail: String(localized: "List summaries newest first by source, category, tag or visibility.")),
+        MCPToolSummary(name: "list_trips", detail: String(localized: "List trips, ongoing and upcoming first.")),
+        MCPToolSummary(name: "get_trip", detail: String(localized: "Read a trip’s days, places, transport, stays and expenses.")),
+        MCPToolSummary(name: "create_trip", detail: String(localized: "Create a trip from a complete trip document.")),
+        MCPToolSummary(name: "update_trip", detail: String(localized: "Add, change or delete a trip’s days, places and other records.")),
+        MCPToolSummary(name: "update_place", detail: String(localized: "Change a place’s description, photos, hours, prices or contact details.")),
+        MCPToolSummary(name: "upload_trip_image", detail: String(localized: "Store a photo for a place or view and get its URL.")),
+        MCPToolSummary(name: "add_to_trip_from_source", detail: String(localized: "Have Chippy’s trip agent add a web page or text to a trip. Costs points.")),
     ]
 }

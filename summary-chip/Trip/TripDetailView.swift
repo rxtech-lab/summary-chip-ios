@@ -657,7 +657,7 @@ struct TripDetailView: View {
     private func present(_ sheet: TripSheet) {
         // Read-only sheets open for anyone; editors only for the owner.
         switch sheet {
-        case .transportDetail, .placeDetail, .places, .notes, .sources, .currency, .share: break
+        case .dayDetail, .transportDetail, .placeDetail, .places, .notes, .sources, .currency, .share: break
         default: if !canEdit { return }
         }
         // On iPhone the diary sheet presents editors; make sure it's up.
@@ -688,6 +688,16 @@ struct TripDetailView: View {
                     TripMetaEditorSheet(model: model, document: document) { deleted() }
                 case .day(let id):
                     DayEditorSheet(model: model, document: document, day: document.day(id: id))
+                case .dayDetail(let id):
+                    if let day = document.day(id: id) {
+                        TripDayDetailSheet(
+                            document: document,
+                            day: day,
+                            onEdit: { activeSheet = .day(id) },
+                            onOpenTransport: { activeSheet = .transportDetail($0.id) },
+                            onEditView: { if canEdit { activeSheet = .view($0.id) } }
+                        )
+                    }
                 case .place(let id):
                     PlaceEditorSheet(model: model, document: document, place: document.place(id: id))
                 case .transport(let id):
