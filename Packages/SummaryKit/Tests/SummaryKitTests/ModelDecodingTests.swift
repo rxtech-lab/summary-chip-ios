@@ -136,6 +136,29 @@ func fixture(_ name: String) throws -> Data {
         #expect(String(decoding: onlyTTL, as: UTF8.self) == #"{"ttlDays":30}"#)
     }
 
+    @Test func codesShareLinks() throws {
+        let body = Data(#"""
+        {"items":[{"id":"l1","url":"https://summary.rxlab.app/s/Abc123def456","label":null,"access":"invited","ttlDays":null,
+        "expiresAt":null,"isExpired":false,"emails":[{"email":"bob@example.com","addedAt":"2026-10-01T10:00:00.000Z"}],
+        "createdAt":"2026-10-01T10:00:00.000Z","updatedAt":"2026-10-01T10:00:00.000Z"}]}
+        """#.utf8)
+        let link = try #require(try SummaryJSON.decoder().decode(ShareLinkList.self, from: body).items.first)
+        #expect(link.access == .invited)
+        #expect(link.emails.map(\.email) == ["bob@example.com"])
+        #expect(link.displayName == "Link Abc1")
+
+        let create = try SummaryJSON.encoder().encode(ShareLinkChanges(label: "Team", access: .invited, ttl: .never, emails: ["bob@example.com"]))
+        #expect(String(decoding: create, as: UTF8.self) == #"{"access":"invited","emails":["bob@example.com"],"label":"Team","ttlDays":null}"#)
+        let revoke = try SummaryJSON.encoder().encode(ShareLinkChanges(emails: []))
+        #expect(String(decoding: revoke, as: UTF8.self) == #"{"emails":[]}"#)
+    }
+
+    @Test func normalizesEmails() {
+        #expect(EmailAddress.normalized("  Bob@Example.COM ") == "bob@example.com")
+        #expect(EmailAddress.normalized("bob@") == nil)
+        #expect(EmailAddress.normalized("not an email") == nil)
+    }
+
     @Test func encodesDisplayLanguagePatch() throws {
         let translated = try SummaryJSON.encoder().encode(SummaryPatch(displayLanguage: .zhHant))
         #expect(String(decoding: translated, as: UTF8.self) == #"{"displayLanguage":"zh-Hant"}"#)

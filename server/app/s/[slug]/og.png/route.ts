@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 /**
  * The 1200×630 OG image (see `serveSummaryImage` for access and caching). `?lang=` asks for the
  * cover with its headline in a language the summary was translated into; without a translation
- * (or art to draw it on) it is the original.
+ * (or art to draw it on) it is the original. An invited-only link's cover is served signed out too:
+ * it is its link preview, like the page's `og:*` tags.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const language = translationLanguageFor(new URL(request.url).searchParams.get("lang"));
@@ -22,5 +23,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       if (key) return key;
     }
     return row.ogImageKey;
-  });
+  }, { invitedPreview: true });
 }

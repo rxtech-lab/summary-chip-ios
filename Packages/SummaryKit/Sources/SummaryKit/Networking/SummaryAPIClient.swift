@@ -116,6 +116,27 @@ public final class SummaryAPIClient: Sendable {
         return try await send(request)
     }
 
+    // MARK: Share links (owner only)
+
+    public func shareLinks(summaryID: String) async throws -> [SummaryShareLink] {
+        let list: ShareLinkList = try await send(get("/api/v1/summaries/\(summaryID.urlPathEscaped)/links"))
+        return list.items
+    }
+
+    public func createShareLink(summaryID: String, changes: ShareLinkChanges) async throws -> SummaryShareLink {
+        try await send(json("/api/v1/summaries/\(summaryID.urlPathEscaped)/links", method: "POST", body: changes))
+    }
+
+    public func updateShareLink(summaryID: String, linkID: String, changes: ShareLinkChanges) async throws -> SummaryShareLink {
+        try await send(json("/api/v1/summaries/\(summaryID.urlPathEscaped)/links/\(linkID.urlPathEscaped)", method: "PATCH", body: changes))
+    }
+
+    public func deleteShareLink(summaryID: String, linkID: String) async throws {
+        var request = request("/api/v1/summaries/\(summaryID.urlPathEscaped)/links/\(linkID.urlPathEscaped)")
+        request.httpMethod = "DELETE"
+        _ = try await sendRaw(request)
+    }
+
     public func deleteSummary(id: String) async throws {
         var request = request("/api/v1/summaries/\(id.urlPathEscaped)")
         request.httpMethod = "DELETE"

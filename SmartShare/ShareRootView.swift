@@ -110,7 +110,7 @@ private struct ShareResultView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                     .listRowBackground(Color.clear)
             }
-            ShareActionsSection(summary: summary)
+            ShareLinkSections(api: api, summary: summary)
             Section {
                 Button(action: openInApp) {
                     Label("Open in Chippy", systemImage: "arrow.up.forward.app")

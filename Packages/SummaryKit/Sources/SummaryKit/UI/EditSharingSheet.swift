@@ -1,8 +1,8 @@
-import SummaryKit
+#if os(iOS) || os(macOS)
 import SwiftUI
 
-/// Dedicated sheet for changing visibility and link lifetime (`PATCH /api/v1/summaries/:id`).
-struct EditSharingSheet: View {
+/// Dedicated sheet for the summary's own link: visibility and lifetime (`PATCH /api/v1/summaries/:id`).
+public struct EditSharingSheet: View {
     let api: SummaryAPIClient
     let summary: Summary
     let onSaved: (Summary) -> Void
@@ -13,7 +13,7 @@ struct EditSharingSheet: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    init(api: SummaryAPIClient, summary: Summary, onSaved: @escaping (Summary) -> Void) {
+    public init(api: SummaryAPIClient, summary: Summary, onSaved: @escaping (Summary) -> Void) {
         self.api = api
         self.summary = summary
         self.onSaved = onSaved
@@ -24,13 +24,13 @@ struct EditSharingSheet: View {
     private var ttlChanged: Bool { ttl != TTLOption(ttlDays: summary.ttlDays) }
     private var hasChanges: Bool { visibility != summary.visibility || ttlChanged }
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             Form {
                 Section {
                     currentStatus
                 } header: {
-                    Text("Current status")
+                    Text("Current status", bundle: .module)
                 }
                 SharingOptionsSections(visibility: $visibility, ttl: $ttl)
                 if let errorMessage {
@@ -41,17 +41,17 @@ struct EditSharingSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Edit Sharing")
+            .navigationTitle(Text("Edit Sharing", bundle: .module))
             .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
                         ProgressView()
                     } else {
-                        Button("Save") { Task { await save() } }
+                        Button(String(localized: "Save", bundle: .module)) { Task { await save() } }
                             .fontWeight(.semibold)
                             .disabled(!hasChanges)
                     }
@@ -72,12 +72,12 @@ struct EditSharingSheet: View {
                 .frame(width: 44, height: 44)
                 .background((isPublic ? Color.green : Color.orange).opacity(0.15), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                (isPublic ? Text("Public link") : Text("Private"))
+                (isPublic ? Text("Public link", bundle: .module) : Text("Private", bundle: .module))
                     .font(.headline)
                 if isPublic {
                     ExpiryLabel(summary.expiresAt)
                 } else {
-                    Text("Link disabled")
+                    Text("Link disabled", bundle: .module)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -104,3 +104,4 @@ struct EditSharingSheet: View {
         }
     }
 }
+#endif

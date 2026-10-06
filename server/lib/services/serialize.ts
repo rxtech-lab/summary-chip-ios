@@ -140,19 +140,33 @@ export interface SummaryReading {
 
 export const ORIGINAL_READING: SummaryReading = { translation: null, pending: false };
 
-export function toSummaryJson(row: SummaryRow, viewerId: string | null, viewedAt: Date | null = null, reading: SummaryReading = ORIGINAL_READING, likedAt: Date | null = null): SummaryJson {
-  const shareUrl = shareUrlFor(row.slug);
+/**
+ * `grantToken`: the share link through which a viewer who doesn't own the summary may still open it
+ * (see `share-access.ts`). Their `shareUrl` is that link while the summary's own link is closed.
+ */
+export function toSummaryJson(
+  row: SummaryRow,
+  viewerId: string | null,
+  viewedAt: Date | null = null,
+  reading: SummaryReading = ORIGINAL_READING,
+  likedAt: Date | null = null,
+  grantToken: string | null = null,
+): SummaryJson {
   const { translation } = reading;
   const isOwner = viewerId !== null && viewerId === row.ownerId;
-  const isExpired = !isOwner && !(row.visibility === "public" && (row.expiresAt === null || row.expiresAt > new Date()));
+  const live = row.visibility === "public" && (row.expiresAt === null || row.expiresAt > new Date());
+  const isExpired = !isOwner && !live && grantToken === null;
+  // Images and the source file are fetched under the same key as the link the viewer holds.
+  const linked = !isOwner && !live && grantToken ? { ...row, slug: grantToken } : row;
+  const shareUrl = shareUrlFor(linked.slug);
   const hasSourceMarkdown = !isExpired && sourceMarkdownFor(row, viewerId) !== null;
   return {
     id: row.id,
     slug: row.slug,
     kind: row.kind,
     shareUrl,
-    ogImageUrl: translation && row.artImageKey ? translatedOgImageUrlFor(row, translation) : publicOgImageUrl(row),
-    artImageUrl: publicArtImageUrl(row),
+    ogImageUrl: translation && row.artImageKey ? translatedOgImageUrlFor(linked, translation) : publicOgImageUrl(linked),
+    artImageUrl: publicArtImageUrl(linked),
     sourceType: row.sourceType,
     source: row.source,
     sourceUrl: row.sourceUrl,

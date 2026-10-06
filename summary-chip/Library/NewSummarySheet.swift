@@ -46,7 +46,7 @@ private struct NewSummaryResult: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                     .listRowBackground(Color.clear)
             }
-            ShareActionsSection(summary: summary)
+            ShareLinkSections(api: environment.api, summary: summary)
             Section {
                 NavigationLink(value: summary) {
                     Label("View summary", systemImage: "doc.text")

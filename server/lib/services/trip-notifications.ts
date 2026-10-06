@@ -7,6 +7,7 @@ import { pushDevices, summaries, summaryViews, tripNotificationBatches as batche
 import { apnsConfigured, sendPush } from "@/lib/notifications/apns";
 import { getTripNotifier } from "@/lib/trips/notifier";
 import { isDeadToken, tripUpdatedPayload } from "./notifications";
+import { canViewerRead, readableByViewer } from "./share-access";
 
 export const TRIP_NOTIFICATION_DELAY_MS = 5 * 60_000;
 const LEASE_MS = 10 * 60_000;
@@ -68,10 +69,6 @@ export async function publishTripNotification(db: Database, batchId: string, run
   return result.rowsAffected > 0;
 }
 
-function sharedAccess(visibility: string, expiresAt: Date | null, now: Date): boolean {
-  return visibility === "public" && (!expiresAt || expiresAt > now);
-}
-
 /** One bounded fan-out step. Accepted installations are recorded before another retry can send. */
 export async function deliverTripNotification(db: Database, batchId: string, runnerId: string, now = new Date()): Promise<boolean> {
   const [batch] = await db.select().from(batches).where(and(eq(batches.id, batchId), eq(batches.status, "ready"), eq(batches.runnerId, runnerId)));
@@ -82,8 +79,10 @@ export async function deliverTripNotification(db: Database, batchId: string, run
   }
   const [summary] = await db.select().from(summaries).where(eq(summaries.id, batch.tripId));
   if (!summary) return true;
-  const viewers = sharedAccess(summary.visibility, summary.expiresAt, now)
-    ? await db.select({ userId: summaryViews.userId }).from(summaryViews).where(eq(summaryViews.summaryId, batch.tripId)) : [];
+  // Viewers who can still open the trip: through its public link, or the share link they opened it with.
+  const viewers = await db.select({ userId: summaryViews.userId }).from(summaryViews)
+    .innerJoin(summaries, eq(summaries.id, summaryViews.summaryId))
+    .where(and(eq(summaryViews.summaryId, batch.tripId), readableByViewer(summaryViews.userId, now)));
   const recipients = new Set([summary.ownerId, ...viewers.map((viewer) => viewer.userId)]);
   const sent = await db.select().from(deliveries).where(eq(deliveries.batchId, batchId));
   const delivered = new Set(sent.map((entry) => `${entry.installationId}:${entry.userId}`));
@@ -95,9 +94,8 @@ export async function deliverTripNotification(db: Database, batchId: string, run
     const [lease] = await db.select({ runnerId: batches.runnerId }).from(batches).where(eq(batches.id, batchId));
     if (!current || lease?.runnerId !== runnerId) return true;
     if (device.ownerId !== current.ownerId) {
-      if (!sharedAccess(current.visibility, current.expiresAt, new Date())) continue;
       const [view] = await db.select().from(summaryViews).where(and(eq(summaryViews.summaryId, batch.tripId), eq(summaryViews.userId, device.ownerId)));
-      if (!view) continue;
+      if (!view || !await canViewerRead(db, current, device.ownerId)) continue;
     }
     const [registered] = await db.select().from(pushDevices).where(and(eq(pushDevices.installationId, device.installationId), eq(pushDevices.ownerId, device.ownerId), eq(pushDevices.token, device.token)));
     if (!registered) continue;

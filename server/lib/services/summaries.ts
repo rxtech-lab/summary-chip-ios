@@ -40,8 +40,9 @@ import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
 import { findDuplicateChip } from "./duplicates";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
-import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
+import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
+import { canViewerRead, findGrantToken, grantTokenSql, isLinkLive, readableByViewer } from "./share-access";
 import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, translationPayer, type BillingEnvironmentResolver, type TranslationStatus } from "./translations";
 import { translateTrip } from "./trip-translations";
 import { notifySummaryAdded } from "./notifications";
@@ -72,34 +73,12 @@ export async function findSummaryById(db: Database, id: string): Promise<Summary
   return rows[0];
 }
 
-export async function findSummaryBySlug(db: Database, slug: string): Promise<SummaryRow | undefined> {
-  const rows = await db.select().from(summaries).where(eq(summaries.slug, slug)).limit(1);
-  return rows[0];
-}
+export { isLinkLive };
 
-/** Public with a live link, or undefined. Used by the website, OG image and public API. */
-export async function findPublicSummaryBySlug(db: Database, slug: string): Promise<SummaryRow | undefined> {
-  const rows = await db.select().from(summaries).where(and(eq(summaries.slug, slug), isPublicAndLive())).limit(1);
-  return rows[0];
-}
-
-/** True when anyone with the link may open the summary: public and its link has not expired. */
-export function isLinkLive(row: Pick<SummaryRow, "visibility" | "expiresAt">, now = new Date()): boolean {
-  return row.visibility === "public" && (row.expiresAt === null || row.expiresAt > now);
-}
-
-/** The owner always; everyone else only while the public link is live. */
-export async function findSummaryBySlugForViewer(db: Database, slug: string, viewerId: string | null): Promise<SummaryRow | undefined> {
-  const row = await findSummaryBySlug(db, slug);
-  if (!row) return undefined;
-  if (row.ownerId === viewerId || isLinkLive(row)) return row;
-  return undefined;
-}
-
-/** Owner sees everything; other signed-in users only summaries with a live public link. */
+/** Owner sees everything; other signed-in users what a live public link or a share link lets them open. */
 export async function getSummaryForViewer(db: Database, id: string, viewerId: string): Promise<SummaryRow> {
   const row = await findSummaryById(db, id);
-  if (!row || (row.ownerId !== viewerId && !isLinkLive(row))) throw notFound();
+  if (!row || !await canViewerRead(db, row, viewerId)) throw notFound();
   return row;
 }
 
@@ -113,14 +92,22 @@ export async function readSummaryJson(
   row: SummaryRow,
   viewerId: string | null,
   accepted: TranslationLanguage | null,
-  options: { ai?: AiProvider; viewedAt?: Date | null; billingEnvironment?: BillingEnvironmentResolver } = {},
+  options: {
+    ai?: AiProvider;
+    viewedAt?: Date | null;
+    billingEnvironment?: BillingEnvironmentResolver;
+    /** The share link token the viewer opened it with; looked up when not given. */
+    grantToken?: string | null;
+  } = {},
 ): Promise<SummaryJson> {
   const payer = translationPayer(row, viewerId, options.billingEnvironment);
-  const [reading, likedAt] = await Promise.all([
+  const needsGrant = options.grantToken === undefined && viewerId !== null && row.ownerId !== viewerId && !isLinkLive(row);
+  const [reading, likedAt, grantToken] = await Promise.all([
     readSummary(db, row, readingLanguage(row, viewerId, accepted), payer, { ai: options.ai }),
     viewerId ? findLikedAt(db, viewerId, row.id) : null,
+    needsGrant ? findGrantToken(db, row.id, viewerId) : options.grantToken ?? null,
   ]);
-  return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading, likedAt);
+  return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading, likedAt, grantToken);
 }
 
 export async function findLikedAt(db: Database, userId: string, summaryId: string): Promise<Date | null> {
@@ -148,7 +135,7 @@ export async function getOwnedSummary(db: Database, id: string, ownerId: string)
   const row = await findSummaryById(db, id);
   if (!row) throw notFound();
   if (row.ownerId !== ownerId) {
-    if (isLinkLive(row)) throw new ApiError(403, "FORBIDDEN", "Only the owner can change this summary");
+    if (await canViewerRead(db, row, ownerId)) throw new ApiError(403, "FORBIDDEN", "Only the owner can change this summary");
     throw notFound();
   }
   return row;
@@ -618,7 +605,7 @@ export interface ListOptions extends Pick<ServiceDeps, "ai"> {
 export async function listSummaries(db: Database, userId: string, query: ListQuery, deps: ListOptions = {}) {
   const view = and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId));
   const mine = eq(summaries.ownerId, userId);
-  const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), isPublicAndLive())!;
+  const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), readableByViewer(userId))!;
   // Starred summaries stay listed after others' links expire; they come back as `isExpired`.
   const liked = isNotNull(summaryLikes.userId);
   const scope = query.scope === "mine" ? mine
@@ -644,7 +631,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     const at = cursor.time.getTime();
     conditions.push(or(sql`${activity} < ${at}`, and(sql`${activity} = ${at}`, lt(summaries.id, cursor.id)))!);
   }
-  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, activity: activity.mapWith(Number) })
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenSql(userId), activity: activity.mapWith(Number) })
     .from(summaries)
     .leftJoin(summaryViews, view)
     .leftJoin(summaryLikes, likeOf(userId))
@@ -655,14 +642,14 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const last = page[page.length - 1];
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt)),
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
 }
 
 /** Rows the caller may still read; expired likes are sent without their text, so they aren't translated. */
-function readable(page: { summary: SummaryRow }[], userId: string): SummaryRow[] {
-  return page.map((row) => row.summary).filter((row) => row.ownerId === userId || isLinkLive(row));
+function readable(page: { summary: SummaryRow; grant: string | null }[], userId: string): SummaryRow[] {
+  return page.filter((row) => row.summary.ownerId === userId || row.grant !== null || isLinkLive(row.summary)).map((row) => row.summary);
 }
 
 function likeOf(userId: string): SQL {
@@ -684,7 +671,7 @@ async function searchLibrary(
   const offset = decodeOffsetCursor(query.cursor);
   const vector = await embedQuery(deps.ai ?? await getAiProvider(), query.q);
   const match = relevance(query.q, vector);
-  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt })
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenSql(userId) })
     .from(summaries)
     .leftJoin(summaryViews, and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId)))
     .leftJoin(summaryLikes, likeOf(userId))
@@ -695,15 +682,15 @@ async function searchLibrary(
   const page = rows.slice(0, query.limit);
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt)),
+    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }
 
-/** Same universe as the library: own summaries plus viewed public ones. */
+/** Same universe as the library: own summaries plus viewed ones the caller may still open. */
 function facetUniverse(db: Database, ownerId: string): SQL {
   const viewedIds = db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, ownerId));
-  return or(eq(summaries.ownerId, ownerId), and(inArray(summaries.id, viewedIds), isPublicAndLive()))!;
+  return or(eq(summaries.ownerId, ownerId), and(inArray(summaries.id, viewedIds), readableByViewer(ownerId)))!;
 }
 
 export async function getFacets(db: Database, ownerId: string) {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ALLOWED_TTL_DAYS } from "@/lib/config";
-import { IMAGE_STYLES, SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
+import { IMAGE_STYLES, SHARE_LINK_ACCESS, SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 
 export const CATEGORIES = [
   "Technology", "Science", "Business", "Finance", "Politics", "World", "Health", "Sports",
@@ -133,6 +133,36 @@ export const patchSummarySchema = z.object({
   displayLanguage: z.enum(TRANSLATION_LANGUAGES).nullable().optional(),
 }).strict();
 export type PatchSummaryInput = z.infer<typeof patchSummarySchema>;
+
+export const MAX_SHARE_LINKS = 20;
+export const MAX_SHARE_LINK_EMAILS = 50;
+
+/** Invited addresses, compared lowercased; duplicates collapse. */
+const shareLinkEmailsSchema = z.array(z.string().trim().toLowerCase().pipe(z.email().max(254)))
+  .max(MAX_SHARE_LINK_EMAILS)
+  .transform((emails) => [...new Set(emails)]);
+
+const shareLinkLabelSchema = z.string().trim().max(80).nullable().transform((value) => value || null);
+
+/** `POST /api/v1/summaries/:id/links`. An `invited` link needs at least one email. */
+export const createShareLinkSchema = z.object({
+  label: shareLinkLabelSchema.optional(),
+  access: z.enum(SHARE_LINK_ACCESS).default("anyone"),
+  ttlDays: ttlDaysSchema.optional(),
+  emails: shareLinkEmailsSchema.default([]),
+}).strict().refine((link) => link.access === "anyone" || link.emails.length > 0, {
+  message: "an invited link needs at least one email", path: ["emails"],
+});
+export type CreateShareLinkInput = z.infer<typeof createShareLinkSchema>;
+
+/** `PATCH /api/v1/summaries/:id/links/:linkId`. `emails` replaces the list; `ttlDays` restarts the lifetime. */
+export const patchShareLinkSchema = z.object({
+  label: shareLinkLabelSchema.optional(),
+  access: z.enum(SHARE_LINK_ACCESS).optional(),
+  ttlDays: ttlDaysSchema.optional(),
+  emails: shareLinkEmailsSchema.optional(),
+}).strict();
+export type PatchShareLinkInput = z.infer<typeof patchShareLinkSchema>;
 
 export const regenerateImageSchema = z.object({ imageStyle: z.enum(IMAGE_STYLES) });
 

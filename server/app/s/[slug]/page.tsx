@@ -7,22 +7,34 @@ import { luminance } from "@/lib/ai/summary-schema";
 import { isBotUserAgent } from "@/lib/bots";
 import { APP_CLIP_BUNDLE_ID } from "@/lib/config";
 import { getDatabase } from "@/lib/db/client";
-import type { SummaryRow } from "@/lib/db/schema";
+import type { ShareLinkRow, SummaryRow } from "@/lib/db/schema";
 import { hostOf, siteNameFor } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { isValidSlug } from "@/lib/slug";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import { categoryLabel } from "@/lib/og/category-labels";
 import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
-import { findPublicSummaryBySlug, incrementViewCount } from "@/lib/services/summaries";
+import { resolveShareKey, type ShareKeyResolution } from "@/lib/services/share-access";
+import { incrementViewCount } from "@/lib/services/summaries";
 import { findTripForViewer } from "@/lib/services/trips";
 import { findTranslation, preferredLanguage, readingLanguage, translationLanguageFor } from "@/lib/services/translations";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ lang?: string | string[] }> };
 
-const loadSummary = cache(async (slug: string): Promise<SummaryRow | undefined> => {
-  if (!isValidSlug(slug)) return undefined;
-  return findPublicSummaryBySlug(getDatabase(), slug);
+/** `slug` is a summary's own link or a share link's token; the website is always signed out. */
+const resolve = cache(async (slug: string): Promise<ShareKeyResolution> => {
+  if (!isValidSlug(slug)) return { status: "missing" };
+  return resolveShareKey(getDatabase(), slug, null);
+});
+
+/**
+ * The summary the link opens, with `slug` set to the key it was opened with so its images and
+ * source are fetched through the same link.
+ */
+const loadSummary = cache(async (slug: string): Promise<{ row: SummaryRow; link: ShareLinkRow | null } | undefined> => {
+  const resolved = await resolve(slug);
+  if (resolved.status !== "ok") return undefined;
+  return { row: resolved.link ? { ...resolved.row, slug: resolved.link.token } : resolved.row, link: resolved.link };
 });
 
 /** What a visitor reads: the summary as written, or translated into their language. */
@@ -43,8 +55,9 @@ interface PageText {
  * shared card.
  */
 const loadText = cache(async (slug: string, lang: string | undefined): Promise<PageText | undefined> => {
-  const row = await loadSummary(slug);
-  if (!row) return undefined;
+  const loaded = await loadSummary(slug);
+  if (!loaded) return undefined;
+  const { row } = loaded;
   const original: PageText = { title: row.title, summary: row.summary, highlights: row.highlights,
     category: categoryLabel(row.category, translationLanguageFor(row.language) ?? "en"), tags: row.tags,
     language: row.language, translated: false };
@@ -76,38 +89,73 @@ function appleItunesApp(): string {
     .join(", ");
 }
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const row = await loadSummary(slug);
-  const text = await loadText(slug, firstValue((await searchParams).lang));
-  if (!row || !text) return { title: "Summary not found", robots: { index: false } };
+/** What a link preview shows: `row.slug` is the key the link was opened with. */
+interface Preview {
+  row: SummaryRow;
+  title: string;
+  description: string;
+  language: string;
+  expiresAt: Date | null;
+  tags: string[];
+}
+
+function previewMetadata({ row, title, description, language, expiresAt, tags }: Preview): Metadata {
   const shareUrl = shareUrlFor(row.slug);
-  const image = { url: publicOgImageUrl(row), width: 1200, height: 630, alt: row.title, type: "image/png" };
+  const image = { url: publicOgImageUrl(row), width: 1200, height: 630, alt: title, type: "image/png" };
   return {
-    title: text.title,
-    description: text.summary,
+    title,
+    description,
     alternates: { canonical: shareUrl },
     robots: { index: false, follow: true },
     openGraph: {
       type: "article",
       url: shareUrl,
       siteName: "Chippy",
-      title: text.title,
-      description: text.summary,
+      title,
+      description,
       images: [image],
-      locale: text.language.replace("-", "_"),
+      locale: language.replace("-", "_"),
       publishedTime: row.createdAt.toISOString(),
-      ...(row.expiresAt ? { expirationTime: row.expiresAt.toISOString() } : {}),
-      tags: row.tags,
+      ...(expiresAt ? { expirationTime: expiresAt.toISOString() } : {}),
+      tags,
     },
     twitter: {
       card: "summary_large_image",
-      title: text.title,
-      description: text.summary,
+      title,
+      description,
       images: [image],
     },
     other: { "apple-itunes-app": appleItunesApp() },
   };
+}
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const resolved = await resolve(slug);
+  // Invited-only, signed out: the preview has the title and cover (link previews and bots get the
+  // card), but not the summary's text.
+  if (resolved.status === "sign-in") {
+    return previewMetadata({
+      row: { ...resolved.row, slug: resolved.link.token },
+      title: resolved.row.title,
+      description: "Shared with specific people on Chippy. Open it in the app to read it.",
+      language: resolved.row.language,
+      expiresAt: resolved.link.expiresAt,
+      tags: [],
+    });
+  }
+  const loaded = await loadSummary(slug);
+  const row = loaded?.row;
+  const text = await loadText(slug, firstValue((await searchParams).lang));
+  if (!row || !text) return { title: "Summary not found", robots: { index: false } };
+  return previewMetadata({
+    row,
+    title: text.title,
+    description: text.summary,
+    language: text.language,
+    expiresAt: loaded.link ? loaded.link.expiresAt : row.expiresAt,
+    tags: row.tags,
+  });
 }
 
 function formatDate(date: Date): string {
@@ -119,11 +167,40 @@ function originalHref(row: SummaryRow): string | null {
   return row.sourceUrl;
 }
 
+/** An invited-only link opened on the web: its title and cover; the content only in the app, signed in. */
+function InvitedOnly({ row }: { row: SummaryRow }) {
+  return (
+    <main className="relative min-h-dvh">
+      <article className="mx-auto max-w-xl px-5 pb-16 pt-8 sm:px-8 sm:pt-14">
+        <header className="text-sm">
+          <Link href="/" className="md-brand-link text-lg font-semibold">Chippy</Link>
+        </header>
+        <div className="md-card mt-6 overflow-hidden" style={{ backgroundImage: `linear-gradient(135deg, ${row.theme.colors.join(", ")})` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- served from our own route with its own caching */}
+          <img src={publicOgImageUrl(row)} alt={row.title} width={1200} height={630} className="block aspect-[1200/630] w-full object-cover" />
+        </div>
+        <h1 lang={row.language} className="mt-6 text-2xl font-normal leading-tight">{row.title}</h1>
+        <div className="md-card-outlined mt-8 p-8 text-center">
+          <p className="text-4xl" aria-hidden>🔒</p>
+          <h2 className="mt-4 text-xl font-normal">This link is invite-only</h2>
+          <p className="md-text-secondary mt-3 leading-relaxed">
+            It was shared with specific people. Open it in the Chippy app and sign in with the email address it was shared with.
+          </p>
+        </div>
+      </article>
+    </main>
+  );
+}
+
 export default async function SummaryPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const row = await loadSummary(slug);
+  const resolved = await resolve(slug);
+  if (resolved.status === "sign-in") return <InvitedOnly row={{ ...resolved.row, slug: resolved.link.token }} />;
+  const loaded = await loadSummary(slug);
   const text = await loadText(slug, firstValue((await searchParams).lang));
-  if (!row || !text) notFound();
+  if (!loaded || !text) notFound();
+  const { row, link } = loaded;
+  const expiresAt = link ? link.expiresAt : row.expiresAt;
 
   const userAgent = (await headers()).get("user-agent");
   if (!isBotUserAgent(userAgent)) runAfter(() => incrementViewCount(getDatabase(), row.id));
@@ -134,7 +211,7 @@ export default async function SummaryPage({ params, searchParams }: Props) {
   const href = originalHref(row);
   const gradient = `linear-gradient(135deg, ${colors.join(", ")})`;
   // A trip shows its days read-only; the map view is in the app.
-  const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null))?.trip.document : undefined;
+  const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null, true))?.trip.document : undefined;
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
@@ -227,7 +304,7 @@ export default async function SummaryPage({ params, searchParams }: Props) {
             {row.sourceTitle && row.sourceTitle !== row.title && row.sourceTitle !== text.title ? <> from “{row.sourceTitle}”</> : null}. AI summaries can contain mistakes — check the original.
           </p>
           <p className="mt-2">
-            {row.expiresAt ? <>This link expires on <time dateTime={row.expiresAt.toISOString()}>{formatDate(row.expiresAt)}</time>.</> : "This link does not expire."}
+            {expiresAt ? <>This link expires on <time dateTime={expiresAt.toISOString()}>{formatDate(expiresAt)}</time>.</> : "This link does not expire."}
           </p>
         </footer>
       </article>

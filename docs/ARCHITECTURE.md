@@ -79,7 +79,11 @@ summaries(
   visibility 'public' | 'private', ttl_days (NULL = never), expires_at (NULL = never),
   view_count, created_at, updated_at)
 summary_tags(summary_id, tag)                    -- tag filter index
-summary_views(user_id, summary_id, viewed_at)   -- "past viewed content" history
+summary_views(user_id, summary_id, viewed_at,
+  share_link_id FK share_links ON DELETE SET NULL)  -- "past viewed content" history; the share link it was opened with
+share_links(id, summary_id FK summaries ON DELETE CASCADE, token UNIQUE (12 char, shares /s/<key> with slugs),
+  label, access 'anyone' | 'invited', ttl_days, expires_at, created_at, updated_at)  -- extra links, ≤ 20 per summary
+share_link_emails(link_id FK share_links ON DELETE CASCADE, email (lowercased), added_at)  -- an invited link's list, ≤ 50
 summary_translations(summary_id, language, title, summary, highlights JSON[],
   tags JSON[] (translated chip labels; NULL until written), headline, og_image_key,
   content_markdown ("" while being written, NULL when nothing to translate or it failed),
@@ -102,6 +106,24 @@ public API, other users' libraries/chat) gets 404 until the owner extends the TT
 "Delete" in the app is available, but the primary way to stop sharing is making the
 summary **private**: the `/s/[slug]` page, OG image and public API then return 404,
 while the owner still sees it in the app and can flip it back to public.
+
+**Share links.** Besides its own `slug` link, the owner can add extra links (`share_links`), each
+with its own TTL (same allowed values; changing it restarts the clock). They open at
+`/s/<token>` everywhere a slug does (page, `og.png`, `art.png`, `source`, public API, `POST /views`)
+and keep working while the summary is **private** — visibility only governs the summary's own link.
+An `anyone` link opens for whoever holds it. An `invited` link opens only for a signed-in user whose
+email (the access token's `email` claim, kept on `users.email`) is on its list: the website and
+public API answer `403 SIGN_IN_REQUIRED` (the page shows only the title and cover and says to open
+it in the app; its `og:*` tags carry the title and cover, and `og.png` serves signed out, so link
+previews still show the card — never the summary text), and `POST /views`
+answers `403 NOT_INVITED` for anyone else. A signed-in viewer's access is remembered through the
+link they opened it with (`summary_views.share_link_id`), so it lasts while that link would still
+let them in: deleting the link, letting it expire, or revoking their address ends access to the
+summary everywhere (library, `GET /summaries/:id`, trips, chat, trip pushes) at once. All checks
+live in `lib/services/share-access.ts`. For such viewers `Summary.shareUrl` (and the image URLs)
+use the link's token while the summary's own link is closed. The owner's share sheet lists the
+summary's own link first ("Default link", "Default link (private)" while private, when it can't be
+shared) and then the live share links.
 
 ## JSON shapes (camelCase, ISO-8601 dates)
 
@@ -142,6 +164,13 @@ while the owner still sees it in the app and can flip it back to public.
 
 // Error (any non-2xx)
 { "error": { "code": "STRING_CODE", "message": "human readable", "requestId": "…" } }
+
+// ShareLink (owner only)
+{
+  "id": "uuid", "url": "https://summary.rxlab.app/s/<token>", "label": "Team" | null,
+  "access": "anyone" | "invited", "ttlDays": 7 | null, "expiresAt": "…" | null, "isExpired": false,
+  "emails": [{ "email": "bob@example.com", "addedAt": "…" }], "createdAt": "…", "updatedAt": "…"
+}
 ```
 
 Categories (closed set the LLM must pick from): `Technology, Science, Business, Finance,
@@ -159,6 +188,10 @@ Food, Opinion, Research, Other`.
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
 | `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?, displayLanguage? (language|null)}` | `Summary` — `displayLanguage` translates on first use (`502 TRANSLATION_FAILED` stores nothing); a `title` edit while reading a translation renames that translation |
 | `DELETE /api/v1/summaries/:id` | – | `204` |
+| `GET /api/v1/summaries/:id/links` | – | `{items:[ShareLink]}` — the summary's extra share links, oldest first (owner only; `403` for others who can read it) |
+| `POST /api/v1/summaries/:id/links` | `{label?, access?: "anyone"(default)\|"invited", ttlDays? (number\|null; default `DEFAULT_TTL_DAYS`), emails?: string[]}` | `201 ShareLink` — an `invited` link needs ≥ 1 email; `409 TOO_MANY_SHARE_LINKS` past 20 |
+| `PATCH /api/v1/summaries/:id/links/:linkId` | `{label?, access?, ttlDays?, emails?}` | `ShareLink` — `emails` replaces the list (removed addresses lose access at once); `ttlDays` restarts the lifetime |
+| `DELETE /api/v1/summaries/:id/links/:linkId` | – | `204` — the link stops opening; its viewers lose access |
 | `PUT /api/v1/summaries/:id/like` | – | `{likedAt}` — stars a summary the caller can read (own, or others' with a live public link); idempotent, keeps the first date |
 | `DELETE /api/v1/summaries/:id/like` | – | `{likedAt: null}` — removes the star (idempotent) |
 | `GET /api/v1/summaries/:id/markdown` | – | `{markdown, language, translationPending}` — the source as Markdown, translated like the summary once written; `404 SOURCE_NOT_KEPT` when not kept (or a local file's, for anyone but the owner) |
@@ -173,7 +206,7 @@ Food, Opinion, Research, Other`.
 | `DELETE /api/v1/trips/:id` | – | `204` (same as deleting the summary) |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
 | `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
-| `POST /api/v1/views` | `{slug}` | `Summary` — records that the signed-in user viewed a public summary |
+| `POST /api/v1/views` | `{slug}` (a slug or a share link token) | `Summary` — records that the signed-in user opened it from a link (and through which share link); `403 NOT_INVITED` for an invited link whose list lacks the caller's email |
 | `POST /api/v1/chat` | `{messages: UIMessage[], summaryId?, tripId?}` (AI SDK UI message format; `summaryId` focuses the chat on one summary the caller can open, grounded in its original text — 404 otherwise; `tripId` makes it the trip agent for one of the caller's trips, with `readWebPage` and `updateTrip` tools that save entity-level operations — 404 for anyone else's trip) | AI SDK UI message stream (SSE) |
 | `GET /api/v1/account/deletion` | – | `{pendingDeletion, deletionScheduledAt, deletionRequestedAt}` (ISO dates or null) |
 | `POST /api/v1/account/deletion` | – | same shape — schedules deletion 7 days out at rxlab-auth and locally (idempotent; needs the `write:profile` scope, else `403 ACCOUNT_DELETION_SCOPE_REQUIRED`) |
@@ -184,7 +217,7 @@ Food, Opinion, Research, Other`.
 | `DELETE /api/v1/api-keys/:id` | – | `204` — revokes the key |
 | `POST /api/mcp` | JSON-RPC (MCP Streamable HTTP, stateless) | MCP OAuth or API key auth; summary/trip tools plus `get_profile`; see [mcp.md](mcp.md) |
 | `GET /api/v1/legal/{privacy,terms}` | – (no auth) | `text/markdown` legal document |
-| `GET /api/public/summaries/:slug` | – | `Summary` without owner-only fields (`isOwner:false`); 404 if private/expired |
+| `GET /api/public/summaries/:slug` | – | `Summary` without owner-only fields (`isOwner:false`) at a slug or share link token; 404 if private/expired; `403 SIGN_IN_REQUIRED` for an invited link |
 
 ### Trips
 
@@ -422,6 +455,12 @@ After generation the user picks:
 * **Share as link** — shares only the `shareUrl`; Messages/Slack/etc. render the OG preview.
 * **Share as image** — shares the rendered OG PNG plus a caption with the title and `shareUrl`.
 * **Copy link**.
+
+The app has no default link: the owner shares only through share links they created
+(`ShareLinkSections`, in the share sheet, the new-summary result and the share extension). They
+pick a live link, or create the first one before the share button is enabled, and open **Manage
+Links** (`ShareLinksView`); each link opens `ShareLinkEditorSheet` (name, anyone / invited emails,
+TTL, revoke addresses, delete). Someone else's summary is shared with the link they opened it with.
 
 ## Environment variables (server)
 

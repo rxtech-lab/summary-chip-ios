@@ -34,7 +34,7 @@ struct SearchView: View {
         }
         .background(Color.summaryGroupedBackground)
         .sheet(item: $sharingSummary) { summary in
-            ShareModeSheet(summary: summary)
+            ShareModeSheet(summary: summary, api: environment.api) { environment.library.upsert($0) }
         }
         .sheet(item: $deletingSummary) { summary in
             DeleteSummarySheet(api: environment.api, summary: summary) {

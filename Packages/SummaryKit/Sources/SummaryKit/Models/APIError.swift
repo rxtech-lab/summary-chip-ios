@@ -38,6 +38,8 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
             } else {
                 String(localized: "This feature needs a newer version of Chippy. Update the app to keep using it.", bundle: .module)
             }
+        case .server(_, let body) where body.code == "NOT_INVITED":
+            String(localized: "This link was shared with specific people. Sign in with the email address it was sent to.", bundle: .module)
         case .server(_, let body): body.message
         case .http(let status):
             switch status {
