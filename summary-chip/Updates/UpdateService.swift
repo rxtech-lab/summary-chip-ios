@@ -27,8 +27,9 @@ final class UpdateService: NSObject, SPUUpdaterDelegate {
         guard !started else { return }
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
+        // Previews run against fixtures; the live feed would put Sparkle's update window over them.
         if (!arguments.contains(where: { $0.hasPrefix("--test-update-feed=") }) &&
-            (arguments.contains("--preview-mac") || arguments.contains("--preview-education")))
+            arguments.contains(where: { $0.hasPrefix("--preview-") }))
             || arguments.contains("--disable-updates")
             || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return }
         #endif

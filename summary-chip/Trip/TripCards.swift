@@ -6,36 +6,149 @@ struct TripHeaderView: View {
     let document: TripDocument
     let onEdit: () -> Void
 
+    @State private var showsIntro = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Label(document.dateRangeText, systemImage: "calendar")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let eyebrow = document.titleParts.eyebrow {
+                        Text(eyebrow)
+                            .font(.caption.weight(.semibold))
+                            .textCase(.uppercase)
+                            .kerning(0.8)
+                            .foregroundStyle(.tint)
+                    }
+                    Text(document.titleParts.main)
+                        .font(.title.weight(.bold))
+                        .kerning(-0.4)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let subtitle = document.conciseSubtitle {
+                        Label(subtitle, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .padding(.top, 2)
+                    }
+                }
+                Spacer(minLength: 0)
                 TripEditButton(title: String(localized: "Edit trip details"), action: onEdit)
             }
-            Text(document.title)
-                .font(.largeTitle.weight(.bold))
-                .kerning(-0.5)
-                .fixedSize(horizontal: false, vertical: true)
-            if let subtitle = document.subtitle {
-                Text(subtitle).font(.title3).foregroundStyle(.secondary)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    TripHeaderPill(text: document.dateRangeText, systemImage: "calendar")
+                    TripHeaderPill(text: document.days.count == 1 ? String(localized: "1 day") : String(localized: "\(document.days.count) days"), systemImage: "sun.max")
+                    TripHeaderPill(text: document.places.count == 1 ? String(localized: "1 place") : String(localized: "\(document.places.count) places"), systemImage: "mappin.and.ellipse")
+                    TripHeaderPill(text: document.timeZoneCity, systemImage: "clock")
+                }
             }
-            if let intro = document.intro {
-                Text(intro).font(.body).padding(.top, 4)
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+
+            if let intro = document.intro, !intro.isEmpty {
+                Button { showsIntro = true } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(intro)
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                        Text("Read more")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tint)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background.secondary, in: .rect(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+                .sensoryFeedback(.impact(weight: .light), trigger: showsIntro) { _, new in new }
+                .sheet(isPresented: $showsIntro) {
+                    TripIntroSheet(title: document.title, subtitle: document.subtitle, intro: intro)
+                }
             }
-            HStack(spacing: 12) {
-                Label(document.days.count == 1 ? String(localized: "1 day") : String(localized: "\(document.days.count) days"), systemImage: "sun.max")
-                Label(document.places.count == 1 ? String(localized: "1 place") : String(localized: "\(document.places.count) places"), systemImage: "mappin.and.ellipse")
-                Label(document.timeZone, systemImage: "clock")
-                    .lineLimit(1)
-            }
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
-            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A compact fact (dates, day count…) in the trip header.
+private struct TripHeaderPill: View {
+    let text: String
+    let systemImage: String
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.background.secondary, in: .capsule)
+    }
+}
+
+/// The trip's full introduction, opened from the header.
+private struct TripIntroSheet: View {
+    let title: String
+    let subtitle: String?
+    let intro: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(intro)
+                        .font(.body)
+                        .lineSpacing(4)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+            .navigationTitle(title)
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+private extension TripDocument {
+    private static let separator = " · "
+
+    /// "Northbound Japan · Autumn 2026" → main "Northbound Japan", eyebrow "Autumn 2026".
+    var titleParts: (main: String, eyebrow: String?) {
+        let parts = title.components(separatedBy: Self.separator).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count > 1, let main = parts.first, !main.isEmpty else { return (title, nil) }
+        return (main, parts.dropFirst().joined(separator: Self.separator))
+    }
+
+    /// The subtitle without the date and length parts the header pills already show:
+    /// "2026 年 10 月 10–20 日 · 千叶、东北与函馆 · 11 天 10 夜" → "千叶、东北与函馆".
+    var conciseSubtitle: String? {
+        guard let subtitle, !subtitle.isEmpty else { return nil }
+        let parts = subtitle.components(separatedBy: Self.separator).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count > 1 else { return subtitle }
+        let kept = parts.filter { $0.rangeOfCharacter(from: .decimalDigits) == nil }
+        return kept.isEmpty ? subtitle : kept.joined(separator: Self.separator)
+    }
+
+    /// "Asia/Tokyo" → "Tokyo".
+    var timeZoneCity: String {
+        (timeZone.split(separator: "/").last.map(String.init) ?? timeZone)
+            .replacingOccurrences(of: "_", with: " ")
     }
 }
 

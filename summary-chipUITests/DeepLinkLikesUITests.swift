@@ -16,8 +16,9 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["Why specialty roasters are buying their own farms"].waitForExistence(timeout: 15))
 
-        // A shared summary link opens in a sheet.
-        app.open(URL(string: "summarychip://s/NightTrn01")!)
+        // A shared summary link opens in a sheet. `app.open` relaunches the app, which would drop
+        // the fixture's in-memory stars; the system hands the link to the running app instead.
+        XCUIDevice.shared.system.open(URL(string: "summarychip://s/NightTrn01")!)
         let open = app.buttons["deep-link-open"]
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Night trains are making a comeback across Europe"].waitForExistence(timeout: 5))
@@ -35,9 +36,11 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Night trains are making a comeback across Europe"].waitForExistence(timeout: 5))
         sleep(1)
         capture(app, name: "03-summary-opened-in-library")
+        // The star made in the sheet carries over.
+        XCTAssertEqual(app.buttons["summary-like"].firstMatch.label, "Remove from Likes")
 
         // A shared trip link: star it, then open it.
-        app.open(URL(string: "summarychip://s/N0rthB0und")!)
+        XCUIDevice.shared.system.open(URL(string: "summarychip://s/N0rthB0und")!)
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["trip-more-menu"].waitForExistence(timeout: 10))
         if isPad {
@@ -55,6 +58,11 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         capture(app, name: "05-trip-opened-in-library")
 
         // Likes lists both, plus a liked summary whose link has expired.
+        if !isPad {
+            // The tab bar is hidden on detail pages.
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.tabBars.buttons["Likes"].waitForExistence(timeout: 5))
+        }
         if isPad {
             app.buttons["sidebar-likes"].firstMatch.tap()
         } else {
@@ -62,9 +70,9 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         }
         let expiredBadge = app.descendants(matching: .any)["expired-badge"].firstMatch
         XCTAssertTrue(app.descendants(matching: .any)["likes-feed"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Night trains are making a comeback across Europe"].waitForExistence(timeout: 5))
-        sleep(1)
+        sleep(2)
         capture(app, name: "06-likes-with-expired")
+        XCTAssertTrue(app.staticTexts["Night trains are making a comeback across Europe"].waitForExistence(timeout: 5))
 
         let expiredCard = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "balcony solar")).firstMatch
         XCTAssertTrue(expiredCard.exists || expiredBadge.exists)

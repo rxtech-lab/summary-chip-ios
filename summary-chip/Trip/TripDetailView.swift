@@ -147,7 +147,7 @@ struct TripDetailView: View {
             }
         }
         .animation(.spring(duration: 0.35), value: model.notice)
-        .likeStatusOverlay($likeStatus)
+        .likeStatusOverlay($likeStatus, edge: .top)
         .task {
             await model.load()
             await openOnRelevantDay()
