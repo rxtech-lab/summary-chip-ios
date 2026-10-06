@@ -1,5 +1,5 @@
 import type { LanguageModelUsage } from "ai";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import type { AiProvider } from "@/lib/ai/provider";
@@ -24,7 +24,7 @@ import { reserveTripAgentPoints, settleUsage, type ChatCharge } from "@/lib/subs
 import { selectCoverTheme } from "./cover-colors";
 import { embedSummary, indexSummary } from "./embeddings";
 import { syncTripFlights } from "./flights";
-import { notifyTripUpdated } from "./notifications";
+import { queueTripChangesStatement, startTripNotification } from "./trip-notifications";
 import { shareUrlFor } from "./serialize";
 import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, isLinkLive, resolveDeps, type ServiceDeps } from "./summaries";
 import { applyOperations, tripDayCount, tripDigest, tripText } from "./trip-document";
@@ -324,16 +324,9 @@ async function saveDocument(
   document: TripDocument,
 ): Promise<TripJson> {
   const { ai, now } = await resolveDeps(deps);
+  if (JSON.stringify(trip.document) === JSON.stringify(document)) return toTripJson(summary, trip, summary.ownerId);
   const updatedAt = now();
   const revision = trip.revision + 1;
-  const result = await db.update(trips)
-    .set({ document, revision, startDate: document.startDate, endDate: document.endDate, updatedAt })
-    .where(and(eq(trips.summaryId, trip.summaryId), eq(trips.revision, trip.revision)));
-  if (result.rowsAffected === 0) {
-    const current = await findTripRow(db, trip.summaryId);
-    if (!current) throw tripNotFound();
-    throw revisionConflict(current.revision);
-  }
   const digest = tripDigest(document);
   const text = tripText(document).slice(0, SOURCE_TEXT_LIMIT);
   const changes = {
@@ -345,7 +338,22 @@ async function saveDocument(
     contentExcerpt: text.slice(0, EXCERPT_LIMIT),
     updatedAt,
   } satisfies Partial<SummaryRow>;
-  await db.update(summaries).set(changes).where(eq(summaries.id, summary.id));
+  // The save and durable outbox are atomic. SQLite changes() fences both writes to the CAS:
+  // a rejected concurrent edit cannot enqueue an alert or overwrite the summary's derived text.
+  const [result, queued] = await db.batch([
+    db.update(trips)
+      .set({ document, revision, startDate: document.startDate, endDate: document.endDate, updatedAt })
+      .where(and(eq(trips.summaryId, trip.summaryId), eq(trips.revision, trip.revision))),
+    queueTripChangesStatement(db, summary.id, revision, trip.document, document, updatedAt),
+    db.update(summaries).set(changes).where(and(eq(summaries.id, summary.id), sql`changes() > 0`)),
+  ]);
+  if (result.rowsAffected === 0) {
+    const current = await findTripRow(db, trip.summaryId);
+    if (!current) throw tripNotFound();
+    throw revisionConflict(current.revision);
+  }
+  const batchId = queued.rows[0]?.id;
+  if (typeof batchId === "string") runAfter(() => startTripNotification(batchId));
   const updated = { ...summary, ...changes };
   runAfter(() => indexSummary(db, ai, updated));
   // Flights added, changed or removed start or stop being tracked.
@@ -500,7 +508,7 @@ export async function updateTripFromSource(
 
 /**
  * `POST /api/v1/trips/:id/ingest`: points are held now (so an empty balance is a 402 before
- * anything is queued); the agent runs after the response and the owner gets a "Trip updated" push.
+ * anything is queued); the agent runs after the response and saves queue a debounced update push.
  */
 export async function ingestTrip(
   db: Database,
@@ -510,11 +518,10 @@ export async function ingestTrip(
   deps: ServiceDeps = {},
 ): Promise<{ status: "queued" }> {
   const { ai } = await resolveDeps(deps);
-  const { summary } = await getOwnedTrip(db, id, principal.sub);
+  await getOwnedTrip(db, id, principal.sub);
   const charge = await reserveTripAgentPoints(principal.sub, id, crypto.randomUUID(), ai.chatModelId(), deps.billingEnvironment);
   runAfter(async () => {
-    const run = await updateTripFromSource(db, principal.sub, id, input, { ...deps, ai, charge });
-    await notifyTripUpdated(db, principal.sub, id, run.trip.document.title, run.changeSummary, summary.language);
+    await updateTripFromSource(db, principal.sub, id, input, { ...deps, ai, charge });
   });
   return { status: "queued" };
 }

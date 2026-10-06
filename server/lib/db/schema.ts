@@ -189,6 +189,30 @@ export const trips = sqliteTable("trips", {
 
 export type TripRow = typeof trips.$inferSelect;
 
+/** One pending batch per trip. Later saves extend its quiet period and final document. */
+export const tripNotificationBatches = sqliteTable("trip_notification_batches", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id").notNull().references(() => trips.summaryId, { onDelete: "cascade" }),
+  revision: integer("revision").notNull(),
+  beforeDocument: text("before_document", { mode: "json" }).$type<TripDocument>().notNull(),
+  afterDocument: text("after_document", { mode: "json" }).$type<TripDocument>().notNull(),
+  dueAt: integer("due_at", { mode: "timestamp_ms" }).notNull(),
+  status: text("status", { enum: ["pending", "ready"] }).notNull().default("pending"),
+  changeSummary: text("change_summary"),
+  runnerId: text("runner_id"),
+  leaseUntil: integer("lease_until", { mode: "timestamp_ms" }),
+}, (table) => [
+  uniqueIndex("trip_notifications_pending_unique").on(table.tripId).where(sql`${table.status} = 'pending'`),
+  index("trip_notifications_due_idx").on(table.dueAt),
+]);
+
+/** Successful installations are skipped on workflow retries; tokens are never stored here. */
+export const tripNotificationDeliveries = sqliteTable("trip_notification_deliveries", {
+  batchId: text("batch_id").notNull().references(() => tripNotificationBatches.id, { onDelete: "cascade" }),
+  installationId: text("installation_id").notNull(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => [primaryKey({ columns: [table.batchId, table.installationId, table.userId] })]);
+
 /**
  * A trip's texts translated into one of `TRANSLATION_LANGUAGES`, as a dictionary from each original
  * text to its translation: a later edit only needs its new texts translated, and the document's

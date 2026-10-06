@@ -28,18 +28,15 @@ const TRIP_UPDATED_TITLES: Record<string, string> = {
   de: "Reise aktualisiert",
 };
 
-/**
- * After the trip agent changed a trip (in `after()`): "Trip updated" in the trip's language, with
- * its title and what changed. `tripId` (= `summaryId`) tells the app to open the trip view.
- */
-export async function notifyTripUpdated(db: Database, userId: string, tripId: string, title: string, changeSummary: string, language?: string | null): Promise<void> {
+/** Recipient-specific account routing for the debounced workflow's trip update alert. */
+export function tripUpdatedPayload(userId: string, tripId: string, title: string, changeSummary: string, language?: string | null): PushPayload {
   const heading = TRIP_UPDATED_TITLES[translationLanguageFor(language ?? "en") ?? "en"];
-  await deliver(db, userId, {
-    aps: { alert: { title: heading, body: clipAlert(changeSummary.trim() ? `${title}: ${changeSummary.trim()}` : title) }, sound: "default" },
+  return {
+    aps: { alert: { title: heading, body: clipAlert(changeSummary.trim() ? `${clipAlert(title, 36)}: ${changeSummary.trim()}` : title) }, sound: "default" },
     summaryId: tripId,
     tripId,
     userId,
-  });
+  };
 }
 
 const TRIP_TRANSLATED_TITLES: Record<string, [ready: string, failed: string]> = {

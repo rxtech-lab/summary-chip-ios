@@ -3,6 +3,7 @@ import type { LanguageModel } from "ai";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput, TranslateOptions, TripAgentCallOptions } from "./provider";
 import type { TripAgentInput, TripAgentResult } from "./trip-agent";
+import type { TripChangeInput } from "./trip-change-agent";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import type { LlmSummary, LlmTranslation } from "./summary-schema";
 
@@ -21,6 +22,7 @@ export class MockAiProvider implements AiProvider {
     translateStrings: { texts: string[]; to: TranslationLanguage }[];
     findDuplicate: DuplicateInput[];
     updateTrip: TripAgentInput[];
+    summarizeTripChanges: TripChangeInput[];
     designCover: CoverInput[];
     designSvg: DesignInput[];
     illustrate: DesignInput[];
@@ -34,6 +36,7 @@ export class MockAiProvider implements AiProvider {
     translateStrings: [],
     findDuplicate: [],
     updateTrip: [],
+    summarizeTripChanges: [],
     designCover: [],
     designSvg: [],
     illustrate: [],
@@ -152,6 +155,11 @@ export class MockAiProvider implements AiProvider {
   async designCover(input: CoverInput): Promise<LlmSummary["design"] | null> {
     this.calls.designCover.push(input);
     return { colors: ["#1e1b4b", "#4c1d95", "#7c3aed", "#c084fc"], mode: "dark", emoji: "🦋", accent: "#facc15", headline: input.title.slice(0, 70) };
+  }
+
+  async summarizeTripChanges(input: TripChangeInput): Promise<string> {
+    this.calls.summarizeTripChanges.push(input);
+    return `Updated ${[...new Set(input.changes.map((change) => change.section))].join(", ")}.`;
   }
 
   async designSvg(input: DesignInput): Promise<string | null> {

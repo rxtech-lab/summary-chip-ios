@@ -13,6 +13,7 @@ import { setFlightTrackerForTests, type FlightTracker } from "@/lib/flights/trac
 import { finishTripTranslation, runTripTranslationPass, type TripTranslationJob } from "@/lib/services/trip-translations";
 import { MemoryObjectStore, setObjectStoreForTests } from "@/lib/storage/r2";
 import { setTripTranslatorForTests } from "@/lib/trips/translator";
+import { setTripNotifierForTests } from "@/lib/trips/notifier";
 
 export const ISSUER = "https://auth.test.example";
 export const CLIENT_ID = "ios-test-client";
@@ -63,6 +64,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   const tracker = { started, start: async (flightId: string) => { started.push(flightId); return `run-${started.length}`; }, isActive: async () => true };
   setFlightTrackerForTests(tracker);
   const tripTranslations: TripTranslationJob[] = [];
+  setTripNotifierForTests({ start: async () => {} });
   setTripTranslatorForTests({ start: async (job) => { tripTranslations.push(job); } });
   const runTripTranslations = async () => {
     for (const job of tripTranslations.splice(0)) await finishTripTranslation(handle.db, job, await runTripTranslationPass(handle.db, job));
@@ -85,6 +87,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setFlightProviderForTests(undefined);
       setFlightTrackerForTests(undefined);
       setTripTranslatorForTests(undefined);
+      setTripNotifierForTests(undefined);
       handle.close();
       if (directory) rmSync(directory, { recursive: true, force: true });
     },
