@@ -71,7 +71,20 @@ struct TripDetailView: View {
         #endif
     }
 
-    private var canEdit: Bool { model.trip?.isOwner ?? false }
+    private var isOwner: Bool { model.trip?.isOwner ?? false }
+    /// Only the owner edits, and only the trip as written: a translation is read-only.
+    private var canEdit: Bool { isOwner && model.trip?.isTranslated == false }
+
+    /// The language the diary is shown in; the owner can change it from the header's note.
+    private var reading: TripReadingLanguage? {
+        guard let trip = model.trip else { return nil }
+        return TripReadingLanguage(
+            language: trip.language,
+            originalLanguage: trip.originalLanguage,
+            translatingTo: trip.translating ? trip.displayLanguage : nil,
+            changeLanguage: trip.isOwner ? { present(.language) } : nil
+        )
+    }
 
     private var navigationTitle: String? {
         #if os(macOS)
@@ -131,6 +144,7 @@ struct TripDetailView: View {
         }
         #endif
         .environment(\.tripEditable, canEdit)
+        .environment(\.tripReading, reading)
         .environment(\.tripFlights, model.flights)
         .environment(\.tripPlaces, model.document?.places ?? [])
         .environment(\.tripShowPlace, showPlace)
@@ -199,7 +213,7 @@ struct TripDetailView: View {
         .sensoryFeedback(.selection, trigger: activeSheet)
         .sensoryFeedback(.success, trigger: model.savedCount)
         .sensoryFeedback(trigger: model.notice) { _, notice in
-            [.coverUpdated, .agentDone, .calendarSynced, .calendarRemoved].contains(notice) ? .success : nil
+            [.coverUpdated, .agentDone, .calendarSynced, .calendarRemoved, .languageChanged].contains(notice) ? .success : nil
         }
     }
 
@@ -285,6 +299,7 @@ struct TripDetailView: View {
                     .presentationDragIndicator(.visible)
                     .interactiveDismissDisabled()
                     .environment(\.tripEditable, canEdit)
+                    .environment(\.tripReading, reading)
                     .environment(\.tripFlights, model.flights)
                     .environment(\.tripPlaces, model.document?.places ?? [])
                     .environment(\.tripShowPlace, showPlace)
@@ -500,6 +515,10 @@ struct TripDetailView: View {
                     if canEdit {
                         Button { present(.meta) } label: { Label("Trip Details", systemImage: "info.circle") }
                             .accessibilityIdentifier("trip-details")
+                    }
+                    if isOwner {
+                        Button { present(.language) } label: { Label("Language…", systemImage: "translate") }
+                            .accessibilityIdentifier("trip-language")
                         Button { confirmsCover = true } label: { Label("Generate Cover", systemImage: "wand.and.stars") }
                             .disabled(model.notice == .generatingCover)
                             .accessibilityIdentifier("trip-generate-cover")
@@ -652,12 +671,20 @@ struct TripDetailView: View {
         Task { await model.load() }
     }
 
+    /// The trip's library card is translated with it; the diary reloads in the new language.
+    private func languageSaved(_ updated: Summary) {
+        if shareItem != nil { shareItem = updated }
+        environment.library.upsert(updated)
+        Task { await model.languageChanged() }
+    }
+
     // MARK: Sheets
 
     private func present(_ sheet: TripSheet) {
-        // Read-only sheets open for anyone; editors only for the owner.
+        // Read-only sheets open for anyone; settings only for the owner; editors only for the trip as written.
         switch sheet {
         case .dayDetail, .transportDetail, .placeDetail, .places, .notes, .sources, .currency, .share: break
+        case .editSharing, .language: if !isOwner { return }
         default: if !canEdit { return }
         }
         // On iPhone the diary sheet presents editors; make sure it's up.
@@ -736,9 +763,14 @@ struct TripDetailView: View {
                     if let shareItem {
                         EditSharingSheet(api: environment.api, summary: shareItem) { updated in sharingSaved(updated) }
                     }
+                case .language:
+                    if let trip = model.trip {
+                        DisplayLanguageSheet(api: environment.api, trip: trip) { updated in languageSaved(updated) }
+                    }
                 }
             }
             .environment(\.tripEditable, canEdit)
+            .environment(\.tripReading, reading)
             .environment(\.tripFlights, model.flights)
             .environment(\.tripPlaces, model.document?.places ?? [])
             .environment(\.tripShowPlace, showPlace)

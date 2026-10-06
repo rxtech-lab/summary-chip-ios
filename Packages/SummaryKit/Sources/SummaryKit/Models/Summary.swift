@@ -464,7 +464,8 @@ public struct SourceMarkdown: Codable, Sendable, Hashable {
     }
 }
 
-/// `GET /api/v1/summaries/:id/translations`: the languages a summary is already translated into.
+/// `GET /api/v1/summaries/:id/translations` (and `/api/v1/trips/:id/translations`): the languages a
+/// summary or trip is already translated into.
 public struct SummaryTranslations: Codable, Sendable, Hashable {
     public struct Item: Codable, Sendable, Hashable {
         public var language: String
@@ -472,11 +473,28 @@ public struct SummaryTranslations: Codable, Sendable, Hashable {
         public var sourceTranslated: Bool
         /// The translated source text is still being written.
         public var sourcePending: Bool
+        /// Trips: written for the trip's current revision. False after the trip changed, so
+        /// choosing it again translates what changed.
+        public var upToDate: Bool
+        /// Trips: a background run is translating it.
+        public var translating: Bool
 
-        public init(language: String, sourceTranslated: Bool = false, sourcePending: Bool = false) {
+        public init(language: String, sourceTranslated: Bool = false, sourcePending: Bool = false, upToDate: Bool = true, translating: Bool = false) {
             self.language = language
             self.sourceTranslated = sourceTranslated
             self.sourcePending = sourcePending
+            self.upToDate = upToDate
+            self.translating = translating
+        }
+
+        /// Trips have no source text, so their items carry only the language.
+        public init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            language = try c.decode(String.self, forKey: .language)
+            sourceTranslated = try c.decodeIfPresent(Bool.self, forKey: .sourceTranslated) ?? false
+            sourcePending = try c.decodeIfPresent(Bool.self, forKey: .sourcePending) ?? false
+            upToDate = try c.decodeIfPresent(Bool.self, forKey: .upToDate) ?? true
+            translating = try c.decodeIfPresent(Bool.self, forKey: .translating) ?? false
         }
     }
 
@@ -490,7 +508,12 @@ public struct SummaryTranslations: Codable, Sendable, Hashable {
 
     /// Whether `language` already has a translation (so switching to it is instant and free).
     public func contains(_ language: SummaryLanguage) -> Bool {
-        items.contains { SummaryLanguage(languageTag: $0.language) == language }
+        item(for: language) != nil
+    }
+
+    /// The saved translation into `language`, if any.
+    public func item(for language: SummaryLanguage) -> Item? {
+        items.first { SummaryLanguage(languageTag: $0.language) == language }
     }
 }
 

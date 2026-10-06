@@ -10,7 +10,9 @@ import { setHostResolverForTests } from "@/lib/extract/ssrf";
 import { MockFlightProvider } from "@/lib/flights/mock";
 import { setFlightProviderForTests } from "@/lib/flights/provider";
 import { setFlightTrackerForTests, type FlightTracker } from "@/lib/flights/tracker";
+import { finishTripTranslation, runTripTranslationPass, type TripTranslationJob } from "@/lib/services/trip-translations";
 import { MemoryObjectStore, setObjectStoreForTests } from "@/lib/storage/r2";
+import { setTripTranslatorForTests } from "@/lib/trips/translator";
 
 export const ISSUER = "https://auth.test.example";
 export const CLIENT_ID = "ios-test-client";
@@ -34,6 +36,10 @@ export interface TestEnv {
   ai: MockAiProvider;
   /** Records the flights whose tracking workflow was started (no workflow runtime in tests). */
   tracker: FlightTracker & { started: string[] };
+  /** Background trip translations, run in place of the workflow by `runTripTranslations()`. */
+  tripTranslations: TripTranslationJob[];
+  /** Runs the queued trip translations like `workflows/translate-trip.ts` does (one pass each). */
+  runTripTranslations: () => Promise<void>;
   tokens: Record<"alice" | "bob", string>;
   teardown: () => void;
 }
@@ -56,12 +62,19 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   const started: string[] = [];
   const tracker = { started, start: async (flightId: string) => { started.push(flightId); return `run-${started.length}`; }, isActive: async () => true };
   setFlightTrackerForTests(tracker);
+  const tripTranslations: TripTranslationJob[] = [];
+  setTripTranslatorForTests({ start: async (job) => { tripTranslations.push(job); } });
+  const runTripTranslations = async () => {
+    for (const job of tripTranslations.splice(0)) await finishTripTranslation(handle.db, job, await runTripTranslationPass(handle.db, job));
+  };
   const tokens = { alice: await signToken("user-alice"), bob: await signToken("user-bob") };
   return {
     handle,
     store,
     ai,
     tracker,
+    tripTranslations,
+    runTripTranslations,
     tokens,
     teardown: () => {
       setDatabaseForTests(undefined);
@@ -71,6 +84,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setHostResolverForTests(undefined);
       setFlightProviderForTests(undefined);
       setFlightTrackerForTests(undefined);
+      setTripTranslatorForTests(undefined);
       handle.close();
       if (directory) rmSync(directory, { recursive: true, force: true });
     },

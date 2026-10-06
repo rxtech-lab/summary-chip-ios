@@ -648,11 +648,30 @@ public struct Trip: Codable, Sendable, Hashable, Identifiable {
     public var document: TripDocument
     /// When the user starred the trip; only `GET /api/v1/trips/:id` sends it, saves leave it nil.
     public var likedAt: Date?
+    /// The language `document`'s texts are in: a translation's, else `originalLanguage`.
+    public var language: String
+    /// The language the trip is written in.
+    public var originalLanguage: String
+    /// Owner only: the language they chose to read it in (`PATCH displayLanguage`); nil = as written.
+    public var displayLanguage: String?
+    /// A background run is translating the trip into the language being read: the texts not
+    /// translated yet show as written, and the owner gets a push when it's done.
+    public var translating: Bool
 
-    public init(id: String, slug: String, revision: Int, visibility: SummaryVisibility = .private, createdAt: Date, updatedAt: Date, shareUrl: URL?, isOwner: Bool = true, document: TripDocument, likedAt: Date? = nil) {
+    public init(
+        id: String, slug: String, revision: Int, visibility: SummaryVisibility = .private, createdAt: Date, updatedAt: Date, shareUrl: URL?,
+        isOwner: Bool = true, document: TripDocument, likedAt: Date? = nil,
+        language: String = "en", originalLanguage: String? = nil, displayLanguage: String? = nil, translating: Bool = false
+    ) {
         self.id = id; self.slug = slug; self.revision = revision; self.visibility = visibility; self.isOwner = isOwner; self.likedAt = likedAt
         self.createdAt = createdAt; self.updatedAt = updatedAt; self.shareUrl = shareUrl; self.document = document
+        self.language = language; self.originalLanguage = originalLanguage ?? language; self.displayLanguage = displayLanguage
+        self.translating = translating
     }
+
+    /// The diary is shown translated from `originalLanguage`. Translations are read-only: edits are
+    /// made to the trip as written.
+    public var isTranslated: Bool { language != originalLanguage }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -666,6 +685,10 @@ public struct Trip: Codable, Sendable, Hashable, Identifiable {
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner) ?? true
         document = try c.decode(TripDocument.self, forKey: .document)
         likedAt = try c.decodeIfPresent(Date.self, forKey: .likedAt)
+        language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
+        originalLanguage = try c.decodeIfPresent(String.self, forKey: .originalLanguage) ?? language
+        displayLanguage = try c.decodeIfPresent(String.self, forKey: .displayLanguage)
+        translating = try c.decodeIfPresent(Bool.self, forKey: .translating) ?? false
     }
 }
 

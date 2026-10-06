@@ -17,6 +17,9 @@ final class TripEditorModel {
         case syncingCalendar
         case calendarSynced
         case calendarRemoved
+        case switchingLanguage
+        case languageChanged
+        case translatingInBackground
 
         var message: String {
             switch self {
@@ -28,18 +31,23 @@ final class TripEditorModel {
             case .syncingCalendar: String(localized: "Updating your calendar…")
             case .calendarSynced: String(localized: "Calendar updated")
             case .calendarRemoved: String(localized: "Removed from calendar")
+            case .switchingLanguage: String(localized: "Switching language…")
+            case .languageChanged: String(localized: "Language changed")
+            case .translatingInBackground: String(localized: "Translating — we'll notify you")
             }
         }
 
         var systemImage: String {
             switch self {
             case .reloaded: "arrow.triangle.2.circlepath"
-            case .deleting, .generatingCover, .syncingCalendar: "hourglass"
+            case .deleting, .generatingCover, .syncingCalendar, .switchingLanguage: "hourglass"
             case .coverUpdated, .agentDone, .calendarSynced, .calendarRemoved: "checkmark.circle"
+            case .languageChanged: "translate"
+            case .translatingInBackground: "hourglass"
             }
         }
 
-        var isWorking: Bool { [.deleting, .generatingCover, .syncingCalendar].contains(self) }
+        var isWorking: Bool { [.deleting, .generatingCover, .syncingCalendar, .switchingLanguage].contains(self) }
     }
 
     let api: SummaryAPIClient
@@ -84,7 +92,8 @@ final class TripEditorModel {
     /// Applies `edit` to the current document and saves it. Throws when the save fails; the
     /// caller's sheet stays open to show the error.
     func update(_ edit: (inout TripDocument) -> Void) async throws {
-        guard let trip else { return }
+        // A translation is never saved over the trip as written.
+        guard let trip, !trip.isTranslated else { return }
         var document = trip.document
         edit(&document)
         do {
@@ -92,6 +101,11 @@ final class TripEditorModel {
         } catch let error as SummaryAPIError where error.isTripRevisionConflict {
             // Someone else saved first: reapply this edit (it targets records by id) on their version.
             let fresh = try await api.trip(id: id)
+            // Switched to a translation on another device meanwhile: show it, but don't save over it.
+            guard !fresh.isTranslated else {
+                self.trip = fresh
+                throw error
+            }
             var merged = fresh.document
             edit(&merged)
             self.trip = try await api.saveTrip(id: id, document: merged, revision: fresh.revision)
@@ -154,6 +168,19 @@ final class TripEditorModel {
         }
     }
 
+    /// The owner picked another reading language: show the diary in it. A large trip is still being
+    /// translated in the background; it shows as written until the "Trip translated" push.
+    func languageChanged() async {
+        notice = .switchingLanguage
+        guard let fresh = try? await api.trip(id: id) else {
+            notice = nil
+            return
+        }
+        trip = fresh
+        likedAt = fresh.likedAt
+        show(fresh.translating ? .translatingInBackground : .languageChanged)
+    }
+
     /// Refreshes after a push or returning to the app; tells the user when the trip changed.
     func refresh() async {
         guard let current = trip, let fresh = try? await api.trip(id: id) else { return }
@@ -161,6 +188,10 @@ final class TripEditorModel {
         if fresh.revision != current.revision {
             trip = fresh
             show(.reloaded)
+        } else if fresh.language != current.language || fresh.translating != current.translating {
+            // A background translation finished (or another device switched the language).
+            trip = fresh
+            show(.languageChanged)
         }
         await loadFlights()
     }

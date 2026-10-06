@@ -6,6 +6,7 @@ struct TripHeaderView: View {
     let document: TripDocument
     let onEdit: () -> Void
 
+    @Environment(\.tripReading) private var reading
     @State private var showsIntro = false
 
     var body: some View {
@@ -40,6 +41,10 @@ struct TripHeaderView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
+            if let reading, reading.isTranslated || reading.translatingTo != nil {
+                TripTranslationNote(reading: reading)
+            }
+
             if let intro = document.intro, !intro.isEmpty {
                 Button { showsIntro = true } label: {
                     VStack(alignment: .leading, spacing: 6) {
@@ -64,6 +69,56 @@ struct TripHeaderView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// "Translated from English to Japanese" under the header. For the owner it opens the language
+/// sheet, and says why the edit buttons are gone.
+private struct TripTranslationNote: View {
+    let reading: TripReadingLanguage
+
+    var body: some View {
+        if let changeLanguage = reading.changeLanguage {
+            Button(action: changeLanguage) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        label
+                        if reading.translatingTo != nil {
+                            Text("You'll get a notification when it's ready.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            Text("Switch to the original to edit.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text("Change language"))
+            .accessibilityIdentifier("trip-translated-note")
+        } else {
+            label.accessibilityIdentifier("trip-translated-note")
+        }
+    }
+
+    private var label: some View {
+        Label {
+            if let target = reading.translatingTo {
+                Text("Translating to \(SummaryLanguage.displayName(for: target))…")
+            } else {
+                Text("Translated from \(SummaryLanguage.displayName(for: reading.originalLanguage)) to \(SummaryLanguage.displayName(for: reading.language))")
+            }
+        } icon: {
+            Image(systemName: reading.translatingTo != nil ? "hourglass" : "translate")
+        }
+        .font(.footnote.weight(.medium))
+        .foregroundStyle(.secondary)
     }
 }
 
@@ -136,9 +191,23 @@ private extension TripDocument {
     }
 }
 
+/// The language a trip's diary is shown in.
+struct TripReadingLanguage {
+    let language: String
+    let originalLanguage: String
+    /// A background run is translating the trip into this language; shown as written until then.
+    var translatingTo: String?
+    /// Opens the language sheet; nil when the reader can't change it (someone else's trip).
+    let changeLanguage: (() -> Void)?
+
+    var isTranslated: Bool { language != originalLanguage }
+}
+
 extension EnvironmentValues {
-    /// False for someone else's trip: edit and add buttons are hidden.
+    /// False for someone else's trip, or one shown translated: edit and add buttons are hidden.
     @Entry var tripEditable = true
+    /// The language the diary is shown in; nil while the trip loads.
+    @Entry var tripReading: TripReadingLanguage?
     /// Edit and delete for the transport and hotel cards' context menus.
     @Entry var tripRecordActions: TripRecordActions?
 }

@@ -110,7 +110,10 @@ public final class SummaryAPIClient: Sendable {
     }
 
     public func updateSummary(id: String, patch: SummaryPatch) async throws -> Summary {
-        try await send(json("/api/v1/summaries/\(id.urlPathEscaped)", method: "PATCH", body: patch))
+        var request = try json("/api/v1/summaries/\(id.urlPathEscaped)", method: "PATCH", body: patch)
+        // A new display language is translated before the response; a whole trip takes a while.
+        request.timeoutInterval = Self.createTimeout
+        return try await send(request)
     }
 
     public func deleteSummary(id: String) async throws {

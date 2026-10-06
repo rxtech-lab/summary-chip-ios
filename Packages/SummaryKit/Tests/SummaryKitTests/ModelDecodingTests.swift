@@ -177,6 +177,32 @@ func fixture(_ name: String) throws -> Data {
         #expect(malformed.displayTags == malformed.tags)
     }
 
+    @Test func decodesTranslatedTrip() throws {
+        let document = #"{"title":"[ja] Lisbon","startDate":"2026-11-06","endDate":"2026-11-09"}"#
+        let translated = try SummaryJSON.decoder().decode(Trip.self, from: Data(#"""
+            {"id":"t1","slug":"s","revision":2,"createdAt":"2026-10-01T00:00:00Z","document":\#(document),
+             "language":"ja","originalLanguage":"en","displayLanguage":"ja"}
+            """#.utf8))
+        #expect(translated.isTranslated)
+        #expect(translated.displayLanguage == "ja")
+        #expect(translated.document.title == "[ja] Lisbon")
+
+        // Servers from before trip translations send neither field: the trip reads as written.
+        let older = try SummaryJSON.decoder().decode(Trip.self, from: Data(#"{"id":"t1","createdAt":"2026-10-01T00:00:00Z","document":\#(document)}"#.utf8))
+        #expect(older.isTranslated == false)
+
+        // Trip translations list their languages, whether each is up to date and whether one is being translated.
+        let languages = try SummaryJSON.decoder().decode(SummaryTranslations.self, from: Data(#"{"originalLanguage":"en","items":[{"language":"ja","upToDate":true},{"language":"fr","upToDate":false,"translating":false},{"language":"de","upToDate":false,"translating":true}]}"#.utf8))
+        #expect(languages.contains(.ja))
+        #expect(languages.items.first?.sourceTranslated == false)
+        #expect(languages.item(for: .ja)?.upToDate == true)
+        #expect(languages.item(for: .fr)?.upToDate == false)
+        #expect(languages.item(for: .de)?.translating == true)
+        // Summary translations don't send `upToDate`: they count as current.
+        let summaryLanguages = try SummaryJSON.decoder().decode(SummaryTranslations.self, from: Data(#"{"originalLanguage":"en","items":[{"language":"ja"}]}"#.utf8))
+        #expect(summaryLanguages.item(for: .ja)?.upToDate == true)
+    }
+
     @Test func mapsLanguageTags() {
         #expect(SummaryLanguage(languageTag: "zh-Hant-TW") == .zhHant)
         #expect(SummaryLanguage(languageTag: "zh-HK") == .zhHant)
