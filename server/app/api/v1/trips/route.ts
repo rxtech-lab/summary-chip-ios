@@ -9,12 +9,12 @@ export const maxDuration = 120;
 
 /** The caller's trips: ongoing and upcoming first, then past ones. */
 export async function GET(request: Request) {
-  return withApiAuth(request, async ({ principal, db }) => noStoreJson(await listTrips(db, principal.sub)));
+  return withApiAuth(request, async ({ principal, db }) => noStoreJson(await listTrips(db, principal.sub)), { feature: "trips" });
 }
 
 export async function POST(request: Request) {
   return withApiAuth(request, async ({ principal, db }) => {
     const input = await readJson(request, (body) => createTripSchema.parse(body));
     return noStoreJson({ trip: await createTrip(db, principal, input) }, { status: 201 });
-  });
+  }, { feature: "trips" });
 }

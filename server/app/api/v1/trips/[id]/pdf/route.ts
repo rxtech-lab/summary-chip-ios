@@ -21,5 +21,5 @@ export async function GET(request: Request, { params }: Context) {
         "cache-control": "no-store",
       },
     });
-  });
+  }, { feature: "trips" });
 }

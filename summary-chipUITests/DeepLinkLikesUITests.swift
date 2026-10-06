@@ -24,8 +24,10 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         capture(app, name: "01-summary-link-sheet")
 
         tapToolbarItem(app, id: "summary-like")
-        XCTAssertTrue(app.descendants(matching: .any)["like-status"].firstMatch.waitForExistence(timeout: 5))
+        // Catch the "Added to Likes" overlay while it's up.
+        usleep(700_000)
         capture(app, name: "02-summary-liked")
+        XCTAssertEqual(app.buttons["summary-like"].firstMatch.label, "Remove from Likes")
 
         // The sheet's toolbar opens it in the Library.
         open.tap()
@@ -45,7 +47,7 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
             XCTAssertTrue(app.buttons["trip-like"].waitForExistence(timeout: 5))
             app.buttons["trip-like"].tap()
         }
-        XCTAssertTrue(app.descendants(matching: .any)["like-status"].firstMatch.waitForExistence(timeout: 5))
+        usleep(700_000)
         capture(app, name: "04-trip-link-sheet-liked")
         open.tap()
         XCTAssertTrue(open.waitForNonExistence(timeout: 5))

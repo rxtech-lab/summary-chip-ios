@@ -32,6 +32,12 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
+        case .server(_, let body) where body.code == "APP_UPDATE_REQUIRED":
+            if let version = body.details?["requiredVersion"]?.stringValue {
+                String(localized: "This feature needs Chippy \(version) or later. Update the app to keep using it.", bundle: .module)
+            } else {
+                String(localized: "This feature needs a newer version of Chippy. Update the app to keep using it.", bundle: .module)
+            }
         case .server(_, let body): body.message
         case .http(let status):
             switch status {
@@ -68,6 +74,16 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
               let value = body.details?["url"]?.stringValue,
               let url = URL(string: value), url.scheme == "http" || url.scheme == "https" else { return nil }
         return url
+    }
+
+    /// The app is too old for what was asked (`426 APP_UPDATE_REQUIRED`); `AppUpdateCenter` shows an alert for it.
+    public var appUpdateRequirement: AppUpdateRequirement? {
+        guard case .server(426, let body) = self, body.code == "APP_UPDATE_REQUIRED" else { return nil }
+        return AppUpdateRequirement(
+            requiredVersion: body.details?["requiredVersion"]?.stringValue ?? "",
+            feature: body.details?["feature"]?.stringValue,
+            updateURL: body.details?["updateUrl"]?.stringValue.flatMap(URL.init(string:))
+        )
     }
 
     public var isNotFound: Bool { statusCode == 404 }

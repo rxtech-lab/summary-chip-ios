@@ -13,5 +13,5 @@ export async function POST(request: Request, { params }: Context) {
     const { id } = await params;
     const input = await readJson(request, (body) => tripOperationsRequestSchema.parse(body));
     return noStoreJson({ trip: await applyTripOperations(db, principal.sub, id, input) });
-  });
+  }, { feature: "trips" });
 }

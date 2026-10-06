@@ -95,6 +95,19 @@ describe("/api/v1/trips", () => {
     expect(cards.items).toEqual([]);
   });
 
+  it("asks apps older than the trips release to update", async () => {
+    const response = await tripsRoute.GET(apiRequest("GET", "/api/v1/trips", {
+      token: env.tokens.alice, headers: { "x-app-version": "1.8.2", "x-app-platform": "ios" },
+    }));
+    expect(response.status).toBe(426);
+    expect((await response.json()).error).toMatchObject({
+      code: "APP_UPDATE_REQUIRED",
+      details: { feature: "trips", requiredVersion: "1.9.0", currentVersion: "1.8.2" },
+    });
+    const current = await tripsRoute.GET(apiRequest("GET", "/api/v1/trips", { token: env.tokens.alice, headers: { "x-app-version": "1.9.0" } }));
+    expect(current.status).toBe(200);
+  });
+
   it("validates the document's integrity", async () => {
     const response = await tripsRoute.POST(apiRequest("POST", "/api/v1/trips", {
       token: env.tokens.alice,
