@@ -235,6 +235,7 @@
       }
     },
     "%lld places" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -438,6 +439,9 @@
     "+%lld" : {
       "shouldTranslate" : false
     },
+    "+%lld more" : {
+
+    },
     "≈ %@" : {
 
     },
@@ -477,6 +481,7 @@
       }
     },
     "1 place" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1083,6 +1088,9 @@
         }
       }
     },
+    "Add, change or delete a trip’s days, places and other records." : {
+
+    },
     "Added to Likes" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1211,7 +1219,11 @@
         }
       }
     },
+    "AI agents such as Claude connect to this URL with an API key to add, search and list your summaries and trips. They act as your account, from any device, and added summaries count against your allowance." : {
+
+    },
     "AI agents such as Claude connect to this URL with an API key to add, search and list your summaries. They act as your account, from any device, and added summaries count against your allowance." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1975,6 +1987,9 @@
           }
         }
       }
+    },
+    "Change a place’s description, photos, hours, prices or contact details." : {
+
     },
     "Changes needed fixing" : {
 
@@ -2856,6 +2871,9 @@
         }
       }
     },
+    "Create a trip from a complete trip document." : {
+
+    },
     "Create API Key…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3055,6 +3073,7 @@
       }
     },
     "DAY" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3111,6 +3130,19 @@
           }
         }
       }
+    },
+    "DAY %lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "DAY %1$lld · %2$@"
+          }
+        }
+      }
+    },
+    "Day %lld details" : {
+
     },
     "Day %lld, %@" : {
       "localizations" : {
@@ -4763,6 +4795,9 @@
         }
       }
     },
+    "Have Chippy’s trip agent add a web page or text to a trip. Costs points." : {
+
+    },
     "Hayabusa" : {
       "shouldTranslate" : false
     },
@@ -5394,6 +5429,9 @@
         }
       }
     },
+    "List trips, ongoing and upcoming first." : {
+
+    },
     "Listed your trips" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5898,6 +5936,7 @@
       }
     },
     "Name the key after the agent or device that uses it. The key gives full access to add, search and list your summaries." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -5912,6 +5951,9 @@
           }
         }
       }
+    },
+    "Name the key after the agent or device that uses it. The key gives full access to your summaries and trips." : {
+
     },
     "New" : {
       "localizations" : {
@@ -5961,6 +6003,9 @@
           }
         }
       }
+    },
+    "New API Key…" : {
+
     },
     "New Chat" : {
       "localizations" : {
@@ -7723,6 +7768,9 @@
     "Rates From" : {
 
     },
+    "Read a trip’s days, places, transport, stays and expenses." : {
+
+    },
     "Read more" : {
 
     },
@@ -9358,6 +9406,9 @@
           }
         }
       }
+    },
+    "Store a photo for a place or view and get its URL." : {
+
     },
     "Style" : {
       "localizations" : {

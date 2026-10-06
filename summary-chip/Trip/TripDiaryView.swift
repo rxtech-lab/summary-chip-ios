@@ -6,6 +6,7 @@ import SwiftUI
 enum TripSheet: Identifiable, Hashable {
     case meta
     case day(String?)
+    case dayDetail(String)
     case places
     case place(String?)
     case placeDetail(String)
@@ -26,6 +27,7 @@ enum TripSheet: Identifiable, Hashable {
         switch self {
         case .meta: "meta"
         case .day(let id): "day:\(id ?? "new")"
+        case .dayDetail(let id): "day-detail:\(id)"
         case .places: "places"
         case .place(let id): "place:\(id ?? "new")"
         case .placeDetail(let id): "place-detail:\(id)"
@@ -99,7 +101,7 @@ struct TripDiaryView: View {
                         isReading: day.id == activeDayID,
                         onEdit: { present(.day(day.id)) },
                         onOpenTransport: { present(.transportDetail($0.id)) },
-                        onEditView: { present(.view($0.id)) }
+                        onOpenDetails: { present(.dayDetail(day.id)) }
                     )
                     .equatable()
                     .id(day.id)
@@ -132,6 +134,7 @@ struct TripDiaryView: View {
             .coordinateSpace(.named(Self.contentSpace))
         }
         .scrollPosition($scrollPosition)
+        .scrollTargetBehavior(TripDaySnapBehavior(tracker: tracker))
         .onScrollGeometryChange(for: TripReadingTracker.Metrics.self, of: TripReadingTracker.Metrics.init) { _, metrics in
             tracker.metrics = metrics
             read()
@@ -156,12 +159,15 @@ final class TripReadingTracker {
     struct Metrics: Equatable {
         var top: CGFloat = 0
         var height: CGFloat = 0
+        /// The furthest the content scrolls.
+        var maxOffset: CGFloat = 0
 
         init() {}
 
         init(_ geometry: ScrollGeometry) {
             top = geometry.contentOffset.y + geometry.contentInsets.top
             height = geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom
+            maxOffset = geometry.contentSize.height - geometry.containerSize.height + geometry.contentInsets.bottom
         }
     }
 
@@ -185,6 +191,33 @@ final class TripReadingTracker {
         if let last, last.0 == dayID, last.1 == progress { return nil }
         last = (dayID, progress)
         return (dayID, progress)
+    }
+}
+
+/// Snaps a day card's top to the top of the diary when a scroll would come to rest near it, so
+/// the diary settles on a day. Further from any top (inside a long day) the scroll stops where it
+/// lands, so tall cards stay readable all the way through.
+struct TripDaySnapBehavior: ScrollTargetBehavior {
+    let tracker: TripReadingTracker
+
+    /// Gap left above the snapped card, matching the diary's spacing.
+    private static let gap: CGFloat = 12
+    /// How far from a card's top, as a share of the visible height, a scroll still snaps to it.
+    private static let reach: CGFloat = 0.3
+
+    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
+        let metrics = tracker.metrics
+        guard metrics.height > 0 else { return }
+        // Offsets start below the diary bar: 0 is the top of the content.
+        let visibleTop = target.rect.minY + Self.gap
+        // The trip's header, then every measured day.
+        let tops = [Self.gap] + tracker.frames.values.map(\.minY)
+        guard let nearest = tops.min(by: { abs($0 - visibleTop) < abs($1 - visibleTop) }),
+              abs(nearest - visibleTop) < metrics.height * Self.reach else { return }
+        let offset = nearest - Self.gap
+        // Near the end the content can't scroll a card to the top; leave the end where it is.
+        guard offset <= metrics.maxOffset else { return }
+        target.rect.origin.y = offset
     }
 }
 

@@ -2,7 +2,7 @@ name: Screenshots
 
 # Captures the app's main screens (library, chat with a rendered view, a trip with trains, a flight,
 # days and a json-render view, Likes, the MCP server and deep links) on iPhone and iPad for
-# every PR, and keeps one PR comment showing them side by side for review. A new push flips the
+# every PR, uploads them as workflow artifacts, and keeps one PR comment listing them for review. A new push flips the
 # comment back to "capturing" before the devices start, so the images on the PR are never mistaken
 # for the latest commit's.
 on:
@@ -19,7 +19,6 @@ concurrency:
 
 env:
   COMMENT_MARKER: "<!-- app-screenshots -->"
-  SCREENSHOT_BRANCH: ci-screenshots
 
 jobs:
   announce:
@@ -144,7 +143,7 @@ jobs:
     if: always() && github.event_name == 'pull_request' && needs.announce.result == 'success' && needs.capture.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      actions: read
       pull-requests: write
     steps:
       - name: Download screenshots
@@ -152,43 +151,6 @@ jobs:
         with:
           pattern: screenshots-*
           path: screenshots
-
-      # The images live on an orphan branch so the comment can embed them by raw URL; artifacts
-      # are zipped and cannot be shown inline.
-      - name: Push screenshots to ${{ env.SCREENSHOT_BRANCH }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          remote="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
-          if git ls-remote --exit-code --heads "$remote" "$SCREENSHOT_BRANCH" > /dev/null; then
-            git clone --depth 1 --branch "$SCREENSHOT_BRANCH" "$remote" store
-          else
-            git init -q store
-            git -C store checkout -q --orphan "$SCREENSHOT_BRANCH"
-            git -C store remote add origin "$remote"
-          fi
-          git -C store config user.name "github-actions[bot]"
-          git -C store config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          # Only the latest run per PR is kept; the run id in the path defeats the raw URL cache.
-          rm -rf "store/pr-$PR"
-          mkdir -p "store/pr-$PR/$RUN_ID"
-          for dir in screenshots/screenshots-*; do
-            [ -d "$dir" ] || continue
-            cp -R "$dir" "store/pr-$PR/$RUN_ID/${dir##*/screenshots-}"
-          done
-          git -C store add -A
-          git -C store commit -q -m "Screenshots for PR #$PR (run $RUN_ID)" || exit 0
-          # Other PRs push here too; rebase over them rather than fail.
-          for attempt in 1 2 3 4 5; do
-            if git -C store push -q origin "HEAD:$SCREENSHOT_BRANCH"; then exit 0; fi
-            git -C store pull -q --rebase origin "$SCREENSHOT_BRANCH" || true
-            sleep $((attempt * 2))
-          done
-          echo "Could not push screenshots" >&2
-          exit 1
 
       - name: Update PR comment
         env:
@@ -200,21 +162,36 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CAPTURE_RESULT: ${{ needs.capture.result }}
         run: |
-          base="https://raw.githubusercontent.com/$REPO/$SCREENSHOT_BRANCH/pr-$PR/$RUN_ID"
+          # Artifacts are zipped and cannot be embedded inline, so the comment links to each
+          # device's artifact and marks which screens it contains.
+          artifacts=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" --paginate \
+            --jq '.artifacts[] | "\(.name) \(.id)"')
           devices=(iphone ipad)
           labels=("iPhone" "iPad")
-          widths=(200 260)
           screens=$(find screenshots -name '*.png' -exec basename {} .png \; | sort -u)
           missing=0
+          links=""
+          header="| Screen |"
+          divider="| --- |"
+          for i in "${!devices[@]}"; do
+            artifact_id=$(echo "$artifacts" | awk -v n="screenshots-${devices[$i]}" '$1 == n { print $2; exit }')
+            if [ -n "$artifact_id" ]; then
+              url="$RUN_URL/artifacts/$artifact_id"
+              links+="[${labels[$i]}]($url) · "
+              header+=" [${labels[$i]}]($url) |"
+            else
+              header+=" ${labels[$i]} |"
+            fi
+            divider+=" :---: |"
+          done
           table=""
           if [ -n "$screens" ]; then
-            table="| Screen | ${labels[0]} | ${labels[1]} |"$'\n'"| --- | --- | --- |"
+            table="$header"$'\n'"$divider"
             for screen in $screens; do
               row="| \`${screen#*-}\` |"
-              for i in "${!devices[@]}"; do
-                device=${devices[$i]}
+              for device in "${devices[@]}"; do
                 if [ -f "screenshots/screenshots-$device/$screen.png" ]; then
-                  row+=" <img src=\"$base/$device/$screen.png\" width=\"${widths[$i]}\"> |"
+                  row+=" ✅ |"
                 else
                   row+=" — |"
                   missing=$((missing + 1))
@@ -233,6 +210,10 @@ jobs:
               echo "⚠️ Captured for \`${SHA:0:7}\`, but $missing screen(s) are missing (shown as —) — [view run]($RUN_URL)."
             else
               echo "✅ Captured for \`${SHA:0:7}\` — [view run]($RUN_URL). Check each layout before merging."
+            fi
+            if [ -n "$links" ]; then
+              echo
+              echo "Download: ${links% · } (kept for 7 days)."
             fi
             echo
             echo "<!-- screenshots-table -->"

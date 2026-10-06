@@ -35,16 +35,10 @@ struct TripHeaderView: View {
                 TripEditButton(title: String(localized: "Edit trip details"), action: onEdit)
             }
 
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    TripHeaderPill(text: document.dateRangeText, systemImage: "calendar")
-                    TripHeaderPill(text: document.days.count == 1 ? String(localized: "1 day") : String(localized: "\(document.days.count) days"), systemImage: "sun.max")
-                    TripHeaderPill(text: document.places.count == 1 ? String(localized: "1 place") : String(localized: "\(document.places.count) places"), systemImage: "mappin.and.ellipse")
-                    TripHeaderPill(text: document.timeZoneCity, systemImage: "clock")
-                }
-            }
-            .scrollIndicators(.hidden)
-            .scrollClipDisabled()
+            Text(document.headerFacts)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
 
             if let intro = document.intro, !intro.isEmpty {
                 Button { showsIntro = true } label: {
@@ -70,22 +64,6 @@ struct TripHeaderView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-/// A compact fact (dates, day count…) in the trip header.
-private struct TripHeaderPill: View {
-    let text: String
-    let systemImage: String
-
-    var body: some View {
-        Label(text, systemImage: systemImage)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.background.secondary, in: .capsule)
     }
 }
 
@@ -143,6 +121,12 @@ private extension TripDocument {
         guard parts.count > 1 else { return subtitle }
         let kept = parts.filter { $0.rangeOfCharacter(from: .decimalDigits) == nil }
         return kept.isEmpty ? subtitle : kept.joined(separator: Self.separator)
+    }
+
+    /// "Oct 10 – 20 · 11 days · Tokyo": the header's facts in one line.
+    var headerFacts: String {
+        let length = days.count == 1 ? String(localized: "1 day") : String(localized: "\(days.count) days")
+        return [dateRangeText, length, timeZoneCity].filter { !$0.isEmpty }.joined(separator: Self.separator)
     }
 
     /// "Asia/Tokyo" → "Tokyo".
@@ -234,8 +218,9 @@ struct TripEditButton: View {
     }
 }
 
-/// One diary day: DAY number, title, where the night is spent, the moments timeline, the
-/// transport taken, place guides and a tip. The reading outline is shown on macOS.
+/// One diary day, kept to a glance: date, title, the moments in a line each, the transport taken,
+/// the places as chips and where the night is spent. The blurb, full moments, place guides,
+/// day views and tip open in the day's details sheet.
 /// Equatable on its data so scrolling, which re-renders the diary for the map, skips the cards;
 /// the actions only route to sheets.
 struct TripDayCard: View, Equatable {
@@ -245,10 +230,10 @@ struct TripDayCard: View, Equatable {
     let isReading: Bool
     let onEdit: () -> Void
     let onOpenTransport: (TripTransport) -> Void
-    var onEditView: (TripView) -> Void = { _ in }
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    #endif
+    let onOpenDetails: () -> Void
+
+    /// Moments shown before "+N more".
+    private static let momentLimit = 4
 
     private var accent: Color { TripStyle.color(for: day.route?.kind) }
 
@@ -260,107 +245,61 @@ struct TripDayCard: View, Equatable {
         #endif
     }
 
-    private var isCompact: Bool {
-        #if os(iOS)
-        sizeClass == .compact
-        #else
-        false
-        #endif
-    }
-
-    /// Include moment stops even when the route only names the cities between them.
-    private var guidePlaces: [TripPlace] {
-        let ids = (day.route?.placeIds ?? []) + day.moments.compactMap(\.placeId)
-            + [document.hotel(id: day.stayId)?.placeId].compactMap { $0 }
-        var seen = Set<String>()
-        return ids.compactMap { id in
-            guard seen.insert(id).inserted, let place = document.place(id: id), place.hasDetails else { return nil }
-            return place
-        }
-    }
-
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.document == rhs.document && lhs.day == rhs.day && lhs.number == rhs.number && lhs.isReading == rhs.isReading
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            if !isCompact {
-                dayNumber
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("DAY \(number) · \(document.dayLabel(day.date))")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                    Text(day.title)
+                        .font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let short = day.short ?? day.route?.summary {
+                        Text(short)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+                Spacer(minLength: 8)
+                TripEditButton(title: String(localized: "Edit day"), action: onEdit)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    if isCompact {
-                        dayNumber
+            if !day.moments.isEmpty {
+                CompactMoments(moments: day.moments, limit: Self.momentLimit, tint: accent)
+            }
+
+            let transports = day.transportIds.compactMap { document.transport(id: $0) }
+            if !transports.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(transports) { transport in
+                        TransportSummaryButton(document: document, transport: transport) { onOpenTransport(transport) }
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(document.dayLabel(day.date))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(day.title)
-                            .font(.title3.weight(.semibold))
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let short = day.short ?? day.route?.summary {
-                            Text(short).font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    TripEditButton(title: String(localized: "Edit day"), action: onEdit)
-                }
-                if let hotel = document.hotel(id: day.stayId) {
-                    Label(hotel.name, systemImage: "moon.stars")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(.indigo.opacity(0.12), in: Capsule())
-                        .foregroundStyle(.indigo)
-                }
-                if let blurb = day.blurb {
-                    Text(blurb).font(.body)
-                }
-                if !day.moments.isEmpty {
-                    MomentsTimeline(document: document, moments: day.moments, tint: accent)
-                }
-                let places = guidePlaces
-                if !places.isEmpty {
-                    ScrollView(.horizontal) {
-                        HStack(alignment: .top, spacing: 10) {
-                            ForEach(places) { place in
-                                TripPlacePreviewCard(place: place)
-                                    .containerRelativeFrame(.horizontal) { width, _ in
-                                        places.count > 1 ? min(320, width * 0.88) : width
-                                    }
-                            }
-                        }
-                        .scrollTargetLayout()
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .scrollTargetBehavior(.viewAligned)
-                    .scrollIndicators(.hidden)
-                    .accessibilityIdentifier("trip-day-places-\(day.id)")
-                }
-                let transports = day.transportIds.compactMap { document.transport(id: $0) }
-                if !transports.isEmpty {
-                    VStack(spacing: 8) {
-                        ForEach(transports) { transport in
-                            TransportSummaryButton(document: document, transport: transport) { onOpenTransport(transport) }
-                        }
-                    }
-                }
-                ForEach(document.views(forDay: day.id)) { view in
-                    TripCustomViewCard(view: view, currency: document.currency, embedded: true) { onEditView(view) }
-                        .equatable()
-                }
-                if let tip = day.tip {
-                    Text("\(Text("Tip").bold()) · \(tip)")
-                        .font(.callout)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            let places = document.guidePlaces(for: day)
+            if !places.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(places) { TripPlaceChip(place: $0) }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                // Scroll edge to edge of the card, clipped by it, with the chips starting in line with the text.
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+                .padding(.horizontal, -16)
+                .accessibilityIdentifier("trip-day-places-\(day.id)")
+            }
+
+            Divider()
+            footer
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -373,18 +312,230 @@ struct TripDayCard: View, Equatable {
         .accessibilityIdentifier("trip-day-\(day.id)")
     }
 
-    private var dayNumber: some View {
-        VStack(spacing: 0) {
-            Text("DAY")
-                .font(.caption2.weight(.heavy))
-                .foregroundStyle(.secondary)
-            Text(number, format: .number.precision(.integerLength(2...)))
-                .font(.title.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(isReading ? accent : .primary)
+    /// Where the night is spent, and the way into the rest of the day.
+    private var footer: some View {
+        HStack(spacing: 8) {
+            if let hotel = document.hotel(id: day.stayId) {
+                Label(hotel.name, systemImage: "moon.stars")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.indigo)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button(action: onOpenDetails) {
+                HStack(spacing: 4) {
+                    if day.tip != nil {
+                        Image(systemName: "lightbulb").accessibilityHidden(true)
+                    }
+                    Text("Details")
+                    Image(systemName: "chevron.right").font(.caption2.weight(.bold))
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tint)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Day \(number) details"))
+            .accessibilityIdentifier("trip-day-details-\(day.id)")
         }
-        .frame(width: 44)
-        .accessibilityElement(children: .combine)
+    }
+}
+
+extension TripDocument {
+    /// The places a day visits that have something to show: its route, moment stops (even when the
+    /// route only names the cities between them) and its hotel, each once.
+    func guidePlaces(for day: TripDay) -> [TripPlace] {
+        let ids = (day.route?.placeIds ?? []) + day.moments.compactMap(\.placeId)
+            + [hotel(id: day.stayId)?.placeId].compactMap { $0 }
+        var seen = Set<String>()
+        return ids.compactMap { id in
+            guard seen.insert(id).inserted, let place = place(id: id), place.hasDetails else { return nil }
+            return place
+        }
+    }
+}
+
+/// The day's moments in a line each: time (or slot) and what happens, then "+N more".
+private struct CompactMoments: View {
+    let moments: [TripMoment]
+    let limit: Int
+    let tint: Color
+
+    var body: some View {
+        let shown = moments.prefix(limit)
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(shown.indices, id: \.self) { index in
+                let moment = shown[index]
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Circle().fill(tint).frame(width: 6, height: 6)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+                    Text(moment.time ?? moment.slot.title)
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, alignment: .leading)
+                    Text(moment.text)
+                        .font(.subheadline)
+                        .lineLimit(1)
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if moments.count > limit {
+                Text("+\(moments.count - limit) more")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 16)
+            }
+        }
+    }
+}
+
+/// A place a day visits, as a small chip: thumbnail and name. Opens the place's details.
+private struct TripPlaceChip: View {
+    let place: TripPlace
+    @Environment(\.tripShowPlace) private var showPlace
+
+    var body: some View {
+        Button { showPlace?(place.id) } label: {
+            HStack(spacing: 6) {
+                if let photo = place.photos.first?.imageURL {
+                    SummaryRemoteImage(url: photo) { Circle().fill(.quaternary) }
+                        .frame(width: 22, height: 22)
+                        .clipShape(Circle())
+                } else {
+                    Image(systemName: place.kind.systemImage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                }
+                Text(place.name)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+            .padding(.leading, 4)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .background(.quaternary.opacity(0.5), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(showPlace == nil)
+        .accessibilityHint("Shows the place's details")
+    }
+}
+
+/// Everything about one day: the blurb, the full moments, place guides, transport, the day's
+/// views and its tip. Opened from the day card's Details.
+struct TripDayDetailSheet: View {
+    let document: TripDocument
+    let day: TripDay
+    let onEdit: () -> Void
+    let onOpenTransport: (TripTransport) -> Void
+    let onEditView: (TripView) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.tripEditable) private var editable
+
+    private var accent: Color { TripStyle.color(for: day.route?.kind) }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(document.dayLabel(day.date))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(accent)
+                        Text(day.title)
+                            .font(.title2.weight(.bold))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let short = day.short ?? day.route?.summary {
+                            Text(short).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        if let hotel = document.hotel(id: day.stayId) {
+                            Label(hotel.name, systemImage: "moon.stars")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.indigo)
+                                .padding(.top, 4)
+                        }
+                    }
+
+                    if let blurb = day.blurb {
+                        Text(blurb)
+                            .font(.body)
+                            .lineSpacing(3)
+                            .textSelection(.enabled)
+                    }
+
+                    if !day.moments.isEmpty {
+                        section("Moments") {
+                            MomentsTimeline(document: document, moments: day.moments, tint: accent)
+                        }
+                    }
+
+                    let transports = day.transportIds.compactMap { document.transport(id: $0) }
+                    if !transports.isEmpty {
+                        section("Transport") {
+                            VStack(spacing: 8) {
+                                ForEach(transports) { transport in
+                                    TransportSummaryButton(document: document, transport: transport) { onOpenTransport(transport) }
+                                }
+                            }
+                        }
+                    }
+
+                    let places = document.guidePlaces(for: day)
+                    if !places.isEmpty {
+                        section("Places") {
+                            VStack(spacing: 10) {
+                                ForEach(places) { TripPlacePreviewCard(place: $0) }
+                            }
+                        }
+                    }
+
+                    ForEach(document.views(forDay: day.id)) { view in
+                        TripCustomViewCard(view: view, currency: document.currency, embedded: true) { onEditView(view) }
+                            .equatable()
+                    }
+
+                    if let tip = day.tip {
+                        Label {
+                            Text(tip)
+                        } icon: {
+                            Image(systemName: "lightbulb.fill").foregroundStyle(.yellow)
+                        }
+                        .font(.callout)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.yellow.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(document.dayNumber(of: day.id).map { String(localized: "Day \($0)") } ?? day.title)
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                if editable {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Edit", action: onEdit)
+                            .accessibilityIdentifier("trip-day-detail-edit")
+                    }
+                }
+            }
+        }
+        .summarySheetSize()
+    }
+
+    private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
     }
 }
 

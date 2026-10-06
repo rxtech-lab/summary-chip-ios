@@ -91,7 +91,7 @@ struct CreateAPIKeySheet: View {
                 }
                 .accessibilityIdentifier("mcp-key-name")
         } footer: {
-            Text("Name the key after the agent or device that uses it. The key gives full access to add, search and list your summaries.")
+            Text("Name the key after the agent or device that uses it. The key gives full access to your summaries and trips.")
         }
     }
 
