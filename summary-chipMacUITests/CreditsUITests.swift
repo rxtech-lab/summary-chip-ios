@@ -39,7 +39,7 @@ nonisolated final class CreditsUITests: XCTestCase {
         add(account)
         app.descendants(matching: .any)["summary-topup"].click()
         XCTAssertTrue(app.staticTexts["100 point pack"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["Buy"].exists)
+        XCTAssertTrue(app.buttons["topup-buy-points-100"].exists)
         XCTAssertFalse(app.staticTexts["Recurring plan"].exists)
         let topup = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         topup.name = "Dedicated top-up screen"

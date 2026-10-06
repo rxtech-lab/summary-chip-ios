@@ -5,6 +5,8 @@ struct SummaryDetailView: View {
     let environment: AppEnvironment
     /// False when already shown inside a summary chat sheet.
     var allowsChat = true
+    /// Called with the summary after it changes here (starred, edited), for callers holding a copy.
+    var onUpdate: ((Summary) -> Void)?
     @State private var summary: Summary
     @State private var showsChat = false
     @State private var showsShare = false
@@ -21,9 +23,10 @@ struct SummaryDetailView: View {
     @State private var likeStatus: LikeStatus?
     @Environment(\.dismiss) private var dismiss
 
-    init(environment: AppEnvironment, summary: Summary, allowsChat: Bool = true) {
+    init(environment: AppEnvironment, summary: Summary, allowsChat: Bool = true, onUpdate: ((Summary) -> Void)? = nil) {
         self.environment = environment
         self.allowsChat = allowsChat
+        self.onUpdate = onUpdate
         self._summary = State(initialValue: summary)
     }
 
@@ -176,6 +179,7 @@ struct SummaryDetailView: View {
         .task(id: summary.translationPending) { await pollTranslation() }
         .sensoryFeedback(.success, trigger: summary.hasSourceMarkdown) { old, new in !old && new }
         .likeStatusOverlay($likeStatus)
+        .onChange(of: summary) { _, updated in onUpdate?(updated) }
     }
 
     private func apply(_ updated: Summary) {
@@ -234,6 +238,7 @@ struct SummaryDestination: View {
     let summary: Summary
     var allowsChat = true
     var onOpenTrip: ((Summary) -> Void)?
+    var onUpdate: ((Summary) -> Void)?
 
     var body: some View {
         if summary.kind == .trip {
@@ -244,7 +249,7 @@ struct SummaryDestination: View {
                 onOpenTrip: onOpenTrip.map { action in { action(summary) } }
             )
         } else {
-            SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat)
+            SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat, onUpdate: onUpdate)
         }
     }
 }
@@ -306,7 +311,8 @@ struct DeepLinkSheet: View {
                 if case .tripID(let id) = route {
                     TripDetailView(environment: environment, tripID: id, title: summary?.title ?? "")
                 } else if let summary {
-                    SummaryDestination(environment: environment, summary: summary)
+                    // Keep the copy current so "Open in Library" carries a star made here.
+                    SummaryDestination(environment: environment, summary: summary, onUpdate: { self.summary = $0 })
                 } else if let expiredLike {
                     ExpiredSummaryView(environment: environment, summary: expiredLike)
                 } else if let errorMessage {

@@ -1,0 +1,54 @@
+name: UI Tests
+
+# Runs the iOS (iPhone) UI test suite on every push. ScreenshotTests run in screenshots.yaml
+# instead, and ChatScrollDiagUITests is a diagnostic sampler with no assertions. The macOS suite
+# is not run here: SwiftUI opens no window when XCTest launches the app on the runner.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: iOS UI Tests
+    runs-on: [self-hosted, macOS, ARM64, ui-tests]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Prepare simulator
+        run: echo "SIMULATOR_ID=$(./scripts/ci/prepare-simulator.sh '^iPhone \d+ Pro$')" >> "$GITHUB_ENV"
+
+      - name: Run UI tests
+        run: |
+          ./scripts/ci/ui-test.sh ios "$RUNNER_TEMP/ios-ui-tests.xcresult" \
+            -only-testing:summary-chipUITests \
+            -skip-testing:summary-chipUITests/ScreenshotTests \
+            -skip-testing:summary-chipUITests/ChatScrollDiagUITests
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-ui-test-results
+          path: ${{ runner.temp }}/ios-ui-tests.xcresult
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Shut down simulators
+        if: always()
+        run: |
+          xcrun simctl shutdown all 2>/dev/null || true
+          xcrun simctl --set testing delete all 2>/dev/null || true

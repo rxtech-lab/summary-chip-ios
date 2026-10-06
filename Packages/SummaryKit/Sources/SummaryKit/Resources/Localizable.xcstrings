@@ -1152,6 +1152,23 @@
         }
       }
     },
+    "Expired" : {
+      "comment" : "Badge on a liked summary whose share link expired",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已过期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已過期"
+          }
+        }
+      }
+    },
     "Expires after" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1837,6 +1854,9 @@
           }
         }
       }
+    },
+    "Not Now" : {
+      "comment" : "Alert button: dismiss the update request"
     },
     "OK" : {
       "localizations" : {
@@ -3110,6 +3130,25 @@
     "The tool could not finish." : {
 
     },
+    "This feature needs a newer version of Chippy. Update the app to keep using it." : {
+
+    },
+    "This feature needs a newer version of Chippy. You're using %@." : {
+
+    },
+    "This feature needs Chippy %@ or later. Update the app to keep using it." : {
+
+    },
+    "This feature needs Chippy %@ or later. You're using %@. Update the app to keep using it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This feature needs Chippy %1$@ or later. You're using %2$@. Update the app to keep using it."
+          }
+        }
+      }
+    },
     "This file is empty." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3406,6 +3445,12 @@
         }
       }
     },
+    "Update" : {
+      "comment" : "Alert button: update the app"
+    },
+    "Update Chippy" : {
+      "comment" : "Alert title: the app is too old for a feature"
+    },
     "Updating the trip…" : {
 
     },
@@ -3618,23 +3663,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摘要已建立，但無法連結本機檔案。%@"
-          }
-        }
-      }
-    },
-    "Expired" : {
-      "comment" : "Badge on a liked summary whose share link expired",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已过期"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已過期"
           }
         }
       }

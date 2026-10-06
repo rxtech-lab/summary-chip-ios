@@ -31,17 +31,19 @@ struct LikeStatus: Identifiable, Equatable {
 
 extension View {
     /// Shows `status` as a capsule at the bottom of the screen for a moment, with haptic feedback.
-    func likeStatusOverlay(_ status: Binding<LikeStatus?>) -> some View {
-        modifier(LikeStatusOverlay(status: status))
+    /// `.top` for screens whose bottom is covered (the trip diary's sheet on iPhone).
+    func likeStatusOverlay(_ status: Binding<LikeStatus?>, edge: VerticalEdge = .bottom) -> some View {
+        modifier(LikeStatusOverlay(status: status, edge: edge))
     }
 }
 
 private struct LikeStatusOverlay: ViewModifier {
     @Binding var status: LikeStatus?
+    let edge: VerticalEdge
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .bottom) {
+            .overlay(alignment: edge == .top ? .top : .bottom) {
                 if let status {
                     Label(status.title, systemImage: status.systemImage)
                         .font(.subheadline.weight(.semibold))
@@ -50,8 +52,8 @@ private struct LikeStatusOverlay: ViewModifier {
                         .padding(.vertical, 12)
                         .background(.regularMaterial, in: Capsule())
                         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-                        .padding(.bottom, 24)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(edge == .top ? .top : .bottom, edge == .top ? 8 : 24)
+                        .transition(.move(edge: edge == .top ? .top : .bottom).combined(with: .opacity))
                         .accessibilityIdentifier("like-status")
                         .task(id: status.id) {
                             try? await Task.sleep(for: .seconds(1.6))

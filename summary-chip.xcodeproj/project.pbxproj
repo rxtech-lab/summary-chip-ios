@@ -103,6 +103,7 @@
 		BB923035EDDB9A1B8B0331A6 /* TripViewEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A01AC90F517CEDCD4CF362D /* TripViewEditorSheet.swift */; };
 		BBD180F3C05E2FA70FB0778A /* TripDiaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C701057B10532B2E37EAD1A /* TripDiaryView.swift */; };
 		C07D0758570700338E8522EC /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834E013F2DE722C876CEECE6 /* LibraryView.swift */; };
+		C1109D45C7E2374DD9E3D56A /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AB13FBC7E7504A0E9D7186 /* ScreenshotTests.swift */; };
 		C723705078F709EBE7A4ED72 /* LocalFileUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81068B73DA4992674C619696 /* LocalFileUITests.swift */; };
 		C88B85D17A4B54E3C71639D7 /* TripMapCameraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEF01AC803F12B398A189AB /* TripMapCameraTests.swift */; };
 		C8B46B338CD9D0940CDD8C65 /* LocalFilePreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFF6D4EA56BABE68C831271F /* LocalFilePreviewHost.swift */; };
@@ -122,6 +123,7 @@
 		DC1BD7DC1C5F5E2308AADFCB /* APIKeySheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA009540CF1E89E6C87D487 /* APIKeySheets.swift */; };
 		DC1C24635EF7D960A7952546 /* CurrencyConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9817833488226D5CDBAC1BF /* CurrencyConverter.swift */; };
 		DD67A328AA32E34C1E031B7E /* EditSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */; };
+		DDEAD74C91E9EF6AE23836E2 /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308AF40AA39C8045DA1906F9 /* ScreenshotTests.swift */; };
 		DF2971619974BD0EC0DC35BC /* LibraryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23C89ED2552FEF380370664 /* LibraryModel.swift */; };
 		E620586B187E44C1ED844963 /* FlightLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753822015A09F12B53D4B840 /* FlightLiveActivities.swift */; };
 		E7E928CC896FE451474DAE21 /* SummaryCreditsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F89723DDC4FB1451D0A2FF /* SummaryCreditsSheet.swift */; };
@@ -232,6 +234,7 @@
 /* Begin PBXFileReference section */
 		03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMarkdownSheet.swift; sourceTree = "<group>"; };
 		05A43C52A80A84D95466F332 /* ChippyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChippyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		05AB13FBC7E7504A0E9D7186 /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
 		07A1E82976A1D45A28B24431 /* ExpiredSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpiredSummaryView.swift; sourceTree = "<group>"; };
 		081582646A80A90DCFF80871 /* LikesPreviewFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikesPreviewFixture.swift; sourceTree = "<group>"; };
 		0871168308F08E98FC6F6407 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
@@ -250,6 +253,7 @@
 		29C5DE12C6C878AEE055785D /* PointsUsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointsUsageView.swift; sourceTree = "<group>"; };
 		2CC8DB98FCE639E0092D5022 /* DayEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayEditorSheet.swift; sourceTree = "<group>"; };
 		2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlaceDetailSheet.swift; sourceTree = "<group>"; };
+		308AF40AA39C8045DA1906F9 /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
 		30BDDEFD839800D2C35B62FE /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		34E23BC2AD4A0B46589FE56D /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		3649A0D60A27E6BD17E2B7C9 /* RxAuthTokenStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RxAuthTokenStorage.swift; sourceTree = "<group>"; };
@@ -684,6 +688,7 @@
 				92CEBF504F3F08A90F21655D /* ChatStreamingUITests.swift */,
 				EA57F609F06BEE5244D87D8A /* CreditsUITests.swift */,
 				D792DE88E3418D7C22711EFD /* MacNavigationUITests.swift */,
+				308AF40AA39C8045DA1906F9 /* ScreenshotTests.swift */,
 				BA655D1EBA305B8A7B4F26B6 /* SoftwareUpdateUITests.swift */,
 			);
 			path = "summary-chipMacUITests";
@@ -779,6 +784,7 @@
 				095D3B67DF34AC1B37AEBEDB /* DeepLinkLikesUITests.swift */,
 				81068B73DA4992674C619696 /* LocalFileUITests.swift */,
 				096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */,
+				05AB13FBC7E7504A0E9D7186 /* ScreenshotTests.swift */,
 			);
 			path = "summary-chipUITests";
 			sourceTree = "<group>";
@@ -1163,6 +1169,7 @@
 				0DD7683F3155D438CDD97038 /* ChatStreamingUITests.swift in Sources */,
 				34E085E6A8C7BF8C596322F6 /* CreditsUITests.swift in Sources */,
 				B1BC6022D2C4D620A1231FEC /* MacNavigationUITests.swift in Sources */,
+				DDEAD74C91E9EF6AE23836E2 /* ScreenshotTests.swift in Sources */,
 				52608D39685A617C646D30F8 /* SoftwareUpdateUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1249,6 +1256,7 @@
 				3A70B49ED4D615DBEFE3BE63 /* DeepLinkLikesUITests.swift in Sources */,
 				C723705078F709EBE7A4ED72 /* LocalFileUITests.swift in Sources */,
 				AC2DE7F7EDCB47315AD79606 /* OnboardingUITests.swift in Sources */,
+				C1109D45C7E2374DD9E3D56A /* ScreenshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

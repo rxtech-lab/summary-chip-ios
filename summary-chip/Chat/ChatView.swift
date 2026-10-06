@@ -342,6 +342,8 @@ struct ChatView: View {
                 .foregroundStyle(canSend ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
                 .disabled(!canSend)
                 .accessibilityLabel("Send")
+                // The keyboard's return key is labelled Send too.
+                .accessibilityIdentifier("chat-send")
             }
         }
         .padding(.horizontal)
