@@ -90,7 +90,7 @@ struct SummaryDetailView: View {
             ChatView(environment: environment, summary: summary)
         }
         .sheet(isPresented: $showsShare) {
-            ShareModeSheet(summary: summary)
+            ShareModeSheet(summary: summary, api: environment.api) { updated in saved(updated) }
         }
         .sheet(isPresented: $showsEditSharing) {
             EditSharingSheet(api: environment.api, summary: summary) { updated in saved(updated) }

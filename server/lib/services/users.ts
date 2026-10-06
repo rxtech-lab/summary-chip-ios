@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import type { Database } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
@@ -17,10 +17,12 @@ function entriesFor(db: Database): Map<string, Promise<void>> {
   return entries;
 }
 
-/** Makes sure a `users` row exists so owner foreign keys resolve. */
+/** Makes sure a `users` row exists so owner foreign keys resolve, with the email from the latest token. */
 export async function ensureUser(db: Database, principal: ApiPrincipal): Promise<void> {
   const entries = entriesFor(db);
-  const existing = entries.get(principal.sub);
+  // Keyed with the email too, so a token with a new email writes it.
+  const key = `${principal.sub}\n${principal.email ?? ""}`;
+  const existing = entries.get(key);
   if (existing) return existing;
   if (entries.size >= MAX_ENSURED_ENTRIES) {
     const oldest = entries.keys().next();
@@ -28,13 +30,14 @@ export async function ensureUser(db: Database, principal: ApiPrincipal): Promise
   }
   const insertion = db.insert(users)
     .values({ id: principal.sub, email: principal.email ?? null, name: principal.name ?? null, createdAt: new Date() })
-    .onConflictDoNothing({ target: users.id })
+    // Keeps the email current: invited share links are matched against it.
+    .onConflictDoUpdate({ target: users.id, set: { email: sql`coalesce(excluded.email, ${users.email})` } })
     .then(() => undefined);
-  entries.set(principal.sub, insertion);
+  entries.set(key, insertion);
   try {
     await insertion;
   } catch (error) {
-    if (entries.get(principal.sub) === insertion) entries.delete(principal.sub);
+    if (entries.get(key) === insertion) entries.delete(key);
     throw error;
   }
 }

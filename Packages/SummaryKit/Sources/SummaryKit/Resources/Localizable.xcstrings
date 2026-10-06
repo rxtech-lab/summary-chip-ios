@@ -147,6 +147,22 @@
         }
       }
     },
+    "%lld invited" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 人受邀"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 人受邀"
+          }
+        }
+      }
+    },
     "%lld matches" : {
       "localizations" : {
         "en" : {
@@ -457,6 +473,54 @@
         }
       }
     },
+    "Add" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增"
+          }
+        }
+      }
+    },
+    "Add email" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加电子邮件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增電子郵件"
+          }
+        }
+      }
+    },
+    "Add Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增連結"
+          }
+        }
+      }
+    },
     "All" : {
       "comment" : "Library scope: every summary",
       "localizations" : {
@@ -486,6 +550,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在標題後方襯一幅 AI 插畫。"
+          }
+        }
+      }
+    },
+    "Anyone with the link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任何拥有链接的人"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任何擁有連結的人"
           }
         }
       }
@@ -811,6 +891,22 @@
         }
       }
     },
+    "Copy Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "複製連結"
+          }
+        }
+      }
+    },
     "Copy link" : {
       "localizations" : {
         "zh-Hans" : {
@@ -855,6 +951,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法建立摘要"
+          }
+        }
+      }
+    },
+    "Couldn't delete the link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法删除链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法刪除連結"
           }
         }
       }
@@ -907,6 +1019,38 @@
         }
       }
     },
+    "Couldn't save the link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存連結"
+          }
+        }
+      }
+    },
+    "Create" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立"
+          }
+        }
+      }
+    },
     "Created" : {
       "comment" : "Library scope: summaries you created",
       "localizations" : {
@@ -927,6 +1071,38 @@
     "Creating a view…" : {
 
     },
+    "Creating link…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在创建链接…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在建立連結…"
+          }
+        }
+      }
+    },
+    "Current status" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前状态"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前狀態"
+          }
+        }
+      }
+    },
     "Delayed" : {
       "localizations" : {
         "zh-Hans" : {
@@ -939,6 +1115,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "延誤"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除"
+          }
+        }
+      }
+    },
+    "Delete Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除連結"
+          }
+        }
+      }
+    },
+    "Delete this link?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此链接？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除此連結？"
+          }
+        }
+      }
+    },
+    "Deleting link…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在删除链接…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在刪除連結…"
           }
         }
       }
@@ -1119,6 +1359,38 @@
         }
       }
     },
+    "Edit Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯連結"
+          }
+        }
+      }
+    },
+    "Edit Sharing" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑分享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯分享"
+          }
+        }
+      }
+    },
     "Edit sharing" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1232,6 +1504,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 分鐘後到期"
+          }
+        }
+      }
+    },
+    "Family, Team…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "家人、团队…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "家人、團隊…"
           }
         }
       }
@@ -1427,6 +1715,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "飛行中"
+          }
+        }
+      }
+    },
+    "Invited people (%lld)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受邀的人（%lld）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受邀的人（%lld）"
           }
         }
       }
@@ -1638,6 +1942,38 @@
         }
       }
     },
+    "Link %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結 %@"
+          }
+        }
+      }
+    },
+    "Link disabled" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接已停用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結已停用"
+          }
+        }
+      }
+    },
     "Link expired" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1702,6 +2038,22 @@
         }
       }
     },
+    "Link to share" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要分享的链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要分享的連結"
+          }
+        }
+      }
+    },
     "Link: %@" : {
       "comment" : "Options summary: how long the share link lasts",
       "localizations" : {
@@ -1715,6 +2067,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連結：%@"
+          }
+        }
+      }
+    },
+    "Links" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結"
+          }
+        }
+      }
+    },
+    "Manage Links" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理連結"
           }
         }
       }
@@ -1734,6 +2118,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "「訊息」、Slack 等 App 會根據連結顯示預覽卡片。"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名稱"
+          }
+        }
+      }
+    },
+    "name@example.com" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "name@example.com"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "name@example.com"
           }
         }
       }
@@ -1768,6 +2184,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新增"
+          }
+        }
+      }
+    },
+    "New Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新連結"
           }
         }
       }
@@ -1823,6 +2255,38 @@
         }
       }
     },
+    "No other links yet. Add one to share with its own expiry, or only with certain people." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有其他链接。添加一个链接，可单独设置有效期，或只分享给特定的人。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有其他連結。新增一個連結，可單獨設定有效期限，或只分享給特定的人。"
+          }
+        }
+      }
+    },
+    "No sign-in needed, even while the summary is private." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无需登录，即使摘要设为私密也能打开。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無需登入，即使摘要設為私密也能開啟。"
+          }
+        }
+      }
+    },
     "Not Enough Points" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1874,18 +2338,50 @@
         }
       }
     },
-    "Only you. The link stops working; nothing is deleted." : {
+    "Only invited people" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仅限你自己。链接将失效，但不会删除任何内容。"
+            "value" : "仅限受邀的人"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "僅限你自己。連結將失效，但不會刪除任何內容。"
+            "value" : "僅限受邀的人"
+          }
+        }
+      }
+    },
+    "Only you see the name." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有你能看到名称。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有你能看到名稱。"
+          }
+        }
+      }
+    },
+    "Only you. This link stops working, nothing is deleted, and other links you add keep working." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅限你自己。此链接将失效，不会删除任何内容，你添加的其他链接仍然有效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅限你自己。此連結將失效，不會刪除任何內容，你新增的其他連結仍然有效。"
           }
         }
       }
@@ -1970,6 +2466,38 @@
         }
       }
     },
+    "Opens for %lld invited people." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅 %lld 位受邀者可打开。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅 %lld 位受邀者可開啟。"
+          }
+        }
+      }
+    },
+    "Opens for anyone with the link." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任何拥有链接的人都能打开。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任何擁有連結的人都能開啟。"
+          }
+        }
+      }
+    },
     "Options" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1982,6 +2510,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選項"
+          }
+        }
+      }
+    },
+    "Other links" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他連結"
           }
         }
       }
@@ -2071,6 +2615,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待中"
+          }
+        }
+      }
+    },
+    "People sign in to Chippy with an email address you added." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对方需使用你添加的电子邮件地址登录 Chippy。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "對方需使用你新增的電子郵件地址登入 Chippy。"
           }
         }
       }
@@ -2400,6 +2960,22 @@
         }
       }
     },
+    "Revoke" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤銷"
+          }
+        }
+      }
+    },
     "Same as source" : {
       "comment" : "Summary language option: write in the source's language",
       "localizations" : {
@@ -2417,6 +2993,22 @@
         }
       }
     },
+    "Save" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存"
+          }
+        }
+      }
+    },
     "Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2429,6 +3021,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "將檔案文字與摘要一起儲存，並排版成文件，之後可從摘要的工具列中閱讀。使用免費摘要時不收費；之後排版會使用點數，點數不足時則保留純文字。只有你可以開啟。"
+          }
+        }
+      }
+    },
+    "Saving link…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保存链接…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在儲存連結…"
           }
         }
       }
@@ -2661,6 +3269,22 @@
         }
       }
     },
+    "Stops working on %@." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将于 %@ 失效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將於 %@ 失效。"
+          }
+        }
+      }
+    },
     "Summaries" : {
       "comment" : "Library kind filter: summary cards",
       "localizations" : {
@@ -2706,6 +3330,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摘要"
+          }
+        }
+      }
+    },
+    "Summary link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要連結"
           }
         }
       }
@@ -2871,6 +3511,22 @@
         }
       }
     },
+    "The link stays open until you delete it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接会一直有效，直到你删除它。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結會一直有效，直到你刪除它。"
+          }
+        }
+      }
+    },
     "The link stays open until you make the summary private." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2887,6 +3543,22 @@
         }
       }
     },
+    "The link stops working %@ from now." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接将在 %@后失效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結將在 %@後失效。"
+          }
+        }
+      }
+    },
     "The link stops working %@ from now. The summary stays in your library, and you can extend the link at any time." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2899,6 +3571,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連結將在 %@後失效。摘要會保留在你的資料庫中，你隨時可以延長連結有效期限。"
+          }
+        }
+      }
+    },
+    "The link stops working, and everyone who opened the summary with it loses access." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接将失效，通过它打开摘要的所有人都将失去访问权限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結將失效，透過它開啟摘要的所有人都將失去存取權限。"
           }
         }
       }
@@ -3111,6 +3799,54 @@
         }
       }
     },
+    "The summary is private" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要为私密"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要為私密"
+          }
+        }
+      }
+    },
+    "The summary is private, so its own link only opens for you. Pick or add another link to share it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要为私密，其自带链接只有你能打开。请选择或添加其他链接来分享。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要為私密，其本身的連結只有你能開啟。請選擇或新增其他連結來分享。"
+          }
+        }
+      }
+    },
+    "The summary's own link. Making the summary private turns it off; the links below keep working." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要自带的链接。将摘要设为私密会关闭它，下方的链接仍然有效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要本身的連結。將摘要設為私密會關閉它，下方的連結仍然有效。"
+          }
+        }
+      }
+    },
     "The text will be summarised as-is." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3129,6 +3865,22 @@
     },
     "The tool could not finish." : {
 
+    },
+    "They open the link signed in to Chippy with one of these addresses. Revoking an address ends that person's access when you save." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对方需使用其中一个地址登录 Chippy 才能打开链接。撤销地址后，保存时即终止该人的访问权限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "對方需使用其中一個地址登入 Chippy 才能開啟連結。撤銷地址後，儲存時即終止該人的存取權限。"
+          }
+        }
+      }
     },
     "This feature needs a newer version of Chippy. Update the app to keep using it." : {
 
@@ -3161,6 +3913,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此檔案是空的。"
+          }
+        }
+      }
+    },
+    "This link has expired. Pick a new expiry to reopen it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此链接已过期。选择新的有效期即可重新开启。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此連結已過期。選擇新的有效期限即可重新開啟。"
+          }
+        }
+      }
+    },
+    "This link was shared with specific people. Sign in with the email address it was sent to." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此链接仅分享给特定的人。请使用收到链接的电子邮件地址登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此連結僅分享給特定的人。請使用收到連結的電子郵件地址登入。"
           }
         }
       }
@@ -3413,6 +4197,22 @@
         }
       }
     },
+    "Turned off" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关闭"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已關閉"
+          }
+        }
+      }
+    },
     "Unknown" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3564,6 +4364,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "網頁"
+          }
+        }
+      }
+    },
+    "Who can open it" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "谁可以打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誰可以開啟"
           }
         }
       }

@@ -11,12 +11,15 @@ export const IMAGE_STYLES = ["graphic", "illustration"] as const;
 export const VISIBILITIES = ["public", "private"] as const;
 /** What a library item is: a summary card, or a trip diary (its structured document lives in `trips`). */
 export const SUMMARY_KINDS = ["summary", "trip"] as const;
+/** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
+export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
 export type SourceType = (typeof SOURCE_TYPES)[number];
 export type SummarySource = (typeof SUMMARY_SOURCES)[number];
 export type ImageStyle = (typeof IMAGE_STYLES)[number];
 export type Visibility = (typeof VISIBILITIES)[number];
 export type SummaryKind = (typeof SUMMARY_KINDS)[number];
+export type ShareLinkAccess = (typeof SHARE_LINK_ACCESS)[number];
 
 export interface SummaryTheme {
   colors: string[];
@@ -96,10 +99,43 @@ export const summaryTags = sqliteTable("summary_tags", {
   index("summary_tags_tag_idx").on(table.tag),
 ]);
 
+/**
+ * Extra links to a summary besides its own `slug` link, each with its own lifetime. They open the
+ * summary even while it is private; an `invited` link only for signed-in users with a listed email.
+ * `token` shares the `/s/<token>` URL space with `summaries.slug`.
+ */
+export const shareLinks = sqliteTable("share_links", {
+  id: text("id").primaryKey(),
+  summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  label: text("label"),
+  access: text("access", { enum: SHARE_LINK_ACCESS }).notNull().default("anyone"),
+  ttlDays: integer("ttl_days"),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  uniqueIndex("share_links_token_unique").on(table.token),
+  index("share_links_summary_idx").on(table.summaryId, table.createdAt),
+]);
+
+export type ShareLinkRow = typeof shareLinks.$inferSelect;
+
+/** The addresses an `invited` link opens for, stored lowercased. */
+export const shareLinkEmails = sqliteTable("share_link_emails", {
+  linkId: text("link_id").notNull().references(() => shareLinks.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  addedAt: integer("added_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.linkId, table.email] }),
+]);
+
 export const summaryViews = sqliteTable("summary_views", {
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
   viewedAt: integer("viewed_at", { mode: "timestamp_ms" }).notNull().default(now),
+  /** The share link the viewer opened it with; their access lasts while that link lets them in. */
+  shareLinkId: text("share_link_id").references(() => shareLinks.id, { onDelete: "set null" }),
 }, (table) => [
   primaryKey({ columns: [table.userId, table.summaryId] }),
   index("summary_views_user_viewed_idx").on(table.userId, table.viewedAt),

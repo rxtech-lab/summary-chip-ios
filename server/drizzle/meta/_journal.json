@@ -141,6 +141,13 @@
       "when": 1791265564087,
       "tag": "0019_trip_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1791290360170,
+      "tag": "0020_share_links",
+      "breakpoints": true
     }
   ]
 }

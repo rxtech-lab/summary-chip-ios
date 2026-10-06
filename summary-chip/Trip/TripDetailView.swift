@@ -757,7 +757,7 @@ struct TripDetailView: View {
                     CurrencyConversionSheet(defaultCurrency: document.currency)
                 case .share:
                     if let shareItem {
-                        ShareModeSheet(summary: shareItem)
+                        ShareModeSheet(summary: shareItem, api: environment.api) { updated in sharingSaved(updated) }
                     }
                 case .editSharing:
                     if let shareItem {

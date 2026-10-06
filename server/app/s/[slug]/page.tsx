@@ -7,22 +7,34 @@ import { luminance } from "@/lib/ai/summary-schema";
 import { isBotUserAgent } from "@/lib/bots";
 import { APP_CLIP_BUNDLE_ID } from "@/lib/config";
 import { getDatabase } from "@/lib/db/client";
-import type { SummaryRow } from "@/lib/db/schema";
+import type { ShareLinkRow, SummaryRow } from "@/lib/db/schema";
 import { hostOf, siteNameFor } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { isValidSlug } from "@/lib/slug";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import { categoryLabel } from "@/lib/og/category-labels";
 import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
-import { findPublicSummaryBySlug, incrementViewCount } from "@/lib/services/summaries";
+import { resolveShareKey, type ShareKeyResolution } from "@/lib/services/share-access";
+import { incrementViewCount } from "@/lib/services/summaries";
 import { findTripForViewer } from "@/lib/services/trips";
 import { findTranslation, preferredLanguage, readingLanguage, translationLanguageFor } from "@/lib/services/translations";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ lang?: string | string[] }> };
 
-const loadSummary = cache(async (slug: string): Promise<SummaryRow | undefined> => {
-  if (!isValidSlug(slug)) return undefined;
-  return findPublicSummaryBySlug(getDatabase(), slug);
+/** `slug` is a summary's own link or a share link's token; the website is always signed out. */
+const resolve = cache(async (slug: string): Promise<ShareKeyResolution> => {
+  if (!isValidSlug(slug)) return { status: "missing" };
+  return resolveShareKey(getDatabase(), slug, null);
+});
+
+/**
+ * The summary the link opens, with `slug` set to the key it was opened with so its images and
+ * source are fetched through the same link.
+ */
+const loadSummary = cache(async (slug: string): Promise<{ row: SummaryRow; link: ShareLinkRow | null } | undefined> => {
+  const resolved = await resolve(slug);
+  if (resolved.status !== "ok") return undefined;
+  return { row: resolved.link ? { ...resolved.row, slug: resolved.link.token } : resolved.row, link: resolved.link };
 });
 
 /** What a visitor reads: the summary as written, or translated into their language. */
@@ -43,8 +55,9 @@ interface PageText {
  * shared card.
  */
 const loadText = cache(async (slug: string, lang: string | undefined): Promise<PageText | undefined> => {
-  const row = await loadSummary(slug);
-  if (!row) return undefined;
+  const loaded = await loadSummary(slug);
+  if (!loaded) return undefined;
+  const { row } = loaded;
   const original: PageText = { title: row.title, summary: row.summary, highlights: row.highlights,
     category: categoryLabel(row.category, translationLanguageFor(row.language) ?? "en"), tags: row.tags,
     language: row.language, translated: false };
@@ -78,9 +91,12 @@ function appleItunesApp(): string {
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const row = await loadSummary(slug);
+  if ((await resolve(slug)).status === "sign-in") return { title: "Invited only · Chippy", robots: { index: false }, other: { "apple-itunes-app": appleItunesApp() } };
+  const loaded = await loadSummary(slug);
+  const row = loaded?.row;
   const text = await loadText(slug, firstValue((await searchParams).lang));
   if (!row || !text) return { title: "Summary not found", robots: { index: false } };
+  const expiresAt = loaded.link ? loaded.link.expiresAt : row.expiresAt;
   const shareUrl = shareUrlFor(row.slug);
   const image = { url: publicOgImageUrl(row), width: 1200, height: 630, alt: row.title, type: "image/png" };
   return {
@@ -97,7 +113,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       images: [image],
       locale: text.language.replace("-", "_"),
       publishedTime: row.createdAt.toISOString(),
-      ...(row.expiresAt ? { expirationTime: row.expiresAt.toISOString() } : {}),
+      ...(expiresAt ? { expirationTime: expiresAt.toISOString() } : {}),
       tags: row.tags,
     },
     twitter: {
@@ -119,11 +135,34 @@ function originalHref(row: SummaryRow): string | null {
   return row.sourceUrl;
 }
 
+/** An invited-only link opened on the web: the content is only shown in the app, signed in. */
+function InvitedOnly() {
+  return (
+    <main className="relative min-h-dvh">
+      <article className="mx-auto max-w-xl px-5 pb-16 pt-8 sm:px-8 sm:pt-14">
+        <header className="text-sm">
+          <Link href="/" className="md-brand-link text-lg font-semibold">Chippy</Link>
+        </header>
+        <div className="md-card-outlined mt-10 p-8 text-center">
+          <p className="text-4xl" aria-hidden>🔒</p>
+          <h1 className="mt-4 text-2xl font-normal">This link is invite-only</h1>
+          <p className="md-text-secondary mt-3 leading-relaxed">
+            It was shared with specific people. Open it in the Chippy app and sign in with the email address it was shared with.
+          </p>
+        </div>
+      </article>
+    </main>
+  );
+}
+
 export default async function SummaryPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const row = await loadSummary(slug);
+  if ((await resolve(slug)).status === "sign-in") return <InvitedOnly />;
+  const loaded = await loadSummary(slug);
   const text = await loadText(slug, firstValue((await searchParams).lang));
-  if (!row || !text) notFound();
+  if (!loaded || !text) notFound();
+  const { row, link } = loaded;
+  const expiresAt = link ? link.expiresAt : row.expiresAt;
 
   const userAgent = (await headers()).get("user-agent");
   if (!isBotUserAgent(userAgent)) runAfter(() => incrementViewCount(getDatabase(), row.id));
@@ -134,7 +173,7 @@ export default async function SummaryPage({ params, searchParams }: Props) {
   const href = originalHref(row);
   const gradient = `linear-gradient(135deg, ${colors.join(", ")})`;
   // A trip shows its days read-only; the map view is in the app.
-  const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null))?.trip.document : undefined;
+  const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null, true))?.trip.document : undefined;
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
@@ -227,7 +266,7 @@ export default async function SummaryPage({ params, searchParams }: Props) {
             {row.sourceTitle && row.sourceTitle !== row.title && row.sourceTitle !== text.title ? <> from “{row.sourceTitle}”</> : null}. AI summaries can contain mistakes — check the original.
           </p>
           <p className="mt-2">
-            {row.expiresAt ? <>This link expires on <time dateTime={row.expiresAt.toISOString()}>{formatDate(row.expiresAt)}</time>.</> : "This link does not expire."}
+            {expiresAt ? <>This link expires on <time dateTime={expiresAt.toISOString()}>{formatDate(expiresAt)}</time>.</> : "This link does not expire."}
           </p>
         </footer>
       </article>

@@ -257,6 +257,8 @@ public struct ShareActionsSection: View {
     let summary: Summary
     /// Puts the share button in the enclosing toolbar instead of a row below the picker.
     let actionInToolbar: Bool
+    /// Notes below the picker that a private summary's link only opens for its owner.
+    let showsPrivateNote: Bool
 
     @Environment(\.summaryAssetLoader) private var loader
     @AppStorage("shareMode") private var mode: ShareMode = .system
@@ -265,9 +267,11 @@ public struct ShareActionsSection: View {
     @State private var copied = false
     @State private var errorMessage: String?
 
-    public init(summary: Summary, actionInToolbar: Bool = false) {
+    /// `summary.shareUrl` is what gets shared; pass a copy with another link's URL to share that one.
+    public init(summary: Summary, actionInToolbar: Bool = false, showsPrivateNote: Bool = true) {
         self.summary = summary
         self.actionInToolbar = actionInToolbar
+        self.showsPrivateNote = showsPrivateNote
     }
 
     public var body: some View {
@@ -295,7 +299,7 @@ public struct ShareActionsSection: View {
         } footer: {
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red)
-            } else if summary.visibility == .private {
+            } else if showsPrivateNote, summary.visibility == .private {
                 Text("This summary is private, so the link won't open for anyone else. Make it public under Edit sharing.", bundle: .module)
             }
         }
@@ -393,12 +397,34 @@ public struct ShareActionsSection: View {
     }
 }
 
-/// Sheet asking how to share a summary.
+/// Sheet asking how to share a summary. With an `api`, its owner also picks which link to share
+/// and manages the links (`ShareLinksView`) without leaving the sheet.
 public struct ShareModeSheet: View {
-    let summary: Summary
+    let api: SummaryAPIClient?
+    let onSummaryChanged: (Summary) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var summary: Summary
+    @State private var links: [SummaryShareLink] = []
+    /// The extra link to share; nil shares the summary's own link.
+    @State private var selectedLinkID: String?
+    @State private var loadedLinks = false
 
-    public init(summary: Summary) { self.summary = summary }
+    public init(summary: Summary, api: SummaryAPIClient? = nil, onSummaryChanged: @escaping (Summary) -> Void = { _ in }) {
+        self._summary = State(initialValue: summary)
+        self.api = api
+        self.onSummaryChanged = onSummaryChanged
+    }
+
+    private var managesLinks: Bool { api != nil && summary.isOwner }
+    private var liveLinks: [SummaryShareLink] { links.filter { !$0.isExpired } }
+    private var selectedLink: SummaryShareLink? { liveLinks.first { $0.id == selectedLinkID } }
+
+    /// The summary as shared: with the chosen link's URL.
+    private var shared: Summary {
+        var copy = summary
+        if let selectedLink { copy.shareUrl = selectedLink.url }
+        return copy
+    }
 
     public var body: some View {
         NavigationStack {
@@ -408,13 +434,16 @@ public struct ShareModeSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                 } footer: {
-                    Text(summary.shareUrl.absoluteString)
+                    Text(shared.shareUrl.absoluteString)
                         .textSelection(.enabled)
                 }
+                if let api, managesLinks {
+                    linkSection(api: api)
+                }
                 #if os(macOS)
-                ShareActionsSection(summary: summary, actionInToolbar: true)
+                ShareActionsSection(summary: shared, actionInToolbar: true, showsPrivateNote: !managesLinks)
                 #else
-                ShareActionsSection(summary: summary)
+                ShareActionsSection(summary: shared, showsPrivateNote: !managesLinks)
                 #endif
             }
             .navigationTitle(Text("Share", bundle: .module, comment: "Title of the share sheet"))
@@ -431,9 +460,69 @@ public struct ShareModeSheet: View {
                 }
                 #endif
             }
+            .task { await loadLinks() }
+            .onChange(of: links) {
+                if selectedLinkID != nil, selectedLink == nil { selectedLinkID = nil }
+            }
         }
         .presentationDetents([.medium, .large])
         .summarySheetSize()
+    }
+
+    private func linkSection(api: SummaryAPIClient) -> some View {
+        Section {
+            Picker(selection: $selectedLinkID) {
+                Text("Summary link", bundle: .module).tag(String?.none)
+                ForEach(liveLinks) { link in
+                    Text(link.displayName).tag(Optional(link.id))
+                }
+            } label: {
+                Label(String(localized: "Link", bundle: .module), systemImage: "link")
+            }
+            .pickerStyle(.menu)
+            .sensoryFeedback(.selection, trigger: selectedLinkID)
+            .accessibilityIdentifier("share-link-picker")
+            NavigationLink {
+                ShareLinksView(api: api, summary: $summary, links: $links) { updated in
+                    onSummaryChanged(updated)
+                }
+            } label: {
+                Label(String(localized: "Manage Links", bundle: .module), systemImage: "slider.horizontal.3")
+            }
+            .accessibilityIdentifier("manage-share-links")
+        } header: {
+            Text("Link to share", bundle: .module)
+        } footer: {
+            linkFooter
+        }
+    }
+
+    @ViewBuilder
+    private var linkFooter: some View {
+        if let selectedLink {
+            HStack(spacing: 6) {
+                Text(selectedLink.access == .invited
+                    ? String(localized: "Opens for \(selectedLink.emails.count) invited people.", bundle: .module)
+                    : String(localized: "Opens for anyone with the link.", bundle: .module))
+                ExpiryLabel(selectedLink.expiresAt)
+            }
+        } else if summary.visibility == .private {
+            Text("The summary is private, so its own link only opens for you. Pick or add another link to share it.", bundle: .module)
+        } else {
+            HStack(spacing: 6) {
+                Text("Opens for anyone with the link.", bundle: .module)
+                ExpiryLabel(summary.expiresAt)
+            }
+        }
+    }
+
+    private func loadLinks() async {
+        guard let api, managesLinks, !loadedLinks else { return }
+        guard let fetched = try? await api.shareLinks(summaryID: summary.id) else { return }
+        links = fetched
+        loadedLinks = true
+        // A private summary's own link doesn't open for anyone else; offer a link that does.
+        if summary.visibility == .private, selectedLinkID == nil { selectedLinkID = liveLinks.first?.id }
     }
 }
 #endif

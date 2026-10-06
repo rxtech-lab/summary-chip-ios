@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { slug } = await readJson(request, (body) => recordViewSchema.parse(body));
     return noStoreJson(await recordView(db, principal.sub, slug, {
+      email: principal.email,
       accepted: acceptedLanguage(request),
       billingEnvironment: () => billingEnvironment(request, principal),
     }));

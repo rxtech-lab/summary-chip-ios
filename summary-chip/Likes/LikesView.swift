@@ -42,7 +42,10 @@ struct LikesView: View {
                     ChatPanelToolbarContent(isVisible: chatPanelVisibility)
                 }
                 .sheet(item: $sharingSummary) { summary in
-                    ShareModeSheet(summary: summary)
+                    ShareModeSheet(summary: summary, api: environment.api) { updated in
+                        environment.library.upsert(updated)
+                        environment.likes.upsert(updated)
+                    }
                 }
                 .likeStatusOverlay($likeStatus)
         }

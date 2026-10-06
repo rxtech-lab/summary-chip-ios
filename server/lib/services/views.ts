@@ -4,33 +4,48 @@ import type { Category, TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
 import { siteNameFor } from "@/lib/extract/platforms";
-import { notFound } from "@/lib/http/errors";
+import { ApiError, notFound } from "@/lib/http/errors";
 import { embedQuery } from "./embeddings";
-import { isPublicAndLive, relevance } from "./search";
+import { relevance } from "./search";
+import { canViewerRead, findGrantToken, readableByViewer, resolveShareKey } from "./share-access";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
-import { findPublicSummaryBySlug, isLinkLive, readSummaryJson } from "./summaries";
+import { readSummaryJson } from "./summaries";
 import type { BillingEnvironmentResolver } from "./translations";
 import { getOwnedTrip, listTrips, toTripJson } from "./trips";
 
 /**
- * Records that a signed-in user opened someone else's public summary. Owner views are not recorded
- * (the owner already has it in their library) and do not bump the counter.
+ * Records that a signed-in user opened someone else's summary from a link: its own `slug` link, or
+ * a share link's token. A share link is remembered with the view, so the summary stays in their
+ * library while that link lets them in. Owner views are not recorded and do not bump the counter.
  */
 export async function recordView(
   db: Database,
   userId: string,
   slug: string,
-  options: { accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date; billingEnvironment?: BillingEnvironmentResolver } = {},
+  options: { email?: string | null; accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date; billingEnvironment?: BillingEnvironmentResolver } = {},
 ): Promise<SummaryJson> {
   const now = options.now ?? new Date();
-  const row = await findPublicSummaryBySlug(db, slug);
-  if (!row) throw notFound();
+  const resolved = await resolveShareKey(db, slug, { id: userId, email: options.email }, now);
+  if (resolved.status === "not-invited") {
+    throw new ApiError(403, "NOT_INVITED", "This link is only for the people it was shared with");
+  }
+  if (resolved.status !== "ok") throw notFound();
+  const { row, link } = resolved;
   // Opened from a shared link: in the reader's language (the owner's in their chosen one).
-  const read = (summary: typeof row) => readSummaryJson(db, summary, userId, options.accepted ?? null, { ai: options.ai, billingEnvironment: options.billingEnvironment });
+  const read = (summary: typeof row) => readSummaryJson(db, summary, userId, options.accepted ?? null, {
+    ai: options.ai,
+    billingEnvironment: options.billingEnvironment,
+    ...(link ? { grantToken: link.token } : {}),
+  });
   if (row.ownerId === userId) return read(row);
+  // A later visit through the summary's own link keeps the share link they were given.
+  const shareLinkId = link?.id ?? null;
   await db.batch([
-    db.insert(summaryViews).values({ userId, summaryId: row.id, viewedAt: now })
-      .onConflictDoUpdate({ target: [summaryViews.userId, summaryViews.summaryId], set: { viewedAt: now } }),
+    db.insert(summaryViews).values({ userId, summaryId: row.id, viewedAt: now, shareLinkId })
+      .onConflictDoUpdate({
+        target: [summaryViews.userId, summaryViews.summaryId],
+        set: { viewedAt: now, shareLinkId: sql`coalesce(excluded.share_link_id, ${summaryViews.shareLinkId})` },
+      }),
     db.update(summaries).set({ viewCount: sql`${summaries.viewCount} + 1` }).where(eq(summaries.id, row.id)),
   ]);
   return read({ ...row, viewCount: row.viewCount + 1 });
@@ -113,7 +128,7 @@ export async function searchForChat(
     input.scope === "mine" ? Promise.resolve([]) : db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, score: scoreColumn })
       .from(summaryViews)
       .innerJoin(summaries, eq(summaries.id, summaryViews.summaryId))
-      .where(and(eq(summaryViews.userId, userId), isPublicAndLive(), ...filters))
+      .where(and(eq(summaryViews.userId, userId), readableByViewer(userId), ...filters))
       .orderBy(...rank, desc(summaryViews.viewedAt)).limit(limit),
   ]);
   const merged = new Map<string, { row: SummaryRow; viewedAt?: Date; score: number; time: number }>();
@@ -156,11 +171,13 @@ export async function getSummaryForChat(db: Database, userId: string, id: string
   const rows = await db.select().from(summaries).where(eq(summaries.id, id)).limit(1);
   const row = rows[0];
   if (!row) throw notFound();
+  let grantToken: string | null = null;
   if (row.ownerId !== userId) {
-    if (!isLinkLive(row)) throw notFound();
+    if (!await canViewerRead(db, row, userId)) throw notFound();
     const view = await db.select({ userId: summaryViews.userId }).from(summaryViews)
       .where(and(eq(summaryViews.userId, userId), eq(summaryViews.summaryId, id))).limit(1);
     if (!view[0]) throw notFound();
+    grantToken = await findGrantToken(db, id, userId);
   }
-  return { summary: { ...toSummaryJson(row, userId), contentExcerpt: row.contentExcerpt } };
+  return { summary: { ...toSummaryJson(row, userId, null, undefined, null, grantToken), contentExcerpt: row.contentExcerpt } };
 }

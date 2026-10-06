@@ -26,7 +26,8 @@ import { embedSummary, indexSummary } from "./embeddings";
 import { syncTripFlights } from "./flights";
 import { queueTripChangesStatement, startTripNotification } from "./trip-notifications";
 import { shareUrlFor } from "./serialize";
-import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, isLinkLive, resolveDeps, type ServiceDeps } from "./summaries";
+import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, resolveDeps, type ServiceDeps } from "./summaries";
+import { canViewerRead } from "./share-access";
 import { applyOperations, tripDayCount, tripDigest, tripText } from "./trip-document";
 import { listTripTranslations, readTripDocument, savedTripDocument, type TripTranslationStatus } from "./trip-translations";
 import { readingLanguage, translationPayer, type BillingEnvironmentResolver } from "./translations";
@@ -139,10 +140,13 @@ async function findTripRow(db: Database, summaryId: string): Promise<TripRow | u
   return row && { ...row, document: withStoredDefaults(row.document) };
 }
 
-/** The trip behind a summary id, for whoever may open the summary: its owner, or anyone while the link is live. */
-export async function findTripForViewer(db: Database, id: string, viewerId: string | null): Promise<{ summary: SummaryRow; trip: TripRow } | null> {
+/**
+ * The trip behind a summary id, for whoever may open the summary (see `share-access.ts`).
+ * `viaLink`: already let in through a share link (the website, signed out).
+ */
+export async function findTripForViewer(db: Database, id: string, viewerId: string | null, viaLink = false): Promise<{ summary: SummaryRow; trip: TripRow } | null> {
   const summary = await findSummaryById(db, id);
-  if (!summary || summary.kind !== "trip" || (summary.ownerId !== viewerId && !isLinkLive(summary))) return null;
+  if (!summary || summary.kind !== "trip" || (!viaLink && !await canViewerRead(db, summary, viewerId))) return null;
   const trip = await findTripRow(db, id);
   return trip ? { summary, trip } : null;
 }

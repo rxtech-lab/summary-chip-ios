@@ -128,7 +128,7 @@ extension SummaryVisibility {
     var detail: String {
         switch self {
         case .public: String(localized: "Anyone with the link can view it and its preview.", bundle: .module)
-        case .private: String(localized: "Only you. The link stops working; nothing is deleted.", bundle: .module)
+        case .private: String(localized: "Only you. This link stops working, nothing is deleted, and other links you add keep working.", bundle: .module)
         }
     }
 }

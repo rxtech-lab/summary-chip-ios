@@ -122,7 +122,6 @@
 		DA4511A1E03DBBA9E93DFAAE /* SidebarMainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2529BFECA0B8FC13FAAD5E /* SidebarMainView.swift */; };
 		DC1BD7DC1C5F5E2308AADFCB /* APIKeySheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA009540CF1E89E6C87D487 /* APIKeySheets.swift */; };
 		DC1C24635EF7D960A7952546 /* CurrencyConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9817833488226D5CDBAC1BF /* CurrencyConverter.swift */; };
-		DD67A328AA32E34C1E031B7E /* EditSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */; };
 		DDEAD74C91E9EF6AE23836E2 /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308AF40AA39C8045DA1906F9 /* ScreenshotTests.swift */; };
 		DF2971619974BD0EC0DC35BC /* LibraryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23C89ED2552FEF380370664 /* LibraryModel.swift */; };
 		E620586B187E44C1ED844963 /* FlightLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753822015A09F12B53D4B840 /* FlightLiveActivities.swift */; };
@@ -340,7 +339,6 @@
 		DE0F86CDD1B888CD6C1286CC /* RegenerateImageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegenerateImageSheet.swift; sourceTree = "<group>"; };
 		DE84265B7F8C9AA488D20CAB /* AppShortcuts.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = AppShortcuts.xcstrings; sourceTree = "<group>"; };
 		DFC3FBD94895B7A9B674DF02 /* LikeStatusOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikeStatusOverlay.swift; sourceTree = "<group>"; };
-		E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditSharingSheet.swift; sourceTree = "<group>"; };
 		E23C89ED2552FEF380370664 /* LibraryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryModel.swift; sourceTree = "<group>"; };
 		E3A14C878459D48B0BD94CB0 /* ChippyWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChippyWidgetsBundle.swift; sourceTree = "<group>"; };
 		E5C7A50B0BADA166520D08F2 /* summary-chipTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "summary-chipTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -642,7 +640,6 @@
 			children = (
 				A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */,
 				60D49D2B1C1D6092586E1F1B /* DisplayLanguageSheet.swift */,
-				E14AD82BF4A94756AFFDFA4B /* EditSharingSheet.swift */,
 				EFF6D4EA56BABE68C831271F /* LocalFilePreviewHost.swift */,
 				FEC14251801B5D58E62A5DE4 /* LocalFileSheet.swift */,
 				DE0F86CDD1B888CD6C1286CC /* RegenerateImageSheet.swift */,
@@ -1191,7 +1188,6 @@
 				50EFF8AAC646DB16E7B14324 /* DeleteAccountSheet.swift in Sources */,
 				8A5DC833C29F1812C18023E6 /* DeleteSummarySheet.swift in Sources */,
 				FD146E53E9F93BB20E50FA51 /* DisplayLanguageSheet.swift in Sources */,
-				DD67A328AA32E34C1E031B7E /* EditSharingSheet.swift in Sources */,
 				7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */,
 				A112FEB21084F38266ED6DE0 /* ExpiredSummaryView.swift in Sources */,
 				E620586B187E44C1ED844963 /* FlightLiveActivities.swift in Sources */,
