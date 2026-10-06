@@ -89,6 +89,13 @@ PKCE/client/callback/resource binding, scope enforcement, refresh rotation and r
 expiry, private-library isolation and account-deletion cascade. It uses a temporary SQLite file so
 interactive transactions use the same shared database across connections.
 
+`server/tests/e2e/mcp-oauth-browser.spec.ts` drives Chromium through the actual Allow/Cancel form
+and a real loopback agent callback, including code exchange and an authenticated profile call.
+It checks the browser-generated Origin header, callback navigation, and mobile/dark layout.
+The consent page uses `Referrer-Policy: same-origin` so native form POSTs retain their origin,
+and its CSP allows the registered agent callback origin for the post-consent redirect. Origin,
+browser-cookie and CSRF checks remain enforced.
+
 ## API keys
 
 **Settings → MCP Server** on iOS (under *Integrations*) and macOS (under *General*) opens a sheet that:

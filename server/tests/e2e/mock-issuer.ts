@@ -33,6 +33,10 @@ createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", issuer);
   const { pathname } = url;
   if (pathname === "/.well-known/jwks.json") return sendJson(response, 200, { keys: [jwk] });
+  if (pathname === "/mcp-callback") {
+    response.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" }).end("<h1>Agent callback received</h1>");
+    return;
+  }
   if (pathname === "/api/oauth/authorize") {
     const code = randomBytes(32).toString("base64url");
     codes.set(code, { clientId: url.searchParams.get("client_id")!, redirectUri: url.searchParams.get("redirect_uri")!,
@@ -54,7 +58,7 @@ createServer(async (request, response) => {
       return sendJson(response, 400, { error: "invalid_grant" });
     }
     codes.delete(code);
-    const token = await new SignJWT({ client_id: pending.clientId, scope: "openid profile email" })
+    const token = await new SignJWT({ client_id: pending.clientId, scope: "openid profile email", name: "Demo account", email: "demo@example.test" })
       .setProtectedHeader({ alg: "RS256", kid: "e2e" }).setIssuer(issuer).setSubject(pending.sub)
       .setIssuedAt().setExpirationTime("10m").sign(privateKey);
     return sendJson(response, 200, { access_token: token, token_type: "Bearer" });

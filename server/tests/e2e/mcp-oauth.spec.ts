@@ -36,7 +36,8 @@ test("connects through real HTTP login, consent, code exchange, MCP, refresh and
   const consent = await request.get(identity.headers().location);
   expect(consent.ok()).toBe(true);
   const html = await consent.text();
-  expect(html).toContain("Connect E2E agent to Chippy?");
+  expect(html).toContain("E2E agent");
+  expect(html).toContain("Connect to Chippy");
   const id = /name="request" value="([^"]+)"/.exec(html)![1];
   const csrf = /name="csrf" value="([^"]+)"/.exec(html)![1];
   const approved = await request.post("/api/mcp/oauth/consent", { maxRedirects: 0, headers: { origin: ORIGIN },

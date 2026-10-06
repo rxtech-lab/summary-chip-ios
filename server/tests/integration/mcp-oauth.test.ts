@@ -110,7 +110,7 @@ describe("MCP OAuth discovery and registration", () => {
 
   it("accepts HTTPS and loopback callbacks, rejects unsafe callbacks and unsupported clients", async () => {
     await register("Loopback", ["http://127.0.0.1:12345/callback", "http://[::1]:6789/callback"]);
-    for (const uri of ["http://attacker.example/callback", "javascript:alert(1)", "https://agent.example/#fragment", "https://user:password@agent.example/callback"]) {
+    for (const uri of ["http://attacker.example/callback", "javascript:alert(1)", "https://agent.example/#fragment", "https://user:password@agent.example/callback", "https://agent.example;unsafe/callback"]) {
       const response = await registerRoute.POST(apiRequest("POST", "/register", { body: { redirect_uris: [uri] } }));
       expect(response.status).toBe(400);
       expect((await response.json()).error).toBe("invalid_client_metadata");
@@ -144,6 +144,8 @@ describe("RxLab login, consent and PKCE code exchange", () => {
     expect(body).toBeDefined();
     const page = await consentRoute.GET(new Request(signedIn.consentUrl, { headers: { cookie: signedIn.cookie } }));
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(page.headers.get("referrer-policy")).toBe("same-origin");
+    expect(page.headers.get("content-security-policy")).toContain("form-action 'self' https://agent.example;");
     const html = await page.text();
     expect(html).toContain("&lt;img");
     expect(html).not.toContain("<img");
@@ -190,6 +192,9 @@ describe("RxLab login, consent and PKCE code exchange", () => {
     const forged = formRequest("consent", fields, signedIn.cookie);
     forged.headers.set("origin", "https://attacker.example");
     expect((await consentRoute.POST(forged)).status).toBe(403);
+    const opaqueOrigin = formRequest("consent", fields, signedIn.cookie);
+    opaqueOrigin.headers.set("origin", "null");
+    expect((await consentRoute.POST(opaqueOrigin)).status).toBe(403);
     const denied = await consentRoute.POST(formRequest("consent", fields, signedIn.cookie));
     const target = new URL(denied.headers.get("location")!);
     expect(target.searchParams.get("error")).toBe("access_denied");
