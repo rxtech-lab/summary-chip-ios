@@ -2,7 +2,9 @@ import { requireApiPrincipal, type ApiPrincipal } from "@/lib/auth/bearer";
 import { appClient, requireAppFeature, type AppFeature } from "@/lib/http/app-version";
 import { getDatabase, type Database } from "@/lib/db/client";
 import { ApiError, errorResponse } from "@/lib/http/errors";
-import { authenticateApiKey, type ApiKeyPrincipal } from "@/lib/services/api-keys";
+import { authenticateApiKey } from "@/lib/services/api-keys";
+import { ACCESS_TOKEN_PREFIX, authChallenge } from "@/lib/mcp/oauth-config";
+import { authenticateOAuthToken, type McpPrincipal } from "@/lib/mcp/oauth-tokens";
 import { ensureUser } from "@/lib/services/users";
 
 function requestIdFor(request: Request): string {
@@ -70,25 +72,26 @@ export async function withApiAuth(
   }
 }
 
-export interface ApiKeyContext {
-  principal: ApiKeyPrincipal;
+export interface McpAuthContext {
+  principal: McpPrincipal;
   db: Database;
   requestId: string;
 }
 
-/** Handler authenticated by a personal API key (`Authorization: Bearer chippy_…`), as used by the MCP server. */
-export async function withApiKeyAuth(request: Request, action: (context: ApiKeyContext) => Promise<Response>): Promise<Response> {
+/** MCP accepts resource-bound OAuth access tokens and existing personal API keys. */
+export async function withMcpAuth(request: Request, action: (context: McpAuthContext) => Promise<Response>): Promise<Response> {
   const requestId = requestIdFor(request);
   const startedAt = performance.now();
-  let principal: ApiKeyPrincipal | undefined;
+  let principal: McpPrincipal | undefined;
   let status = 500;
   try {
     const authorization = request.headers.get("authorization");
     const key = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-    if (!key) throw new ApiError(401, "MISSING_API_KEY", "An API key is required. Create one in Chippy → Settings → MCP Server.");
+    if (!key) throw new ApiError(401, "MISSING_API_KEY", "Sign in with OAuth or create an API key in Chippy → Settings → MCP Server.");
     const db = getDatabase();
-    principal = await authenticateApiKey(db, key) ?? undefined;
-    if (!principal) throw new ApiError(401, "INVALID_API_KEY", "The API key is invalid or has been revoked.");
+    const oauth = key.startsWith(ACCESS_TOKEN_PREFIX);
+    principal = await (oauth ? authenticateOAuthToken(db, key) : authenticateApiKey(db, key)) ?? undefined;
+    if (!principal) throw new ApiError(401, oauth ? "INVALID_ACCESS_TOKEN" : "INVALID_API_KEY", "The credential is invalid, expired, or revoked.");
     const response = await action({ principal, db, requestId });
     status = response.status;
     response.headers.set("x-request-id", requestId);
@@ -96,12 +99,14 @@ export async function withApiKeyAuth(request: Request, action: (context: ApiKeyC
   } catch (error) {
     const response = errorResponse(error, requestId);
     status = response.status;
-    if (status === 401) response.headers.set("www-authenticate", 'Bearer realm="chippy"');
+    if (status === 401) response.headers.set("www-authenticate", authChallenge(undefined, keyPresent(request) ? "invalid_token" : undefined));
     return response;
   } finally {
     log(request, requestId, status, startedAt, principal);
   }
 }
+
+function keyPresent(request: Request): boolean { return Boolean(request.headers.get("authorization")); }
 
 /** Unauthenticated JSON handler with the same error envelope. */
 export async function withPublicApi(

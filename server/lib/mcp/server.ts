@@ -8,7 +8,9 @@ import { VIEW_GUIDE } from "@/lib/ai/trip-agent";
 import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
 import { SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
-import { recordApiKeyUsage, type ApiKeyPrincipal } from "@/lib/services/api-keys";
+import { recordApiKeyUsage } from "@/lib/services/api-keys";
+import type { McpPrincipal } from "./oauth-tokens";
+import { authChallenge, securitySchemes, toolScope } from "./oauth-config";
 import { importSummary, listSummaries } from "@/lib/services/summaries";
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
@@ -26,6 +28,7 @@ export const TOOL_NAMES = {
   updatePlace: "update_place",
   uploadTripImage: "upload_trip_image",
   addToTripFromSource: "add_to_trip_from_source",
+  getProfile: "get_profile",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
 export const MAX_LIST_RESULTS = 200;
@@ -42,7 +45,7 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
 
 export interface McpContext {
   db: Database;
-  principal: ApiKeyPrincipal;
+  principal: McpPrincipal;
   billingEnvironment?: BillingEnvironment;
   /** The caller's `Accept-Language`: others' chips come back translated into it. */
   accepted: TranslationLanguage | null;
@@ -142,13 +145,19 @@ function listQuery(args: Filters & { q?: string; cursor?: string; limit: number 
   };
 }
 
-/** A fresh server per request: the endpoint is stateless, so every call carries its own API key. */
+/** A fresh server per request: the stateless endpoint authenticates every call's bearer credential. */
 export function createMcpServer(context: McpContext): McpServer {
   const { db, principal } = context;
   const server = new McpServer({ name: "chippy", title: "Chippy", version: "1.0.0" }, { instructions: INSTRUCTIONS });
 
   /** Runs a tool and counts it against the key, whether or not it succeeds. */
-  async function run(action: () => Promise<{ result: CallToolResult; summaryAdded?: boolean }>): Promise<CallToolResult> {
+  async function run(name: string, action: () => Promise<{ result: CallToolResult; summaryAdded?: boolean }>): Promise<CallToolResult> {
+    const scope = toolScope(name);
+    if (scope && !principal.apiKeyId && !principal.scopes.includes(scope)) {
+      const requested = [...new Set([...principal.scopes, scope])].sort().join(" ");
+      return { ...failure("Approve the required Chippy permissions to use this tool."),
+        _meta: { "mcp/www_authenticate": [authChallenge(requested, "insufficient_scope")] } };
+    }
     let summaryAdded = false;
     let result: CallToolResult;
     try {
@@ -156,11 +165,20 @@ export function createMcpServer(context: McpContext): McpServer {
     } catch (error) {
       result = failure(describe(error));
     }
-    await recordApiKeyUsage(db, principal.apiKeyId, { summaryAdded }).catch((error) => console.error("[mcp] usage not recorded", error));
+    if (principal.apiKeyId) await recordApiKeyUsage(db, principal.apiKeyId, { summaryAdded }).catch((error) => console.error("[mcp] usage not recorded", error));
     return result;
   }
 
+  server.registerTool(TOOL_NAMES.getProfile, {
+    title: "Chippy Account", description: "Return the Chippy account authenticated by this connection.", inputSchema: {},
+    outputSchema: { id: z.string().min(1), name: z.string().optional(), email: z.string().optional() },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { "openai/profile": true, securitySchemes: securitySchemes(TOOL_NAMES.getProfile) },
+  }, () => run(TOOL_NAMES.getProfile, async () => ({ result: success({ id: principal.sub,
+    ...(principal.name ? { name: principal.name } : {}), ...(principal.email ? { email: principal.email } : {}) }) })));
+
   server.registerTool(TOOL_NAMES.addSummary, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.addSummary) },
     title: "Add Summary",
     description: "Save a summary to the user's Chippy library, with its key points, tags and the raw source text. "
       + "Nothing is re-summarised: write the title, summary and key points yourself. The server designs the cover, indexes "
@@ -185,7 +203,7 @@ export function createMcpServer(context: McpContext): McpServer {
       allowDuplicate: z.boolean().optional().describe("Save even when the library already has this chip. Default false."),
     },
     annotations: { title: "Add Summary", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.addSummary, async () => {
     // The import route's own validation, so the limits and messages are the API's.
     const input = importSummarySchema.parse({
       title: args.title,
@@ -213,6 +231,7 @@ export function createMcpServer(context: McpContext): McpServer {
   }));
 
   server.registerTool(TOOL_NAMES.searchSummaries, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.searchSummaries) },
     title: "Search Summaries",
     description: "Search the user's Chippy library with a natural-language query. Matches by meaning and keywords and returns "
       + "the most relevant chips first. Optionally narrow by source (web, x, facebook, youtube, github, pdf, text), category, "
@@ -224,12 +243,13 @@ export function createMcpServer(context: McpContext): McpServer {
       cursor: z.string().max(200).optional().describe("nextCursor from a previous search_summaries call, for the next page."),
     },
     annotations: { title: "Search Summaries", readOnlyHint: true, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.searchSummaries, async () => {
     const page = await listSummaries(db, principal.sub, listQuery({ ...args, q: args.query, limit: args.limit ?? 10 }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
     return { result: success(listPayload(page)) };
   }));
 
   server.registerTool(TOOL_NAMES.listSummaries, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.listSummaries) },
     title: "List Summaries",
     description: "List the chips in the user's Chippy library, newest first, filtered by source, category, tag, visibility and "
       + `scope. Use search_summaries instead to find chips by topic. Returns up to ${MAX_LIST_RESULTS} chips per call; pass `
@@ -240,35 +260,38 @@ export function createMcpServer(context: McpContext): McpServer {
       cursor: z.string().max(200).optional().describe("nextCursor from a previous list_summaries call, for the next page."),
     },
     annotations: { title: "List Summaries", readOnlyHint: true, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.listSummaries, async () => {
     const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? 50 }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
     return { result: success(listPayload(page)) };
   }));
 
   server.registerTool(TOOL_NAMES.listTrips, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.listTrips) },
     title: "List Trips",
     description: "List the user's trips: ongoing and upcoming first (soonest start first), then past ones. Each has its id, "
       + "title, dates, revision and how many days and places it has; open one with get_trip.",
     inputSchema: {},
     annotations: { title: "List Trips", readOnlyHint: true, openWorldHint: false },
-  }, () => run(async () => {
+  }, () => run(TOOL_NAMES.listTrips, async () => {
     const { trips } = await listTrips(db, principal.sub);
     return { result: success({ count: trips.length, trips }) };
   }));
 
   server.registerTool(TOOL_NAMES.getTrip, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getTrip) },
     title: "Get Trip",
     description: "Read a trip's full TripDocument (days with moments and routes, places with coordinates, transports with "
       + "train and flight segments, hotels, expenses, notes, sources, custom views) and its current revision. Pass the revision to "
       + "update_trip to make sure nobody changed the trip in between.",
     inputSchema: { tripId: z.string().trim().min(1).max(100).describe("The trip's id, from list_trips.") },
     annotations: { title: "Get Trip", readOnlyHint: true, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.getTrip, async () => {
     const trip = await getTrip(db, args.tripId, principal.sub);
     return { result: success({ trip: tripPayload(trip) }) };
   }));
 
   server.registerTool(TOOL_NAMES.createTrip, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.createTrip) },
     title: "Create Trip",
     description: "Create a trip from a complete TripDocument (see docs/trips.md: version 1, title, startDate, endDate, "
       + "timeZone, currency, places, days, transports, hotels, expenses, notes, sources). Records reference each other by "
@@ -279,13 +302,14 @@ export function createMcpServer(context: McpContext): McpServer {
       visibility: z.enum(VISIBILITIES).optional().describe("private: only the user (default). public: anyone with the share link."),
     },
     annotations: { title: "Create Trip", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.createTrip, async () => {
     const input = createTripSchema.parse({ document: args.document, visibility: args.visibility });
     const trip = await createTrip(db, principal, input, { billingEnvironment: context.billingEnvironment });
     return { result: success({ trip: tripPayload(trip) }, `Created trip "${trip.document.title}" (${trip.visibility}).\n${trip.shareUrl}`) };
   }));
 
   server.registerTool(TOOL_NAMES.updateTrip, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.updateTrip) },
     title: "Update Trip",
     description: "Edit a trip with operations applied in order, as one change: set_meta (title, dates, intro…), "
       + "upsert_place / upsert_day / upsert_transport / upsert_hotel / upsert_expense / upsert_note / upsert_view (a full "
@@ -302,13 +326,14 @@ export function createMcpServer(context: McpContext): McpServer {
       revision: z.number().int().min(0).optional().describe("The revision the edit is based on; omit to apply to the latest."),
     },
     annotations: { title: "Update Trip", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.updateTrip, async () => {
     const input = tripOperationsRequestSchema.parse({ operations: args.operations, revision: args.revision });
     const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
     return { result: success({ trip: tripPayload(trip) }, `Updated "${trip.document.title}" (revision ${trip.revision}).`) };
   }));
 
   server.registerTool(TOOL_NAMES.updatePlace, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.updatePlace) },
     title: "Update Place",
     description: "Change some fields of one of a trip's places, like a guidebook entry: description (what it is, why go), "
       + "hours, visitDuration, pricing ([{ label, price: { amount, currency }, note }] — omit price for free; replaces the "
@@ -323,7 +348,7 @@ export function createMcpServer(context: McpContext): McpServer {
       revision: z.number().int().min(0).optional().describe("The revision the edit is based on; omit to apply to the latest."),
     },
     annotations: { title: "Update Place", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.updatePlace, async () => {
     const current = await getTrip(db, args.tripId, principal.sub);
     if (!current.document.places.some((place) => place.id === args.placeId)) {
       return { result: failure(`The trip has no place "${args.placeId}". Places: ${current.document.places.map((place) => place.id).join(", ") || "none"}.`) };
@@ -338,6 +363,7 @@ export function createMcpServer(context: McpContext): McpServer {
   }));
 
   server.registerTool(TOOL_NAMES.uploadTripImage, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.uploadTripImage) },
     title: "Upload Trip Image",
     description: "Store a photo for one of the user's trips and get a lasting https URL for a place's photos (update_place "
       + "addPhotos) or an Image / Gallery view. Give either url (a public image, copied so it keeps working when the page "
@@ -350,13 +376,14 @@ export function createMcpServer(context: McpContext): McpServer {
       data: z.string().trim().optional().describe("The image as base64 (or a data: URL)."),
     },
     annotations: { title: "Upload Trip Image", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.uploadTripImage, async () => {
     const input = uploadTripImageSchema.parse({ url: args.url, data: args.data });
     const image = await uploadTripImage(db, principal.sub, args.tripId, input);
     return { result: success({ image }, `Uploaded a ${image.width}×${image.height} image.\n${image.url}`) };
   }));
 
   server.registerTool(TOOL_NAMES.addToTripFromSource, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.addToTripFromSource) },
     title: "Add to Trip from Source",
     description: "Have Chippy's trip agent read a web page (url) or text (a booking confirmation, a timetable, a hotel "
       + "page, notes) and add what it contributes to a trip: transports with train or flight details, hotels, places, "
@@ -368,7 +395,7 @@ export function createMcpServer(context: McpContext): McpServer {
       instructions: z.string().max(2000).optional().describe("What to do with it, in the user's words."),
     },
     annotations: { title: "Add to Trip from Source", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, (args) => run(async () => {
+  }, (args) => run(TOOL_NAMES.addToTripFromSource, async () => {
     if (!args.url === !args.text) throw new ApiError(400, "VALIDATION_ERROR", "Pass either url or text.");
     const input = ingestTripSchema.parse({
       source: args.url ? { type: "url", url: args.url } : { type: "text", text: args.text },

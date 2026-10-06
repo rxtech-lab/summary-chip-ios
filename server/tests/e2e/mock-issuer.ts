@@ -4,11 +4,13 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { createHash, randomBytes } from "node:crypto";
 
 const port = Number(process.env.MOCK_ISSUER_PORT ?? 3101);
 const issuer = `http://127.0.0.1:${port}`;
 const { publicKey, privateKey } = await generateKeyPair("RS256");
 const jwk = { ...(await exportJWK(publicKey)), kid: "e2e", alg: "RS256", use: "sig" };
+const codes = new Map<string, { clientId: string; redirectUri: string; challenge: string; sub: string }>();
 
 interface TokenRequest {
   sub: string;
@@ -28,8 +30,35 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
 }
 
 createServer(async (request, response) => {
-  const { pathname } = new URL(request.url ?? "/", issuer);
+  const url = new URL(request.url ?? "/", issuer);
+  const { pathname } = url;
   if (pathname === "/.well-known/jwks.json") return sendJson(response, 200, { keys: [jwk] });
+  if (pathname === "/api/oauth/authorize") {
+    const code = randomBytes(32).toString("base64url");
+    codes.set(code, { clientId: url.searchParams.get("client_id")!, redirectUri: url.searchParams.get("redirect_uri")!,
+      challenge: url.searchParams.get("code_challenge")!, sub: `e2e-mcp-${crypto.randomUUID()}` });
+    const callback = new URL(url.searchParams.get("redirect_uri")!);
+    callback.searchParams.set("code", code);
+    callback.searchParams.set("state", url.searchParams.get("state")!);
+    callback.searchParams.set("iss", issuer);
+    response.writeHead(302, { location: callback.href }).end();
+    return;
+  }
+  if (pathname === "/api/oauth/token" && request.method === "POST") {
+    const fields = new URLSearchParams(await readBody(request));
+    const code = fields.get("code") ?? "";
+    const pending = codes.get(code);
+    if (!pending || fields.get("client_id") !== pending.clientId || fields.get("redirect_uri") !== pending.redirectUri
+      || fields.get("client_secret") !== "e2e-mcp-secret"
+      || createHash("sha256").update(fields.get("code_verifier") ?? "").digest("base64url") !== pending.challenge) {
+      return sendJson(response, 400, { error: "invalid_grant" });
+    }
+    codes.delete(code);
+    const token = await new SignJWT({ client_id: pending.clientId, scope: "openid profile email" })
+      .setProtectedHeader({ alg: "RS256", kid: "e2e" }).setIssuer(issuer).setSubject(pending.sub)
+      .setIssuedAt().setExpirationTime("10m").sign(privateKey);
+    return sendJson(response, 200, { access_token: token, token_type: "Bearer" });
+  }
   if (pathname === "/token" && request.method === "POST") {
     const body = JSON.parse(await readBody(request)) as TokenRequest;
     const token = await new SignJWT({ client_id: body.clientId, scope: body.scope ?? "openid" })

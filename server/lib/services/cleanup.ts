@@ -4,6 +4,7 @@ import { summaries, uploads } from "@/lib/db/schema";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
 import { rotateImageKeys } from "./summaries";
 import { retireTranslatedCovers } from "./translations";
+import { cleanupOAuth } from "@/lib/mcp/oauth-tokens";
 
 const BATCH_SIZE = 100;
 const MAX_BATCHES = 50;
@@ -32,6 +33,7 @@ function ogKeyTimestamp(key: string): number | null {
 export async function runCleanup(db: Database, options: { store?: ObjectStore; now?: Date } = {}): Promise<CleanupReport> {
   const store = options.store ?? getObjectStore();
   const now = options.now ?? new Date();
+  await cleanupOAuth(db, now);
   const report: CleanupReport = { expiredLinks: 0, orphanUploads: 0, objectsDeleted: 0, objectFailures: 0 };
 
   let after: { expiresAt: Date; id: string } | null = null;

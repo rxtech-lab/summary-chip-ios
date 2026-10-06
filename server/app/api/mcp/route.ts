@@ -1,6 +1,7 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { withApiKeyAuth } from "@/lib/http/handler";
+import { withMcpAuth } from "@/lib/http/handler";
 import { createMcpServer } from "@/lib/mcp/server";
+import { securitySchemes } from "@/lib/mcp/oauth-config";
 import { acceptedLanguage } from "@/lib/services/translations";
 import { billingEnvironment } from "@/lib/subscription/environment";
 
@@ -10,10 +11,10 @@ export const maxDuration = 300;
 
 /**
  * The hosted MCP server (Streamable HTTP, stateless): agents add, search and list the key owner's
- * chips. Authenticated by a personal API key from Settings → MCP Server; see docs/mcp.md.
+ * chips. Authenticated through OAuth or a personal API key; see docs/mcp.md.
  */
 export async function POST(request: Request) {
-  return withApiKeyAuth(request, async ({ principal, db }) => {
+  return withMcpAuth(request, async ({ principal, db }) => {
     const server = createMcpServer({
       db,
       principal,
@@ -24,7 +25,17 @@ export async function POST(request: Request) {
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     await server.connect(transport);
     try {
-      return await transport.handleRequest(request);
+      const response = await transport.handleRequest(request);
+      // SDK 1.x serializes tool auth metadata only inside _meta. Also expose the standard
+      // top-level declaration required by OpenAI hosts without changing other RPC results.
+      if (response.headers.get("content-type")?.includes("application/json")) {
+        const rpc = await response.clone().json();
+        if (Array.isArray(rpc.result?.tools)) {
+          for (const tool of rpc.result.tools) tool.securitySchemes = securitySchemes(tool.name);
+          return Response.json(rpc, { status: response.status, headers: response.headers });
+        }
+      }
+      return response;
     } finally {
       await server.close();
     }

@@ -37,17 +37,17 @@ export function setBearerConfigForTests(config?: BearerVerifierConfig): void {
   testConfig = config;
 }
 
-export function getBearerVerifierConfig(): BearerVerifierConfig {
-  if (testConfig) return testConfig;
+export function getBearerVerifierConfig(allowedClientIds?: ReadonlySet<string>): BearerVerifierConfig {
+  if (testConfig) return allowedClientIds ? { ...testConfig, allowedClientIds } : testConfig;
   const issuer = process.env.AUTH_ISSUER || "https://auth.rxlab.app";
   const ids = [
     ...(process.env.RXLAB_ALLOWED_CLIENT_IDS ?? "").split(","),
     process.env.IOS_OAUTH_CLIENT_ID ?? "",
   ].map((value) => value.trim()).filter(Boolean);
-  if (ids.length === 0) {
+  if (!allowedClientIds && ids.length === 0) {
     throw new ApiError(503, "AUTH_NOT_CONFIGURED", "No allowed OAuth client IDs are configured");
   }
-  return { issuer: normalizeIssuer(issuer), allowedClientIds: new Set(ids) };
+  return { issuer: normalizeIssuer(issuer), allowedClientIds: allowedClientIds ?? new Set(ids) };
 }
 
 function toPrincipal(payload: JWTPayload, allowedClientIds: ReadonlySet<string>): ApiPrincipal {
