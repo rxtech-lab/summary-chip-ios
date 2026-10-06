@@ -1,6 +1,118 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Outdated" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要更新"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要更新"
+          }
+        }
+      }
+    },
+    "Update the %@ translation?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新%@翻译？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新%@翻譯？"
+          }
+        }
+      }
+    },
+    "Update Translation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新翻译"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新翻譯"
+          }
+        }
+      }
+    },
+    "The trip changed since it was translated into %@. Chippy translates what's new or changed; the rest is reused for free. While it's shown translated, the trip can't be edited." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程在翻译为%@后有所变动。Chippy 只会翻译新增或修改的内容，其余部分免费沿用。以翻译显示时，行程无法编辑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程在翻譯為%@後有所變動。Chippy 只會翻譯新增或修改的內容，其餘部分免費沿用。以翻譯顯示時，行程無法編輯。"
+          }
+        }
+      }
+    },
+    "Translating to %@…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻译为%@…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻譯為%@…"
+          }
+        }
+      }
+    },
+    "Translating — we'll notify you" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻译，完成后会通知你"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻譯，完成後會通知你"
+          }
+        }
+      }
+    },
+    "You'll get a notification when it's ready." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成后会通知你。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成後會通知你。"
+          }
+        }
+      }
+    },
     "· %@" : {
       "shouldTranslate" : false
     },
@@ -1991,6 +2103,22 @@
     "Change a place’s description, photos, hours, prices or contact details." : {
 
     },
+    "Change language" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改语言"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改語言"
+          }
+        }
+      }
+    },
     "Changes needed fixing" : {
 
     },
@@ -2224,6 +2352,22 @@
     },
     "Chippy translates the summary, key points, category, tags and source text into %@. The source text can take a minute to finish." : {
 
+    },
+    "Chippy translates the trip's days, places, transport, notes and views into %@. While it's shown translated, the trip can't be edited." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 会将行程的每日安排、地点、交通、笔记和视图翻译成%@。以译文显示时，行程无法编辑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 會將行程的每日安排、地點、交通、筆記和視圖翻譯成%@。以譯文顯示時，行程無法編輯。"
+          }
+        }
+      }
     },
     "Choose the original file to keep it with this summary. Chat reads it on this device to answer questions." : {
       "localizations" : {
@@ -4486,6 +4630,7 @@
       }
     },
     "Formatting the source text" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -5153,6 +5298,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "語言"
+          }
+        }
+      }
+    },
+    "Language changed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言已切换"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "語言已切換"
           }
         }
       }
@@ -7395,6 +7556,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "照片"
+          }
+        }
+      }
+    },
+    "Pick a language and choose Done. Languages that aren't translated yet are translated first: the days, places, transport, notes and views. A translated trip is read-only; switch back to Original to edit it. People you share it with read it in their own language." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择一种语言后点按“完成”。尚未翻译的语言会先进行翻译：包括每日行程、地点、交通、笔记和视图。翻译后的行程为只读，切换回“原文”即可编辑。与你共享的人会以他们自己的语言阅读。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇一種語言後點按「完成」。尚未翻譯的語言會先進行翻譯：包括每日行程、地點、交通、筆記和視圖。翻譯後的行程為唯讀，切換回「原文」即可編輯。與你共享的人會以他們自己的語言閱讀。"
           }
         }
       }
@@ -9686,8 +9863,37 @@
         }
       }
     },
+    "Switch to the original to edit." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换回原文即可编辑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換回原文即可編輯。"
+          }
+        }
+      }
+    },
     "Switching language…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在切换语言…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在切換語言…"
+          }
+        }
+      }
     },
     "Switching to the original…" : {
       "extractionState" : "stale",
@@ -10322,6 +10528,18 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Translated from %1$@ to %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从%1$@翻译为%2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已從%1$@翻譯為%2$@"
           }
         }
       }

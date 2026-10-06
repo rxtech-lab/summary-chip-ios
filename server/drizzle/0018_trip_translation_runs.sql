@@ -1,0 +1,1 @@
+ALTER TABLE `trip_translations` ADD `translating_since` integer;

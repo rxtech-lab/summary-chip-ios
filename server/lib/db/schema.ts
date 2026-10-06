@@ -188,6 +188,26 @@ export const trips = sqliteTable("trips", {
 });
 
 export type TripRow = typeof trips.$inferSelect;
+
+/**
+ * A trip's texts translated into one of `TRANSLATION_LANGUAGES`, as a dictionary from each original
+ * text to its translation: a later edit only needs its new texts translated, and the document's
+ * ids, dates and numbers are never touched. `revision` is the trip revision last translated.
+ */
+export const tripTranslations = sqliteTable("trip_translations", {
+  summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  language: text("language").notNull(),
+  strings: text("strings", { mode: "json" }).$type<Record<string, string>>().notNull(),
+  revision: integer("revision").notNull(),
+  /** A background run (`workflows/translate-trip.ts`) is translating the missing texts since then; null when none is. */
+  translatingSince: integer("translating_since", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.summaryId, table.language] }),
+]);
+
+export type TripTranslationRow = typeof tripTranslations.$inferSelect;
 export type NewSummaryRow = typeof summaries.$inferInsert;
 
 /** An installation belongs to its most recently signed-in account. */

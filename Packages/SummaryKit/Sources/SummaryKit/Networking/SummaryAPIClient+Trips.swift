@@ -27,10 +27,19 @@ extension SummaryAPIClient {
         return envelope.trips
     }
 
-    /// A trip's document; `id` is its summary id.
+    /// A trip's document, in the language the user reads it in (see `Trip.isTranslated`); `id` is its summary id.
     public func trip(id: String) async throws -> Trip {
-        let envelope: TripEnvelope = try await send(get("/api/v1/trips/\(id.urlPathEscaped)"))
+        var request = get("/api/v1/trips/\(id.urlPathEscaped)")
+        // Texts not translated yet into the reading language are translated before the response.
+        request.timeoutInterval = Self.createTimeout
+        let envelope: TripEnvelope = try await send(request)
         return envelope.trip
+    }
+
+    /// The languages the trip is already translated into; nothing is translated by asking. The
+    /// reading language itself is the trip's library item's `displayLanguage` (`updateSummary`).
+    public func tripTranslations(id: String) async throws -> SummaryTranslations {
+        try await send(get("/api/v1/trips/\(id.urlPathEscaped)/translations"))
     }
 
     public func createTrip(document: TripDocument, visibility: SummaryVisibility = .private) async throws -> Trip {

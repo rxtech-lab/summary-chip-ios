@@ -2,6 +2,8 @@ import type { LanguageModelUsage } from "ai";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
+import type { AiProvider } from "@/lib/ai/provider";
+import type { TranslationLanguage } from "@/lib/contracts/api";
 import { parseOperations, sourceImages } from "@/lib/ai/trip-agent";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import {
@@ -26,6 +28,8 @@ import { notifyTripUpdated } from "./notifications";
 import { shareUrlFor } from "./serialize";
 import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, isLinkLive, resolveDeps, type ServiceDeps } from "./summaries";
 import { applyOperations, tripDayCount, tripDigest, tripText } from "./trip-document";
+import { listTripTranslations, readTripDocument, savedTripDocument, type TripTranslationStatus } from "./trip-translations";
+import { readingLanguage, translationPayer, type BillingEnvironmentResolver } from "./translations";
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;
 export type PutTripInput = z.infer<typeof putTripSchema>;
@@ -44,8 +48,25 @@ export interface TripJson {
   updatedAt: string;
   shareUrl: string;
   document: TripDocument;
+  /** The language the document's texts are in: a translation's, else `originalLanguage`. */
+  language: string;
+  /** The language the trip is written in. */
+  originalLanguage: string;
+  /** Owner only: the language they chose to read it in (`PATCH /api/v1/summaries/:id`); null = as written. */
+  displayLanguage: string | null;
   /** `GET` only: when the caller starred the trip (it's listed under Likes); null when they haven't. */
   likedAt?: string | null;
+  /**
+   * `GET` only: a background run is translating the trip into the language being read; the texts
+   * not translated yet show as written, and the owner is notified when it is done.
+   */
+  translating?: boolean;
+}
+
+/** A trip's document as one viewer reads it, when that is a translation. */
+export interface TripTranslationReading {
+  document: TripDocument;
+  language: TranslationLanguage;
 }
 
 /** One row of `GET /api/v1/trips`. */
@@ -82,17 +103,21 @@ function validDocument(document: TripDocument, what = "The edit"): TripDocument 
   throw new ApiError(422, "TRIP_INVALID", `${what} leaves the trip invalid: ${listed}`, { issues });
 }
 
-export function toTripJson(row: SummaryRow, trip: TripRow, viewerId: string | null): TripJson {
+export function toTripJson(row: SummaryRow, trip: TripRow, viewerId: string | null, translation: TripTranslationReading | null = null): TripJson {
+  const isOwner = viewerId !== null && viewerId === row.ownerId;
   return {
     id: row.id,
     slug: row.slug,
     revision: trip.revision,
     visibility: row.visibility,
-    isOwner: viewerId !== null && viewerId === row.ownerId,
+    isOwner,
     createdAt: row.createdAt.toISOString(),
     updatedAt: trip.updatedAt.toISOString(),
     shareUrl: shareUrlFor(row.slug),
-    document: trip.document,
+    document: translation?.document ?? trip.document,
+    language: translation?.language ?? row.language,
+    originalLanguage: row.language,
+    displayLanguage: isOwner ? row.displayLanguage : null,
   };
 }
 
@@ -122,11 +147,57 @@ export async function findTripForViewer(db: Database, id: string, viewerId: stri
   return trip ? { summary, trip } : null;
 }
 
+/** The trip as written (the agents). */
 export async function getTrip(db: Database, id: string, viewerId: string): Promise<TripJson> {
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
   const likedAt = await findLikedAt(db, viewerId, id);
   return { ...toTripJson(found.summary, found.trip, viewerId), likedAt: likedAt ? likedAt.toISOString() : null };
+}
+
+/**
+ * `GET /api/v1/trips/:id`: the trip as `viewerId` reads it, like a summary: the owner in the
+ * language they chose, anyone else in `accepted` (their `Accept-Language`). Texts not translated
+ * yet are translated now on the viewer's points; without points they show as written.
+ */
+export async function readTripJson(
+  db: Database,
+  id: string,
+  viewerId: string,
+  accepted: TranslationLanguage | null,
+  options: { ai?: AiProvider; billingEnvironment?: BillingEnvironmentResolver } = {},
+): Promise<TripJson> {
+  const found = await findTripForViewer(db, id, viewerId);
+  if (!found) throw tripNotFound();
+  const language = readingLanguage(found.summary, viewerId, accepted);
+  const [reading, likedAt] = await Promise.all([
+    readTripDocument(db, found.summary, found.trip, language, translationPayer(found.summary, viewerId, options.billingEnvironment), {
+      ai: options.ai,
+      owner: found.summary.ownerId === viewerId,
+    }),
+    findLikedAt(db, viewerId, id),
+  ]);
+  const translation = reading.document && language ? { document: reading.document, language } : null;
+  return { ...toTripJson(found.summary, found.trip, viewerId, translation), likedAt: likedAt ? likedAt.toISOString() : null, translating: reading.translating };
+}
+
+/**
+ * The trip's document as `viewerId` reads it (like `readTripJson`), from the translations already
+ * saved: nothing is translated, so it's free and fast. Texts not translated yet show as written.
+ */
+export async function readSavedTripDocument(db: Database, id: string, viewerId: string, accepted: TranslationLanguage | null): Promise<{ document: TripDocument; language: TranslationLanguage | null }> {
+  const found = await findTripForViewer(db, id, viewerId);
+  if (!found) throw tripNotFound();
+  const language = readingLanguage(found.summary, viewerId, accepted);
+  const translated = language ? await savedTripDocument(db, found.trip, language) : null;
+  return translated ? { document: translated, language } : { document: found.trip.document, language: null };
+}
+
+/** `{ originalLanguage, items }`: the languages the trip is already translated into. */
+export async function getTripTranslations(db: Database, id: string, viewerId: string): Promise<{ originalLanguage: string; items: TripTranslationStatus[] }> {
+  const found = await findTripForViewer(db, id, viewerId);
+  if (!found) throw tripNotFound();
+  return { originalLanguage: found.summary.language, items: await listTripTranslations(db, found.trip) };
 }
 
 /** Only the owner edits; others who can see a public trip get 403, everyone else 404. */

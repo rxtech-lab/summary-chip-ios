@@ -18,6 +18,7 @@ export class MockAiProvider implements AiProvider {
     detectLanguage: LanguageInput[];
     translateSummary: TranslateInput[];
     translateDocument: { markdown: string; to: TranslationLanguage }[];
+    translateStrings: { texts: string[]; to: TranslationLanguage }[];
     findDuplicate: DuplicateInput[];
     updateTrip: TripAgentInput[];
     designCover: CoverInput[];
@@ -30,6 +31,7 @@ export class MockAiProvider implements AiProvider {
     detectLanguage: [],
     translateSummary: [],
     translateDocument: [],
+    translateStrings: [],
     findDuplicate: [],
     updateTrip: [],
     designCover: [],
@@ -103,6 +105,12 @@ export class MockAiProvider implements AiProvider {
     this.calls.translateDocument.push({ markdown, to });
     options.onUsage?.(MOCK_STEP_USAGE);
     return this.translates ? `[${to}] ${markdown}` : null;
+  }
+
+  async translateStrings(texts: string[], to: TranslationLanguage, options: TranslateOptions = {}): Promise<(string | null)[] | null> {
+    this.calls.translateStrings.push({ texts, to });
+    options.onUsage?.(MOCK_STEP_USAGE);
+    return this.translates ? texts.map((text) => `[${to}] ${text}`) : null;
   }
 
   /**

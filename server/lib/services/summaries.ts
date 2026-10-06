@@ -43,6 +43,7 @@ import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type Summ
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, escapeLike, isPublicAndLive, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
 import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, translationPayer, type BillingEnvironmentResolver, type TranslationStatus } from "./translations";
+import { translateTrip } from "./trip-translations";
 import { notifySummaryAdded } from "./notifications";
 import { selectCoverTheme } from "./cover-colors";
 
@@ -777,6 +778,9 @@ export async function patchSummary(
     ai,
     required: patch.displayLanguage !== undefined,
   });
+  // A trip switches its whole diary: a few texts are translated now, so the trip opens in that
+  // language at once; a large trip is translated in the background and the owner is notified.
+  if (existing.kind === "trip" && patch.displayLanguage !== undefined) await translateTrip(db, existing, language, translationPayer(existing, ownerId, deps.billingEnvironment), ai);
   // The owner edits the title they are reading: a translation's, or the original's.
   let renamedTranslation = false;
   if (patch.title !== undefined && reading.translation && language) {

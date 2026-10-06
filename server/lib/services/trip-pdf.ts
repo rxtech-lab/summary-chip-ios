@@ -1,7 +1,8 @@
 import type { Database } from "@/lib/db/client";
 import { renderPdf } from "@/lib/pdf/browser-pdf";
-import { renderTripReport, type ReportLanguage } from "@/lib/pdf/trip-report";
-import { getTrip } from "./trips";
+import type { TranslationLanguage } from "@/lib/contracts/api";
+import { REPORT_LANGUAGES, renderTripReport, type ReportLanguage } from "@/lib/pdf/trip-report";
+import { readSavedTripDocument } from "./trips";
 
 export interface TripPdf {
   bytes: Uint8Array;
@@ -17,10 +18,13 @@ export function tripPdfFilename(title: string): string {
 /**
  * `GET /api/v1/trips/:id/pdf`: the trip as an A4 report printed by Cloudflare Browser Run, with the
  * trip's title and dates in the header and page numbers in the footer. Anyone who can open the trip
- * may export it; it's free.
+ * may export it; it's free. It's in the language the viewer reads the trip in (the owner's chosen
+ * language, else `accepted`), from the translations already saved; the report's labels follow that
+ * language when they exist in it, else `labels` (the app's language).
  */
-export async function exportTripPdf(db: Database, id: string, viewerId: string, language: ReportLanguage): Promise<TripPdf> {
-  const trip = await getTrip(db, id, viewerId);
-  const { html, page } = renderTripReport(trip.document, language);
-  return { bytes: await renderPdf(html, page), filename: tripPdfFilename(trip.document.title) };
+export async function exportTripPdf(db: Database, id: string, viewerId: string, labels: ReportLanguage, accepted: TranslationLanguage | null): Promise<TripPdf> {
+  const { document, language } = await readSavedTripDocument(db, id, viewerId, accepted);
+  const reportLanguage = REPORT_LANGUAGES.find((candidate) => candidate === language) ?? labels;
+  const { html, page } = renderTripReport(document, reportLanguage);
+  return { bytes: await renderPdf(html, page), filename: tripPdfFilename(document.title) };
 }

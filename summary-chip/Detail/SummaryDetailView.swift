@@ -56,6 +56,7 @@ struct SummaryDetailView: View {
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar {
+            // Ask on its own; like and share together; everything else waits in "More".
             if allowsChat {
                 ToolbarItem(placement: .summaryTrailing) {
                     Button {
@@ -65,30 +66,9 @@ struct SummaryDetailView: View {
                     }
                     .accessibilityIdentifier("ask-summary")
                 }
+                ToolbarSpacer(.fixed, placement: .summaryTrailing)
             }
-            if summary.hasSourceMarkdown {
-                ToolbarItem(placement: .summaryTrailing) {
-                    Button { showsSourceText = true } label: {
-                        Label("Source Text", systemImage: "doc.plaintext")
-                    }
-                    .accessibilityIdentifier("summary-source-text")
-                }
-            } else if summary.sourceMarkdownPending {
-                ToolbarItem(placement: .summaryTrailing) {
-                    ProgressView()
-                        .controlSize(.small)
-                        .help("Formatting the source text…")
-                        .accessibilityLabel("Formatting the source text")
-                        .accessibilityIdentifier("summary-source-text-pending")
-                }
-            }
-            ToolbarItem(placement: .summaryTrailing) {
-                Button { showsLocalFile = true } label: {
-                    Label("Local File", systemImage: "doc.badge.gearshape")
-                }
-                .accessibilityIdentifier("summary-local-file")
-            }
-            ToolbarItem(placement: .summaryTrailing) {
+            ToolbarItemGroup(placement: .summaryTrailing) {
                 Button {
                     Task { await toggleLike() }
                 } label: {
@@ -97,8 +77,6 @@ struct SummaryDetailView: View {
                 }
                 .disabled(isTogglingLike)
                 .accessibilityIdentifier("summary-like")
-            }
-            ToolbarItem(placement: .summaryTrailing) {
                 Button {
                     showsShare = true
                 } label: {
@@ -106,36 +84,7 @@ struct SummaryDetailView: View {
                 }
                 .accessibilityIdentifier("share-summary")
             }
-            if summary.isOwner {
-                ToolbarItem(placement: .summaryTrailing) {
-                    Menu {
-                        Button {
-                            showsEditSharing = true
-                        } label: {
-                            Label("Edit sharing…", systemImage: "globe")
-                        }
-                        Button {
-                            showsLanguage = true
-                        } label: {
-                            Label("Language…", systemImage: "translate")
-                        }
-                        .accessibilityIdentifier("summary-language")
-                        Button {
-                            showsRegenerate = true
-                        } label: {
-                            Label("Regenerate image…", systemImage: "photo.badge.arrow.down")
-                        }
-                        Divider()
-                        Button(role: .destructive) {
-                            confirmsDelete = true
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    } label: {
-                        Label("More", systemImage: "ellipsis")
-                    }
-                }
-            }
+            moreToolbarActions
         }
         .sheet(isPresented: $showsChat) {
             ChatView(environment: environment, summary: summary)
@@ -180,6 +129,76 @@ struct SummaryDetailView: View {
         .sensoryFeedback(.success, trigger: summary.hasSourceMarkdown) { old, new in !old && new }
         .likeStatusOverlay($likeStatus)
         .onChange(of: summary) { _, updated in onUpdate?(updated) }
+    }
+
+    /// On iOS 27 these join the system overflow menu; elsewhere they get their own "More" menu.
+    @ToolbarContentBuilder
+    private var moreToolbarActions: some ToolbarContent {
+        #if os(iOS)
+        if #available(iOS 27.0, *) {
+            ToolbarOverflowMenu { moreActions }
+        } else {
+            moreActionsMenu
+        }
+        #else
+        moreActionsMenu
+        #endif
+    }
+
+    private var moreActionsMenu: some ToolbarContent {
+        ToolbarItem(placement: .summaryTrailing) {
+            Menu {
+                moreActions
+            } label: {
+                Label("More", systemImage: "ellipsis")
+            }
+            .accessibilityIdentifier("summary-more")
+        }
+    }
+
+    @ViewBuilder
+    private var moreActions: some View {
+        if summary.hasSourceMarkdown {
+            Button { showsSourceText = true } label: {
+                Label("Source Text", systemImage: "doc.plaintext")
+            }
+            .accessibilityIdentifier("summary-source-text")
+        } else if summary.sourceMarkdownPending {
+            Button {} label: {
+                Label("Formatting the source text…", systemImage: "doc.plaintext")
+            }
+            .disabled(true)
+            .accessibilityIdentifier("summary-source-text-pending")
+        }
+        Button { showsLocalFile = true } label: {
+            Label("Local File", systemImage: "doc.badge.gearshape")
+        }
+        .accessibilityIdentifier("summary-local-file")
+        if summary.isOwner {
+            Divider()
+            Button {
+                showsEditSharing = true
+            } label: {
+                Label("Edit sharing…", systemImage: "globe")
+            }
+            Button {
+                showsLanguage = true
+            } label: {
+                Label("Language…", systemImage: "translate")
+            }
+            .accessibilityIdentifier("summary-language")
+            Button {
+                showsRegenerate = true
+            } label: {
+                Label("Regenerate image…", systemImage: "photo.badge.arrow.down")
+            }
+            Divider()
+            Button(role: .destructive) {
+                confirmsDelete = true
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     private func apply(_ updated: Summary) {

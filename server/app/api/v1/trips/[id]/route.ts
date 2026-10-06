@@ -2,17 +2,28 @@ import { putTripSchema } from "@/lib/contracts/trip";
 import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson, readJson } from "@/lib/http/errors";
 import { deleteSummary } from "@/lib/services/summaries";
-import { getTrip, replaceTrip } from "@/lib/services/trips";
+import { getTrip, readTripJson, replaceTrip } from "@/lib/services/trips";
+import { acceptedLanguage } from "@/lib/services/translations";
+import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
+/** A trip read in another language is translated before the response. */
+export const maxDuration = 120;
 
 type Context = { params: Promise<{ id: string }> };
 
-/** The trip document (owner, or anyone signed in while its public link is live). */
+/**
+ * The trip document (owner, or anyone signed in while its public link is live): the owner reads
+ * their chosen `displayLanguage`, anyone else their `Accept-Language`.
+ */
 export async function GET(request: Request, { params }: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
-    return noStoreJson({ trip: await getTrip(db, id, principal.sub) });
+    return noStoreJson({
+      trip: await readTripJson(db, id, principal.sub, acceptedLanguage(request), {
+        billingEnvironment: () => billingEnvironment(request, principal),
+      }),
+    });
   }, { feature: "trips" });
 }
 

@@ -42,6 +42,31 @@ export async function notifyTripUpdated(db: Database, userId: string, tripId: st
   });
 }
 
+const TRIP_TRANSLATED_TITLES: Record<string, [ready: string, failed: string]> = {
+  en: ["Trip translated", "Trip not fully translated"],
+  "zh-Hans": ["行程已翻译", "行程未能完整翻译"],
+  "zh-Hant": ["行程已翻譯", "行程未能完整翻譯"],
+  ja: ["旅程を翻訳しました", "旅程を翻訳しきれませんでした"],
+  ko: ["여행을 번역했습니다", "여행을 모두 번역하지 못했습니다"],
+  es: ["Viaje traducido", "No se pudo traducir todo el viaje"],
+  fr: ["Voyage traduit", "Le voyage n'a pas pu être entièrement traduit"],
+  de: ["Reise übersetzt", "Reise nicht vollständig übersetzt"],
+};
+
+/**
+ * After a background trip translation (`workflows/translate-trip.ts`), in the language it was
+ * translated into. `tripId` tells the app to refresh or open the trip view.
+ */
+export async function notifyTripTranslated(db: Database, userId: string, tripId: string, title: string, language: string, ready: boolean): Promise<void> {
+  const [readyTitle, failedTitle] = TRIP_TRANSLATED_TITLES[translationLanguageFor(language) ?? "en"] ?? TRIP_TRANSLATED_TITLES.en;
+  await deliver(db, userId, {
+    aps: { alert: { title: ready ? readyTitle : failedTitle, body: clipAlert(title) }, sound: "default" },
+    summaryId: tripId,
+    tripId,
+    userId,
+  });
+}
+
 /** APNs answers that mean the token will never work again. */
 export function isDeadToken(result: PushResult): boolean {
   return result.status === 410 || (result.status === 400 && ["BadDeviceToken", "DeviceTokenNotForTopic", "ExpiredToken"].includes(result.reason ?? ""));

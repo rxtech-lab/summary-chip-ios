@@ -85,12 +85,12 @@ export function translationPayer(row: Pick<SummaryRow, "ownerId">, viewerId: str
 }
 
 /** Holds points for one translation run; throws `402 TRANSLATION_POINTS_EXHAUSTED` (or 503) before any model call. */
-async function holdTranslation(ai: AiProvider, payer: TranslationPayer, run: string, metadata: Record<string, unknown>): Promise<ChatCharge | null> {
+export async function holdTranslation(ai: AiProvider, payer: TranslationPayer, run: string, metadata: Record<string, unknown>): Promise<ChatCharge | null> {
   return reserveTranslationPoints(payer.userId, `${run}:${randomUUID()}`, ai.chatModelId(), metadata, await payer.environment?.());
 }
 
 /** Charges a run's tokens at the model's API price; a run that delivered nothing releases its hold. */
-async function settleTranslation(charge: ChatCharge | null, ai: AiProvider, delivered: boolean, steps: LanguageModelUsage[], metadata: Record<string, unknown> = {}): Promise<void> {
+export async function settleTranslation(charge: ChatCharge | null, ai: AiProvider, delivered: boolean, steps: LanguageModelUsage[], metadata: Record<string, unknown> = {}): Promise<void> {
   if (charge) await settleUsage(charge, ai, delivered ? steps : [], { ...metadata, outcome: delivered ? "finished" : "failed" });
 }
 
