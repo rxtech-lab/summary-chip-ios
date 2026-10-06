@@ -52,8 +52,10 @@ Configuration/              xcconfig files (API base URL, RxAuth client, …)
   `${AUTH_ISSUER}/.well-known/jwks.json` (RS256, `client_id` must be in the allow list:
   `IOS_OAUTH_CLIENT_ID`, `RXLAB_ALLOWED_CLIENT_IDS`). `sub` is the user id.
 * The App Clip is anonymous; it only uses `/api/public/*`.
-* The MCP server (`/api/mcp`) takes a personal API key instead (`Authorization: Bearer chippy_…`),
-  created in Settings → MCP Server and stored only as a SHA-256 hash; see [mcp.md](mcp.md).
+* The MCP server (`/api/mcp`) takes resource-bound OAuth tokens or personal API keys
+  (`Authorization: Bearer chippy_…`). MCP OAuth reuses RxAuth login through a dedicated confidential
+  client, then requires agent-specific consent and issues scoped opaque tokens. Keys and MCP tokens
+  are stored only as SHA-256 hashes; see [mcp.md](mcp.md).
 
 ## Data model (Turso / SQLite)
 
@@ -180,7 +182,7 @@ Food, Opinion, Research, Other`.
 | `POST /api/v1/api-keys` | `{name}` | `201 {key, apiKey}` — the only response that contains the key |
 | `PATCH /api/v1/api-keys/:id` | `{name}` | `ApiKey` |
 | `DELETE /api/v1/api-keys/:id` | – | `204` — revokes the key |
-| `POST /api/mcp` | JSON-RPC (MCP Streamable HTTP, stateless) | API key auth, not OAuth; tools `add_summary`, `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `create_trip`, `update_trip`, `add_to_trip_from_source` |
+| `POST /api/mcp` | JSON-RPC (MCP Streamable HTTP, stateless) | MCP OAuth or API key auth; summary/trip tools plus `get_profile`; see [mcp.md](mcp.md) |
 | `GET /api/v1/legal/{privacy,terms}` | – (no auth) | `text/markdown` legal document |
 | `GET /api/public/summaries/:slug` | – | `Summary` without owner-only fields (`isOwner:false`); 404 if private/expired |
 
@@ -324,7 +326,7 @@ curl -X POST https://<host>/api/v1/summaries/import \
 ```
 
 Agents reach the same import through the hosted MCP server's `add_summary` tool, authenticated with
-an API key; see [mcp.md](mcp.md).
+MCP OAuth or an API key; see [mcp.md](mcp.md).
 
 ### Chat stream (what iOS must parse)
 

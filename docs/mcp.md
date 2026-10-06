@@ -4,8 +4,90 @@ The Chippy server hosts a [Model Context Protocol](https://modelcontextprotocol.
 `https://summary.rxlab.app/api/mcp`. With it, AI agents (Claude Code, Claude Desktop, Cursor and others)
 can add summaries to your library, search it in natural language and list it by filter, and read, create
 and edit trip diaries, from any machine.
-Agents sign in with a personal **API key** and act as the account that owns it. The app doesn't need to
-be open.
+Agents sign in with **OAuth** or a personal **API key**, acting as the connected account. The app
+doesn't need to be open.
+
+## OAuth sign-in
+
+An OAuth-capable agent needs only the Streamable HTTP endpoint URL. An installed plugin can bundle
+that connection in `mcp.json`; the agent discovers Chippy's authorization server, registers a public
+OAuth client, opens RxLab sign-in, and asks the user to approve Chippy access. Installing the plugin
+does not bypass the user's sign-in or consent.
+
+Chippy acts as both the MCP resource server and a small OAuth authorization server. RxAuth proves
+the user's identity through a **dedicated confidential client** and its existing authorization-code
++ S256 PKCE flow. Chippy then issues its own opaque MCP credentials, bound to the MCP resource,
+client and consented scopes. RxAuth app access tokens are never forwarded to MCP agents and remain
+invalid at `/api/mcp`.
+
+### Deployment
+
+1. Register a confidential OAuth client in RxAuth named **Chippy MCP**. Enable the authorization-code
+   flow, S256 PKCE, and the `openid profile email` scopes. Register the exact callback URL
+   `https://summary.rxlab.app/api/mcp/oauth/callback` (use your MCP origin for another deployment).
+2. Set server-only `MCP_RXAUTH_CLIENT_ID` and `MCP_RXAUTH_CLIENT_SECRET` to that client's credentials.
+   Do not add this client to the ordinary `/api/v1` client allowlist. It is used only to prove MCP login.
+3. Set `MCP_RESOURCE_URL=https://summary.rxlab.app/api/mcp`. This canonical audience is never taken
+   from incoming Host headers. Only HTTPS is supported, except HTTP on loopback for local development.
+4. Apply `server/drizzle/0016_mcp_oauth.sql` through the normal migration command before deploying.
+5. Install/enable the Chippy plugin or add its URL in an OAuth-capable MCP agent, then connect and
+   approve access. OpenAI hosts can use **dynamic client registration (DCR)**; choose DCR when
+   configuring a custom MCP connection. Chippy advertises public-client token authentication (`none`)
+   and `S256`, and returns `iss` in authorization responses. CIMD is not advertised.
+
+Local development uses, for example, `MCP_RESOURCE_URL=http://127.0.0.1:3000/api/mcp`; register that
+origin's `/api/mcp/oauth/callback` in the development RxAuth client. Upstream discovery is not proxied
+or rewritten: the broker uses RxAuth's existing `/api/oauth/authorize`, `/api/oauth/token` and
+`/.well-known/jwks.json` endpoints under `AUTH_ISSUER`.
+
+### Endpoints and permissions
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /.well-known/oauth-protected-resource` | MCP audience, authorization server and supported scopes |
+| `GET /.well-known/oauth-protected-resource/api/mcp` | Path-specific resource metadata alias |
+| `GET /.well-known/oauth-authorization-server` | Chippy authorization server discovery |
+| `POST /api/mcp/oauth/register` | Public-client registration; JSON metadata, HTTPS or loopback callbacks |
+| `GET /api/mcp/oauth/authorize` | Validate client, callback, scope, resource and S256 challenge; begin RxAuth login |
+| `GET /api/mcp/oauth/callback` | Verify upstream state, browser cookie and signed RxAuth identity |
+| `GET/POST /api/mcp/oauth/consent` | Show permissions and approve or deny this agent's access |
+| `POST /api/mcp/oauth/token` | Exchange a code or rotate a refresh token; URL-encoded form |
+| `POST /api/mcp/oauth/revoke` | Revoke the grant associated with an access or refresh token |
+
+Authorization and token requests must include `resource` equal to `MCP_RESOURCE_URL`. Codes are
+bound to the registered client, exact callback and S256 verifier, expire after one minute, and can
+be used once. Login/consent requests expire after ten minutes and are bound to an HttpOnly,
+SameSite browser cookie. The consent page shows the agent's name, callback origin and requested
+permissions; it never silently grants access based on a previous RxAuth consent.
+
+| Scope | Tools |
+|---|---|
+| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip` |
+| `chippy:write` | `add_summary`, `create_trip`, `update_trip`, `update_place`, `upload_trip_image`, `add_to_trip_from_source` |
+| Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
+
+An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
+called with insufficient permission returns an OAuth challenge in `_meta["mcp/www_authenticate"]`
+so the host can request approval for the needed scope before retrying. Invalid or expired transport
+credentials get `401` with a `WWW-Authenticate` challenge pointing to resource metadata.
+
+Access tokens expire after one hour. Refresh tokens rotate on every use, with a thirty-day maximum
+grant lifetime from consent. Refresh can retain or explicitly narrow the grant's scopes; it cannot
+expand them. Narrowing also removes those permissions from earlier access tokens in that grant.
+Replaying a consumed code or refresh token revokes the whole grant. Revocation likewise invalidates
+all its credentials, and finalized account deletion cascades to grants, codes and tokens. Only
+credential hashes are persisted; upstream access/refresh tokens are discarded after login.
+
+The cleanup cron retires expired login state, codes and credentials. Registered client IDs remain
+stable across reconnects. Anonymous registration is limited to sixty clients per minute across
+instances; deployment-level request limits can further protect this public endpoint.
+
+### Verification
+
+`server/tests/integration/mcp-oauth.test.ts` covers discovery, registration, login and consent,
+PKCE/client/callback/resource binding, scope enforcement, refresh rotation and replay, revocation,
+expiry, private-library isolation and account-deletion cascade. It uses a temporary SQLite file so
+interactive transactions use the same shared database across connections.
 
 ## API keys
 
@@ -148,7 +230,8 @@ The trip format and its operations are specified in [trips.md](trips.md).
 | `server/lib/mcp/server.ts` | Tool catalog (zod input schemas), mapping to the summary and trip services, results and usage counting |
 | `server/lib/services/trips.ts` | Trip create/read/list/edit and the trip agent run behind the trip tools |
 | `server/lib/services/api-keys.ts` | Key generation, hashing, list/create/rename/revoke, authentication and usage counters |
-| `server/lib/http/handler.ts` | `withApiKeyAuth`: `401 MISSING_API_KEY` / `INVALID_API_KEY` with `WWW-Authenticate: Bearer` |
+| `server/lib/http/handler.ts` | `withMcpAuth`: personal keys or resource-bound OAuth tokens; OAuth discovery challenges on `401` |
+| `server/lib/mcp/oauth*.ts`, `server/app/api/mcp/oauth/**` | OAuth discovery, registration, RxAuth login, consent and credential lifecycle |
 | `server/app/api/v1/api-keys/**` | Key management routes (OAuth) |
 | `server/tests/integration/mcp.test.ts` | Key routes and MCP tool calls end to end |
 | `summary-chip/MCP/MCPSettingsSheet.swift` | The settings sheet: endpoint, key list with usage, revoke |

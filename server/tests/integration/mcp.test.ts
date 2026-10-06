@@ -135,7 +135,7 @@ describe("/api/mcp", () => {
 
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
-      "add_summary", "add_to_trip_from_source", "create_trip", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_trip", "upload_trip_image",
+      "add_summary", "add_to_trip_from_source", "create_trip", "get_profile", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_trip", "upload_trip_image",
     ]);
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");

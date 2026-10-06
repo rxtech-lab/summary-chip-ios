@@ -1,4 +1,7 @@
 import { generateKeyPair, SignJWT } from "jose";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { MockAiProvider } from "@/lib/ai/mock";
 import { setAiProviderForTests } from "@/lib/ai/provider";
 import { setBearerConfigForTests } from "@/lib/auth/bearer";
@@ -36,10 +39,12 @@ export interface TestEnv {
 }
 
 /** Fresh in-memory libsql database (migrated), memory object store, mock AI and local JWKS. */
-export async function setupTestEnv(): Promise<TestEnv> {
+export async function setupTestEnv(options: { transactional?: boolean } = {}): Promise<TestEnv> {
   keys ??= await generateKeyPair("RS256");
   setBearerConfigForTests({ issuer: ISSUER, allowedClientIds: new Set([CLIENT_ID]), key: keys.publicKey });
-  const handle = createDatabase(":memory:");
+  // libsql opens a new connection for interactive transactions; :memory: would lose the schema.
+  const directory = options.transactional ? mkdtempSync(path.join(tmpdir(), "chippy-test-")) : undefined;
+  const handle = createDatabase(directory ? `file:${path.join(directory, "db.sqlite")}` : ":memory:");
   await handle.migrate();
   setDatabaseForTests(handle.db);
   const store = new MemoryObjectStore();
@@ -67,6 +72,7 @@ export async function setupTestEnv(): Promise<TestEnv> {
       setFlightProviderForTests(undefined);
       setFlightTrackerForTests(undefined);
       handle.close();
+      if (directory) rmSync(directory, { recursive: true, force: true });
     },
   };
 }

@@ -116,7 +116,7 @@ app/
   api/v1/account/deletion           schedule / read / cancel account deletion (7-day grace)
   api/v1/legal/{privacy,terms}      markdown legal documents (public)
   api/v1/api-keys[/[id]]            list / create / rename / revoke MCP API keys (hashed)
-  api/mcp                           hosted MCP server (API key auth, stateless) — docs/mcp.md
+  api/mcp                           hosted MCP server (OAuth or API key, stateless) — docs/mcp.md
   api/public/summaries/[slug]       App Clip read
   api/cron/cleanup                  retire OG images of expired links + orphan uploads
   api/cron/account-deletion         hourly: purge accounts whose deletion came due
@@ -181,6 +181,14 @@ are unset, only the plain fetch runs.
 
 `AUTH_ISSUER` (default `https://auth.rxlab.app`) must serve `/.well-known/jwks.json`. Tokens must be RS256,
 have `sub`, `exp` and a `client_id` in `IOS_OAUTH_CLIENT_ID` / `RXLAB_ALLOWED_CLIENT_IDS`.
+
+The MCP endpoint supports a separate OAuth authorization-code flow with S256 PKCE and public
+dynamic client registration, alongside existing personal API keys. Register one confidential
+RxAuth client for Chippy MCP with redirect URI `https://summary.rxlab.app/api/mcp/oauth/callback`
+and `openid profile email` scopes. Set `MCP_RXAUTH_CLIENT_ID` / `MCP_RXAUTH_CLIENT_SECRET`, configure
+the canonical `MCP_RESOURCE_URL`, and apply database migration `0016_mcp_oauth` before enabling
+OAuth connections. These server credentials never go in the plugin package. See
+[MCP OAuth setup](../docs/mcp.md#oauth-sign-in) for endpoints, scopes, and local testing.
 
 ### AI
 
