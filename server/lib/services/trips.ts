@@ -7,16 +7,18 @@ import type { TranslationLanguage } from "@/lib/contracts/api";
 import { parseOperations, sourceImages } from "@/lib/ai/trip-agent";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import {
+  PLANNED_COLLECTIONS,
   tripDocumentSchema,
   type createTripSchema,
   type ingestTripSchema,
+  type planSelectionSchema,
   type putTripSchema,
   type TripDocument,
   type TripOperation,
   type tripOperationsRequestSchema,
 } from "@/lib/contracts/trip";
 import type { Database } from "@/lib/db/client";
-import { summaries, trips, type SummaryRow, type TripRow, type Visibility } from "@/lib/db/schema";
+import { summaries, tripPlanSelections, trips, type SummaryRow, type TripRow, type Visibility } from "@/lib/db/schema";
 import { EXCERPT_LIMIT, SOURCE_TEXT_LIMIT } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
@@ -28,7 +30,7 @@ import { queueTripChangesStatement, startTripNotification } from "./trip-notific
 import { shareUrlFor } from "./serialize";
 import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, resolveDeps, type ServiceDeps } from "./summaries";
 import { canViewerRead } from "./share-access";
-import { applyOperations, tripDayCount, tripDigest, tripText } from "./trip-document";
+import { applyOperations, tripDayCount, tripDigest, tripText, type PlanSelections } from "./trip-document";
 import { listTripTranslations, readTripDocument, savedTripDocument, type TripTranslationStatus } from "./trip-translations";
 import { readingLanguage, translationPayer, type BillingEnvironmentResolver } from "./translations";
 
@@ -36,6 +38,7 @@ export type CreateTripInput = z.infer<typeof createTripSchema>;
 export type PutTripInput = z.infer<typeof putTripSchema>;
 export type TripOperationsInput = z.infer<typeof tripOperationsRequestSchema>;
 export type IngestTripInput = z.infer<typeof ingestTripSchema>;
+export type PlanSelectionInput = z.infer<typeof planSelectionSchema>;
 
 /** `GET /api/v1/trips/:id`. `id` is the summary's id: the trip is also a library item. */
 export interface TripJson {
@@ -62,6 +65,11 @@ export interface TripJson {
    * not translated yet show as written, and the owner is notified when it is done.
    */
   translating?: boolean;
+  /**
+   * `GET` only: the plan options the caller last picked (plan id → option id). Plans without a
+   * pick show their `defaultOptionId`, else their first option.
+   */
+  planSelections?: PlanSelections;
 }
 
 /** A trip's document as one viewer reads it, when that is a translation. */
@@ -131,7 +139,54 @@ export function withStoredDefaults(document: TripDocument): TripDocument {
     ...document,
     places: (document.places ?? []).map((place) => ({ ...place, photos: place.photos ?? [], pricing: place.pricing ?? [] })),
     views: document.views ?? [],
+    plans: document.plans ?? [],
   };
+}
+
+/** The plan options `userId` picked in a trip, without picks for plans or options that are gone. */
+export async function findPlanSelections(db: Database, trip: Pick<TripRow, "summaryId" | "document">, userId: string): Promise<PlanSelections> {
+  const rows = await db.select({ selections: tripPlanSelections.selections }).from(tripPlanSelections)
+    .where(and(eq(tripPlanSelections.tripId, trip.summaryId), eq(tripPlanSelections.userId, userId))).limit(1);
+  const saved = rows[0]?.selections ?? {};
+  const plans = new Map((trip.document.plans ?? []).map((plan) => [plan.id, plan]));
+  return Object.fromEntries(Object.entries(saved).filter(([planId, optionId]) => plans.get(planId)?.options.some((option) => option.id === optionId)));
+}
+
+/**
+ * `PUT /api/v1/trips/:id/plan-selections`: anyone who can read the trip picks one option of a plan
+ * for themselves (`optionId: null` goes back to the default). The document doesn't change.
+ */
+export async function selectPlanOption(db: Database, viewerId: string, id: string, input: PlanSelectionInput, now = new Date()): Promise<{ planSelections: PlanSelections }> {
+  const found = await findTripForViewer(db, id, viewerId);
+  if (!found) throw tripNotFound();
+  const plan = found.trip.document.plans.find((item) => item.id === input.planId);
+  if (!plan) throw new ApiError(404, "PLAN_NOT_FOUND", `The trip has no plan "${input.planId}"`);
+  if (input.optionId !== null && !plan.options.some((option) => option.id === input.optionId)) {
+    throw new ApiError(404, "PLAN_OPTION_NOT_FOUND", `Plan "${plan.id}" has no option "${input.optionId}"`);
+  }
+  const current = await findPlanSelections(db, found.trip, viewerId);
+  const selections: PlanSelections = { ...current };
+  if (input.optionId === null) delete selections[plan.id];
+  else selections[plan.id] = input.optionId;
+  await db.insert(tripPlanSelections)
+    .values({ tripId: found.trip.summaryId, userId: viewerId, selections, updatedAt: now })
+    .onConflictDoUpdate({ target: [tripPlanSelections.tripId, tripPlanSelections.userId], set: { selections, updatedAt: now } });
+  return { planSelections: selections };
+}
+
+/**
+ * A save from an app build from before plans (its document has no `plans` key) keeps the saved
+ * plans and puts back the records' `planOptionId`s it dropped, so every alternative stays one.
+ */
+export function withSavedPlans(document: TripDocument, saved: TripDocument): TripDocument {
+  if (!saved.plans?.length) return document;
+  const restored: TripDocument = { ...document, plans: saved.plans };
+  for (const collection of PLANNED_COLLECTIONS) {
+    const options = new Map((saved[collection] as { id: string; planOptionId?: string | null }[]).map((record) => [record.id, record.planOptionId]));
+    (restored as Record<string, unknown>)[collection] = (document[collection] as { id: string; planOptionId?: string | null }[])
+      .map((record) => (record.planOptionId || !options.get(record.id) ? record : { ...record, planOptionId: options.get(record.id) }));
+  }
+  return restored;
 }
 
 async function findTripRow(db: Database, summaryId: string): Promise<TripRow | undefined> {
@@ -155,8 +210,8 @@ export async function findTripForViewer(db: Database, id: string, viewerId: stri
 export async function getTrip(db: Database, id: string, viewerId: string): Promise<TripJson> {
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
-  const likedAt = await findLikedAt(db, viewerId, id);
-  return { ...toTripJson(found.summary, found.trip, viewerId), likedAt: likedAt ? likedAt.toISOString() : null };
+  const [likedAt, planSelections] = await Promise.all([findLikedAt(db, viewerId, id), findPlanSelections(db, found.trip, viewerId)]);
+  return { ...toTripJson(found.summary, found.trip, viewerId), likedAt: likedAt ? likedAt.toISOString() : null, planSelections };
 }
 
 /**
@@ -174,27 +229,41 @@ export async function readTripJson(
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
   const language = readingLanguage(found.summary, viewerId, accepted);
-  const [reading, likedAt] = await Promise.all([
+  const [reading, likedAt, planSelections] = await Promise.all([
     readTripDocument(db, found.summary, found.trip, language, translationPayer(found.summary, viewerId, options.billingEnvironment), {
       ai: options.ai,
       owner: found.summary.ownerId === viewerId,
     }),
     findLikedAt(db, viewerId, id),
+    findPlanSelections(db, found.trip, viewerId),
   ]);
   const translation = reading.document && language ? { document: reading.document, language } : null;
-  return { ...toTripJson(found.summary, found.trip, viewerId, translation), likedAt: likedAt ? likedAt.toISOString() : null, translating: reading.translating };
+  return {
+    ...toTripJson(found.summary, found.trip, viewerId, translation),
+    likedAt: likedAt ? likedAt.toISOString() : null,
+    translating: reading.translating,
+    planSelections,
+  };
 }
 
 /**
  * The trip's document as `viewerId` reads it (like `readTripJson`), from the translations already
  * saved: nothing is translated, so it's free and fast. Texts not translated yet show as written.
  */
-export async function readSavedTripDocument(db: Database, id: string, viewerId: string, accepted: TranslationLanguage | null): Promise<{ document: TripDocument; language: TranslationLanguage | null }> {
+export async function readSavedTripDocument(
+  db: Database,
+  id: string,
+  viewerId: string,
+  accepted: TranslationLanguage | null,
+): Promise<{ document: TripDocument; language: TranslationLanguage | null; planSelections: PlanSelections }> {
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
   const language = readingLanguage(found.summary, viewerId, accepted);
-  const translated = language ? await savedTripDocument(db, found.trip, language) : null;
-  return translated ? { document: translated, language } : { document: found.trip.document, language: null };
+  const [translated, planSelections] = await Promise.all([
+    language ? savedTripDocument(db, found.trip, language) : null,
+    findPlanSelections(db, found.trip, viewerId),
+  ]);
+  return translated ? { document: translated, language, planSelections } : { document: found.trip.document, language: null, planSelections };
 }
 
 /** `{ originalLanguage, items }`: the languages the trip is already translated into. */
@@ -372,12 +441,15 @@ export async function replaceTrip(
   id: string,
   input: PutTripInput,
   deps: Pick<ServiceDeps, "ai" | "now"> = {},
-  /** False when the client sent no `views` (an app build from before them): the saved views are kept. */
-  hasViews = true,
+  /** What the client's document carries: an app build from before `views` or `plans` leaves them out, and the saved ones are kept. */
+  sent: { views: boolean; plans: boolean } = { views: true, plans: true },
 ): Promise<TripJson> {
   const { summary, trip } = await getOwnedTrip(db, id, ownerId);
   if (trip.revision !== input.revision) throw revisionConflict(trip.revision);
-  const document = hasViews ? input.document : validDocument({ ...input.document, views: trip.document.views }, "The save");
+  let document = input.document;
+  if (!sent.views) document = { ...document, views: trip.document.views };
+  if (!sent.plans) document = withSavedPlans(document, trip.document);
+  if (!sent.views || !sent.plans) document = validDocument(document, "The save");
   return saveDocument(db, deps, summary, trip, document);
 }
 

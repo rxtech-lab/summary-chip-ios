@@ -36,6 +36,14 @@ export const SEGMENT_MODES = ["train", "flight", "ferry", "bus", "car", "walk", 
 export const TRAIN_CATEGORIES = ["shinkansen", "limited_express", "rapid", "local", "other"] as const;
 export const SEAT_CLASSES = ["reserved", "non_reserved", "green", "gran_class", "economy", "premium_economy", "business", "first"] as const;
 export const EXPENSE_CATEGORIES = ["transport", "lodging", "food", "activity", "shopping", "pass", "other"] as const;
+export const PLAN_SCOPES = ["trip", "day"] as const;
+export const MAX_PLAN_OPTIONS = 6;
+
+/**
+ * The plan option a record belongs to (`plans[].options[].id`). Without it the record is shared by
+ * every option; with it, it only counts while that option is the one picked.
+ */
+const planOptionId = id.nullish();
 
 /** An image on the web (https only): clients and the PDF export load it straight from its URL. */
 export const imageUrl = z.string().trim().max(4096).url().refine((value) => value.startsWith("https://"), "must be an https URL");
@@ -119,6 +127,7 @@ export const daySchema = z.object({
   tip: longText.nullish(),
   stayId: id.nullish(),
   transportIds: z.array(id).max(20).default([]),
+  planOptionId,
 });
 
 export const trainDetailsSchema = z.object({
@@ -177,6 +186,7 @@ export const transportSchema = z.object({
   status: z.enum(BOOKING_STATUSES).default("planned"),
   selectedOptionId: id.nullish(),
   options: z.array(transportOptionSchema).min(1).max(10),
+  planOptionId,
 });
 
 export const hotelSchema = z.object({
@@ -191,6 +201,7 @@ export const hotelSchema = z.object({
   price: moneySchema.nullish(),
   url: url.nullish(),
   status: z.enum(BOOKING_STATUSES).default("planned"),
+  planOptionId,
 });
 
 export const expenseSchema = z.object({
@@ -205,9 +216,10 @@ export const expenseSchema = z.object({
   coveredByExpenseId: id.nullish(),
   /** The transport or hotel this cost belongs to. */
   linkedId: id.nullish(),
+  planOptionId,
 });
 
-export const noteSchema = z.object({ id, title: shortText.min(1), text: longText });
+export const noteSchema = z.object({ id, title: shortText.min(1), text: longText, planOptionId });
 export const tripSourceSchema = z.object({ title: shortText.min(1), url });
 
 /**
@@ -219,6 +231,32 @@ export const tripViewSchema = z.object({
   title: shortText.min(1),
   dayId: id.nullish(),
   spec: viewSpecSchema,
+  planOptionId,
+});
+
+export const planOptionSchema = z.object({
+  /** Unique across all of the trip's plans: records point at it with `planOptionId`. */
+  id,
+  /** "Route 1 · Coast", "Rainy day", "Via Sendai". */
+  label: shortText.min(1),
+  /** What sets this option apart, shown under the picker. */
+  summary: longText.nullish(),
+});
+
+/**
+ * A choice between alternative plans ("Route 1 / Route 2 / Route 3"), for the whole trip
+ * (`scope: "trip"`) or one day (`scope: "day"` with its `date`). Days, transports, hotels,
+ * expenses, notes and views tagged with an option's id only show while that option is picked;
+ * each reader's pick is saved per user, else `defaultOptionId`, else the first option.
+ */
+export const planSchema = z.object({
+  id,
+  title: shortText.min(1),
+  scope: z.enum(PLAN_SCOPES).default("trip"),
+  /** The day a `day` plan decides (`YYYY-MM-DD`). Its options' days must be on it. */
+  date: isoDate.nullish(),
+  options: z.array(planOptionSchema).min(2).max(MAX_PLAN_OPTIONS),
+  defaultOptionId: id.nullish(),
 });
 
 const timeZone = z.string().trim().min(1).max(64);
@@ -257,12 +295,15 @@ const tripDocumentBase = z.object({
   notes: z.array(noteSchema).max(100).default([]),
   sources: z.array(tripSourceSchema).max(200).default([]),
   views: z.array(tripViewSchema).max(50).default([]),
+  plans: z.array(planSchema).max(50).default([]),
 });
 
 export type TripDocument = z.infer<typeof tripDocumentBase>;
 
 /** The arrays of records with ids; the `collection` of a `delete` operation. */
-export const TRIP_COLLECTIONS = ["places", "days", "transports", "hotels", "expenses", "notes", "views"] as const;
+export const TRIP_COLLECTIONS = ["places", "days", "transports", "hotels", "expenses", "notes", "views", "plans"] as const;
+/** The collections whose records can belong to a plan option (`planOptionId`). */
+export const PLANNED_COLLECTIONS = ["days", "transports", "hotels", "expenses", "notes", "views"] as const;
 
 /** Problems with ids that point nowhere, duplicated ids, and dates outside the trip. */
 export function tripIntegrityIssues(doc: TripDocument): { path: (string | number)[]; message: string }[] {
@@ -314,6 +355,30 @@ export function tripIntegrityIssues(doc: TripDocument): { path: (string | number
     if (e.coveredByExpenseId) ref(expenses.has(e.coveredByExpenseId) && e.coveredByExpenseId !== e.id, ["expenses", i, "coveredByExpenseId"], e.coveredByExpenseId);
     if (e.linkedId) ref(linkable.has(e.linkedId), ["expenses", i, "linkedId"], e.linkedId);
   });
+
+  // Plans: option ids are unique across plans, and every planOptionId names one.
+  const optionPlans = new Map<string, TripDocument["plans"][number]>();
+  doc.plans.forEach((plan, i) => {
+    if (plan.scope === "day") {
+      if (!plan.date) issues.push({ path: ["plans", i, "date"], message: "a day plan needs its date" });
+      else if (plan.date < doc.startDate || plan.date > doc.endDate) issues.push({ path: ["plans", i, "date"], message: "must be within the trip's dates" });
+    }
+    plan.options.forEach((option, j) => {
+      if (optionPlans.has(option.id)) issues.push({ path: ["plans", i, "options", j, "id"], message: `duplicate plan option id "${option.id}"` });
+      optionPlans.set(option.id, plan);
+    });
+    if (plan.defaultOptionId) ref(plan.options.some((o) => o.id === plan.defaultOptionId), ["plans", i, "defaultOptionId"], plan.defaultOptionId);
+  });
+  for (const key of PLANNED_COLLECTIONS) {
+    (doc[key] as { planOptionId?: string | null }[]).forEach((record, i) => {
+      if (!record.planOptionId) return;
+      const plan = optionPlans.get(record.planOptionId);
+      ref(plan !== undefined, [key, i, "planOptionId"], record.planOptionId);
+      if (key === "days" && plan?.scope === "day" && plan.date && (record as { date: string }).date !== plan.date) {
+        issues.push({ path: [key, i, "date"], message: `must be ${plan.date}, the date of plan "${plan.id}"` });
+      }
+    });
+  }
   return issues;
 }
 
@@ -338,6 +403,12 @@ export const tripOperationSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("upsert_expense"), expense: expenseSchema }),
   z.object({ op: z.literal("upsert_note"), note: noteSchema }),
   z.object({ op: z.literal("upsert_view"), view: tripViewSchema }),
+  z.object({ op: z.literal("upsert_plan"), plan: planSchema }),
+  /**
+   * Settles a plan on one option: that option's records stay (no longer tagged), the other
+   * options' records and the plan are deleted. Unknown plan or option ids are ignored.
+   */
+  z.object({ op: z.literal("resolve_plan"), id, optionId: id }),
   z.object({ op: z.literal("add_source"), source: tripSourceSchema }),
   z.object({
     op: z.literal("delete"),
@@ -361,6 +432,12 @@ export const putTripSchema = z.object({
 export const tripOperationsRequestSchema = z.object({
   operations: z.array(tripOperationSchema).min(1).max(200),
   revision: z.number().int().min(0).nullish(),
+});
+
+/** `PUT /api/v1/trips/:id/plan-selections`: the reader picks an option of a plan; `null` goes back to the default. */
+export const planSelectionSchema = z.object({
+  planId: id,
+  optionId: id.nullable(),
 });
 
 export const ingestTripSchema = z.object({

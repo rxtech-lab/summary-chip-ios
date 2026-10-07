@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ALLOWED_TTL_DAYS } from "@/lib/config";
 import { CATEGORIES, LIBRARY_SCOPES, importSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { VIEW_GUIDE } from "@/lib/ai/trip-agent";
+import { PLAN_GUIDE, VIEW_GUIDE } from "@/lib/ai/trip-agent";
 import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
 import { SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
@@ -14,7 +14,7 @@ import { authChallenge, securitySchemes, toolScope } from "./oauth-config";
 import { importSummary, listSummaries } from "@/lib/services/summaries";
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
-import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, type TripJson } from "@/lib/services/trips";
+import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 
 export const TOOL_NAMES = {
@@ -28,6 +28,7 @@ export const TOOL_NAMES = {
   updatePlace: "update_place",
   uploadTripImage: "upload_trip_image",
   addToTripFromSource: "add_to_trip_from_source",
+  choosePlanOption: "choose_plan_option",
   getProfile: "get_profile",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
@@ -37,8 +38,10 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and each "
   + "added chip counts against the user's summary allowance. Trips are structured travel diaries (days, places, trains and "
-  + "flights, hotels, expenses, and custom views such as a fare comparison table): list_trips and get_trip read them, create_trip saves a new TripDocument, update_trip applies "
-  + "entity-level operations (upsert or delete records by id; free), update_place changes a place's details (description, "
+  + "flights, hotels, expenses, custom views such as a fare comparison table, and alternative plans such as route 1 / route 2 "
+  + "for a day or the whole trip): list_trips and get_trip read them, create_trip saves a new TripDocument, update_trip applies "
+  + "entity-level operations (upsert or delete records by id; free), choose_plan_option records which alternative the user "
+  + "picked, update_place changes a place's details (description, "
   + "photos, hours, prices, website, phone…) without resending it, upload_trip_image stores a photo for a place or view and "
   + "returns its URL, and add_to_trip_from_source lets Chippy's trip agent "
   + "add a web page or text (a booking, a timetable) to a trip, which costs points.";
@@ -94,7 +97,15 @@ function listPayload(page: { items: SummaryJson[]; nextCursor: string | null }) 
 
 /** What the trip tools return for a trip: the document with its id, revision and link. */
 function tripPayload(trip: TripJson) {
-  return { id: trip.id, revision: trip.revision, visibility: trip.visibility, shareUrl: trip.shareUrl, updatedAt: trip.updatedAt, document: trip.document };
+  return {
+    id: trip.id,
+    revision: trip.revision,
+    visibility: trip.visibility,
+    shareUrl: trip.shareUrl,
+    updatedAt: trip.updatedAt,
+    document: trip.document,
+    ...(trip.planSelections ? { planSelections: trip.planSelections } : {}),
+  };
 }
 
 function describe(error: unknown): string {
@@ -281,8 +292,9 @@ export function createMcpServer(context: McpContext): McpServer {
     _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getTrip) },
     title: "Get Trip",
     description: "Read a trip's full TripDocument (days with moments and routes, places with coordinates, transports with "
-      + "train and flight segments, hotels, expenses, notes, sources, custom views) and its current revision. Pass the revision to "
-      + "update_trip to make sure nobody changed the trip in between.",
+      + "train and flight segments, hotels, expenses, notes, sources, custom views, alternative plans) and its current revision. "
+      + "planSelections maps each plan id to the option the user picked; plans without a pick follow their defaultOptionId, "
+      + "else their first option. Pass the revision to update_trip to make sure nobody changed the trip in between.",
     inputSchema: { tripId: z.string().trim().min(1).max(100).describe("The trip's id, from list_trips.") },
     annotations: { title: "Get Trip", readOnlyHint: true, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.getTrip, async () => {
@@ -294,8 +306,10 @@ export function createMcpServer(context: McpContext): McpServer {
     _meta: { securitySchemes: securitySchemes(TOOL_NAMES.createTrip) },
     title: "Create Trip",
     description: "Create a trip from a complete TripDocument (see docs/trips.md: version 1, title, startDate, endDate, "
-      + "timeZone, currency, places, days, transports, hotels, expenses, notes, sources). Records reference each other by "
-      + "id, and every referenced id must exist. The trip appears in the user's library; it does not count against the "
+      + "timeZone, currency, places, days, transports, hotels, expenses, notes, sources, views, plans). Records reference each other by "
+      + "id, and every referenced id must exist. "
+      + `${PLAN_GUIDE} `
+      + "The trip appears in the user's library; it does not count against the "
       + "summary allowance.",
     inputSchema: {
       document: tripDocumentSchema.describe("The trip document."),
@@ -312,9 +326,11 @@ export function createMcpServer(context: McpContext): McpServer {
     _meta: { securitySchemes: securitySchemes(TOOL_NAMES.updateTrip) },
     title: "Update Trip",
     description: "Edit a trip with operations applied in order, as one change: set_meta (title, dates, intro…), "
-      + "upsert_place / upsert_day / upsert_transport / upsert_hotel / upsert_expense / upsert_note / upsert_view (a full "
-      + "record; the same id replaces it, a new id adds it), update_place (id, changes: only the fields to change, addPhotos), add_source, and delete (collection + id; references to it are cleared). "
+      + "upsert_place / upsert_day / upsert_transport / upsert_hotel / upsert_expense / upsert_note / upsert_view / upsert_plan (a full "
+      + "record; the same id replaces it, a new id adds it), update_place (id, changes: only the fields to change, addPhotos), "
+      + "resolve_plan (id, optionId), add_source, and delete (collection + id; references to it are cleared). "
       + `${VIEW_GUIDE} `
+      + `${PLAN_GUIDE} `
       + "Places can carry guidebook details: description, photos ([{ url, caption, credit, sourceUrl }], direct https "
       + "image URLs you have verified, e.g. from Wikimedia Commons or the place's own site), hours, visitDuration, pricing "
       + "([{ label, price: { amount, currency }, note }]), website and phone; the app shows them with directions to the coordinate. "
@@ -330,6 +346,24 @@ export function createMcpServer(context: McpContext): McpServer {
     const input = tripOperationsRequestSchema.parse({ operations: args.operations, revision: args.revision });
     const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
     return { result: success({ trip: tripPayload(trip) }, `Updated "${trip.document.title}" (revision ${trip.revision}).`) };
+  }));
+
+  server.registerTool(TOOL_NAMES.choosePlanOption, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.choosePlanOption) },
+    title: "Choose Plan Option",
+    description: "Pick which option of one of a trip's alternative plans (route 1 / route 2…) the user follows; the app then "
+      + "shows that option's days, hotels and transport. Saved for the user only; the trip itself doesn't change. Only "
+      + "call it when the user tells you which option they want; optionId null goes back to the plan's default. To settle "
+      + "a plan for good (delete the other options), use update_trip with resolve_plan instead. Free.",
+    inputSchema: {
+      tripId: z.string().trim().min(1).max(100).describe("The trip's id."),
+      planId: z.string().trim().min(1).max(80).describe("The plan's id, from get_trip (document.plans)."),
+      optionId: z.string().trim().min(1).max(80).nullable().describe("The option to follow, or null for the plan's default."),
+    },
+    annotations: { title: "Choose Plan Option", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.choosePlanOption, async () => {
+    const { planSelections } = await selectPlanOption(db, principal.sub, args.tripId, { planId: args.planId, optionId: args.optionId });
+    return { result: success({ planSelections }, `Now following ${args.optionId ?? "the default option"} for plan ${args.planId}.`) };
   }));
 
   server.registerTool(TOOL_NAMES.updatePlace, {

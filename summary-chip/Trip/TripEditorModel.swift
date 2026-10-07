@@ -62,6 +62,10 @@ final class TripEditorModel {
     private(set) var flights: [TripFlight] = []
     /// When the user starred the trip (it's under Likes). Only reads carry it, so saves keep it as is.
     var likedAt: Date?
+    /// The plan options the user follows (plan id → option id). Only reads carry them, so saves keep them as is.
+    private(set) var planSelections: [String: String] = [:]
+    /// The trip as the user follows it: only the picked plan options' days, stays, transport and costs.
+    private(set) var displayDocument: TripDocument?
 
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var pendingFlightsTask: Task<Void, Never>?
@@ -71,14 +75,49 @@ final class TripEditorModel {
         self.id = id
     }
 
+    /// The trip as written, every plan option included: what edits apply to.
     var document: TripDocument? { trip?.document }
+
+    /// Sets the trip (and the user's picks, when the response carries them) and refreshes what's shown.
+    private func apply(_ trip: Trip) {
+        self.trip = trip
+        if let selections = trip.planSelections { planSelections = selections }
+        displayDocument = trip.document.following(planSelections)
+    }
+
+    /// Follows another option of a plan at once and returns the save of the pick for the user; when
+    /// saving fails the pick is undone and the task throws.
+    @discardableResult
+    func selectPlanOption(planID: String, optionID: String) -> Task<Void, any Error> {
+        let previous = planSelections[planID]
+        follow(planSelections.merging([planID: optionID]) { $1 })
+        return Task {
+            do {
+                let saved = try await api.selectTripPlanOption(tripId: id, planId: planID, optionId: optionID)
+                // A later pick of the same plan wins over this response.
+                if planSelections[planID] == optionID { follow(saved) }
+            } catch {
+                if planSelections[planID] == optionID {
+                    var reverted = planSelections
+                    reverted[planID] = previous
+                    follow(reverted)
+                }
+                throw error
+            }
+        }
+    }
+
+    private func follow(_ selections: [String: String]) {
+        planSelections = selections
+        if let trip { displayDocument = trip.document.following(selections) }
+    }
 
     func load() async {
         isLoading = true
         defer { isLoading = false }
         do {
             let fresh = try await api.trip(id: id)
-            trip = fresh
+            apply(fresh)
             likedAt = fresh.likedAt
             loadError = nil
             await loadFlights()
@@ -97,18 +136,18 @@ final class TripEditorModel {
         var document = trip.document
         edit(&document)
         do {
-            self.trip = try await api.saveTrip(id: id, document: document, revision: trip.revision)
+            apply(try await api.saveTrip(id: id, document: document, revision: trip.revision))
         } catch let error as SummaryAPIError where error.isTripRevisionConflict {
             // Someone else saved first: reapply this edit (it targets records by id) on their version.
             let fresh = try await api.trip(id: id)
             // Switched to a translation on another device meanwhile: show it, but don't save over it.
             guard !fresh.isTranslated else {
-                self.trip = fresh
+                apply(fresh)
                 throw error
             }
             var merged = fresh.document
             edit(&merged)
-            self.trip = try await api.saveTrip(id: id, document: merged, revision: fresh.revision)
+            apply(try await api.saveTrip(id: id, document: merged, revision: fresh.revision))
             show(.reloaded)
         }
         savedCount += 1
@@ -138,7 +177,7 @@ final class TripEditorModel {
     /// The trip agent saved an edit from its chat: reload so the diary shows it.
     func agentDidEdit() async {
         guard let fresh = try? await api.trip(id: id) else { return }
-        trip = fresh
+        apply(fresh)
         savedCount += 1
         show(.agentDone)
         await loadFlights()
@@ -146,7 +185,8 @@ final class TripEditorModel {
 
     /// Adds or updates the trip's events in the user's calendar.
     func syncCalendar(quietly: Bool = false) async throws {
-        guard let document else { return }
+        // Only the options the user follows go in the calendar.
+        guard let document = displayDocument else { return }
         if !quietly { notice = .syncingCalendar }
         do {
             try await TripCalendarSync.shared.sync(document, tripID: id)
@@ -176,7 +216,7 @@ final class TripEditorModel {
             notice = nil
             return
         }
-        trip = fresh
+        apply(fresh)
         likedAt = fresh.likedAt
         show(fresh.translating ? .translatingInBackground : .languageChanged)
     }
@@ -186,12 +226,15 @@ final class TripEditorModel {
         guard let current = trip, let fresh = try? await api.trip(id: id) else { return }
         likedAt = fresh.likedAt
         if fresh.revision != current.revision {
-            trip = fresh
+            apply(fresh)
             show(.reloaded)
         } else if fresh.language != current.language || fresh.translating != current.translating {
             // A background translation finished (or another device switched the language).
-            trip = fresh
+            apply(fresh)
             show(.languageChanged)
+        } else if let selections = fresh.planSelections, selections != planSelections {
+            // Picked another option on another device.
+            apply(fresh)
         }
         await loadFlights()
     }

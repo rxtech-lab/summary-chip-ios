@@ -9,6 +9,7 @@ import * as tripRoute from "@/app/api/v1/trips/[id]/route";
 import * as operationsRoute from "@/app/api/v1/trips/[id]/operations/route";
 import * as ingestRoute from "@/app/api/v1/trips/[id]/ingest/route";
 import * as pdfRoute from "@/app/api/v1/trips/[id]/pdf/route";
+import * as planSelectionsRoute from "@/app/api/v1/trips/[id]/plan-selections/route";
 import * as chatRoute from "@/app/api/v1/chat/route";
 import { tripChatTools } from "@/lib/ai/chat";
 import type { TripDocument } from "@/lib/contracts/trip";
@@ -69,6 +70,31 @@ function operations(id: string, body: unknown, token = env.tokens.alice) {
 
 function ingest(id: string, body: unknown, token = env.tokens.alice) {
   return ingestRoute.POST(apiRequest("POST", `/api/v1/trips/${id}/ingest`, { token, body }), params({ id }));
+}
+
+function selectPlan(id: string, body: unknown, token = env.tokens.alice) {
+  return planSelectionsRoute.PUT(apiRequest("PUT", `/api/v1/trips/${id}/plan-selections`, { token, body }), params({ id }));
+}
+
+/** Day 2 has two routes: Sintra (with its own hotel) or Cascais. */
+function plannedDoc(): Partial<TripDocument> {
+  return doc({
+    places: [
+      ...doc().places!,
+      { id: "sintra", name: "Sintra", kind: "city", coordinate: { lat: 38.8029, lng: -9.3817 }, major: false, photos: [], pricing: [] },
+      { id: "cascais", name: "Cascais", kind: "city", coordinate: { lat: 38.6979, lng: -9.4215 }, major: false, photos: [], pricing: [] },
+    ],
+    days: [
+      ...doc().days!,
+      { id: "day-2-sintra", date: "2026-11-07", title: "Sintra palaces", highlight: false, moments: [], transportIds: [], route: { kind: "side", placeIds: ["lisbon", "sintra"] }, stayId: "hotel-sintra", planOptionId: "route-sintra" },
+      { id: "day-2-cascais", date: "2026-11-07", title: "Cascais coast", highlight: false, moments: [], transportIds: [], route: { kind: "side", placeIds: ["lisbon", "cascais"] }, stayId: null, planOptionId: "route-cascais" },
+    ],
+    hotels: [{ id: "hotel-sintra", name: "Tivoli Sintra", placeId: "sintra", checkIn: "2026-11-07", checkOut: "2026-11-08", status: "idea", planOptionId: "route-sintra" }],
+    plans: [{
+      id: "plan-day-2", title: "Day 2 route", scope: "day", date: "2026-11-07", defaultOptionId: "route-cascais",
+      options: [{ id: "route-sintra", label: "Route 1 · Sintra" }, { id: "route-cascais", label: "Route 2 · Cascais", summary: "Beach and seafood" }],
+    }],
+  } as Partial<TripDocument>);
 }
 
 async function storedTrip(id: string) {
@@ -176,6 +202,45 @@ describe("/api/v1/trips", () => {
 
     const cleared = await put(trip.id, { document: { ...trip.document, views: [] }, revision: 1 });
     expect((await cleared.json()).trip.document.views).toEqual([]);
+  });
+
+  it("saves each reader's plan picks without changing the trip", async () => {
+    const trip = await create({ document: plannedDoc(), visibility: "public" });
+    expect((await (await get(trip.id)).json()).trip.planSelections).toEqual({});
+
+    const picked = await selectPlan(trip.id, { planId: "plan-day-2", optionId: "route-sintra" });
+    expect(picked.status).toBe(200);
+    expect(await picked.json()).toEqual({ planSelections: { "plan-day-2": "route-sintra" } });
+    const read = (await (await get(trip.id)).json()).trip;
+    expect(read).toMatchObject({ revision: 0, planSelections: { "plan-day-2": "route-sintra" } });
+    expect(await env.handle.db.select().from(tripNotificationBatches)).toHaveLength(0);
+
+    // Bob reads the public trip with his own picks.
+    expect((await (await get(trip.id, env.tokens.bob)).json()).trip.planSelections).toEqual({});
+    expect((await selectPlan(trip.id, { planId: "plan-day-2", optionId: "route-cascais" }, env.tokens.bob)).status).toBe(200);
+    expect((await (await get(trip.id)).json()).trip.planSelections).toEqual({ "plan-day-2": "route-sintra" });
+
+    expect((await selectPlan(trip.id, { planId: "plan-day-2", optionId: "nowhere" })).status).toBe(404);
+    expect((await selectPlan(trip.id, { planId: "nowhere", optionId: "route-sintra" })).status).toBe(404);
+    const reset = await selectPlan(trip.id, { planId: "plan-day-2", optionId: null });
+    expect(await reset.json()).toEqual({ planSelections: {} });
+
+    const privateTrip = await create({ document: plannedDoc() });
+    expect((await selectPlan(privateTrip.id, { planId: "plan-day-2", optionId: "route-sintra" }, env.tokens.bob)).status).toBe(404);
+  });
+
+  it("keeps plans when an older app saves a document without them", async () => {
+    const trip = await create({ document: plannedDoc() });
+    const legacy = JSON.parse(JSON.stringify(trip.document)) as Partial<TripDocument> & Record<string, unknown>;
+    delete legacy.plans;
+    for (const day of legacy.days!) delete (day as { planOptionId?: string | null }).planOptionId;
+    for (const hotel of legacy.hotels!) delete (hotel as { planOptionId?: string | null }).planOptionId;
+    const saved = await put(trip.id, { document: { ...legacy, title: "Lisbon again" }, revision: 0 });
+    expect(saved.status).toBe(200);
+    const { document } = (await saved.json()).trip;
+    expect(document.plans).toHaveLength(1);
+    expect(document.days.map((day: { planOptionId?: string | null }) => day.planOptionId ?? null)).toEqual([null, "route-sintra", "route-cascais"]);
+    expect(document.hotels[0].planOptionId).toBe("route-sintra");
   });
 
   it("applies operations atomically", async () => {

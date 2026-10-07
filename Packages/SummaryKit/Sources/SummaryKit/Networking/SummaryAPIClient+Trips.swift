@@ -65,6 +65,30 @@ extension SummaryAPIClient {
         return envelope.trip
     }
 
+    /// Picks the option of a plan the user follows (`nil` goes back to the plan's default). Saved for
+    /// the user only: the document and its revision don't change. Returns all their picks.
+    @discardableResult
+    public func selectTripPlanOption(tripId: String, planId: String, optionId: String?) async throws -> [String: String] {
+        struct Body: Encodable {
+            let planId: String
+            let optionId: String?
+            // `optionId: null` is meaningful, so it is always sent.
+            func encode(to encoder: any Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(planId, forKey: .planId)
+                try c.encode(optionId, forKey: .optionId)
+            }
+            enum CodingKeys: String, CodingKey { case planId, optionId }
+        }
+        struct Envelope: Decodable { let planSelections: [String: String] }
+        let envelope: Envelope = try await send(json(
+            "/api/v1/trips/\(tripId.urlPathEscaped)/plan-selections",
+            method: "PUT",
+            body: Body(planId: planId, optionId: optionId)
+        ))
+        return envelope.planSelections
+    }
+
     /// Printing waits for the trip's photos, so it takes longer than other calls.
     public static let tripPDFTimeout: TimeInterval = 120
 

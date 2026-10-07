@@ -63,7 +63,7 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 | Scope | Tools |
 |---|---|
 | `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip` |
-| `chippy:write` | `add_summary`, `create_trip`, `update_trip`, `update_place`, `upload_trip_image`, `add_to_trip_from_source` |
+| `chippy:write` | `add_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `upload_trip_image`, `add_to_trip_from_source` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
 An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
@@ -181,6 +181,7 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `get_trip` | A trip's full TripDocument and its revision. | `getTrip` |
 | `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance). | `createTrip` (as `POST /api/v1/trips`) |
 | `update_trip` | Applies operations (upsert/delete records by id, `set_meta`, `add_source`) in order, as one change. Free. | `applyTripOperations` (as `POST /api/v1/trips/:id/operations`) |
+| `choose_plan_option` | Records which option of a plan (route 1 / route 2…) the user follows; saved per user, the document doesn't change. Free. | `selectPlanOption` (as `PUT /api/v1/trips/:id/plan-selections`) |
 | `update_place` | Changes some of a place's details (description, photos, hours, prices, website, phone…) and appends photos, without resending the place. Free. | `applyTripOperations` with an `update_place` operation |
 | `upload_trip_image` | Stores a photo (copied from a URL, or base64) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
 | `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
@@ -208,7 +209,7 @@ allowance that is used up, come back as tool errors carrying the server's messag
 The trip format and its operations are specified in [trips.md](trips.md).
 
 - `list_trips` takes no arguments and returns `{count, trips: [{id, slug, title, subtitle, startDate, endDate, revision, updatedAt, dayCount, placeCount}]}`.
-- `get_trip` takes `tripId` and returns `{trip: {id, revision, visibility, shareUrl, updatedAt, document}}`. Anyone may read
+- `get_trip` takes `tripId` and returns `{trip: {id, revision, visibility, shareUrl, updatedAt, document, planSelections}}` (`planSelections`: plan id → the option the user picked). Anyone may read
   a public trip; only the owner's key may change it.
 - `create_trip` takes `document` (a TripDocument, validated including referential integrity) and optional `visibility`
   (default `private`) and returns the same `{trip}`.

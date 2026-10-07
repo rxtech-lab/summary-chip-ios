@@ -272,3 +272,75 @@ private func loadTrip() throws -> Trip {
     }
 }
 
+
+@Suite struct TripPlanTests {
+    /// Day 2 has two routes; route 2 brings its own stay, transport and cost.
+    private func planned() -> TripDocument {
+        let kyoto = TripPlace(id: "kyoto", name: "Kyoto", kind: .city, coordinate: TripCoordinate(lat: 35.01, lng: 135.77))
+        let nara = TripPlace(id: "nara", name: "Nara", kind: .city, coordinate: TripCoordinate(lat: 34.68, lng: 135.80))
+        let kintetsu = TripTransport(
+            id: "kintetsu", date: "2026-11-07", label: "Kyoto → Nara",
+            options: [TripTransportOption(id: "k1", label: "Kintetsu", segments: [TripSegment(mode: .train, fromPlaceId: "kyoto", toPlaceId: "nara", fromName: "Kyoto", toName: "Nara")])],
+            planOptionId: "route-2"
+        )
+        return TripDocument(
+            title: "Kyoto", startDate: "2026-11-06", endDate: "2026-11-08",
+            places: [kyoto, nara],
+            days: [
+                TripDay(id: "day-1", date: "2026-11-06", title: "Arrive", route: TripDayRoute(kind: .out, placeIds: ["kyoto"])),
+                TripDay(id: "day-2a", date: "2026-11-07", title: "Arashiyama", route: TripDayRoute(kind: .side, placeIds: ["kyoto"]), planOptionId: "route-1"),
+                TripDay(id: "day-2b", date: "2026-11-07", title: "Nara", route: TripDayRoute(kind: .side, placeIds: ["kyoto", "nara"]), stayId: "nara-inn", transportIds: ["kintetsu"], planOptionId: "route-2"),
+            ],
+            transports: [kintetsu],
+            hotels: [TripHotel(id: "nara-inn", name: "Nara inn", placeId: "nara", checkIn: "2026-11-07", checkOut: "2026-11-08", planOptionId: "route-2")],
+            expenses: [TripExpense(id: "fare", dayId: "day-2b", category: .transport, title: "Kintetsu", amount: TripMoney(amount: 760, currency: "JPY"), linkedId: "kintetsu", planOptionId: "route-2")],
+            plans: [TripPlan(id: "day-2", title: "Day 2", scope: .day, date: "2026-11-07", options: [TripPlanOption(id: "route-1", label: "Route 1"), TripPlanOption(id: "route-2", label: "Route 2")])]
+        )
+    }
+
+    @Test func picksTheSavedOptionThenDefaultThenFirst() {
+        var plan = planned().plans[0]
+        #expect(plan.selectedOptionID(in: [:]) == "route-1")
+        #expect(plan.selectedOptionID(in: ["day-2": "route-2"]) == "route-2")
+        #expect(plan.selectedOptionID(in: ["day-2": "gone"]) == "route-1")
+        plan.defaultOptionId = "route-2"
+        #expect(plan.selectedOptionID(in: [:]) == "route-2")
+    }
+
+    @Test func followsThePickedOptions() {
+        let doc = planned()
+        let first = doc.following([:])
+        #expect(first.days.map(\.id) == ["day-1", "day-2a"])
+        #expect(first.transports.isEmpty)
+        #expect(first.hotels.isEmpty)
+        #expect(first.expenses.isEmpty)
+        #expect(first.places.map(\.id) == ["kyoto"])
+        #expect(first.dayPlans(on: "2026-11-07").map(\.id) == ["day-2"])
+
+        let second = doc.following(["day-2": "route-2"])
+        #expect(second.days.map(\.id) == ["day-1", "day-2b"])
+        #expect(second.days[1].stayId == "nara-inn")
+        #expect(second.places.map(\.id) == ["kyoto", "nara"])
+    }
+
+    @Test func decodesAndRoundTripsPlans() throws {
+        let doc = planned()
+        let again = try SummaryJSON.decoder().decode(TripDocument.self, from: SummaryJSON.encoder().encode(doc))
+        #expect(again == doc)
+        let legacy = try SummaryJSON.decoder().decode(TripDocument.self, from: Data(#"{"title":"T","startDate":"2026-01-01","endDate":"2026-01-02"}"#.utf8))
+        #expect(legacy.plans.isEmpty)
+    }
+
+    @Test func removingAPlanRemovesItsAlternatives() {
+        var doc = planned()
+        doc.remove(.plans, id: "day-2")
+        #expect(doc.plans.isEmpty)
+        #expect(doc.days.map(\.id) == ["day-1"])
+        #expect(doc.transports.isEmpty && doc.hotels.isEmpty && doc.expenses.isEmpty)
+    }
+
+    @Test func encodesPlanOperations() throws {
+        let data = try SummaryJSON.encoder().encode([TripOperation.resolvePlan(id: "day-2", optionId: "route-2")])
+        #expect(String(decoding: data, as: UTF8.self) == #"[{"id":"day-2","op":"resolve_plan","optionId":"route-2"}]"#)
+    }
+}

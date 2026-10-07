@@ -39,6 +39,7 @@ collection; the server refuses documents that break this (`tripIntegrityIssues`)
 | `notes` | `{ id, title, text }[]` ≤ 100 | |
 | `sources` | `{ title, url }[]` ≤ 200 | Pages the trip was built from |
 | `views` | `View[]` ≤ 50 | Custom JSON-rendered UIs (see below) |
+| `plans` | `Plan[]` ≤ 50 | Alternative plans: route 1 / route 2… for the trip or a day (see below) |
 
 **Place** — `id`, `name`, `kind` (`city | station | airport | hotel | poi | port`, default `poi`),
 `coordinate`, `address?`, `note?`, `major` (bool, default false: drawn larger on the map), and guidebook
@@ -107,7 +108,29 @@ Values are strings, numbers or null; `format` (`text`/`number`/`money`/`percent`
 it fits and as one block per row on narrow screens. The Northbound fixture has two examples: a JR pass
 vs IC card comparison (`view-jr-pass-vs-ic`) and a day view (`view-pass-day-1`).
 
-A `PUT` whose document has no `views` key (an app build from before views) keeps the saved views.
+A `PUT` whose document has no `views` key (an app build from before views) keeps the saved views; one
+without `plans` keeps the saved plans and the records' `planOptionId`s.
+
+## Plans (alternatives)
+
+A **Plan** offers alternatives the reader picks between: `id`, `title`, `scope` (`trip` | `day`, default
+`trip`), `date?` (required for `day`, within the trip), `options[]` (2–6 `{ id, label, summary? }`; option ids
+are unique across all plans) and `defaultOptionId?`.
+
+Days, transports, hotels, expenses, notes and views take an optional `planOptionId`. Untagged records are
+shared by every option; a tagged one only shows while its option is picked. A day plan's alternatives are
+separate day records on the plan's date (one per option, e.g. `day-3-route-1`, `day-3-route-2`; the server
+refuses a tagged day on another date). A trip plan's options can each carry their own days, hotels and
+transport for the dates they differ.
+
+Each reader's pick is saved for them (`trip_plan_selections`), not in the document: `PUT
+/api/v1/trips/:id/plan-selections` `{ planId, optionId }` (`null` = back to the default) by anyone who can read
+the trip, or MCP `choose_plan_option`. It doesn't change the revision or send "Trip updated". `GET` returns
+`planSelections` (plan id → option id); a plan without a valid pick follows `defaultOptionId`, else its first
+option. The apps, calendar sync and the PDF export show the trip as the reader follows it
+(`activeTripDocument` / `TripDocument.following`): records of the other options are left out, with the places
+only they visit. The apps draw a trip plan's picker in the diary's **Plans** section and a day plan's above its
+day.
 
 ## Example
 
@@ -157,10 +180,11 @@ Agents (and the app, for small edits) change a trip with operations applied in o
 | `op` | Fields | Effect |
 |---|---|---|
 | `set_meta` | `meta: { title?, subtitle?, intro?, startDate?, endDate?, timeZone?, currency? }` | Changes only the given fields; `null` clears `subtitle`/`intro` |
-| `upsert_place` / `upsert_day` / `upsert_transport` / `upsert_hotel` / `upsert_expense` / `upsert_note` / `upsert_view` | `place` / `day` / … / `view` (a full record) | Replaces the record with the same id, or adds it |
+| `upsert_place` / `upsert_day` / `upsert_transport` / `upsert_hotel` / `upsert_expense` / `upsert_note` / `upsert_view` / `upsert_plan` | `place` / `day` / … / `view` (a full record) | Replaces the record with the same id, or adds it |
+| `resolve_plan` | `id`, `optionId` | Settles a plan: that option's records stay (untagged), the other options' records and the plan are deleted |
 | `add_source` | `source: { title, url }` | Adds it unless the URL is already listed |
 | `update_place` | `id`, `changes` (any place fields but `id`; `null` clears one; `photos`/`pricing` replace their lists), `addPhotos[]` | Patches the place without resending it; new photos go after the existing ones (no duplicate URLs, ≤ 12). Unknown ids are ignored |
-| `delete` | `collection` (`places`, `days`, `transports`, `hotels`, `expenses`, `notes`, `views`), `id` | Removes it and clears references to it (route place ids, `stayId`, `transportIds`, `linkedId`, `dayId`, `coveredByExpenseId`; a deleted day's views move to the Views pane); unknown ids are ignored |
+| `delete` | `collection` (`places`, `days`, `transports`, `hotels`, `expenses`, `notes`, `views`, `plans`), `id` | Removes it (a plan together with all its options' records) and clears references to it (route place ids, `stayId`, `transportIds`, `linkedId`, `dayId`, `coveredByExpenseId`; a deleted day's views move to the Views pane); unknown ids are ignored |
 
 The result must be a valid document, else `422 TRIP_INVALID` (`details.issues`) and nothing changes.
 

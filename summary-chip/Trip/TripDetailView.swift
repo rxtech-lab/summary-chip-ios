@@ -48,6 +48,8 @@ struct TripDetailView: View {
     @State private var exportError: String?
     @State private var exportFinished = 0
     @State private var exportFailed = 0
+    @State private var planError: String?
+    @State private var planFailed = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -96,7 +98,7 @@ struct TripDetailView: View {
 
     var body: some View {
         Group {
-            if let document = model.document {
+            if let document = model.displayDocument {
                 content(document)
             } else if let error = model.loadError {
                 ContentUnavailableView {
@@ -183,9 +185,11 @@ struct TripDetailView: View {
             Task { await model.refresh() }
         }
         .onChange(of: activeDayID) { _, id in
-            guard let document = model.document else { return }
+            guard let document = model.displayDocument else { return }
             camera.show(dayID: id, in: document)
         }
+        .statusAlert("Couldn't Switch Plan", message: planError) { planError = nil }
+        .sensoryFeedback(.error, trigger: planFailed)
         .statusAlert("Location Unavailable", message: locationMessage) { locationMessage = nil }
         .statusAlert("Couldn't Generate Cover", message: coverError) { coverError = nil }
         .confirmationDialog("Generate a new cover?", isPresented: $confirmsCover, titleVisibility: .visible) {
@@ -317,7 +321,7 @@ struct TripDetailView: View {
             // Re-fit once the sheet settles at a new height.
             .task(id: Int(sheetHeight / 24)) {
                 try? await Task.sleep(for: .milliseconds(300))
-                guard !Task.isCancelled, let document = model.document else { return }
+                guard !Task.isCancelled, let document = model.displayDocument else { return }
                 camera.show(dayID: activeDayID, in: document, force: true)
             }
     }
@@ -358,6 +362,8 @@ struct TripDetailView: View {
         ZStack {
             TripDiaryView(
                 document: document,
+                planSelections: model.planSelections,
+                onSelectPlanOption: selectPlanOption,
                 activeDayID: activeDayID,
                 scrollPosition: $diaryScroll,
                 readingLine: readingLine,
@@ -706,9 +712,10 @@ struct TripDetailView: View {
         )
     }
 
+    /// Sheets look records up in the trip as the user follows it; edits still go to the whole trip.
     @ViewBuilder
     private func sheetContent(_ sheet: TripSheet) -> some View {
-        if let document = model.document {
+        if let document = model.displayDocument {
             Group {
                 switch sheet {
                 case .meta:
@@ -810,7 +817,7 @@ struct TripDetailView: View {
 
     /// Scrolls the diary to a day; the scroll then moves the map.
     private func jump(to dayID: String) {
-        guard let document = model.document else { return }
+        guard let document = model.displayDocument else { return }
         diaryDayID = dayID
         pane = .diary
         activeDayID = dayID
@@ -822,7 +829,7 @@ struct TripDetailView: View {
     /// Opens on today's day while travelling; otherwise, with location already allowed, on the day
     /// visiting the trip place nearest to the user (within 50 km). Else on day 1.
     private func openOnRelevantDay() async {
-        guard !didOpen, let document = model.document else { return }
+        guard !didOpen, let document = model.displayDocument else { return }
         didOpen = true
         let first = document.orderedDays.first?.id
         activeDayID = first
@@ -838,6 +845,32 @@ struct TripDetailView: View {
               let here = await location.currentLocation(timeout: .seconds(5)),
               let day = document.nearestDay(to: here.coordinate) else { return }
         jump(to: day.id)
+    }
+
+    // MARK: Plans
+
+    /// Follows another option of a plan. The diary stays on the same date: when the day being read
+    /// belonged to the option left, the new option's day for that date takes its place.
+    private func selectPlanOption(_ plan: TripPlan, _ option: TripPlanOption) {
+        let date = model.displayDocument?.day(id: activeDayID)?.date
+        let save = model.selectPlanOption(planID: plan.id, optionID: option.id)
+        Task {
+            do {
+                try await save.value
+            } catch is CancellationError {
+            } catch {
+                planFailed += 1
+                planError = error.localizedDescription
+            }
+        }
+        // The pick already shows; keep the reading day in step.
+        guard let document = model.displayDocument else { return }
+        if let activeDayID, document.day(id: activeDayID) != nil {
+            camera.show(dayID: activeDayID, in: document, force: true)
+            return
+        }
+        let replacement = document.orderedDays.first { $0.date == date } ?? document.orderedDays.first
+        if let replacement { jump(to: replacement.id) }
     }
 
     private func locate() {

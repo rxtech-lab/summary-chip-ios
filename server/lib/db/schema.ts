@@ -268,6 +268,19 @@ export const tripTranslations = sqliteTable("trip_translations", {
 ]);
 
 export type TripTranslationRow = typeof tripTranslations.$inferSelect;
+
+/**
+ * The plan options one reader last picked in a trip (`plans[].id` → option id). Picks are the
+ * reader's own: they don't change the document, its revision or anyone else's view.
+ */
+export const tripPlanSelections = sqliteTable("trip_plan_selections", {
+  tripId: text("trip_id").notNull().references(() => trips.summaryId, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  selections: text("selections", { mode: "json" }).$type<Record<string, string>>().notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  primaryKey({ columns: [table.tripId, table.userId] }),
+]);
 export type NewSummaryRow = typeof summaries.$inferInsert;
 
 /** An installation belongs to its most recently signed-in account. */

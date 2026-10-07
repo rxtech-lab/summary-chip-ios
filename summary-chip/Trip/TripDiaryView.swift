@@ -49,11 +49,16 @@ enum TripSheet: Identifiable, Hashable {
     }
 }
 
-/// The diary: header, the trip-wide views, a card per day, then places; notes and sources open in sheets. Hotels and
+/// The diary: header, the trip's plan pickers and trip-wide views, a card per day (a day with
+/// alternatives has its picker above it), then places; notes and sources open in sheets. Hotels and
 /// costs have their own panes. Reports which day
 /// is being read, and how far into it, from where the cards sit against a reading line.
 struct TripDiaryView: View {
+    /// The trip as the user follows it (only the picked plan options).
     let document: TripDocument
+    /// The plan options the user picked (plan id → option id).
+    var planSelections: [String: String] = [:]
+    var onSelectPlanOption: (TripPlan, TripPlanOption) -> Void = { _, _ in }
     let activeDayID: String?
     @Binding var scrollPosition: ScrollPosition
     /// Distance of the reading line below the top of the visible area, given its height.
@@ -67,10 +72,22 @@ struct TripDiaryView: View {
 
     var body: some View {
         let days = document.orderedDays
+        let datesShown = Set(days.map(\.date))
+        // Day plans show above their day; one whose date has no day left shows with the trip's plans.
+        let tripPlans = document.plans.filter { $0.scope == .trip || !datesShown.contains($0.date ?? "") }
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
                 TripHeaderView(document: document) { present(.meta) }
                     .padding(.bottom, 6)
+
+                if !tripPlans.isEmpty {
+                    TripSection(title: String(localized: "Plans"), systemImage: "arrow.triangle.branch") {
+                        ForEach(tripPlans) { plan in
+                            planPicker(plan)
+                        }
+                    }
+                    .accessibilityIdentifier("trip-plans-section")
+                }
 
                 // Trip-wide views (comparison tables, budgets…); a day's own views sit in its card.
                 let tripViews = document.views(forDay: nil)
@@ -96,16 +113,24 @@ struct TripDiaryView: View {
                 }
 
                 ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
-                    TripDayCard(
-                        document: document,
-                        day: day,
-                        number: index + 1,
-                        isReading: day.id == activeDayID,
-                        onEdit: { present(.day(day.id)) },
-                        onOpenTransport: { present(.transportDetail($0.id)) },
-                        onOpenDetails: { present(.dayDetail(day.id)) }
-                    )
-                    .equatable()
+                    VStack(alignment: .leading, spacing: 10) {
+                        // The day's alternatives, above its first card.
+                        if index == 0 || days[index - 1].date != day.date {
+                            ForEach(document.dayPlans(on: day.date)) { plan in
+                                planPicker(plan)
+                            }
+                        }
+                        TripDayCard(
+                            document: document,
+                            day: day,
+                            number: index + 1,
+                            isReading: day.id == activeDayID,
+                            onEdit: { present(.day(day.id)) },
+                            onOpenTransport: { present(.transportDetail($0.id)) },
+                            onOpenDetails: { present(.dayDetail(day.id)) }
+                        )
+                        .equatable()
+                    }
                     .id(day.id)
                     .onGeometryChange(for: CGRect.self) {
                         $0.frame(in: .named(Self.contentSpace))
@@ -142,6 +167,12 @@ struct TripDiaryView: View {
             read()
         }
         .background(Color.summaryGroupedBackground)
+    }
+
+    private func planPicker(_ plan: TripPlan) -> some View {
+        TripPlanPicker(plan: plan, selectedID: plan.selectedOptionID(in: planSelections)) { option in
+            onSelectPlanOption(plan, option)
+        }
     }
 
     private func emptyRow(_ text: String) -> some View {

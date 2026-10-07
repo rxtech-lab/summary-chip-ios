@@ -419,6 +419,7 @@ const document: TripDocument = {
   ],
   sources: [...sources.values()].slice(0, 200),
   views,
+  plans: [],
 };
 
 const parsed = tripDocumentSchema.safeParse(document);
