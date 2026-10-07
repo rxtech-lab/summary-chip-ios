@@ -297,6 +297,10 @@ struct TripDayCard: View, Equatable {
     let day: TripDay
     let number: Int
     let isReading: Bool
+    /// The plans deciding this day, picked from inside the card.
+    var plans: [TripPlan] = []
+    var planSelections: [String: String] = [:]
+    var onSelectPlanOption: (TripPlan, TripPlanOption) -> Void = { _, _ in }
     let onEdit: () -> Void
     let onOpenTransport: (TripTransport) -> Void
     let onOpenDetails: () -> Void
@@ -316,6 +320,7 @@ struct TripDayCard: View, Equatable {
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.document == rhs.document && lhs.day == rhs.day && lhs.number == rhs.number && lhs.isReading == rhs.isReading
+            && lhs.plans == rhs.plans && lhs.planSelections == rhs.planSelections
     }
 
     var body: some View {
@@ -338,6 +343,12 @@ struct TripDayCard: View, Equatable {
                 }
                 Spacer(minLength: 8)
                 TripEditButton(title: String(localized: "Edit day"), action: onEdit)
+            }
+
+            ForEach(plans) { plan in
+                TripPlanPicker(plan: plan, selectedID: plan.selectedOptionID(in: planSelections), embedded: true) { option in
+                    onSelectPlanOption(plan, option)
+                }
             }
 
             if !day.moments.isEmpty {
@@ -502,6 +513,9 @@ struct TripDayDetailSheet: View {
     let onEdit: () -> Void
     let onOpenTransport: (TripTransport) -> Void
     let onEditView: (TripView) -> Void
+    /// The plans deciding this day's date, switchable from the toolbar.
+    var planSelections: [String: String] = [:]
+    var onSelectPlanOption: (TripPlan, TripPlanOption) -> Void = { _, _ in }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tripEditable) private var editable
 
@@ -587,6 +601,22 @@ struct TripDayDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                }
+                let plans = document.dayPlans(on: day.date)
+                if !plans.isEmpty {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            ForEach(plans) { plan in
+                                TripPlanOptionsPicker(plan: plan, selectedID: plan.selectedOptionID(in: planSelections)) { option in
+                                    onSelectPlanOption(plan, option)
+                                }
+                            }
+                        } label: {
+                            Label("Choose Route", systemImage: "arrow.triangle.branch")
+                        }
+                        .help("Choose Route")
+                        .accessibilityIdentifier("trip-day-detail-plans")
+                    }
                 }
                 if editable {
                     ToolbarItem(placement: .primaryAction) {

@@ -234,6 +234,9 @@
         }
       }
     },
+    "%lld options" : {
+
+    },
     "%lld places" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2257,6 +2260,9 @@
         }
       }
     },
+    "Choose Route" : {
+
+    },
     "Choose the original file to keep it with this summary. Chat reads it on this device to answer questions." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2821,6 +2827,9 @@
       }
     },
     "Couldn't Share Trip" : {
+
+    },
+    "Couldn't Switch Plan" : {
 
     },
     "Couldn't update Likes" : {
@@ -7586,6 +7595,9 @@
           }
         }
       }
+    },
+    "Plans" : {
+
     },
     "Point of interest" : {
       "localizations" : {
