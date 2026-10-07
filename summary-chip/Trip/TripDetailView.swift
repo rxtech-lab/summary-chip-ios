@@ -723,13 +723,16 @@ struct TripDetailView: View {
                 case .day(let id):
                     DayEditorSheet(model: model, document: document, day: document.day(id: id))
                 case .dayDetail(let id):
-                    if let day = document.day(id: id) {
+                    // After switching routes the sheet shows the picked option's day for the same date.
+                    if let day = document.day(id: id) ?? model.document?.day(id: id).flatMap({ old in document.orderedDays.first { $0.date == old.date } }) {
                         TripDayDetailSheet(
                             document: document,
                             day: day,
-                            onEdit: { activeSheet = .day(id) },
+                            onEdit: { activeSheet = .day(day.id) },
                             onOpenTransport: { activeSheet = .transportDetail($0.id) },
-                            onEditView: { if canEdit { activeSheet = .view($0.id) } }
+                            onEditView: { if canEdit { activeSheet = .view($0.id) } },
+                            planSelections: model.planSelections,
+                            onSelectPlanOption: selectPlanOption
                         )
                     }
                 case .place(let id):

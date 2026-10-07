@@ -50,7 +50,7 @@ enum TripSheet: Identifiable, Hashable {
 }
 
 /// The diary: header, the trip's plan pickers and trip-wide views, a card per day (a day with
-/// alternatives has its picker above it), then places; notes and sources open in sheets. Hotels and
+/// alternatives has its picker inside the card), then places; notes and sources open in sheets. Hotels and
 /// costs have their own panes. Reports which day
 /// is being read, and how far into it, from where the cards sit against a reading line.
 struct TripDiaryView: View {
@@ -113,24 +113,20 @@ struct TripDiaryView: View {
                 }
 
                 ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
-                    VStack(alignment: .leading, spacing: 10) {
-                        // The day's alternatives, above its first card.
-                        if index == 0 || days[index - 1].date != day.date {
-                            ForEach(document.dayPlans(on: day.date)) { plan in
-                                planPicker(plan)
-                            }
-                        }
-                        TripDayCard(
-                            document: document,
-                            day: day,
-                            number: index + 1,
-                            isReading: day.id == activeDayID,
-                            onEdit: { present(.day(day.id)) },
-                            onOpenTransport: { present(.transportDetail($0.id)) },
-                            onOpenDetails: { present(.dayDetail(day.id)) }
-                        )
-                        .equatable()
-                    }
+                    TripDayCard(
+                        document: document,
+                        day: day,
+                        number: index + 1,
+                        isReading: day.id == activeDayID,
+                        // The day's alternatives are picked in its first card.
+                        plans: index == 0 || days[index - 1].date != day.date ? document.dayPlans(on: day.date) : [],
+                        planSelections: planSelections,
+                        onSelectPlanOption: onSelectPlanOption,
+                        onEdit: { present(.day(day.id)) },
+                        onOpenTransport: { present(.transportDetail($0.id)) },
+                        onOpenDetails: { present(.dayDetail(day.id)) }
+                    )
+                    .equatable()
                     .id(day.id)
                     .onGeometryChange(for: CGRect.self) {
                         $0.frame(in: .named(Self.contentSpace))

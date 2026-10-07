@@ -100,16 +100,37 @@ nonisolated final class ScreenshotTests: XCTestCase {
         }
         // Day 3 has two routes; the diary starts on the first.
         diary.buttons.element(boundBy: 2).tap()
-        let picker = app.descendants(matching: .any)["trip-plan-plan-d3"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        let menu = app.buttons["trip-plan-menu-plan-d3"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Matsushima side trip"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Yamadera mountain temple"].exists)
+        settle()
+        capture(app, "04b-trip-plans-route-1")
 
-        app.buttons["trip-plan-option-route-yamadera"].firstMatch.tap()
+        menu.tap()
+        let yamadera = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "Route 2 · Yamadera")).firstMatch
+        XCTAssertTrue(yamadera.waitForExistence(timeout: 5))
+        settle()
+        capture(app, "04c-trip-plans-menu")
+        yamadera.tap()
         XCTAssertTrue(app.staticTexts["Yamadera mountain temple"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Matsushima side trip"].exists)
         settle()
-        capture(app, "04b-trip-plans")
+        capture(app, "04d-trip-plans-route-2")
+        app.buttons["trip-day-details-d3-yamadera"].firstMatch.tap()
+        let plans = app.buttons["trip-day-detail-plans"].firstMatch
+        XCTAssertTrue(plans.waitForExistence(timeout: 5))
+        settle()
+        capture(app, "04e-day-sheet")
+        plans.tap()
+        let matsushima = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", "Route 1")).firstMatch
+        XCTAssertTrue(matsushima.waitForExistence(timeout: 5))
+        settle()
+        capture(app, "04f-day-sheet-menu")
+        matsushima.tap()
+        XCTAssertTrue(app.staticTexts["Matsushima side trip"].waitForExistence(timeout: 5))
+        settle()
+        capture(app, "04g-day-sheet-route-1")
     }
 
     @MainActor func test08Likes() {
