@@ -196,10 +196,14 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         await environment.library.reload()
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+    // Completion-handler variants: the async ones are bridged on a background executor, and
+    // UIKit asserts (SIGABRT) when their completion runs off the main thread.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void) {
         let userId = notification.request.content.userInfo["userId"] as? String
         let tripId = notification.request.content.userInfo["tripId"] as? String
-        return await presentationOptions(userId: userId, tripId: tripId)
+        Task { @MainActor in
+            completionHandler(await self.presentationOptions(userId: userId, tripId: tripId))
+        }
     }
 
     private func presentationOptions(userId: String?, tripId: String?) async -> UNNotificationPresentationOptions {
@@ -211,14 +215,20 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         return [.banner, .sound]
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping @Sendable () -> Void) {
         let info = response.notification.request.content.userInfo
-        guard let userId = info["userId"] as? String else { return }
+        let userId = info["userId"] as? String
         // A trip update carries both ids; the trip opens as a diary, not a summary.
-        if let tripId = info["tripId"] as? String {
-            await received(.tripID(tripId), userId: userId)
+        let route: AppRoute? = if let tripId = info["tripId"] as? String {
+            .tripID(tripId)
         } else if let summaryId = info["summaryId"] as? String {
-            await received(.summaryID(summaryId), userId: userId)
+            .summaryID(summaryId)
+        } else {
+            nil
+        }
+        Task { @MainActor in
+            if let userId, let route { await self.received(route, userId: userId) }
+            completionHandler()
         }
     }
 
