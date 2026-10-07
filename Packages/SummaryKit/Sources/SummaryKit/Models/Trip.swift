@@ -72,7 +72,12 @@ public enum TripExpenseCategory: String, TripLenientEnum {
 
 /// The document arrays records live in; the `collection` of a `delete` operation.
 public enum TripCollection: String, Codable, CaseIterable, Sendable, Hashable {
-    case places, days, transports, hotels, expenses, notes, views
+    case places, days, transports, hotels, expenses, notes, views, plans
+}
+
+public enum TripPlanScope: String, TripLenientEnum {
+    case trip, day
+    public static let fallback: TripPlanScope = .trip
 }
 
 public struct TripCoordinate: Codable, Sendable, Hashable {
@@ -243,14 +248,17 @@ public struct TripDay: Codable, Sendable, Hashable, Identifiable {
     /// The hotel slept in that night.
     public var stayId: String?
     public var transportIds: [String]
+    /// The plan option this day is part of; nil when every option shares it.
+    public var planOptionId: String?
 
     public init(
         id: String, date: String, title: String, short: String? = nil, blurb: String? = nil, highlight: Bool = false,
-        route: TripDayRoute? = nil, moments: [TripMoment] = [], tip: String? = nil, stayId: String? = nil, transportIds: [String] = []
+        route: TripDayRoute? = nil, moments: [TripMoment] = [], tip: String? = nil, stayId: String? = nil, transportIds: [String] = [],
+        planOptionId: String? = nil
     ) {
         self.id = id; self.date = date; self.title = title; self.short = short; self.blurb = blurb
         self.highlight = highlight; self.route = route; self.moments = moments; self.tip = tip
-        self.stayId = stayId; self.transportIds = transportIds
+        self.stayId = stayId; self.transportIds = transportIds; self.planOptionId = planOptionId
     }
 
     public init(from decoder: any Decoder) throws {
@@ -266,6 +274,7 @@ public struct TripDay: Codable, Sendable, Hashable, Identifiable {
         tip = try c.decodeIfPresent(String.self, forKey: .tip)
         stayId = try c.decodeIfPresent(String.self, forKey: .stayId)
         transportIds = try c.decodeIfPresent([String].self, forKey: .transportIds) ?? []
+        planOptionId = try c.decodeIfPresent(String.self, forKey: .planOptionId)
     }
 }
 
@@ -404,10 +413,15 @@ public struct TripTransport: Codable, Sendable, Hashable, Identifiable {
     public var selectedOptionId: String?
     /// At least one.
     public var options: [TripTransportOption]
+    /// The plan option this transport is part of; nil when every option shares it.
+    public var planOptionId: String?
 
-    public init(id: String, date: String, label: String, status: TripBookingStatus = .planned, selectedOptionId: String? = nil, options: [TripTransportOption]) {
+    public init(
+        id: String, date: String, label: String, status: TripBookingStatus = .planned, selectedOptionId: String? = nil,
+        options: [TripTransportOption], planOptionId: String? = nil
+    ) {
         self.id = id; self.date = date; self.label = label; self.status = status
-        self.selectedOptionId = selectedOptionId; self.options = options
+        self.selectedOptionId = selectedOptionId; self.options = options; self.planOptionId = planOptionId
     }
 
     public init(from decoder: any Decoder) throws {
@@ -418,6 +432,7 @@ public struct TripTransport: Codable, Sendable, Hashable, Identifiable {
         status = try c.decodeIfPresent(TripBookingStatus.self, forKey: .status) ?? .planned
         selectedOptionId = try c.decodeIfPresent(String.self, forKey: .selectedOptionId)
         options = try c.decodeIfPresent([TripTransportOption].self, forKey: .options) ?? []
+        planOptionId = try c.decodeIfPresent(String.self, forKey: .planOptionId)
     }
 
     /// The chosen option, else the first one.
@@ -439,14 +454,17 @@ public struct TripHotel: Codable, Sendable, Hashable, Identifiable {
     public var price: TripMoney?
     public var url: String?
     public var status: TripBookingStatus
+    /// The plan option this stay is part of; nil when every option shares it.
+    public var planOptionId: String?
 
     public init(
         id: String, name: String, placeId: String? = nil, address: String? = nil, checkIn: String, checkOut: String,
-        checkInTime: String? = nil, confirmation: String? = nil, price: TripMoney? = nil, url: String? = nil, status: TripBookingStatus = .planned
+        checkInTime: String? = nil, confirmation: String? = nil, price: TripMoney? = nil, url: String? = nil, status: TripBookingStatus = .planned,
+        planOptionId: String? = nil
     ) {
         self.id = id; self.name = name; self.placeId = placeId; self.address = address; self.checkIn = checkIn
         self.checkOut = checkOut; self.checkInTime = checkInTime; self.confirmation = confirmation
-        self.price = price; self.url = url; self.status = status
+        self.price = price; self.url = url; self.status = status; self.planOptionId = planOptionId
     }
 
     public init(from decoder: any Decoder) throws {
@@ -462,6 +480,7 @@ public struct TripHotel: Codable, Sendable, Hashable, Identifiable {
         price = try c.decodeIfPresent(TripMoney.self, forKey: .price)
         url = try c.decodeIfPresent(String.self, forKey: .url)
         status = try c.decodeIfPresent(TripBookingStatus.self, forKey: .status) ?? .planned
+        planOptionId = try c.decodeIfPresent(String.self, forKey: .planOptionId)
     }
 }
 
@@ -477,13 +496,16 @@ public struct TripExpense: Codable, Sendable, Hashable, Identifiable {
     public var coveredByExpenseId: String?
     /// The transport or hotel this cost belongs to.
     public var linkedId: String?
+    /// The plan option this cost is part of; nil when every option shares it.
+    public var planOptionId: String?
 
     public init(
         id: String, date: String? = nil, dayId: String? = nil, category: TripExpenseCategory, title: String, amount: TripMoney,
-        paid: Bool = false, coveredByExpenseId: String? = nil, linkedId: String? = nil
+        paid: Bool = false, coveredByExpenseId: String? = nil, linkedId: String? = nil, planOptionId: String? = nil
     ) {
         self.id = id; self.date = date; self.dayId = dayId; self.category = category; self.title = title
         self.amount = amount; self.paid = paid; self.coveredByExpenseId = coveredByExpenseId; self.linkedId = linkedId
+        self.planOptionId = planOptionId
     }
 
     public init(from decoder: any Decoder) throws {
@@ -497,6 +519,7 @@ public struct TripExpense: Codable, Sendable, Hashable, Identifiable {
         paid = try c.decodeIfPresent(Bool.self, forKey: .paid) ?? false
         coveredByExpenseId = try c.decodeIfPresent(String.self, forKey: .coveredByExpenseId)
         linkedId = try c.decodeIfPresent(String.self, forKey: .linkedId)
+        planOptionId = try c.decodeIfPresent(String.self, forKey: .planOptionId)
     }
 
     public var isCovered: Bool { coveredByExpenseId != nil }
@@ -506,9 +529,11 @@ public struct TripNote: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var title: String
     public var text: String
+    /// The plan option this note is part of; nil when every option shares it.
+    public var planOptionId: String?
 
-    public init(id: String, title: String, text: String) {
-        self.id = id; self.title = title; self.text = text
+    public init(id: String, title: String, text: String, planOptionId: String? = nil) {
+        self.id = id; self.title = title; self.text = text; self.planOptionId = planOptionId
     }
 }
 
@@ -570,9 +595,58 @@ public struct TripView: Codable, Sendable, Hashable, Identifiable {
     public var title: String
     public var dayId: String?
     public var spec: TripViewSpec
+    /// The plan option this view is part of; nil when every option shares it.
+    public var planOptionId: String?
 
-    public init(id: String, title: String, dayId: String? = nil, spec: TripViewSpec) {
-        self.id = id; self.title = title; self.dayId = dayId; self.spec = spec
+    public init(id: String, title: String, dayId: String? = nil, spec: TripViewSpec, planOptionId: String? = nil) {
+        self.id = id; self.title = title; self.dayId = dayId; self.spec = spec; self.planOptionId = planOptionId
+    }
+}
+
+/// One alternative of a plan: "Route 1 · Coast".
+public struct TripPlanOption: Codable, Sendable, Hashable, Identifiable {
+    /// Unique across all of the trip's plans; records point at it with `planOptionId`.
+    public var id: String
+    public var label: String
+    /// What sets this option apart.
+    public var summary: String?
+
+    public init(id: String, label: String, summary: String? = nil) {
+        self.id = id; self.label = label; self.summary = summary
+    }
+}
+
+/// A choice between alternative plans for the whole trip or one day. Records tagged with an
+/// option's id only show while that option is picked; each reader's pick is saved for them.
+public struct TripPlan: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var title: String
+    public var scope: TripPlanScope
+    /// The day a `day` plan decides, `YYYY-MM-DD`.
+    public var date: String?
+    /// Two to six.
+    public var options: [TripPlanOption]
+    public var defaultOptionId: String?
+
+    public init(id: String, title: String, scope: TripPlanScope = .trip, date: String? = nil, options: [TripPlanOption], defaultOptionId: String? = nil) {
+        self.id = id; self.title = title; self.scope = scope; self.date = date; self.options = options; self.defaultOptionId = defaultOptionId
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        scope = try c.decodeIfPresent(TripPlanScope.self, forKey: .scope) ?? .trip
+        date = try c.decodeIfPresent(String.self, forKey: .date)
+        options = try c.decodeIfPresent([TripPlanOption].self, forKey: .options) ?? []
+        defaultOptionId = try c.decodeIfPresent(String.self, forKey: .defaultOptionId)
+    }
+
+    /// The option a reader follows: their pick while it exists, else the default, else the first.
+    public func selectedOptionID(in selections: [String: String]) -> String? {
+        if let picked = selections[id], options.contains(where: { $0.id == picked }) { return picked }
+        if let defaultOptionId, options.contains(where: { $0.id == defaultOptionId }) { return defaultOptionId }
+        return options.first?.id
     }
 }
 
@@ -598,18 +672,20 @@ public struct TripDocument: Codable, Sendable, Hashable {
     public var notes: [TripNote]
     public var sources: [TripSource]
     public var views: [TripView]
+    /// Alternative plans (route 1 / route 2…) for the trip or a day.
+    public var plans: [TripPlan]
 
     public init(
         title: String, subtitle: String? = nil, intro: String? = nil, startDate: String, endDate: String,
         timeZone: String = "UTC", currency: String = "USD", places: [TripPlace] = [], days: [TripDay] = [],
         transports: [TripTransport] = [], hotels: [TripHotel] = [], expenses: [TripExpense] = [],
-        notes: [TripNote] = [], sources: [TripSource] = [], views: [TripView] = []
+        notes: [TripNote] = [], sources: [TripSource] = [], views: [TripView] = [], plans: [TripPlan] = []
     ) {
         self.version = Self.currentVersion
         self.title = title; self.subtitle = subtitle; self.intro = intro; self.startDate = startDate
         self.endDate = endDate; self.timeZone = timeZone; self.currency = currency; self.places = places
         self.days = days; self.transports = transports; self.hotels = hotels; self.expenses = expenses
-        self.notes = notes; self.sources = sources; self.views = views
+        self.notes = notes; self.sources = sources; self.views = views; self.plans = plans
     }
 
     public init(from decoder: any Decoder) throws {
@@ -630,6 +706,7 @@ public struct TripDocument: Codable, Sendable, Hashable {
         notes = try c.decodeIfPresent([TripNote].self, forKey: .notes) ?? []
         sources = try c.decodeIfPresent([TripSource].self, forKey: .sources) ?? []
         views = try c.decodeIfPresent([TripView].self, forKey: .views) ?? []
+        plans = try c.decodeIfPresent([TripPlan].self, forKey: .plans) ?? []
     }
 }
 
@@ -657,16 +734,20 @@ public struct Trip: Codable, Sendable, Hashable, Identifiable {
     /// A background run is translating the trip into the language being read: the texts not
     /// translated yet show as written, and the owner gets a push when it's done.
     public var translating: Bool
+    /// The plan options the user last picked (plan id → option id); only reads send it.
+    public var planSelections: [String: String]?
 
     public init(
         id: String, slug: String, revision: Int, visibility: SummaryVisibility = .private, createdAt: Date, updatedAt: Date, shareUrl: URL?,
         isOwner: Bool = true, document: TripDocument, likedAt: Date? = nil,
-        language: String = "en", originalLanguage: String? = nil, displayLanguage: String? = nil, translating: Bool = false
+        language: String = "en", originalLanguage: String? = nil, displayLanguage: String? = nil, translating: Bool = false,
+        planSelections: [String: String]? = nil
     ) {
         self.id = id; self.slug = slug; self.revision = revision; self.visibility = visibility; self.isOwner = isOwner; self.likedAt = likedAt
         self.createdAt = createdAt; self.updatedAt = updatedAt; self.shareUrl = shareUrl; self.document = document
         self.language = language; self.originalLanguage = originalLanguage ?? language; self.displayLanguage = displayLanguage
         self.translating = translating
+        self.planSelections = planSelections
     }
 
     /// The diary is shown translated from `originalLanguage`. Translations are read-only: edits are
@@ -689,6 +770,7 @@ public struct Trip: Codable, Sendable, Hashable, Identifiable {
         originalLanguage = try c.decodeIfPresent(String.self, forKey: .originalLanguage) ?? language
         displayLanguage = try c.decodeIfPresent(String.self, forKey: .displayLanguage)
         translating = try c.decodeIfPresent(Bool.self, forKey: .translating) ?? false
+        planSelections = try c.decodeIfPresent([String: String].self, forKey: .planSelections)
     }
 }
 
@@ -782,10 +864,13 @@ public enum TripOperation: Encodable, Sendable, Hashable {
     case upsertExpense(TripExpense)
     case upsertNote(TripNote)
     case upsertView(TripView)
+    case upsertPlan(TripPlan)
+    /// Settles a plan on one option: its records stay, the other options' records and the plan go.
+    case resolvePlan(id: String, optionId: String)
     case addSource(TripSource)
     case delete(TripCollection, id: String)
 
-    private enum CodingKeys: String, CodingKey { case op, meta, place, day, transport, hotel, expense, note, view, source, collection, id }
+    private enum CodingKeys: String, CodingKey { case op, meta, place, day, transport, hotel, expense, note, view, plan, source, collection, id, optionId }
 
     public var op: String {
         switch self {
@@ -797,6 +882,8 @@ public enum TripOperation: Encodable, Sendable, Hashable {
         case .upsertExpense: "upsert_expense"
         case .upsertNote: "upsert_note"
         case .upsertView: "upsert_view"
+        case .upsertPlan: "upsert_plan"
+        case .resolvePlan: "resolve_plan"
         case .addSource: "add_source"
         case .delete: "delete"
         }
@@ -814,6 +901,10 @@ public enum TripOperation: Encodable, Sendable, Hashable {
         case .upsertExpense(let expense): try c.encode(expense, forKey: .expense)
         case .upsertNote(let note): try c.encode(note, forKey: .note)
         case .upsertView(let view): try c.encode(view, forKey: .view)
+        case .upsertPlan(let plan): try c.encode(plan, forKey: .plan)
+        case .resolvePlan(let id, let optionId):
+            try c.encode(id, forKey: .id)
+            try c.encode(optionId, forKey: .optionId)
         case .addSource(let source): try c.encode(source, forKey: .source)
         case .delete(let collection, let id):
             try c.encode(collection, forKey: .collection)
@@ -1029,6 +1120,76 @@ public extension TripDocument {
     }
 }
 
+// MARK: - Plans
+
+public extension TripDocument {
+    /// Trip-wide plans, in document order.
+    var tripPlans: [TripPlan] { plans.filter { $0.scope == .trip } }
+
+    /// The day plans deciding `date`.
+    func dayPlans(on date: String) -> [TripPlan] {
+        plans.filter { $0.scope == .day && $0.date == date }
+    }
+
+    func plan(id: String?) -> TripPlan? {
+        guard let id else { return nil }
+        return plans.first { $0.id == id }
+    }
+
+    /// The trip as one reader follows it (mirrors the server's `activeTripDocument`): records of
+    /// the options they didn't pick are left out, with the places only those records visit, and
+    /// references to them are cleared. Plans stay, so the reader can switch.
+    func following(_ selections: [String: String]) -> TripDocument {
+        guard !plans.isEmpty else { return self }
+        let chosen = Set(plans.compactMap { $0.selectedOptionID(in: selections) })
+        func active(_ optionID: String?) -> Bool { optionID.map(chosen.contains) ?? true }
+        let droppedDays = Set(days.filter { !active($0.planOptionId) }.map(\.id))
+        let droppedHotels = Set(hotels.filter { !active($0.planOptionId) }.map(\.id))
+        let droppedTransports = Set(transports.filter { !active($0.planOptionId) }.map(\.id))
+        let droppedExpenses = Set(expenses.filter { !active($0.planOptionId) }.map(\.id))
+
+        var result = self
+        result.days = days.filter { active($0.planOptionId) }.map { day in
+            var day = day
+            if let stay = day.stayId, droppedHotels.contains(stay) { day.stayId = nil }
+            day.transportIds.removeAll(where: droppedTransports.contains)
+            return day
+        }
+        result.hotels = hotels.filter { active($0.planOptionId) }
+        result.transports = transports.filter { active($0.planOptionId) }
+        result.expenses = expenses.filter { active($0.planOptionId) }.map { expense in
+            var expense = expense
+            if let day = expense.dayId, droppedDays.contains(day) { expense.dayId = nil }
+            if let linked = expense.linkedId, droppedHotels.contains(linked) || droppedTransports.contains(linked) { expense.linkedId = nil }
+            if let pass = expense.coveredByExpenseId, droppedExpenses.contains(pass) { expense.coveredByExpenseId = nil }
+            return expense
+        }
+        result.notes = notes.filter { active($0.planOptionId) }
+        result.views = views.filter { active($0.planOptionId) && !($0.dayId.map(droppedDays.contains) ?? false) }
+
+        // A place stays unless every record that visits it was left out.
+        let stillVisited = result.visitedPlaceIDs
+        let hidden = visitedPlaceIDs.subtracting(stillVisited)
+        result.places = places.filter { !hidden.contains($0.id) }
+        return result
+    }
+
+    /// Places the days, stays and transport refer to.
+    private var visitedPlaceIDs: Set<String> {
+        var ids = Set<String>()
+        for day in days {
+            ids.formUnion(day.route?.placeIds ?? [])
+            ids.formUnion(day.moments.compactMap(\.placeId))
+        }
+        ids.formUnion(hotels.compactMap(\.placeId))
+        for segment in transports.flatMap(\.options).flatMap(\.segments) {
+            if let from = segment.fromPlaceId { ids.insert(from) }
+            if let to = segment.toPlaceId { ids.insert(to) }
+        }
+        return ids
+    }
+}
+
 // MARK: - Editing
 
 public extension TripDocument {
@@ -1100,6 +1261,18 @@ public extension TripDocument {
             notes.removeAll { $0.id == id }
         case .views:
             views.removeAll { $0.id == id }
+        case .plans:
+            // The plan's alternatives go with it.
+            guard let plan = plans.first(where: { $0.id == id }) else { return }
+            plans.removeAll { $0.id == id }
+            let options = Set(plan.options.map(\.id))
+            func tagged(_ optionID: String?) -> Bool { optionID.map(options.contains) ?? false }
+            for day in days where tagged(day.planOptionId) { remove(.days, id: day.id) }
+            for transport in transports where tagged(transport.planOptionId) { remove(.transports, id: transport.id) }
+            for hotel in hotels where tagged(hotel.planOptionId) { remove(.hotels, id: hotel.id) }
+            for expense in expenses where tagged(expense.planOptionId) { remove(.expenses, id: expense.id) }
+            notes.removeAll { tagged($0.planOptionId) }
+            views.removeAll { tagged($0.planOptionId) }
         }
     }
 }

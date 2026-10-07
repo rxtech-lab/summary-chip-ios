@@ -88,6 +88,30 @@ nonisolated final class ScreenshotTests: XCTestCase {
         capture(app, "07-trip-flight")
     }
 
+    @MainActor func test04bTripPlans() {
+        let app = launch()
+        openTrip(app)
+        let diary = app.descendants(matching: .any)["trip-day-strip"].firstMatch
+        XCTAssertTrue(diary.waitForExistence(timeout: 10))
+        if !isPad {
+            let grabber = diary.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -30))
+            grabber.press(forDuration: 0.2, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)))
+            settle()
+        }
+        // Day 3 has two routes; the diary starts on the first.
+        diary.buttons.element(boundBy: 2).tap()
+        let picker = app.descendants(matching: .any)["trip-plan-plan-d3"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Matsushima side trip"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Yamadera mountain temple"].exists)
+
+        app.buttons["trip-plan-option-route-yamadera"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Yamadera mountain temple"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Matsushima side trip"].exists)
+        settle()
+        capture(app, "04b-trip-plans")
+    }
+
     @MainActor func test08Likes() {
         let app = launch()
         if isPad {

@@ -1,4 +1,4 @@
-import { MAX_PLACE_PHOTOS, type TRIP_COLLECTIONS, type TripDocument, type TripOperation } from "@/lib/contracts/trip";
+import { MAX_PLACE_PHOTOS, PLANNED_COLLECTIONS, type TRIP_COLLECTIONS, type TripDocument, type TripOperation } from "@/lib/contracts/trip";
 import { viewText } from "@/lib/contracts/trip-view";
 
 /**
@@ -7,6 +7,9 @@ import { viewText } from "@/lib/contracts/trip-view";
  */
 
 type Collection = (typeof TRIP_COLLECTIONS)[number];
+type Plan = TripDocument["plans"][number];
+/** A reader's picks: plan id → option id. */
+export type PlanSelections = Record<string, string>;
 
 function upsert<T extends { id: string }>(items: T[], item: T): T[] {
   const index = items.findIndex((existing) => existing.id === item.id);
@@ -63,8 +66,42 @@ function remove(doc: TripDocument, collection: Collection, id: string): TripDocu
     case "notes":
     case "views":
       break;
+    case "plans": {
+      // The plan's alternatives go with it.
+      const plan = doc.plans.find((item) => item.id === id);
+      return plan ? removeOptionRecords(next, new Set(plan.options.map((option) => option.id))) : next;
+    }
   }
   return next;
+}
+
+/** Deletes every record that belongs to one of `optionIds`, clearing references to them. */
+function removeOptionRecords(doc: TripDocument, optionIds: ReadonlySet<string>): TripDocument {
+  let next = doc;
+  for (const collection of PLANNED_COLLECTIONS) {
+    for (const record of doc[collection] as { id: string; planOptionId?: string | null }[]) {
+      if (record.planOptionId && optionIds.has(record.planOptionId)) next = remove(next, collection, record.id);
+    }
+  }
+  return next;
+}
+
+/** Keeps `optionId`'s records as shared ones and deletes the plan with its other options' records. */
+function resolvePlan(doc: TripDocument, planId: string, optionId: string): TripDocument {
+  const plan = doc.plans.find((item) => item.id === planId);
+  if (!plan?.options.some((option) => option.id === optionId)) return doc;
+  const others = new Set(plan.options.map((option) => option.id).filter((id) => id !== optionId));
+  const next = removeOptionRecords({ ...doc, plans: doc.plans.filter((item) => item.id !== planId) }, others);
+  const untag = <T extends { planOptionId?: string | null }>(record: T): T => (record.planOptionId === optionId ? { ...record, planOptionId: null } : record);
+  return {
+    ...next,
+    days: next.days.map(untag),
+    transports: next.transports.map(untag),
+    hotels: next.hotels.map(untag),
+    expenses: next.expenses.map(untag),
+    notes: next.notes.map(untag),
+    views: next.views.map(untag),
+  };
 }
 
 function applyOperation(doc: TripDocument, operation: TripOperation): TripDocument {
@@ -99,6 +136,10 @@ function applyOperation(doc: TripDocument, operation: TripOperation): TripDocume
       return { ...doc, notes: upsert(doc.notes, operation.note) };
     case "upsert_view":
       return { ...doc, views: upsert(doc.views, operation.view) };
+    case "upsert_plan":
+      return { ...doc, plans: upsert(doc.plans, operation.plan) };
+    case "resolve_plan":
+      return resolvePlan(doc, operation.id, operation.optionId);
     case "add_source":
       if (doc.sources.some((source) => source.url === operation.source.url)) return doc;
       return { ...doc, sources: [...doc.sources, operation.source] };
@@ -115,6 +156,77 @@ function applyOperation(doc: TripDocument, operation: TripOperation): TripDocume
  */
 export function applyOperations(doc: TripDocument, operations: readonly TripOperation[]): TripDocument {
   return operations.reduce(applyOperation, structuredClone(doc));
+}
+
+/** The option of `plan` a reader sees: their pick while it still exists, else the default, else the first. */
+export function selectedPlanOptionId(plan: Plan, selections: PlanSelections = {}): string {
+  const picked = selections[plan.id];
+  if (picked && plan.options.some((option) => option.id === picked)) return picked;
+  if (plan.defaultOptionId && plan.options.some((option) => option.id === plan.defaultOptionId)) return plan.defaultOptionId;
+  return plan.options[0].id;
+}
+
+/**
+ * The trip as one reader follows it: records of the options they didn't pick are left out, and so
+ * are places only those records visit. References to dropped records are cleared. Plans stay, so
+ * the reader can still switch.
+ */
+export function activeTripDocument(doc: TripDocument, selections: PlanSelections = {}): TripDocument {
+  if (!doc.plans.length) return doc;
+  const chosen = new Set(doc.plans.map((plan) => selectedPlanOptionId(plan, selections)));
+  const active = <T extends { planOptionId?: string | null }>(record: T) => !record.planOptionId || chosen.has(record.planOptionId);
+  const dropped = (records: { id: string; planOptionId?: string | null }[]) => new Set(records.filter((record) => !active(record)).map((record) => record.id));
+  const droppedDays = dropped(doc.days);
+  const droppedHotels = dropped(doc.hotels);
+  const droppedTransports = dropped(doc.transports);
+  const droppedExpenses = dropped(doc.expenses);
+
+  const days = doc.days.filter(active).map((day) => ({
+    ...day,
+    stayId: day.stayId && droppedHotels.has(day.stayId) ? null : day.stayId,
+    transportIds: day.transportIds.filter((id) => !droppedTransports.has(id)),
+  }));
+  const hotels = doc.hotels.filter(active);
+  const transports = doc.transports.filter(active);
+  const expenses = doc.expenses.filter(active).map((expense) => ({
+    ...expense,
+    dayId: expense.dayId && droppedDays.has(expense.dayId) ? null : expense.dayId,
+    linkedId: expense.linkedId && (droppedHotels.has(expense.linkedId) || droppedTransports.has(expense.linkedId)) ? null : expense.linkedId,
+    coveredByExpenseId: expense.coveredByExpenseId && droppedExpenses.has(expense.coveredByExpenseId) ? null : expense.coveredByExpenseId,
+  }));
+  const views = doc.views.filter(active).filter((view) => !view.dayId || !droppedDays.has(view.dayId));
+
+  // A place stays unless every record that visits it was left out.
+  const visited = (sources: Pick<TripDocument, "days" | "hotels" | "transports">) => {
+    const ids = new Set<string>();
+    for (const day of sources.days) {
+      day.route?.placeIds.forEach((id) => ids.add(id));
+      day.moments.forEach((moment) => moment.placeId && ids.add(moment.placeId));
+    }
+    sources.hotels.forEach((hotel) => hotel.placeId && ids.add(hotel.placeId));
+    for (const transport of sources.transports) {
+      for (const option of transport.options) {
+        for (const segment of option.segments) {
+          if (segment.fromPlaceId) ids.add(segment.fromPlaceId);
+          if (segment.toPlaceId) ids.add(segment.toPlaceId);
+        }
+      }
+    }
+    return ids;
+  };
+  const stillVisited = visited({ days, hotels, transports });
+  const onlyElsewhere = [...visited(doc)].filter((id) => !stillVisited.has(id));
+  const hidden = new Set(onlyElsewhere);
+  return {
+    ...doc,
+    places: doc.places.filter((place) => !hidden.has(place.id)),
+    days,
+    transports,
+    hotels,
+    expenses,
+    notes: doc.notes.filter(active),
+    views,
+  };
 }
 
 function clip(value: string, max: number): string {
@@ -153,14 +265,18 @@ export function tripText(doc: TripDocument): string {
   const places = new Map(doc.places.map((place) => [place.id, place.name]));
   const hotels = new Map(doc.hotels.map((hotel) => [hotel.id, hotel.name]));
   const transports = new Map(doc.transports.map((transport) => [transport.id, transport]));
+  const optionLabels = new Map((doc.plans ?? []).flatMap((plan) => plan.options.map((option) => [option.id, `${plan.title}: ${option.label}`] as const)));
   const lines: (string | null | undefined)[] = [
     doc.title,
     doc.subtitle,
     `${doc.startDate} – ${doc.endDate} (${doc.timeZone})`,
     doc.intro,
   ];
-  doc.days.forEach((day, index) => {
-    lines.push("", `Day ${index + 1} · ${day.date} · ${day.title}${day.short ? ` (${day.short})` : ""}`, day.blurb);
+  // Alternative days share their date's number.
+  const dayNumbers = new Map([...new Set(doc.days.map((day) => day.date))].map((date, index) => [date, index + 1]));
+  doc.days.forEach((day) => {
+    const option = day.planOptionId ? optionLabels.get(day.planOptionId) : undefined;
+    lines.push("", `Day ${dayNumbers.get(day.date)} · ${day.date} · ${day.title}${day.short ? ` (${day.short})` : ""}${option ? ` [${option}]` : ""}`, day.blurb);
     if (day.route?.placeIds.length) lines.push(`Route: ${day.route.placeIds.map((id) => places.get(id) ?? id).join(" → ")}`);
     if (day.route?.summary) lines.push(day.route.summary);
     for (const moment of day.moments) lines.push(`- ${moment.slot}${moment.time ? ` ${moment.time}` : ""}: ${moment.text}`);
@@ -196,6 +312,13 @@ export function tripText(doc: TripDocument): string {
       lines.push(`- ${place.name}${place.address ? `, ${place.address}` : ""}`, place.description);
       if (place.hours) lines.push(`  Hours: ${place.hours}`);
       for (const item of place.pricing) lines.push(`  ${item.label}: ${item.price ? `${item.price.amount} ${item.price.currency}` : "free"}${item.note ? ` (${item.note})` : ""}`);
+    }
+  }
+  if (doc.plans?.length) {
+    lines.push("", "Plans");
+    for (const plan of doc.plans) {
+      lines.push(`- ${plan.title}${plan.scope === "day" && plan.date ? ` (${plan.date})` : ""}: ${plan.options.map((option) => option.label).join(" / ")}`);
+      for (const option of plan.options) if (option.summary) lines.push(`  ${option.label}: ${option.summary}`);
     }
   }
   for (const note of doc.notes) lines.push("", note.title, note.text);

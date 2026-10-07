@@ -31,11 +31,14 @@ export async function GET(request: Request, { params }: Context) {
 export async function PUT(request: Request, { params }: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
-    const { input, hasViews } = await readJson(request, (body) => ({
-      input: putTripSchema.parse(body),
-      hasViews: Array.isArray((body as { document?: { views?: unknown } } | null)?.document?.views),
-    }));
-    return noStoreJson({ trip: await replaceTrip(db, principal.sub, id, input, {}, hasViews) });
+    const { input, sent } = await readJson(request, (body) => {
+      const document = (body as { document?: { views?: unknown; plans?: unknown } } | null)?.document;
+      return {
+        input: putTripSchema.parse(body),
+        sent: { views: Array.isArray(document?.views), plans: Array.isArray(document?.plans) },
+      };
+    });
+    return noStoreJson({ trip: await replaceTrip(db, principal.sub, id, input, {}, sent) });
   }, { feature: "trips" });
 }
 

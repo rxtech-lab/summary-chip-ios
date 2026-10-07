@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { tripDocumentSchema, tripIntegrityIssues, tripOperationSchema, type TripDocument } from "@/lib/contracts/trip";
 import { parseOperations } from "@/lib/ai/trip-agent";
-import { applyOperations, tripDigest, tripText } from "@/lib/services/trip-document";
+import { activeTripDocument, applyOperations, selectedPlanOptionId, tripDigest, tripText } from "@/lib/services/trip-document";
 import { applicableOperations } from "@/lib/services/trips";
 
 const fixture = JSON.parse(readFileSync(new URL("../fixtures/northbound-trip.json", import.meta.url), "utf8"));
@@ -199,5 +199,100 @@ describe("applyOperations", () => {
     expect(comparison?.spec.elements["stat-pass"]).toMatchObject({ props: { value: 53020 } });
     expect(comparison?.spec.elements["stat-ic"]).toMatchObject({ props: { value: 48440 } });
     expect(doc.views.find((view) => view.id === "view-pass-day-1")?.dayId).toBe("day-5");
+  });
+});
+
+describe("plans", () => {
+  /** Day 2 has two routes, and route 2 brings its own hotel and transport. */
+  function planned(): TripDocument {
+    const doc = minimal();
+    return tripDocumentSchema.parse({
+      ...doc,
+      places: [...doc.places, { id: "nara", name: "Nara", kind: "city", coordinate: { lat: 34.6851, lng: 135.8048 } }],
+      days: [
+        ...doc.days,
+        { id: "day-2-arashiyama", date: "2026-11-07", title: "Arashiyama", planOptionId: "route-1", route: { kind: "side", placeIds: ["kyoto"] } },
+        { id: "day-2-nara", date: "2026-11-07", title: "Nara deer", planOptionId: "route-2", route: { kind: "side", placeIds: ["kyoto", "nara"] }, stayId: "nara-inn", transportIds: ["kintetsu"] },
+      ],
+      transports: [...doc.transports, {
+        id: "kintetsu", date: "2026-11-07", label: "Kyoto → Nara", planOptionId: "route-2",
+        options: [{ id: "kintetsu-1", label: "Kintetsu", segments: [{ mode: "train", fromPlaceId: "kyoto", toPlaceId: "nara", fromName: "Kyoto", toName: "Nara" }] }],
+      }],
+      hotels: [...doc.hotels, { id: "nara-inn", name: "Nara inn", placeId: "nara", checkIn: "2026-11-07", checkOut: "2026-11-08", planOptionId: "route-2" }],
+      expenses: [...doc.expenses, { id: "kintetsu-fare", category: "transport", title: "Kintetsu", amount: { amount: 760, currency: "JPY" }, linkedId: "kintetsu", dayId: "day-2-nara", planOptionId: "route-2" }],
+      plans: [{ id: "day-2", title: "Day 2", scope: "day", date: "2026-11-07", options: [{ id: "route-1", label: "Route 1" }, { id: "route-2", label: "Route 2" }] }],
+    });
+  }
+
+  it("validates plans and the records that belong to them", () => {
+    expect(tripIntegrityIssues(planned())).toEqual([]);
+    const doc = planned();
+    const broken: TripDocument = {
+      ...doc,
+      days: doc.days.map((day) => (day.id === "day-2-nara" ? { ...day, date: "2026-11-08" } : day)),
+      notes: [{ id: "n", title: "N", text: "x", planOptionId: "route-9" }],
+      plans: [
+        { ...doc.plans[0], defaultOptionId: "route-7" },
+        { id: "trip", title: "Trip", scope: "trip", date: null, options: [{ id: "route-1", label: "Again" }, { id: "b", label: "B" }] },
+        { id: "no-date", title: "Day", scope: "day", date: null, options: [{ id: "c", label: "C" }, { id: "d", label: "D" }] },
+      ],
+    };
+    const messages = tripIntegrityIssues(broken).map((issue) => `${issue.path.join(".")}: ${issue.message}`);
+    expect(messages).toEqual(expect.arrayContaining([
+      "plans.0.defaultOptionId: unknown id \"route-7\"",
+      "plans.1.options.0.id: duplicate plan option id \"route-1\"",
+      "plans.2.date: a day plan needs its date",
+      "notes.0.planOptionId: unknown id \"route-9\"",
+      "days.2.date: must be 2026-11-07, the date of plan \"day-2\"",
+    ]));
+    expect(tripDocumentSchema.safeParse({ ...doc, plans: [{ id: "p", title: "P", options: [{ id: "only", label: "Only" }] }] }).success).toBe(false);
+  });
+
+  it("shows only the picked options' records", () => {
+    const doc = planned();
+    expect(selectedPlanOptionId(doc.plans[0])).toBe("route-1");
+    expect(selectedPlanOptionId({ ...doc.plans[0], defaultOptionId: "route-2" })).toBe("route-2");
+    expect(selectedPlanOptionId(doc.plans[0], { "day-2": "gone" })).toBe("route-1");
+
+    const first = activeTripDocument(doc);
+    expect(first.days.map((day) => day.id)).toEqual(["day-1", "day-2-arashiyama"]);
+    expect(first.transports.map((transport) => transport.id)).toEqual(["haruka"]);
+    expect(first.hotels.map((hotel) => hotel.id)).toEqual(["ryokan"]);
+    expect(first.expenses.map((expense) => expense.id)).toEqual(["haruka-fare"]);
+    // Nara is only visited by route 2.
+    expect(first.places.map((place) => place.id)).toEqual(["kyoto", "kix"]);
+    expect(first.plans).toHaveLength(1);
+
+    const second = activeTripDocument(doc, { "day-2": "route-2" });
+    expect(second.days.map((day) => day.id)).toEqual(["day-1", "day-2-nara"]);
+    expect(second.places.map((place) => place.id)).toContain("nara");
+    expect(tripIntegrityIssues(second)).toEqual([]);
+    expect(tripIntegrityIssues(first)).toEqual([]);
+  });
+
+  it("resolves and deletes plans with their records", () => {
+    const doc = planned();
+    const resolved = tripDocumentSchema.parse(applyOperations(doc, [{ op: "resolve_plan", id: "day-2", optionId: "route-2" }]));
+    expect(resolved.plans).toEqual([]);
+    expect(resolved.days.map((day) => [day.id, day.planOptionId ?? null])).toEqual([["day-1", null], ["day-2-nara", null]]);
+    expect(resolved.hotels.map((hotel) => hotel.id)).toEqual(["ryokan", "nara-inn"]);
+
+    const deleted = tripDocumentSchema.parse(applyOperations(doc, [{ op: "delete", collection: "plans", id: "day-2" }]));
+    expect(deleted.plans).toEqual([]);
+    expect(deleted.days.map((day) => day.id)).toEqual(["day-1"]);
+    expect(deleted.transports.map((transport) => transport.id)).toEqual(["haruka"]);
+    expect(deleted.hotels.map((hotel) => hotel.id)).toEqual(["ryokan"]);
+    expect(deleted.expenses.map((expense) => expense.id)).toEqual(["haruka-fare"]);
+
+    // Unknown ids change nothing.
+    expect(applyOperations(doc, [{ op: "resolve_plan", id: "day-2", optionId: "nope" }])).toEqual(doc);
+    const upserted = applyOperations(minimal(), [tripOperationSchema.parse({ op: "upsert_plan", plan: doc.plans[0] })]);
+    expect(upserted.plans.map((plan) => plan.id)).toEqual(["day-2"]);
+  });
+
+  it("lists plans in the trip's text", () => {
+    const text = tripText(planned());
+    expect(text).toContain("Day 2 · 2026-11-07 · Nara deer [Day 2: Route 2]");
+    expect(text).toContain("- Day 2 (2026-11-07): Route 1 / Route 2");
   });
 });

@@ -55,6 +55,7 @@
 		5A18072680DD57F5F39171EF /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 38662CD05F587C40F4164608 /* SummaryKit */; };
 		5A25BAE3EAA4F6550594912B /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 63CDA77E22315A3ADD826569 /* SummaryKit */; };
 		5B76C708E3816449B5F0EACC /* TripCustomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD128A4F767D88B1C9C8FDA /* TripCustomView.swift */; };
+		5C3C147B00EF6DC46457AC5C /* TripPlanPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D10142A25A654D12674F04 /* TripPlanPicker.swift */; };
 		5C8670F5BF85C9C6B4C43746 /* ShareRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB98BA73AD0207559C1B2880 /* ShareRootView.swift */; };
 		60A2000FA31ED016A852F1AA /* AddSummaryIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43AF207A8CA79F42701645A5 /* AddSummaryIntent.swift */; };
 		61123A1430EF303E89180F57 /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A504733A5A595315F3D1E8 /* LocationProvider.swift */; };
@@ -314,6 +315,7 @@
 		9AC23984BF62F18E1422516D /* ExtractContent.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ExtractContent.js; sourceTree = "<group>"; };
 		A0EE92E3D91BF8D316B87E40 /* ChatStreamingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStreamingUITests.swift; sourceTree = "<group>"; };
 		A0F64B11D6B01961148BEFB3 /* MCPSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPSettingsSheet.swift; sourceTree = "<group>"; };
+		A1D10142A25A654D12674F04 /* TripPlanPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlanPicker.swift; sourceTree = "<group>"; };
 		A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EducationSheet.swift; sourceTree = "<group>"; };
 		A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteSummarySheet.swift; sourceTree = "<group>"; };
@@ -665,6 +667,7 @@
 				F6165D5EEFE21F50D353DBE4 /* TripEditorModel.swift */,
 				668A7FEAA95408549C61CC30 /* TripMapView.swift */,
 				2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */,
+				A1D10142A25A654D12674F04 /* TripPlanPicker.swift */,
 				853B4341050169BFBBC48CC1 /* TripStyle.swift */,
 			);
 			path = Trip;
@@ -1237,6 +1240,7 @@
 				648137054CDF63C2F61C6C28 /* TripMapView.swift in Sources */,
 				099F4D8EE629B42B71A07FD0 /* TripMetaEditorSheet.swift in Sources */,
 				01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */,
+				5C3C147B00EF6DC46457AC5C /* TripPlanPicker.swift in Sources */,
 				CE40302BFB17B541D454C812 /* TripStyle.swift in Sources */,
 				BB923035EDDB9A1B8B0331A6 /* TripViewEditorSheet.swift in Sources */,
 				80E879BD308582FC7BD94229 /* UpdateService.swift in Sources */,

@@ -41,6 +41,20 @@ export const VIEW_GUIDE = "Custom views (upsert_view) are small native UIs the a
   + "true gets a summed total row. Use views for comparisons and budgets the records can't express, e.g. a rail pass vs "
   + "paying each fare by IC card.";
 
+/**
+ * How to lay out alternative plans (route 1 / route 2…): shared by the agents and the MCP
+ * update_trip tool.
+ */
+export const PLAN_GUIDE = "Alternative plans (upsert_plan) let the user pick between versions of the whole trip or of one day: "
+  + "{ id, title, scope: trip | day, date (YYYY-MM-DD, required for day), options: [{ id, label, summary }] (2-6; option ids "
+  + "unique across all plans), defaultOptionId? }. Tag each alternative's records (days, transports, hotels, expenses, notes, "
+  + "views) with planOptionId = its option's id; untagged records are shared by every option. A day plan's alternative days "
+  + "are separate day records on the plan's date, one per option (e.g. day-3-route-1, day-3-route-2), each with its own "
+  + "route, moments, stay and transport; a trip plan's options can each carry their own days, hotels and transport for the "
+  + "dates they differ. Each reader's pick is saved for them; the app shows only the picked option's records. "
+  + "resolve_plan { id, optionId } settles a plan once the user decides (keeps that option's records, deletes the others "
+  + "and the plan); delete with collection \"plans\" removes a plan together with all its options' records.";
+
 /** How the agent edits records; shared by the background trip agent and the trip chat. */
 export const TRIP_RECORD_RULES = `- Preserve existing records: update a record by upserting it with its existing id and every field you are not changing copied over unchanged. Never delete a record unless the user's instructions ask for it.
 - New records get short, descriptive kebab-case ids that are unique within their collection (e.g. "hotel-hakodate-kokusai", "oct17-ferry", "place-hakodate-station").
@@ -52,7 +66,8 @@ export const TRIP_RECORD_RULES = `- Preserve existing records: update a record b
 - Places are guidebook entries, not just pins: when the source covers a sight, restaurant, shop or station, fill what it states — description (what it is, why go, 1–4 sentences), hours, visitDuration, pricing (one { label, price: { amount, currency }, note } per tier, e.g. "Adult", "Child 6–12", "Parking / hour"; omit price for free), website, phone, address and exact coordinates.
 - To change a few details of an existing place, use update_place { id, changes, addPhotos } instead of resending it with upsert_place.
 - Photos: add up to a few photos to a place (photos: [{ url, caption, credit, sourceUrl }]) or to a view (Image, Gallery) only from direct https image URLs listed as the source's images or given by the user; never guess or build image URLs. Keep the photos a place already has.
-- ${VIEW_GUIDE} Only build or change a view when the user asks for one; update it in place (same id) when its figures change.`;
+- ${VIEW_GUIDE} Only build or change a view when the user asks for one; update it in place (same id) when its figures change.
+- ${PLAN_GUIDE} Only create alternatives when the user asks for options or the source offers real alternatives; otherwise edit the records in place. When a trip has plans, an edit to one alternative goes to that option's records (keep their planOptionId).`;
 
 /** Most images of a source listed for the agent to pick photos from. */
 export const SOURCE_IMAGE_LIMIT = 12;

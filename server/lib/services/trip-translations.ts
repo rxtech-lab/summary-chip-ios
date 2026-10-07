@@ -131,6 +131,11 @@ export function mapTripTexts(document: TripDocument, visit: Visit): TripDocument
     notes: document.notes.map((note) => ({ ...note, title: t(note.title), text: t(note.text) })),
     sources: document.sources.map((source) => ({ ...source, title: t(source.title) })),
     views: (document.views ?? []).map((view) => ({ ...view, title: t(view.title), spec: mapViewSpec(view.spec, t) })),
+    plans: (document.plans ?? []).map((plan) => ({
+      ...plan,
+      title: t(plan.title),
+      options: plan.options.map((option) => ({ ...option, label: t(option.label), summary: v(option.summary) })),
+    })),
   };
 }
 

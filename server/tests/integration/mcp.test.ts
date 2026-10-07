@@ -135,7 +135,7 @@ describe("/api/mcp", () => {
 
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
-      "add_summary", "add_to_trip_from_source", "create_trip", "get_profile", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_trip", "upload_trip_image",
+      "add_summary", "add_to_trip_from_source", "choose_plan_option", "create_trip", "get_profile", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_trip", "upload_trip_image",
     ]);
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
@@ -289,6 +289,39 @@ describe("/api/mcp trip tools", () => {
     await callTool(key, "add_summary", CHIP);
     const trips = await callTool(key, "list_summaries", { kind: "trip" });
     expect(trips.structuredContent).toMatchObject({ count: 1, items: [{ id: trip.id }] });
+  });
+
+  it("lays out alternative routes and records the user's pick", async () => {
+    const { key } = await createKey();
+    const tripId = ((await callTool(key, "create_trip", { document: TRIP })).structuredContent as { trip: { id: string } }).trip.id;
+    const planned = await callTool(key, "update_trip", {
+      tripId,
+      operations: [
+        { op: "upsert_place", place: { id: "otaru", name: "Otaru", kind: "city", coordinate: { lat: 43.1907, lng: 140.9947 } } },
+        { op: "upsert_place", place: { id: "jozankei", name: "Jozankei", kind: "city", coordinate: { lat: 42.9673, lng: 141.1617 } } },
+        { op: "upsert_plan", plan: { id: "day-2-plan", title: "Day 2", scope: "day", date: "2027-02-02", options: [
+          { id: "route-otaru", label: "Route 1 · Otaru canal" },
+          { id: "route-onsen", label: "Route 2 · Jozankei onsen", summary: "A night at a hot spring" },
+        ] } },
+        { op: "upsert_day", day: { id: "day-2-otaru", date: "2027-02-02", title: "Otaru canal", planOptionId: "route-otaru", route: { kind: "side", placeIds: ["sapporo", "otaru"] } } },
+        { op: "upsert_day", day: { id: "day-2-onsen", date: "2027-02-02", title: "Jozankei", planOptionId: "route-onsen", route: { kind: "side", placeIds: ["sapporo", "jozankei"] } } },
+      ],
+    });
+    expect(planned.isError).toBeFalsy();
+
+    const chosen = await callTool(key, "choose_plan_option", { tripId, planId: "day-2-plan", optionId: "route-onsen" });
+    expect(chosen.isError).toBeFalsy();
+    expect(chosen.structuredContent).toEqual({ planSelections: { "day-2-plan": "route-onsen" } });
+    const read = (await callTool(key, "get_trip", { tripId })).structuredContent as { trip: { revision: number; planSelections: Record<string, string> } };
+    expect(read.trip).toMatchObject({ revision: 1, planSelections: { "day-2-plan": "route-onsen" } });
+
+    const unknown = await callTool(key, "choose_plan_option", { tripId, planId: "day-2-plan", optionId: "route-9" });
+    expect(unknown.isError).toBe(true);
+
+    const resolved = await callTool(key, "update_trip", { tripId, operations: [{ op: "resolve_plan", id: "day-2-plan", optionId: "route-onsen" }] });
+    const document = (resolved.structuredContent as { trip: { document: TripDocument } }).trip.document;
+    expect(document.plans).toEqual([]);
+    expect(document.days.map((day) => day.id)).toEqual(["day-1", "day-2-onsen"]);
   });
 
   it("uploads photos and patches a place's details", async () => {
