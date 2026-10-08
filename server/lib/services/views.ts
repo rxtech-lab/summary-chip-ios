@@ -22,10 +22,10 @@ export async function recordView(
   db: Database,
   userId: string,
   slug: string,
-  options: { email?: string | null; accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date; billingEnvironment?: BillingEnvironmentResolver } = {},
+  options: { email?: string | null; authorization?: string | null; accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date; billingEnvironment?: BillingEnvironmentResolver } = {},
 ): Promise<SummaryJson> {
   const now = options.now ?? new Date();
-  const resolved = await resolveShareKey(db, slug, { id: userId, email: options.email }, now);
+  const resolved = await resolveShareKey(db, slug, { id: userId, email: options.email, authorization: options.authorization }, now);
   if (resolved.status === "not-invited") {
     throw new ApiError(403, "NOT_INVITED", "This link is only for the people it was shared with");
   }

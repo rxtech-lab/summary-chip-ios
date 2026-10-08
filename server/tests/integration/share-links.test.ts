@@ -7,6 +7,7 @@ import * as linkRoute from "@/app/api/v1/summaries/[id]/links/[linkId]/route";
 import * as viewsRoute from "@/app/api/v1/views/route";
 import * as publicRoute from "@/app/api/public/summaries/[slug]/route";
 import * as ogRoute from "@/app/s/[slug]/og.png/route";
+import { setUserInfoFetcherForTests } from "@/lib/auth/userinfo";
 import { shareLinks } from "@/lib/db/schema";
 import { apiRequest, params, setupTestEnv, signToken, type TestEnv } from "../helpers/setup";
 
@@ -155,6 +156,30 @@ describe("share links", () => {
     expect((await view(key, bob)).status).toBe(200);
     await linkRoute.DELETE(apiRequest("DELETE", `/api/v1/summaries/${summary.id}/links/${link.id}`, { token: env.tokens.alice }), params({ id: summary.id, linkId: link.id }));
     expect((await getSummary(summary.id, bob)).status).toBe(404);
+  });
+
+  it("asks the identity provider for the email when the access token has none", async () => {
+    const summary = await createText("Tardigrades survive boiling, freezing and the vacuum of space by drying out.", "Tardigrades", { visibility: "private" });
+    const link = await (await createLink(summary.id, { access: "invited", emails: ["bob@example.com"] })).json();
+    const key = tokenOf(link.url);
+    // Like rxlab-auth: the access token has no email claim; userinfo has it for the same token.
+    const asked: string[] = [];
+    setUserInfoFetcherForTests(async (authorization) => {
+      asked.push(authorization);
+      return authorization === `Bearer ${env.tokens.bob}` ? "bob@example.com" : null;
+    });
+
+    expect((await view(key, env.tokens.bob)).status).toBe(200);
+    expect(asked).toEqual([`Bearer ${env.tokens.bob}`]);
+    // Remembered on Bob's row: the library keeps the summary and later opens skip the lookup.
+    expect((await getSummary(summary.id, env.tokens.bob)).status).toBe(200);
+    expect((await view(key, env.tokens.bob)).status).toBe(200);
+    expect(asked).toHaveLength(1);
+
+    const dave = await signToken("user-dave");
+    const notInvited = await view(key, dave);
+    expect(notInvited.status).toBe(403);
+    expect((await notInvited.json()).error.code).toBe("NOT_INVITED");
   });
 
   it("keeps the summary's own link and its share links independent", async () => {

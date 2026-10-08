@@ -1,5 +1,7 @@
 import { and, eq, getTableName, or, sql, type SQL } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import type { ApiPrincipal } from "@/lib/auth/bearer";
+import { fetchUserInfoEmail } from "@/lib/auth/userinfo";
 import type { Database } from "@/lib/db/client";
 import { shareLinkEmails, shareLinks, summaries, users, type ShareLinkRow, type SummaryRow } from "@/lib/db/schema";
 import { isPublicAndLive } from "./search";
@@ -57,8 +59,18 @@ export async function canViewerRead(db: Database, row: SummaryRow, viewerId: str
 
 export interface ShareViewer {
   id: string;
-  /** From the access token; falls back to the email on the user's row. */
+  /** From the access token; falls back to the email on the user's row, then to `authorization`. */
   email?: string | null;
+  /**
+   * The viewer's `Authorization` header, to ask the identity provider for their email when neither
+   * the token nor their row has one (rxlab-auth leaves it out of access tokens).
+   */
+  authorization?: string | null;
+}
+
+/** The viewer behind a verified bearer token, for `resolveShareKey`. */
+export function shareViewerFor(principal: ApiPrincipal | null, request: Request): ShareViewer | null {
+  return principal ? { id: principal.sub, email: principal.email, authorization: request.headers.get("authorization") } : null;
 }
 
 export type ShareKeyResolution =
@@ -99,6 +111,11 @@ async function isInvited(db: Database, linkId: string, viewer: ShareViewer): Pro
   if (!email) {
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, viewer.id)).limit(1);
     email = user?.email?.trim().toLowerCase();
+  }
+  if (!email && viewer.authorization) {
+    email = await fetchUserInfoEmail(viewer.authorization) ?? undefined;
+    // Remembered, so later checks (and `grantTokenSql`, which reads `users.email`) see it.
+    if (email) await db.update(users).set({ email }).where(eq(users.id, viewer.id));
   }
   if (!email) return false;
   const [match] = await db.select({ email: shareLinkEmails.email }).from(shareLinkEmails)

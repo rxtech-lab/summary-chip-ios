@@ -1,7 +1,7 @@
 import { optionalApiPrincipal } from "@/lib/auth/bearer";
 import { getDatabase } from "@/lib/db/client";
 import { errorResponse, notFound } from "@/lib/http/errors";
-import { resolveShareKey } from "@/lib/services/share-access";
+import { resolveShareKey, shareViewerFor } from "@/lib/services/share-access";
 import { getObjectStore } from "@/lib/storage/r2";
 
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   try {
     const { slug } = await params;
     const principal = request.headers.has("authorization") ? await optionalApiPrincipal(request) : null;
-    const resolved = await resolveShareKey(getDatabase(), slug, principal ? { id: principal.sub, email: principal.email } : null);
+    const resolved = await resolveShareKey(getDatabase(), slug, shareViewerFor(principal, request));
     const row = resolved.status === "ok" ? resolved.row : null;
     if (!row || row.sourceType !== "pdf" || !row.sourceFileKey) throw notFound("The source file does not exist");
     const filename = `${(row.sourceTitle || row.title).replace(/[^\p{L}\p{N} ._-]/gu, "").trim().slice(0, 80) || "document"}.pdf`;
