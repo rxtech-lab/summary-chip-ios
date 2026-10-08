@@ -214,6 +214,20 @@ public enum WeatherText {
         }
     }
 
+    /// "14° – 21°": degrees in the locale's unit without repeating it, for tight spaces.
+    public static func shortRange(low: Double?, high: Double?, locale: Locale = .current) -> String? {
+        let unit = UnitTemperature(forLocale: locale, usage: .weather)
+        let degrees = { (celsius: Double?) in
+            celsius.map { "\(Int(Measurement(value: $0, unit: UnitTemperature.celsius).converted(to: unit).value.rounded()))°" }
+        }
+        switch (degrees(low), degrees(high)) {
+        case let (low?, high?): return "\(low) – \(high)"
+        case let (nil, high?): return high
+        case let (low?, nil): return low
+        default: return nil
+        }
+    }
+
     /// "35 km/h" (mph where the locale uses it).
     public static func speed(_ kmh: Double?) -> String? {
         guard let kmh else { return nil }

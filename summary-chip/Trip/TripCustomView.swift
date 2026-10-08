@@ -60,6 +60,8 @@ private struct TripViewNode: View {
     let spec: TripViewSpec
     let currency: String
     let depth: Int
+    /// A grid cell: boxed elements stretch to the row's tallest cell.
+    var fillsCell = false
     @Environment(\.tripPlaces) private var places
 
     /// Deeper trees are cut off rather than risking runaway layout.
@@ -82,12 +84,9 @@ private struct TripViewNode: View {
                 VStack(alignment: .leading, spacing: spacing) { children(of: element) }
             }
         case "Grid":
-            let count = min(4, max(1, Int(element.number("columns") ?? 2)))
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: count), alignment: .leading, spacing: 10) {
-                children(of: element)
-            }
+            grid(element, columns: min(4, max(1, Int(element.number("columns") ?? 2))))
         case "Card":
-            ViewCard(element: element) { children(of: element) }
+            ViewCard(element: element, fillsHeight: fillsCell) { children(of: element) }
         case "Disclosure":
             ViewDisclosure(element: element) { children(of: element) }
         case "Heading":
@@ -110,9 +109,9 @@ private struct TripViewNode: View {
                 .foregroundStyle(tint)
                 .background(tint.opacity(0.14), in: Capsule())
         case "Stat":
-            ViewStat(element: element, currency: currency)
+            ViewStat(element: element, currency: currency, fillsHeight: fillsCell)
         case "Callout":
-            ViewCallout(element: element)
+            ViewCallout(element: element, fillsHeight: fillsCell)
         case "KeyValue":
             ViewKeyValue(element: element, currency: currency)
         case "List":
@@ -160,6 +159,27 @@ private struct TripViewNode: View {
         case "square": 1
         case "portrait": 3.0 / 4.0
         default: 16.0 / 9.0
+        }
+    }
+
+    /// Rows of equal-height cells: each row is as tall as its tallest cell.
+    private func grid(_ element: TripViewElement, columns count: Int) -> some View {
+        let rows = stride(from: 0, to: element.children.count, by: count).map {
+            Array(element.children[$0..<min($0 + count, element.children.count)])
+        }
+        return Grid(alignment: .topLeading, horizontalSpacing: 10, verticalSpacing: 10) {
+            ForEach(rows.indices, id: \.self) { index in
+                GridRow {
+                    ForEach(rows[index], id: \.self) { child in
+                        AnyView(TripViewNode(id: child, spec: spec, currency: currency, depth: depth + 1, fillsCell: true))
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                    // Keeps a short last row's cells at column width.
+                    ForEach(rows[index].count..<count, id: \.self) { _ in
+                        Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
+                    }
+                }
+            }
         }
     }
 
@@ -228,6 +248,7 @@ enum TripViewTone {
 
 private struct ViewCard<Content: View>: View {
     let element: TripViewElement
+    var fillsHeight = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -246,7 +267,7 @@ private struct ViewCard<Content: View>: View {
             content()
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .background(
             tone == nil || tone == "default" ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(TripViewTone.tint(tone).opacity(0.1)),
             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -282,6 +303,7 @@ private struct ViewDisclosure<Content: View>: View {
 private struct ViewStat: View {
     let element: TripViewElement
     let currency: String
+    var fillsHeight = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -299,7 +321,7 @@ private struct ViewStat: View {
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
     }
@@ -307,6 +329,7 @@ private struct ViewStat: View {
 
 private struct ViewCallout: View {
     let element: TripViewElement
+    var fillsHeight = false
 
     var body: some View {
         let tone = element.string("tone") ?? "info"
@@ -325,7 +348,7 @@ private struct ViewCallout: View {
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
     }
@@ -596,7 +619,7 @@ struct TripPlacePreviewCard: View {
             Button { showPlace?(place.id) } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     if let photo = place.photos.first {
-                        TripPhotoView(photo: photo, aspectRatio: 16.0 / 9.0)
+                        TripPhotoView(photo: photo, aspectRatio: 16.0 / 9.0, opensViewer: false)
                             .padding(.bottom, 6)
                     }
                     HStack(spacing: 6) {

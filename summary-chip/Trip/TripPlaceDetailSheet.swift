@@ -258,32 +258,47 @@ struct TripPlaceDetailSheet: View {
     }
 }
 
-/// Photos the reader pages through, each with its caption and credit.
+/// Photos the reader pages through, each with its caption and credit. Tapping one opens them
+/// all full screen at that photo.
 struct TripPhotoCarousel: View {
     let photos: [TripPhoto]
     var aspectRatio: CGFloat = 4.0 / 3.0
+    @State private var viewing: TripPhotoViewerItem?
 
     var body: some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 10) {
                 ForEach(photos.indices, id: \.self) { index in
-                    TripPhotoView(photo: photos[index], aspectRatio: aspectRatio)
-                        .containerRelativeFrame(.horizontal) { width, _ in photos.count > 1 ? width * 0.88 : width }
+                    TripPhotoView(photo: photos[index], aspectRatio: aspectRatio) {
+                        viewing = TripPhotoViewerItem(photos: photos, start: index)
+                    }
+                    .containerRelativeFrame(.horizontal) { width, _ in photos.count > 1 ? width * 0.88 : width }
                 }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
         .scrollIndicators(.hidden)
+        .tripPhotoViewer(item: $viewing)
     }
 }
 
-/// One photo, cropped to `aspectRatio`, with its caption and credit under it.
+/// One photo, cropped to `aspectRatio`, with its caption and credit under it. Tapping it opens
+/// it full screen, or calls `onOpen` when a carousel shows it among others. Off when it sits
+/// inside a button of its own (`opensViewer: false`).
 struct TripPhotoView: View {
     let photo: TripPhoto
     var aspectRatio: CGFloat = 16.0 / 9.0
+    var opensViewer = true
+    var onOpen: (() -> Void)?
+    @State private var viewing: TripPhotoViewerItem?
 
     var body: some View {
+        content
+            .tripPhotoViewer(item: $viewing)
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 4) {
             Color.clear
                 .aspectRatio(aspectRatio, contentMode: .fit)
@@ -296,7 +311,9 @@ struct TripPhotoView: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityLabel(photo.caption ?? String(localized: "Photo"))
+                .modifier(OpensViewer(enabled: opensViewer && photo.imageURL != nil, open: open))
             let caption = [photo.caption?.nilIfBlank, photo.credit?.nilIfBlank].compactMap(\.self).joined(separator: " · ")
             if !caption.isEmpty {
                 Text(caption)
@@ -304,6 +321,28 @@ struct TripPhotoView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
+        }
+    }
+
+    private func open() {
+        if let onOpen { onOpen() } else { viewing = TripPhotoViewerItem(photos: [photo], start: 0) }
+    }
+}
+
+/// Makes a photo a tap target for the full-screen viewer.
+private struct OpensViewer: ViewModifier {
+    let enabled: Bool
+    let open: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .onTapGesture(perform: open)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { open() }
+                .accessibilityIdentifier("trip-photo")
+        } else {
+            content
         }
     }
 }

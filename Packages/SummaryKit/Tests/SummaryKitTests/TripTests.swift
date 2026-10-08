@@ -121,6 +121,30 @@ private func loadTrip() throws -> Trip {
         #expect(doc.routeCoordinates(for: doc.days[0]).map(\.lat) == [35.772, 35.6812])
     }
 
+    @Test func routeRunsFollowTransportModes() throws {
+        var doc = try loadTrip().document
+        #expect(doc.routeRuns(for: doc.days[0]).map(\.travel) == [.rail])
+        let north = doc.routeRuns(for: doc.days[1])
+        #expect(north.map(\.travel) == [.rail])
+        #expect(north.first?.points.count == 3)
+        // No transport: by road.
+        #expect(doc.routeRuns(for: doc.days[2]).map(\.travel) == [.road])
+        doc.days[0].route?.kind = .ferry
+        #expect(doc.routeRuns(for: doc.days[0]).map(\.travel) == [.direct])
+
+        // A segment between two of the day's places sets that leg's mode.
+        doc.transports.append(TripTransport(id: "t-matsushima", date: "2026-10-12", label: "Matsushima", options: [
+            TripTransportOption(id: "o", label: "Out and back", segments: [
+                TripSegment(mode: .walk, fromPlaceId: "sendai", toPlaceId: "matsushima", fromName: "Sendai", toName: "Matsushima"),
+                TripSegment(mode: .train, fromPlaceId: "matsushima", toPlaceId: "sendai", fromName: "Matsushima", toName: "Sendai"),
+            ]),
+        ]))
+        doc.days[2].transportIds = ["t-matsushima"]
+        let side = doc.routeRuns(for: doc.days[2])
+        #expect(side.map(\.travel) == [.walk, .rail])
+        #expect(side.map(\.points.count) == [2, 2])
+    }
+
     @Test func expenseTotalsSkipCoveredRows() throws {
         let doc = try loadTrip().document
         let totals = doc.expenseTotals()

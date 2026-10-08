@@ -52,6 +52,9 @@ private let weatherJSON = """
         #expect(WeatherText.temperature(nil) == nil)
         #expect(WeatherText.temperature(21.4)?.contains("°") == true)
         #expect(WeatherText.range(low: nil, high: nil) == nil)
+        #expect(WeatherText.shortRange(low: 14.2, high: 21.4, locale: Locale(identifier: "zh_Hans_CN")) == "14° – 21°")
+        #expect(WeatherText.shortRange(low: 0, high: 100, locale: Locale(identifier: "en_US")) == "32° – 212°")
+        #expect(WeatherText.shortRange(low: nil, high: nil) == nil)
         #expect(WeatherText.chance(80) == (0.8).formatted(.percent.precision(.fractionLength(0))))
     }
 }

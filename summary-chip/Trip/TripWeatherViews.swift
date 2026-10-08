@@ -30,23 +30,22 @@ struct TripDayWeatherRow: View {
 
     var body: some View {
         if let dayWeather = weather.day(id: day.id, date: day.date) {
-            let forecasts = dayWeather.locations.filter { $0.forecast != nil }.prefix(2)
+            let forecasts = Array(dayWeather.locations.filter { $0.forecast != nil }.prefix(2))
             if !forecasts.isEmpty {
                 Button { showsDetail = true } label: {
                     HStack(spacing: 10) {
-                        ForEach(Array(forecasts)) { location in
-                            if forecasts.count > 1, location.id != forecasts.first?.id {
-                                Divider().frame(height: 28)
+                        // One line per place, so nothing has to be cut short on a narrow card.
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(forecasts) { location in
+                                TripDayWeatherSummary(location: location, showsName: dayWeather.locations.count > 1)
                             }
-                            TripDayWeatherSummary(location: location, showsName: forecasts.count > 1 || dayWeather.locations.count > 1)
                         }
-                        Spacer(minLength: 0)
                         Image(systemName: "chevron.right")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.tertiary)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -64,7 +63,8 @@ struct TripDayWeatherRow: View {
     }
 }
 
-/// "🌧 Rain · 14° – 21° · ☂︎ 80%", with the place's name when the day has several.
+/// "🌧 Kyoto · Rain        14° – 21°  ☂︎ 80%": the place (when the day has several), the condition,
+/// and the numbers, which are never truncated; a long name wraps instead.
 private struct TripDayWeatherSummary: View {
     let location: TripWeatherLocation
     let showsName: Bool
@@ -74,31 +74,43 @@ private struct TripDayWeatherSummary: View {
             HStack(spacing: 8) {
                 Image(systemName: forecast.condition.systemImage)
                     .symbolRenderingMode(.multicolor)
-                    .font(.title3)
+                    .font(.body)
+                    .frame(width: 24)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(showsName ? location.name : forecast.condition.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(!showsName && forecast.condition.isBad ? Color.orange : Color.primary)
-                        .lineLimit(1)
-                    HStack(spacing: 6) {
-                        if let range = WeatherText.range(low: forecast.low, high: forecast.high) {
-                            Text(range).monospacedDigit()
-                        }
-                        if let chance = WeatherText.chance(forecast.precipitationChance), (forecast.precipitationChance ?? 0) >= 20 {
-                            Label(chance, systemImage: "umbrella.fill")
-                                .labelStyle(.titleAndIcon)
-                                .foregroundStyle(.blue)
-                        }
+                Group {
+                    if showsName {
+                        Text("\(Text(location.name).fontWeight(.semibold)) · \(Text(forecast.condition.title).foregroundStyle(conditionColor(forecast)))")
+                    } else {
+                        Text(forecast.condition.title)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(conditionColor(forecast))
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
                 }
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                HStack(spacing: 8) {
+                    if let range = WeatherText.shortRange(low: forecast.low, high: forecast.high) {
+                        Text(range).monospacedDigit()
+                    }
+                    if let chance = WeatherText.chance(forecast.precipitationChance), (forecast.precipitationChance ?? 0) >= 20 {
+                        Label(chance, systemImage: "umbrella.fill")
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(.blue)
+                            .monospacedDigit()
+                    }
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize()
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(accessibilityText(forecast)))
         }
+    }
+
+    private func conditionColor(_ forecast: DailyWeather) -> Color {
+        forecast.condition.isBad ? .orange : .primary
     }
 
     private func accessibilityText(_ forecast: DailyWeather) -> String {
