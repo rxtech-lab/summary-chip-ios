@@ -6,6 +6,7 @@ struct LibraryView: View {
     @State private var showsFilters = false
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
+    @State private var showsNewPaper = false
     @State private var showsCredits = false
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
@@ -55,15 +56,7 @@ struct LibraryView: View {
                         .accessibilityIdentifier("library-points")
                     }
                     ToolbarItemGroup(placement: .summaryTrailing) {
-                        Button {
-                            showsFilters = true
-                        } label: {
-                            Label("Filter", systemImage: model.filter.isActive
-                                ? "line.3.horizontal.decrease.circle.fill"
-                                : "line.3.horizontal.decrease.circle")
-                        }
-                        .badge(model.filter.activeCount)
-                        .accessibilityIdentifier("library-filter")
+                        filterMenu
                         Menu {
                             Button {
                                 showsNewSummary = true
@@ -77,10 +70,14 @@ struct LibraryView: View {
                                 Label("New Trip", systemImage: "map")
                             }
                             .accessibilityIdentifier("new-trip")
+                            Button {
+                                showsNewPaper = true
+                            } label: {
+                                Label("New Paper", systemImage: "doc.richtext")
+                            }
+                            .accessibilityIdentifier("new-paper")
                         } label: {
                             Label("New", systemImage: "plus")
-                        } primaryAction: {
-                            showsNewSummary = true
                         }
                         .accessibilityIdentifier("new-summary")
                         if let openSearch {
@@ -90,10 +87,7 @@ struct LibraryView: View {
                     ChatPanelToolbarContent(isVisible: chatPanelVisibility)
                 }
                 .sheet(isPresented: $showsFilters) {
-                    LibraryFilterSheet(model: model) { newFilter in
-                        model.filter = newFilter
-                        Task { await model.reload() }
-                    }
+                    LibraryFilterSheet(model: model) { applyFilter($0) }
                 }
                 .sheet(isPresented: $showsNewSummary) {
                     NewSummarySheet(environment: environment)
@@ -107,6 +101,9 @@ struct LibraryView: View {
                             if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
                         }
                     }
+                }
+                .sheet(isPresented: $showsNewPaper) {
+                    NewPaperSheet(api: environment.api, onCreated: openCreated)
                 }
                 .sheet(isPresented: $showsCredits) {
                     SummaryCreditsSheet(environment: environment)
@@ -122,8 +119,100 @@ struct LibraryView: View {
                     }
                 }
                 .sensoryFeedback(.success, trigger: deletedCount)
+                .sensoryFeedback(.selection, trigger: model.filter)
                 .likeStatusOverlay($likeStatus)
         }
+    }
+
+    /// Pushes a paper made in the New Paper sheet once the sheet has closed.
+    private func openCreated(_ paper: Paper) {
+        Task {
+            guard let summary = await environment.libraryItem(forCreated: paper) else { return }
+            // Let the sheet finish dismissing before pushing.
+            try? await Task.sleep(for: .milliseconds(350))
+            if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
+        }
+    }
+
+    /// Quick filters apply as soon as they're picked; category and tag need the searchable sheet.
+    private var filterMenu: some View {
+        Menu {
+            Picker("Show", selection: filterBinding(\.scope)) {
+                ForEach(LibraryScope.filterCases) { scope in
+                    Text(scope.title).tag(scope)
+                }
+            }
+            .pickerStyle(.inline)
+
+            Picker("Kind", selection: filterBinding(\.kind)) {
+                Text("All").tag(SummaryKind?.none)
+                ForEach(SummaryKind.known) { kind in
+                    Text(kind.title).tag(SummaryKind?.some(kind))
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("library-filter-kind")
+
+            if model.filter.scope != .viewed {
+                Picker("Visibility", selection: filterBinding(\.visibility)) {
+                    Text("All").tag(SummaryVisibility?.none)
+                    ForEach(SummaryVisibility.allCases) { value in
+                        Text(value.title).tag(SummaryVisibility?.some(value))
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            Picker("Source", selection: filterBinding(\.source)) {
+                Text("Any source").tag(SummaryOrigin?.none)
+                ForEach(SummaryOrigin.known) { origin in
+                    Label { Text(origin.title) } icon: { origin.image }.tag(SummaryOrigin?.some(origin))
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("library-filter-source")
+
+            Divider()
+
+            Button {
+                showsFilters = true
+            } label: {
+                Label("More Filters…", systemImage: "slider.horizontal.3")
+            }
+            .accessibilityIdentifier("library-filter-more")
+
+            if model.filter.isActive {
+                Button(role: .destructive) {
+                    applyFilter(LibraryFilter())
+                } label: {
+                    Label("Clear All Filters", systemImage: "xmark.circle")
+                }
+            }
+        } label: {
+            Label("Filter", systemImage: model.filter.isActive
+                ? "line.3.horizontal.decrease.circle.fill"
+                : "line.3.horizontal.decrease.circle")
+        }
+        .badge(model.filter.activeCount)
+        .accessibilityIdentifier("library-filter")
+    }
+
+    private func filterBinding<Value>(_ keyPath: WritableKeyPath<LibraryFilter, Value>) -> Binding<Value> {
+        Binding {
+            model.filter[keyPath: keyPath]
+        } set: { value in
+            var filter = model.filter
+            filter[keyPath: keyPath] = value
+            // Viewed summaries are always public; a visibility filter would only hide them.
+            if filter.scope == .viewed { filter.visibility = nil }
+            applyFilter(filter)
+        }
+    }
+
+    private func applyFilter(_ filter: LibraryFilter) {
+        guard filter != model.filter else { return }
+        model.filter = filter
+        Task { await model.reload() }
     }
 
     @ViewBuilder

@@ -23,9 +23,11 @@ import {
   textModelPricing,
   tourModel,
   tourModelId,
+  webSearchTool,
 } from "./models";
 import { splitIntoParts, stripFence, writeDocument, type DocumentSource } from "./document-agent";
 import { findDuplicate, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
+import { checkReference, type ReferenceInput, type ReferenceTools, type ReferenceVerdict } from "./reference-agent";
 import { runTripAgent, type TripAgentInput, type TripAgentResult } from "./trip-agent";
 import { summarizeTripChanges, type TripChangeInput } from "./trip-change-agent";
 import { briefTripDay, type TripBriefingInput } from "./trip-briefing-agent";
@@ -42,6 +44,8 @@ const DOCUMENT_TIMEOUT_MS = 190_000;
 const TRIP_AGENT_TIMEOUT_MS = 200_000;
 /** Budget for the duplicate agent; the import route still designs and renders the cover after it (180 s in all). */
 const DUPLICATE_TIMEOUT_MS = 40_000;
+/** Budget for checking one paper reference (a few page loads and searches). */
+const REFERENCE_TIMEOUT_MS = 75_000;
 
 export interface SummarizeInput {
   text: string;
@@ -150,6 +154,8 @@ export interface AiProvider {
   translateStrings(texts: string[], to: TranslationLanguage, options?: TranslateOptions): Promise<(string | null)[] | null>;
   /** Whether an imported chip duplicates one in the owner's library (by source, title and content), or null when the check failed. */
   findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null>;
+  /** Whether a paper's bibliography entry is real, reliable and correctly cited, or null when the check failed. */
+  checkReference(input: ReferenceInput, tools: ReferenceTools): Promise<ReferenceVerdict | null>;
   /** Operations that bring a shared page or text into a trip, from the trip agent, or null when it failed. */
   updateTrip(input: TripAgentInput, options?: TripAgentCallOptions): Promise<TripAgentResult | null>;
   /** A notification agent summarizing persisted net changes; failures are retried by Workflow. */
@@ -461,6 +467,19 @@ export class GatewayAiProvider implements AiProvider {
     }
   }
 
+  async checkReference(input: ReferenceInput, tools: ReferenceTools): Promise<ReferenceVerdict | null> {
+    try {
+      return await checkReference(textModel(), input, tools, {
+        webSearch: webSearchTool(),
+        abortSignal: AbortSignal.timeout(REFERENCE_TIMEOUT_MS),
+        providerOptions: { openai: { reasoningEffort: "low" } },
+      });
+    } catch (error) {
+      console.warn(`[ai] reference check failed for ${input.key}`, error);
+      return null;
+    }
+  }
+
   async updateTrip(input: TripAgentInput, options: TripAgentCallOptions = {}): Promise<TripAgentResult | null> {
     try {
       return await runTripAgent(textModel(), input, {
@@ -594,6 +613,7 @@ export class GatewayAiProvider implements AiProvider {
  */
 export function illustrationInstruction(input: DesignInput): string {
   if (input.kind === "trip") return tripIllustrationInstruction(input);
+  if (input.kind === "paper") return paperIllustrationInstruction(input);
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
     "Create a 16:9 text-free editorial illustration to be used as the background artwork of a social preview card for this article.",
@@ -620,6 +640,21 @@ function tripIllustrationInstruction(input: DesignInput): string {
     "Fill the entire canvas edge to edge with the journal page, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
     "The image must contain NO text of any kind: no handwriting, letters, words, characters in any script, numbers, dates, labels, captions, signs, logos or watermarks. Tickets, stamps, maps, postcards and signs must be blank or purely pictorial.",
     "Reminder: a purely visual image with zero text, typography, handwriting or lettering.",
+  ].join(" ");
+}
+
+/** A paper's cover: a researcher's desk and notebook spread around its subject, still text-free. */
+function paperIllustrationInstruction(input: DesignInput): string {
+  const desk = input.mode === "dark" ? "a dark slate or charcoal desk under a warm lamp, with glowing ink" : "a pale cream desk in soft daylight";
+  return [
+    "Create a 16:9 text-free illustration that looks like an open research notebook on a scholar's desk, drawn for this academic paper.",
+    "ABSOLUTE RULE: never include any text in the image. The paper details below are context for choosing what to draw only; do not write the title, formulas, keywords or any other words anywhere in the picture.",
+    `Paper: "${input.headline}". Field: ${input.category}. Topics: ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a hand-made lab notebook or sketchbook spread on ${desk} with visible paper texture — loose ink line sketches with watercolor washes of the paper's subject (its apparatus, models, organisms, structures or phenomena), hand-drawn diagrams, node graphs, plotted curves and geometric constructions, plus scrapbook touches: washi tape, paper clips, a pinned printed figure, sticky tabs, a pencil, a fountain pen and a coffee cup ring.`,
+    `Palette: ${input.colors.join(", ")}, used as the watercolor and accent colors over the paper tone.`,
+    "Fill the entire canvas edge to edge with the notebook and desk, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
+    "The image must contain NO text of any kind: no handwriting, letters, words, characters in any script, numbers, equations, mathematical symbols, axis labels, captions, logos or watermarks. Pages, charts, figures and sticky notes must be blank or purely pictorial; plots have bare axes and no tick labels.",
+    "Reminder: a purely visual image with zero text, typography, handwriting, equations or lettering.",
   ].join(" ");
 }
 

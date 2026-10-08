@@ -30,6 +30,7 @@ import { syncTripWeather } from "./weather";
 import { queueTripChangesStatement, startTripNotification } from "./trip-notifications";
 import { syncTripReminders } from "./trip-reminders";
 import { shareUrlFor } from "./serialize";
+import { tripContent, versionStatements, type VersionOptions } from "./document-versions";
 import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, resolveDeps, type ServiceDeps } from "./summaries";
 import { canViewerRead } from "./share-access";
 import { applyOperations, tripDayCount, tripDigest, tripText, type PlanSelections } from "./trip-document";
@@ -41,6 +42,8 @@ export type PutTripInput = z.infer<typeof putTripSchema>;
 export type TripOperationsInput = z.infer<typeof tripOperationsRequestSchema>;
 export type IngestTripInput = z.infer<typeof ingestTripSchema>;
 export type PlanSelectionInput = z.infer<typeof planSelectionSchema>;
+/** What a save needs: the model and clock, and who is saving (for the version it adds). */
+export type SaveDeps = Pick<ServiceDeps, "ai" | "now"> & VersionOptions;
 
 /** `GET /api/v1/trips/:id`. `id` is the summary's id: the trip is also a library item. */
 export interface TripJson {
@@ -106,7 +109,7 @@ function revisionConflict(current: number): ApiError {
 }
 
 /** Parses a document after edits; a broken one is `422 TRIP_INVALID` with the issues in `details`. */
-function validDocument(document: TripDocument, what = "The edit"): TripDocument {
+export function validDocument(document: TripDocument, what = "The edit"): TripDocument {
   const parsed = tripDocumentSchema.safeParse(document);
   if (parsed.success) return parsed.data;
   const issues = parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message }));
@@ -354,7 +357,7 @@ export async function createTrip(db: Database, principal: ApiPrincipal, input: C
     viewCount: 0,
     createdAt,
     updatedAt: createdAt,
-  }, embedding, () => [db.insert(trips).values(tripRow)]);
+  }, embedding, () => [db.insert(trips).values(tripRow)], tripContent(document));
   runAfter(() => syncTripFlights(db, id, principal.sub, document));
   runAfter(() => syncTripWeather(db, id, document));
   runAfter(() => syncTripReminders(db, id));
@@ -391,12 +394,12 @@ export async function listTrips(db: Database, ownerId: string, now = new Date())
 
 /**
  * Saves a new document over `trip.revision` (compare-and-swap: a concurrent save makes this one
- * `409 TRIP_REVISION_CONFLICT`), bumps the revision and refreshes the summary row's derived fields.
- * The embedding is recomputed after the response.
+ * `409 TRIP_REVISION_CONFLICT`), bumps the revision, refreshes the summary row's derived fields and
+ * adds the document as a version. The embedding is recomputed after the response.
  */
-async function saveDocument(
+export async function saveDocument(
   db: Database,
-  deps: Pick<ServiceDeps, "ai" | "now">,
+  deps: SaveDeps,
   summary: SummaryRow,
   trip: TripRow,
   document: TripDocument,
@@ -416,14 +419,15 @@ async function saveDocument(
     contentExcerpt: text.slice(0, EXCERPT_LIMIT),
     updatedAt,
   } satisfies Partial<SummaryRow>;
-  // The save and durable outbox are atomic. SQLite changes() fences both writes to the CAS:
-  // a rejected concurrent edit cannot enqueue an alert or overwrite the summary's derived text.
+  // The save, durable outbox and version are atomic. SQLite changes() fences the writes to the CAS:
+  // a rejected concurrent edit cannot enqueue an alert, overwrite the summary's derived text or add a version.
   const [result, queued] = await db.batch([
     db.update(trips)
       .set({ document, revision, startDate: document.startDate, endDate: document.endDate, updatedAt })
       .where(and(eq(trips.summaryId, trip.summaryId), eq(trips.revision, trip.revision))),
     queueTripChangesStatement(db, summary.id, revision, trip.document, document, updatedAt),
     db.update(summaries).set(changes).where(and(eq(summaries.id, summary.id), sql`changes() > 0`)),
+    ...versionStatements(db, summary, tripContent(document), { at: updatedAt, actor: deps.actor, restoredFrom: deps.restoredFrom, fenced: true }),
   ]);
   if (result.rowsAffected === 0) {
     const current = await findTripRow(db, trip.summaryId);
@@ -448,7 +452,7 @@ export async function replaceTrip(
   ownerId: string,
   id: string,
   input: PutTripInput,
-  deps: Pick<ServiceDeps, "ai" | "now"> = {},
+  deps: SaveDeps = {},
   /** What the client's document carries: an app build from before `views` or `plans` leaves them out, and the saved ones are kept. */
   sent: { views: boolean; plans: boolean } = { views: true, plans: true },
 ): Promise<TripJson> {
@@ -465,7 +469,7 @@ export async function replaceTrip(
  * Applies operations atomically. With `revision`, a trip that changed since is a 409; without it the
  * operations are applied to the latest document (re-applied once if another save lands in between).
  */
-export async function applyTripOperations(db: Database, ownerId: string, id: string, input: TripOperationsInput, deps: Pick<ServiceDeps, "ai" | "now"> = {}): Promise<TripJson> {
+export async function applyTripOperations(db: Database, ownerId: string, id: string, input: TripOperationsInput, deps: SaveDeps = {}): Promise<TripJson> {
   for (let attempt = 0; ; attempt += 1) {
     const { summary, trip } = await getOwnedTrip(db, id, ownerId);
     if (input.revision != null && input.revision !== trip.revision) throw revisionConflict(trip.revision);
@@ -508,7 +512,7 @@ export async function applyChatOperations(
   id: string,
   raw: unknown,
   options: { keepValid: boolean },
-  deps: Pick<ServiceDeps, "ai" | "now"> = {},
+  deps: SaveDeps = {},
 ): Promise<
   | { applied: number; dropped: { index: number; message: string }[]; revision: number }
   | { error: string; issues: { path: string; message: string }[]; dropped: { index: number; message: string }[] }
@@ -527,7 +531,7 @@ export async function applyChatOperations(
     const { document, operations } = applicableOperations(latest.trip.document, proposed);
     if (operations.length === 0) return { applied: 0, dropped: rejected, revision: latest.trip.revision };
     try {
-      const saved = await saveDocument(db, deps, latest.summary, latest.trip, document);
+      const saved = await saveDocument(db, { actor: "chat", ...deps }, latest.summary, latest.trip, document);
       return { applied: operations.length, dropped: rejected, revision: saved.revision };
     } catch (error) {
       if (attempt < 2 && error instanceof ApiError && error.code === "TRIP_REVISION_CONFLICT") continue;
@@ -577,7 +581,7 @@ export async function updateTripFromSource(
       const latest = await getOwnedTrip(db, id, ownerId);
       const { document, operations } = applicableOperations(latest.trip.document, proposed);
       try {
-        const saved = operations.length ? await saveDocument(db, deps, latest.summary, latest.trip, document) : toTripJson(latest.summary, latest.trip, ownerId);
+        const saved = operations.length ? await saveDocument(db, { ...deps, actor: "source" }, latest.summary, latest.trip, document) : toTripJson(latest.summary, latest.trip, ownerId);
         outcome = "finished";
         return { trip: saved, changeSummary: result.changeSummary, applied: operations.length };
       } catch (error) {

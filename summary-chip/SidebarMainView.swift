@@ -14,6 +14,7 @@ struct SidebarMainView: View {
     #endif
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
+    @State private var showsNewPaper = false
     @State private var libraryPath: [Summary] = []
     @State private var likesPath: [Summary] = []
 
@@ -61,6 +62,15 @@ struct SidebarMainView: View {
                 }
             }
         }
+        .sheet(isPresented: $showsNewPaper) {
+            NewPaperSheet(api: environment.api) { paper in
+                Task {
+                    guard let summary = await environment.libraryItem(forCreated: paper) else { return }
+                    selection = .library
+                    libraryPath = [summary]
+                }
+            }
+        }
         // "Open in Library" from a link sheet.
         .onChange(of: environment.pendingLibraryItem) { _, item in
             guard let item else { return }
@@ -69,6 +79,7 @@ struct SidebarMainView: View {
         }
         .focusedSceneValue(\.newSummaryAction, { showsNewSummary = true })
         .focusedSceneValue(\.newTripAction, { showsNewTrip = true })
+        .focusedSceneValue(\.newPaperAction, { showsNewPaper = true })
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
     }
 
@@ -128,6 +139,8 @@ extension FocusedValues {
         get { self[NewTripActionKey.self] }
         set { self[NewTripActionKey.self] = newValue }
     }
+
+    @Entry var newPaperAction: (() -> Void)?
 }
 
 #if os(macOS)
@@ -135,6 +148,7 @@ struct SummaryMacCommands: Commands {
     @FocusedValue(\.newSummaryAction) private var newSummary
     @FocusedValue(\.chatPanelVisibility) private var chatPanel
     @FocusedValue(\.newTripAction) private var newTrip
+    @FocusedValue(\.newPaperAction) private var newPaper
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -144,6 +158,9 @@ struct SummaryMacCommands: Commands {
             Button("New Trip", systemImage: "map") { newTrip?() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .disabled(newTrip == nil)
+            Button("New Paper", systemImage: "doc.richtext") { newPaper?() }
+                .keyboardShortcut("n", modifiers: [.command, .option])
+                .disabled(newPaper == nil)
         }
         CommandGroup(after: .sidebar) {
             Button(chatPanel?.wrappedValue == true ? String(localized: "Hide Chat") : String(localized: "Show Chat")) {

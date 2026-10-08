@@ -63,7 +63,7 @@ Configuration/              xcconfig files (API base URL, RxAuth client, …)
 users(id PK = RxAuth sub, email, name, created_at)
 summaries(
   id PK (uuid), slug UNIQUE (10 char, url-safe), owner_id FK users,
-  kind 'summary' | 'trip' (default 'summary'; a trip's diary lives in `trips`),
+  kind 'summary' | 'trip' | 'paper' (default 'summary'; a trip's diary lives in `trips`, a paper's LaTeX in `papers`),
   source_type  'url' | 'webpage' | 'pdf' | 'text',
   source_url, source_title, site_name, source_file_key (R2, pdf only),
   content_excerpt (≤ 8k chars of extracted text, for the chat's getSummary tool),
@@ -90,6 +90,14 @@ summary_translations(summary_id, language, title, summary, highlights JSON[],
   created_at, updated_at)                        -- one per summary and translation language
 trips(summary_id PK FK summaries ON DELETE CASCADE, document JSON (TripDocument, docs/trips.md),
   revision (bumped on every save; optimistic concurrency), start_date, end_date, updated_at)
+papers(summary_id PK FK summaries ON DELETE CASCADE, files JSON [{path, content, asset?}], main_file,
+  compiler 'pdflatex' | 'xelatex' | 'lualatex', revision (bumped on every save, autosaves included),
+  versioned_revision (the revision the latest version holds), pdf_hash, pdf_key (R2: the working
+  copy's last PDF), updated_at)                    -- docs/papers.md
+document_versions(summary_id FK summaries ON DELETE CASCADE, version (1, 2, … per item), kind,
+  content JSON (a summary's title/summary/highlights/category/tags/keywords, a trip's { document },
+  or a paper's { title, files, mainFile, compiler }),
+  actor 'owner' | 'agent' | 'chat' | 'source' | 'restore', restored_from, created_at)  -- latest 100 per item
 api_keys(id, owner_id FK users, name, key_hash UNIQUE (sha-256), hint, tool_call_count,
   summaries_added_count, last_used_at, created_at)  -- MCP API keys
 summaries_fts  FTS5(title, summary, highlights, tags, keywords, category, site_name)
@@ -131,7 +139,7 @@ shared) and then the live share links.
 // Summary
 {
   "id": "uuid", "slug": "a1B2c3D4e5",
-  "kind": "summary" | "trip",   // open set; a trip's document is at GET /api/v1/trips/:id
+  "kind": "summary" | "trip" | "paper",   // open set; a trip's document is at GET /api/v1/trips/:id, a paper's source at GET /api/v1/papers/:id
   "shareUrl": "https://summary.rxlab.app/s/a1B2c3D4e5",
   // public + R2_PUBLIC_BASE_URL set: direct CDN URL ${R2_PUBLIC_BASE_URL}/og/<id>-<ts>-<random>.png;
   // otherwise the gated route (owner bearer token for private summaries):
@@ -181,10 +189,10 @@ Food, Opinion, Research, Other`.
 
 | Method & path | Body / query | Response |
 |---|---|---|
-| `POST /api/v1/uploads` | `{filename, mimeType:"application/pdf", byteSize}` (≤ 25 MB) | `201 {key, uploadUrl, method:"PUT", headers:{…}, expiresAt}` |
+| `POST /api/v1/uploads` | `{filename, mimeType:"application/pdf" | "image/png" | "image/jpeg", byteSize}` (≤ 25 MB) | `201 {key, uploadUrl, method:"PUT", headers:{…}, expiresAt}` |
 | `POST /api/v1/summaries` | see *Create* | `201 Summary` (synchronous, may take up to ~90 s) |
 | `POST /api/v1/summaries/import` | see *Import* | `201 Summary` — saves a summary written elsewhere as given (no summarising); `409 DUPLICATE_SUMMARY` when the library already has it |
-| `GET /api/v1/summaries` | `?scope=all|mine|viewed|liked&q=&category=&tag=&visibility=&source=&kind=summary|trip&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others); `scope=liked` lists starred summaries the caller can still read, newest star first |
+| `GET /api/v1/summaries` | `?scope=all|mine|viewed|liked&q=&category=&tag=&visibility=&source=&kind=summary|trip|paper&cursor=&limit=` | `{items:[Summary], nextCursor:string|null}` — the **library**: own summaries + others' public summaries the caller opened (`scope`, default `all`), ordered by activity (created for own, last viewed for others); `scope=liked` lists starred summaries the caller can still read, newest star first |
 | `GET /api/v1/summaries/:id` | – | `Summary` (owner, or public for anyone signed in) |
 | `PATCH /api/v1/summaries/:id` | `{visibility?, ttlDays? (number|null), title?, tags?, summary?, highlights?, category?, keywords?, displayLanguage? (language|null)}` | `Summary` — `displayLanguage` translates on first use (`502 TRANSLATION_FAILED` stores nothing); a `title` edit while reading a translation renames that translation; a `summary` or `highlights` edit drops the translations |
 | `DELETE /api/v1/summaries/:id` | – | `204` |
@@ -252,6 +260,14 @@ trip's days read-only.
 body `<trip title>: <change summary>`, and the custom keys `tripId` and `summaryId` (both the trip's
 id) plus `userId`. Apps open the trip view when `tripId` is present.
 
+### Papers
+
+A LaTeX paper is a summary row with `kind: "paper"` plus a `papers` row holding its source files —
+specified in [papers.md](papers.md) (schema: `server/lib/contracts/paper.ts`). The app autosaves the
+working copy (`PUT /papers/:id`, no version) and saves one version when the user leaves the paper
+(`POST /papers/:id/versions`); every MCP `update_paper` call is its own version. PDFs are compiled
+by latex-on-http (`LATEX_COMPILE_URL`).
+
 ### Translations
 
 Summaries are read in one language per viewer, chosen from `en, zh-Hans, zh-Hant, ja, ko, es, fr, de`:
@@ -280,6 +296,29 @@ returns saved translations at once and translates the rest after the response, m
 `translationPending`. The kept source document is translated after the response the first time a
 translation is read (the first ~120k characters; the rest stays in the original language). The
 clients send `Accept-Language` from the system's preferred languages.
+
+### Versions
+
+Every library item keeps its history, whatever its kind (`lib/services/document-versions.ts` says
+what each kind saves; a new kind adds its content there and its restore in `versions.ts`). Version 1
+is the item as created (or, for items from before versions, as it was when they arrived); each save
+that changes its content adds the next one, in the same batch as the save, so a trip save refused by
+its revision check adds none. Sharing, link lifetime, reading language and the cover aren't
+versioned. Only the latest 100 versions are kept. Versions are the owner's only.
+
+* `GET /summaries/:id/versions?cursor&limit` → `{ items: [{ version, kind, actor, restoredFrom,
+  createdAt, title, isCurrent }], nextCursor }`, newest first (`limit` ≤ 100, default 50).
+* `GET /summaries/:id/versions/:version` → the same fields plus `content` (a trip's `document` gets
+  the stored defaults like `GET /trips/:id`).
+* `POST /summaries/:id/versions/:version/restore` → `{ version, summary, trip, paper }`: the content is
+  saved as a new version (`actor: "restore"`, `restoredFrom`), so a restore can be undone the same
+  way. The item comes back under its kind's key (the others are `null`); `version` is `null` when it
+  already matched. A trip is restored over its latest revision (bumping it) and its derived
+  summary text, flights, weather and reminders follow like any save. A paper's manual edits not
+  saved as a version yet are saved as one first ([papers.md](papers.md#working-copy-and-versions)).
+
+`actor` says who saved it: `owner` (the app; for a paper, an editing session), `agent` (MCP), `chat` (the in-app chat), `source`
+(the trip agent reading a shared page) or `restore`.
 
 ### Create body
 
@@ -468,6 +507,8 @@ TTL, revoke addresses, delete). Someone else's summary is shared with the link t
 
 ```
 AI_MODEL=openai/gpt-5-mini            # default text model (AI Gateway id)
+LATEX_COMPILE_URL=https://latex.ytotech.com  # latex-on-http for papers (self-host for production)
+LATEX_COMPILER=                       # latex-on-http (default) | mock
 AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image  # optional, enables "illustration" style
 AI_GATEWAY_API_KEY=                   # optional on Vercel (OIDC)
 AI_TOUR_MODEL=                        # trip tour narrator (default AI_MODEL); a fast model suits it

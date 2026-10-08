@@ -5,6 +5,7 @@ import { ALLOWED_TTL_DAYS } from "@/lib/config";
 import { CATEGORIES, createFileUploadSchema, LIBRARY_SCOPES, importSummarySchema, patchSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { PLAN_GUIDE, VIEW_GUIDE } from "@/lib/ai/trip-agent";
+import { createPaperSchema, PAPER_COMPILERS, paperFileSchema, paperOperationSchema, paperOperationsRequestSchema, paperPathSchema, paperTitleSchema } from "@/lib/contracts/paper";
 import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
 import { SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
@@ -15,6 +16,9 @@ import { getOwnedSummary, importSummary, listSummaries, patchSummary } from "@/l
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
 import { createUpload, getUpload } from "@/lib/services/uploads";
+import { getVersion, listVersions, restoreVersion } from "@/lib/services/versions";
+import { describeReferenceIssue } from "@/lib/services/paper-references";
+import { applyPaperEdits, checkPaper, createPaper, getPaper, listPapers, type PaperJson } from "@/lib/services/papers";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 
@@ -33,6 +37,14 @@ export const TOOL_NAMES = {
   getUpload: "get_upload",
   addToTripFromSource: "add_to_trip_from_source",
   choosePlanOption: "choose_plan_option",
+  listVersions: "list_versions",
+  getVersion: "get_version",
+  restoreVersion: "restore_version",
+  listPapers: "list_papers",
+  getPaper: "get_paper",
+  createPaper: "create_paper",
+  updatePaper: "update_paper",
+  compilePaper: "compile_paper",
   getProfile: "get_profile",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
@@ -51,7 +63,13 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "directly to that URL with the returned headers before expiresAt, then get_upload returns a temporary download URL "
   + "or upload_trip_image consumes the uploadKey to make a lasting trip photo. Unattached raw uploads are cleaned up "
   + "after 24 hours. add_to_trip_from_source lets Chippy's trip agent "
-  + "add a web page or text (a booking, a timetable) to a trip, which costs points.";
+  + "add a web page or text (a booking, a timetable) to a trip, which costs points. Every edit of a chip's text or a trip saves "
+  + "a version: list_versions and get_version read the history, restore_version brings an earlier version back (free). "
+  + "Papers are LaTeX projects (a main .tex file plus sections, .bib and style files) the user edits in the app with a live "
+  + "PDF preview: list_papers and get_paper read them, create_paper starts one, update_paper edits its files (each call is "
+  + "one version), and compile_paper compiles it and returns LaTeX errors with file and line so you can fix them (free). "
+  + "Each new or changed bibliography entry is fact-checked when you save it; create_paper and update_paper return a "
+  + "warning for references that don't hold up, so rewrite those with update_paper.";
 
 export interface McpContext {
   db: Database;
@@ -102,6 +120,42 @@ function listPayload(page: { items: SummaryJson[]; nextCursor: string | null }) 
   return { count: page.items.length, items: page.items.map(chipPayload), nextCursor: page.nextCursor };
 }
 
+/** What the paper tools return: the source (all files, or only `paths`) with its revision, version and link. */
+function paperPayload(paper: PaperJson, paths?: string[]) {
+  const wanted = paths?.length ? new Set(paths) : null;
+  return {
+    id: paper.id,
+    title: paper.title,
+    revision: paper.revision,
+    version: paper.version,
+    visibility: paper.visibility,
+    shareUrl: paper.shareUrl,
+    updatedAt: paper.updatedAt,
+    mainFile: paper.mainFile,
+    compiler: paper.compiler,
+    files: paper.files.map((file) => (wanted && !wanted.has(file.path)
+      ? { path: file.path, characters: file.content.length, ...(file.asset ? { asset: file.asset } : {}) }
+      : file)),
+    references: paper.references.map(({ key, file, line, status, issue, message }) => ({ key, file, line, status, ...(issue ? { issue } : {}), ...(message && status === "error" ? { message } : {}) })),
+  };
+}
+
+/**
+ * A warning for the paper's reference errors (the save went through), asking the agent to rewrite
+ * them; null when there are none. Checks still running are mentioned so the agent looks again.
+ */
+function referenceWarning(paper: PaperJson): string | null {
+  const errors = paper.references.filter((reference) => reference.status === "error");
+  const checking = paper.references.filter((reference) => reference.status === "checking").length;
+  const lines: string[] = [];
+  if (errors.length) {
+    lines.push(`Warning: ${errors.length === 1 ? "1 reference doesn't" : `${errors.length} references don't`} hold up. The paper was saved, but rewrite ${errors.length === 1 ? "it" : "them"} with update_paper: correct the entry, replace it with a reliable source you have verified, or remove it and its \\cite.`);
+    lines.push(...errors.map((reference) => `- ${describeReferenceIssue(reference)}`));
+  }
+  if (checking) lines.push(`${checking === 1 ? "1 reference is" : `${checking} references are`} still being checked; get_paper shows the result.`);
+  return lines.length ? lines.join("\n") : null;
+}
+
 /** What the trip tools return for a trip: the document with its id, revision and link. */
 function tripPayload(trip: TripJson) {
   return {
@@ -125,6 +179,12 @@ function describe(error: unknown): string {
       if (details?.reason) message += ` Reason: ${details.reason}`;
       return `${message} Call add_summary again with allowDuplicate: true to save it anyway.`;
     }
+    if (error.code === "PAPER_REVISION_CONFLICT") return `${error.message} Call get_paper for the latest files, then update_paper again. (${error.code})`;
+    if (error.code === "LATEX_COMPILE_FAILED") {
+      const details = error.details as { errors?: { file: string | null; line: number | null; message: string }[] } | undefined;
+      const listed = (details?.errors ?? []).map((issue) => `${issue.file ?? "?"}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`).join("\n");
+      return `LaTeX could not compile the paper (${error.code}).${listed ? `\n${listed}` : ""}`;
+    }
     if (error.code === "TRIP_REVISION_CONFLICT") return `${error.message} Call get_trip for the latest document, then update_trip again. (${error.code})`;
     return `${error.message} (${error.code})`;
   }
@@ -144,7 +204,7 @@ const filters = {
   category: z.enum(CATEGORIES).optional().describe("Only chips in this category."),
   tag: z.string().trim().max(40).optional().describe("Only chips with this tag."),
   visibility: z.enum(VISIBILITIES).optional().describe("Only public or only private chips."),
-  kind: z.enum(SUMMARY_KINDS).optional().describe("summary: only summary cards. trip: only trip diaries (open them with get_trip)."),
+  kind: z.enum(SUMMARY_KINDS).optional().describe("summary: only summary cards. trip: only trip diaries (open them with get_trip). paper: only LaTeX papers (open them with get_paper)."),
 };
 
 type Filters = { [K in keyof typeof filters]?: z.infer<(typeof filters)[K]> };
@@ -283,7 +343,8 @@ export function createMcpServer(context: McpContext): McpServer {
     if (Object.values(patch).every((value) => value === undefined)) return { result: failure("Nothing to change: pass at least one field.") };
     const existing = await getOwnedSummary(db, args.summaryId, principal.sub);
     if (existing.kind === "trip") return { result: failure("This is a trip: edit it with update_trip.") };
-    const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true });
+    if (existing.kind === "paper") return { result: failure("This is a paper: edit it with update_paper.") };
+    const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true, actor: "agent" });
     return { result: success({ summary: chipPayload(summary) }, `Updated "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`) };
   }));
 
@@ -389,7 +450,7 @@ export function createMcpServer(context: McpContext): McpServer {
     annotations: { title: "Update Trip", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.updateTrip, async () => {
     const input = tripOperationsRequestSchema.parse({ operations: args.operations, revision: args.revision });
-    const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
+    const trip = await applyTripOperations(db, principal.sub, args.tripId, input, { actor: "agent" });
     return { result: success({ trip: tripPayload(trip) }, `Updated "${trip.document.title}" (revision ${trip.revision}).`) };
   }));
 
@@ -409,6 +470,157 @@ export function createMcpServer(context: McpContext): McpServer {
   }, (args) => run(TOOL_NAMES.choosePlanOption, async () => {
     const { planSelections } = await selectPlanOption(db, principal.sub, args.tripId, { planId: args.planId, optionId: args.optionId });
     return { result: success({ planSelections }, `Now following ${args.optionId ?? "the default option"} for plan ${args.planId}.`) };
+  }));
+
+  const itemId = z.string().trim().min(1).max(100).describe("The chip's, trip's or paper's id.");
+  const versionNumber = z.number().int().min(1).describe("The version number, from list_versions.");
+
+  server.registerTool(TOOL_NAMES.listVersions, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.listVersions) },
+    title: "List Versions",
+    description: "List the saved versions of one of the user's own chips, trips or papers, newest first: version number, who saved it "
+      + "(owner in the app, agent over MCP, chat, source for the trip agent, restore), when, and the title then. Each edit of "
+      + "a chip's text or a trip's document is a version, and so is each update_paper call and each editing session of a paper in the app; sharing and language changes aren't. The latest 100 are kept.",
+    inputSchema: {
+      id: itemId,
+      cursor: z.string().max(20).optional().describe("nextCursor from a previous list_versions call, for older versions."),
+    },
+    annotations: { title: "List Versions", readOnlyHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.listVersions, async () => {
+    const page = await listVersions(db, principal.sub, args.id, { cursor: args.cursor, limit: 20 });
+    return { result: success(page) };
+  }));
+
+  server.registerTool(TOOL_NAMES.getVersion, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getVersion) },
+    title: "Get Version",
+    description: "Read one saved version of the user's chip, trip or paper with its content: a chip's title, summary, highlights "
+      + "(key points), category, tags and keywords, a trip's full document, or a paper's title, files, main file and compiler. Use it to compare with the current one.",
+    inputSchema: { id: itemId, version: versionNumber },
+    annotations: { title: "Get Version", readOnlyHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.getVersion, async () => {
+    return { result: success({ version: await getVersion(db, principal.sub, args.id, args.version) }) };
+  }));
+
+  server.registerTool(TOOL_NAMES.restoreVersion, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.restoreVersion) },
+    title: "Restore Version",
+    description: "Bring back an earlier version of the user's chip, trip or paper: its content is saved as a new version, so the "
+      + "restore can be undone the same way. Sharing, language and cover don't change. Only call it when the user asks. Free.",
+    inputSchema: { id: itemId, version: versionNumber },
+    annotations: { title: "Restore Version", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.restoreVersion, async () => {
+    const restored = await restoreVersion(db, principal.sub, args.id, args.version, { billingEnvironment: async () => context.billingEnvironment });
+    const title = restored.trip?.document.title ?? restored.summary?.title ?? "";
+    const payload = { version: restored.version, ...(restored.trip ? { trip: tripPayload(restored.trip) } : { summary: restored.summary && chipPayload(restored.summary) }) };
+    const text = restored.version
+      ? `Restored "${title}" to version ${args.version} (now version ${restored.version.version}).`
+      : `"${title}" already matches version ${args.version}; nothing changed.`;
+    return { result: success(payload, text) };
+  }));
+
+  server.registerTool(TOOL_NAMES.listPapers, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.listPapers) },
+    title: "List Papers",
+    description: "List the user's LaTeX papers, most recently edited first: id, title, main file, how many files, revision. "
+      + "Open one with get_paper.",
+    inputSchema: {},
+    annotations: { title: "List Papers", readOnlyHint: true, openWorldHint: false },
+  }, () => run(TOOL_NAMES.listPapers, async () => {
+    const { papers } = await listPapers(db, principal.sub);
+    return { result: success({ count: papers.length, papers }) };
+  }));
+
+  server.registerTool(TOOL_NAMES.getPaper, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getPaper) },
+    title: "Get Paper",
+    description: "Read a LaTeX paper: its title, main file, compiler, revision, latest version and files with their content. "
+      + "Pass paths to read only some files (the others are listed with their size). The working copy includes the "
+      + "user's latest edits in the app, even ones not saved as a version yet. references lists each bibliography entry "
+      + "with its fact-check (unchecked, checking, verified, or error with the issue and what to fix). Pass the revision to update_paper.",
+    inputSchema: {
+      paperId: z.string().trim().min(1).max(100).describe("The paper's id, from list_papers."),
+      paths: z.array(paperPathSchema).max(60).optional().describe("Only return the content of these files."),
+    },
+    annotations: { title: "Get Paper", readOnlyHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.getPaper, async () => {
+    const paper = await getPaper(db, args.paperId, principal.sub);
+    return { result: success({ paper: paperPayload(paper, args.paths) }) };
+  }));
+
+  server.registerTool(TOOL_NAMES.createPaper, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.createPaper) },
+    title: "Create Paper",
+    description: "Create a professional LaTeX paper in the user's library from files you write: a main .tex file (with "
+      + "\\documentclass and \\begin{document}) that can \\input or \\include other .tex files (sections/intro.tex), plus "
+      + ".bib, .sty or .cls files. All files are compiled together into one PDF. PNG, JPEG and PDF images use "
+      + "{ path, asset: { key, mimeType, byteSize } } from create_upload (PUT the bytes to its S3 URL first). "
+      + "Each image is limited to 10 MB, 25 MB total; include them with graphicx. "
+      + "TikZ and pgfplots figures work in .tex or .tikz files; load their packages in the preamble. "
+      + "Without files, a template (article, report or blank) is used. The title defaults to the "
+      + "main file's \\title. Use xelatex or lualatex for system fonts or CJK text. Call compile_paper afterwards to check "
+      + "it compiles. The paper opens in the app with a live PDF preview. Free.",
+    inputSchema: {
+      title: paperTitleSchema.optional().describe("The paper's title in the library."),
+      files: z.array(paperFileSchema).max(60).optional().describe("Text: { path, content }. Images: { path, asset: { key, mimeType, byteSize } } from a completed S3 upload."),
+      mainFile: paperPathSchema.optional().describe("The .tex file compilation starts from. Default main.tex, else the first .tex file."),
+      compiler: z.enum(PAPER_COMPILERS).optional().describe("pdflatex (default), xelatex or lualatex."),
+      template: z.enum(["article", "report", "blank"]).optional().describe("Starting project when files are left out. Default article."),
+      visibility: z.enum(VISIBILITIES).optional().describe("private: only the user (default). public: anyone with the share link."),
+    },
+    annotations: { title: "Create Paper", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.createPaper, async () => {
+    const input = createPaperSchema.parse(args);
+    const paper = await createPaper(db, principal, input, { billingEnvironment: context.billingEnvironment, actor: "agent", referenceChecks: "now" });
+    const warning = referenceWarning(paper);
+    const text = [`Created paper "${paper.title}" (${paper.visibility}).\n${paper.shareUrl}`, warning].filter(Boolean).join("\n\n");
+    return { result: success({ paper: paperPayload(paper, [paper.mainFile]), ...(warning ? { warning } : {}) }, text) };
+  }));
+
+  server.registerTool(TOOL_NAMES.updatePaper, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.updatePaper) },
+    title: "Update Paper",
+    description: "Edit a LaTeX paper with operations applied in order, as one change saved as a new version: write_file "
+      + "(path, content: create or replace a whole text file; PNG/JPEG/PDF images use asset: {key, mimeType, byteSize} "
+      + "from a completed create_upload S3 upload), edit_file (text only; path, edits: [{ find, replace, all }]: exact "
+      + "find-and-replace; find must occur once unless all is true; prefer it for small changes to long files), "
+      + "delete_file, rename_file (from, to), set_main_file, set_compiler, set_title. If the user edited the paper in "
+      + "the app since the last version, their edits are saved as their own version first. The app shows the change "
+      + "and recompiles the preview. Pass the revision from get_paper to refuse the edit if the paper changed meanwhile. "
+      + "Call compile_paper afterwards to check for LaTeX errors. New or changed bibliography entries are fact-checked "
+      + "before it answers (their link, whether the work exists and is reliable, and whether it supports the citing "
+      + "sentences); the edit is saved either way, and a warning lists the references to rewrite. Free.",
+    inputSchema: {
+      paperId: z.string().trim().min(1).max(100).describe("The paper's id."),
+      operations: z.array(paperOperationSchema).min(1).max(100).describe("Operations, applied in order."),
+      revision: z.number().int().min(0).optional().describe("The revision the edit is based on; omit to apply to the latest."),
+    },
+    annotations: { title: "Update Paper", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.updatePaper, async () => {
+    const input = paperOperationsRequestSchema.parse({ operations: args.operations, revision: args.revision });
+    const before = await getPaper(db, args.paperId, principal.sub);
+    const paper = await applyPaperEdits(db, principal.sub, args.paperId, input);
+    const touched = [...new Set(input.operations.flatMap((operation) => ("path" in operation ? [operation.path] : "to" in operation ? [operation.to] : [])))];
+    const warning = referenceWarning(paper);
+    const text = [paper.revision === before.revision
+      ? `"${paper.title}" already matched; nothing changed.`
+      : `Updated "${paper.title}" (version ${paper.version}, revision ${paper.revision}).`, warning].filter(Boolean).join("\n\n");
+    return { result: success({ paper: paperPayload(paper, touched.length ? touched : [paper.mainFile]), ...(warning ? { warning } : {}) }, text) };
+  }));
+
+  server.registerTool(TOOL_NAMES.compilePaper, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.compilePaper) },
+    title: "Compile Paper",
+    description: "Compile the paper's working copy with LaTeX and report whether it builds. On failure, returns the errors "
+      + "({ file, line, message }) and the end of the log, stopping at the first error, so you can fix it with update_paper "
+      + "and compile again. Free; takes up to about a minute.",
+    inputSchema: { paperId: z.string().trim().min(1).max(100).describe("The paper's id.") },
+    annotations: { title: "Compile Paper", readOnlyHint: true, openWorldHint: true },
+  }, (args) => run(TOOL_NAMES.compilePaper, async () => {
+    const result = await checkPaper(db, principal.sub, args.paperId);
+    if (result.ok) return { result: success({ ...result }, `The paper compiles (revision ${result.revision}, ${Math.round(result.byteSize / 1024)} KB PDF).`) };
+    const listed = result.errors.map((issue) => `${issue.file ?? "?"}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`).join("\n");
+    return { result: success({ ...result }, `LaTeX errors (revision ${result.revision}):\n${listed}`) };
   }));
 
   server.registerTool(TOOL_NAMES.updatePlace, {
@@ -436,7 +648,7 @@ export function createMcpServer(context: McpContext): McpServer {
       operations: [{ op: "update_place", id: args.placeId, changes: args.changes ?? {}, addPhotos: args.addPhotos ?? [] }],
       revision: args.revision,
     });
-    const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
+    const trip = await applyTripOperations(db, principal.sub, args.tripId, input, { actor: "agent" });
     const place = trip.document.places.find((candidate) => candidate.id === args.placeId);
     return { result: success({ place, revision: trip.revision }, `Updated "${place?.name ?? args.placeId}" (revision ${trip.revision}).`) };
   }));

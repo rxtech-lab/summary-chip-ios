@@ -78,6 +78,8 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     private var viewed: Set<String> = ["s-solar", "trip-01"]
     /// The trip's plan options picked so far (plan id → option id).
     private var planSelections: [String: String] = [:]
+    /// Each owned summary's versions as made so far (oldest first), created on first use.
+    private var versionHistory: [String: [[String: Any]]] = [:]
     private let items: [Item]
 
     private init() {
@@ -180,6 +182,28 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             return json(TripTourPreviewPhotos.tour(Data(Self.tripTour.utf8)))
         case ("GET", "trips", 3) where path[2] == "weather":
             return json(["updatedAt": NSNull(), "days": [], "now": NSNull()])
+        case ("GET", "summaries", 3) where path[2] == "versions":
+            guard let item = items.first(where: { $0.id == id && $0.isOwner }) else { return notFound }
+            let history = versions(of: item)
+            let rows = history.reversed().map { version -> [String: Any] in
+                var row = version
+                row["isCurrent"] = (version["version"] as? Int) == history.count
+                row["title"] = (version["content"] as? [String: Any])?["title"]
+                row.removeValue(forKey: "content")
+                return row
+            }
+            return json(["items": rows, "nextCursor": NSNull()])
+        case ("GET", "summaries", 4) where path[2] == "versions":
+            guard let item = items.first(where: { $0.id == id && $0.isOwner }), let number = Int(path[3]) else { return notFound }
+            let history = versions(of: item)
+            guard history.indices.contains(number - 1) else { return notFound }
+            var version = history[number - 1]
+            version["isCurrent"] = number == history.count
+            version["title"] = (version["content"] as? [String: Any])?["title"]
+            return json(version)
+        case ("POST", "summaries", 5) where path[2] == "versions" && path[4] == "restore":
+            guard let item = items.first(where: { $0.id == id && $0.isOwner }), let number = Int(path[3]) else { return notFound }
+            return restore(item, to: number)
         case ("GET", "facets", 1):
             return json(["categories": [], "tags": []])
         case ("GET", "api-keys", 1):
@@ -196,6 +220,24 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         default:
             return notFound
         }
+    }
+
+    private func restore(_ item: Item, to number: Int) -> (Int, Data) {
+        var history = versions(of: item)
+        guard history.indices.contains(number - 1), let content = history[number - 1]["content"] as? [String: Any] else { return notFound }
+        let added: [String: Any] = ["version": history.count + 1, "kind": "summary", "actor": "restore", "restoredFrom": number,
+                                    "createdAt": iso(.now), "content": content]
+        history.append(added)
+        versionHistory[item.id] = history
+        var restored = summary(item)
+        for key in ["title", "summary", "highlights", "category", "tags"] { restored[key] = content[key] }
+        restored["displayTags"] = content["tags"]
+        restored["displayCategory"] = content["category"]
+        var row = added
+        row["isCurrent"] = true
+        row["title"] = content["title"]
+        row.removeValue(forKey: "content")
+        return json(["version": row, "summary": restored, "trip": NSNull()])
     }
 
     private func sortDate(_ item: Item, liked: Bool) -> Date {
@@ -218,6 +260,25 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             "likedAt": iso(likes[item.id]), "isExpired": item.isExpired,
             "createdAt": iso(item.createdAt), "updatedAt": iso(item.createdAt),
         ]
+    }
+
+    /// Three versions for the preview: written by the owner, retitled by their agent, then today's text.
+    private func versions(of item: Item) -> [[String: Any]] {
+        if let history = versionHistory[item.id] { return history }
+        func content(_ title: String, _ summary: String, _ highlights: [String]) -> [String: Any] {
+            ["title": title, "summary": summary, "highlights": highlights, "category": item.category, "tags": item.tags, "keywords": []]
+        }
+        let first = item.createdAt
+        let history: [[String: Any]] = [
+            ["version": 1, "kind": "summary", "actor": "owner", "restoredFrom": NSNull(), "createdAt": iso(first),
+             "content": content("First draft: \(item.title)", item.summary, Array(item.highlights.prefix(1)))],
+            ["version": 2, "kind": "summary", "actor": "agent", "restoredFrom": NSNull(), "createdAt": iso(first.addingTimeInterval(3_600)),
+             "content": content(item.title, "An earlier, shorter summary.", item.highlights)],
+            ["version": 3, "kind": "summary", "actor": "owner", "restoredFrom": NSNull(), "createdAt": iso(first.addingTimeInterval(7_200)),
+             "content": content(item.title, item.summary, item.highlights)],
+        ]
+        versionHistory[item.id] = history
+        return history
     }
 
     private func iso(_ date: Date?) -> Any {

@@ -21,6 +21,7 @@ struct SummaryDetailView: View {
     @State private var showsNavigationTitle = false
     @State private var isTogglingLike = false
     @State private var likeStatus: LikeStatus?
+    @State private var versions: DocumentVersionsModel
     @Environment(\.dismiss) private var dismiss
 
     init(environment: AppEnvironment, summary: Summary, allowsChat: Bool = true, onUpdate: ((Summary) -> Void)? = nil) {
@@ -28,14 +29,23 @@ struct SummaryDetailView: View {
         self.allowsChat = allowsChat
         self.onUpdate = onUpdate
         self._summary = State(initialValue: summary)
+        self._versions = State(initialValue: DocumentVersionsModel(api: environment.api, id: summary.id))
     }
+
+    /// The summary on screen: a past version's text while one is picked in the toolbar, read-only.
+    private var shown: Summary {
+        if case .summary(let content) = versions.preview?.content { return summary.showing(content) }
+        return summary
+    }
+
+    private var isPreviewingVersion: Bool { versions.isPreviewing }
 
     var body: some View {
         ScrollView {
             SummaryDetailContent(
-                summary: summary,
-                onEditSharing: summary.isOwner ? { showsEditSharing = true } : nil,
-                onChangeLanguage: summary.isOwner ? { showsLanguage = true } : nil
+                summary: shown,
+                onEditSharing: summary.isOwner && !isPreviewingVersion ? { showsEditSharing = true } : nil,
+                onChangeLanguage: summary.isOwner && !isPreviewingVersion ? { showsLanguage = true } : nil
             )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -44,6 +54,9 @@ struct SummaryDetailView: View {
                 .frame(maxWidth: .infinity)
         }
         .background(Color.summaryGroupedBackground)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VersionPreviewBanner(model: versions)
+        }
         // The content carries a large title; show it in the bar once the hero and title scroll away.
         .onScrollGeometryChange(for: Bool.self) { geometry in
             let width = min(geometry.containerSize.width, 760) - 32
@@ -52,21 +65,15 @@ struct SummaryDetailView: View {
         } action: { _, isPast in
             withAnimation(.easeInOut(duration: 0.2)) { showsNavigationTitle = isPast }
         }
-        .navigationTitle(showsNavigationTitle ? summary.title : "")
+        .navigationTitle(showsNavigationTitle ? shown.title : "")
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar {
-            // Ask on its own; like and share together; everything else waits in "More".
-            if allowsChat {
+            // Like and share together; everything else, including Ask, waits in "More".
+            if summary.isOwner {
                 ToolbarItem(placement: .summaryTrailing) {
-                    Button {
-                        showsChat = true
-                    } label: {
-                        Label("Ask About This", systemImage: "sparkles")
-                    }
-                    .accessibilityIdentifier("ask-summary")
+                    VersionToolbarMenu(model: versions)
                 }
-                ToolbarSpacer(.fixed, placement: .summaryTrailing)
             }
             ToolbarItemGroup(placement: .summaryTrailing) {
                 Button {
@@ -128,6 +135,10 @@ struct SummaryDetailView: View {
         .task(id: summary.translationPending) { await pollTranslation() }
         .sensoryFeedback(.success, trigger: summary.hasSourceMarkdown) { old, new in !old && new }
         .likeStatusOverlay($likeStatus)
+        .documentVersions(versions) { restored in
+            if let updated = restored.summary { apply(updated) }
+        }
+        .task(id: summary.isOwner) { if summary.isOwner { await versions.reload() } }
         .onChange(of: summary) { _, updated in onUpdate?(updated) }
     }
 
@@ -158,6 +169,13 @@ struct SummaryDetailView: View {
 
     @ViewBuilder
     private var moreActions: some View {
+        if allowsChat {
+            Button { showsChat = true } label: {
+                Label("Ask About This", systemImage: "sparkles")
+            }
+            .accessibilityIdentifier("ask-summary")
+            Divider()
+        }
         if summary.hasSourceMarkdown {
             Button { showsSourceText = true } label: {
                 Label("Source Text", systemImage: "doc.plaintext")
@@ -175,6 +193,15 @@ struct SummaryDetailView: View {
         }
         .accessibilityIdentifier("summary-local-file")
         if summary.isOwner {
+            Divider()
+            Button {
+                versions.showsHistory = true
+            } label: {
+                Label("Version History…", systemImage: "clock.arrow.circlepath")
+            }
+            .accessibilityIdentifier("summary-versions")
+        }
+        if summary.isOwner && !isPreviewingVersion {
             Divider()
             Button {
                 showsEditSharing = true
@@ -222,6 +249,7 @@ struct SummaryDetailView: View {
     private func saved(_ updated: Summary) {
         apply(updated)
         savedCount += 1
+        Task { await versions.reload() }
     }
 
     /// The server writes the source document after the summary is returned; check back until it lands.
@@ -246,12 +274,14 @@ struct SummaryDetailView: View {
     private func refresh() async {
         guard summary.isOwner || summary.translationPending,
               let fresh = try? await environment.api.summary(id: summary.id) else { return }
+        // An agent's edit elsewhere is a new version.
+        if fresh.isOwner, fresh.updatedAt != summary.updatedAt { Task { await versions.reload() } }
         apply(fresh)
     }
 
 }
 
-/// The page a library item opens: a trip diary for trips, the summary detail otherwise.
+/// The page a library item opens: a trip diary for trips, the LaTeX editor for papers, the summary detail otherwise.
 struct SummaryDestination: View {
     let environment: AppEnvironment
     let summary: Summary
@@ -267,6 +297,8 @@ struct SummaryDestination: View {
                 title: summary.title,
                 onOpenTrip: onOpenTrip.map { action in { action(summary) } }
             )
+        } else if summary.kind == .paper {
+            PaperDetailView(environment: environment, paperID: summary.id, title: summary.title)
         } else {
             SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat, onUpdate: onUpdate)
         }

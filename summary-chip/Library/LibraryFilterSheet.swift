@@ -24,40 +24,28 @@ struct LibraryFilterSheet: View {
                             Text(scope.title).tag(scope)
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                } header: {
-                    Text("Show")
-                } footer: {
-                    Text("Viewed summaries are ones other people shared that you opened.")
-                }
+                    .pickerStyle(.menu)
 
-                Section("Kind") {
                     Picker("Kind", selection: $draft.kind) {
                         Text("All").tag(SummaryKind?.none)
                         ForEach(SummaryKind.known) { kind in
                             Text(kind.title).tag(SummaryKind?.some(kind))
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
+                    .pickerStyle(.menu)
                     .accessibilityIdentifier("library-filter-kind")
-                }
 
-                if draft.scope != .viewed {
-                    Section("Visibility") {
+                    if draft.scope != .viewed {
                         Picker("Visibility", selection: $draft.visibility) {
                             Text("All").tag(SummaryVisibility?.none)
                             ForEach(SummaryVisibility.allCases) { value in
                                 Text(value.title).tag(SummaryVisibility?.some(value))
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
+                        .pickerStyle(.menu)
                     }
+                } footer: {
+                    Text("Viewed summaries are ones other people shared that you opened.")
                 }
 
                 Section {

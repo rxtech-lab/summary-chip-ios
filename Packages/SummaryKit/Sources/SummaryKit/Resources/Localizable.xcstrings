@@ -425,6 +425,26 @@
         }
       }
     },
+    "A paper can have at most 60 files." : {
+
+    },
+    "A single empty document." : {
+      "comment" : "Paper template description",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一个空白文档。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一份空白文件。"
+          }
+        }
+      }
+    },
     "A web link, or any text you want summarised." : {
       "localizations" : {
         "zh-Hans" : {
@@ -469,6 +489,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "與主題相襯的抽象圖形和漸層。"
+          }
+        }
+      }
+    },
+    "Abstract, sections and a bibliography." : {
+      "comment" : "Paper template description",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要、章节和参考文献。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要、章節與參考文獻。"
           }
         }
       }
@@ -619,6 +656,23 @@
         }
       }
     },
+    "Article" : {
+      "comment" : "Paper template",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文章"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文章"
+          }
+        }
+      }
+    },
     "Belt %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -631,6 +685,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 號行李轉盤"
+          }
+        }
+      }
+    },
+    "Blank" : {
+      "comment" : "Paper template",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空白"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空白"
           }
         }
       }
@@ -827,6 +898,18 @@
         }
       }
     },
+    "Choose a PNG, JPEG or PDF whose contents match its file extension." : {
+
+    },
+    "Choose a valid PNG, JPEG or PDF, up to 10 MB." : {
+
+    },
+    "Choose an image with an unused file name." : {
+
+    },
+    "Choose an unused .tex path for the figure." : {
+
+    },
     "Choose Chippy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -843,6 +926,22 @@
         }
       }
     },
+    "Clear" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "晴"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "晴"
+          }
+        }
+      }
+    },
     "Click the Share button in Safari's toolbar, or choose File › Share." : {
       "localizations" : {
         "zh-Hans" : {
@@ -855,6 +954,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按一下 Safari 工具列中的「分享」按鈕，或選擇「檔案」›「分享」。"
+          }
+        }
+      }
+    },
+    "Cloudy" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阴"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "陰"
           }
         }
       }
@@ -908,7 +1023,7 @@
         }
       }
     },
-    "Copy Link" : {
+    "Copy link" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -924,7 +1039,7 @@
         }
       }
     },
-    "Copy link" : {
+    "Copy Link" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1392,6 +1507,22 @@
         }
       }
     },
+    "Drizzle" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毛毛雨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毛毛雨"
+          }
+        }
+      }
+    },
     "Drop to summarise" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1407,6 +1538,12 @@
           }
         }
       }
+    },
+    "Each image is limited to 10 MB." : {
+
+    },
+    "Each source file is limited to 400,000 characters." : {
+
     },
     "Earlier" : {
       "localizations" : {
@@ -1440,6 +1577,22 @@
         }
       }
     },
+    "Edit sharing" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑分享设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯分享設定"
+          }
+        }
+      }
+    },
     "Edit Sharing" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1456,21 +1609,8 @@
         }
       }
     },
-    "Edit sharing" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑分享设置"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯分享設定"
-          }
-        }
-      }
+    "Enter the figure's LaTeX source." : {
+
     },
     "Everything" : {
       "comment" : "Share mode: link, image and full text",
@@ -1589,6 +1729,23 @@
         }
       }
     },
+    "Files must be .tex, .bib, .sty, .cls or another text file LaTeX reads." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件必须是 .tex、.bib、.sty、.cls 或 LaTeX 可读取的其他文本文件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檔案必須是 .tex、.bib、.sty、.cls 或 LaTeX 可讀取的其他文字檔。"
+          }
+        }
+      }
+    },
     "Finding your trips…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1617,6 +1774,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "即將完成"
+          }
+        }
+      }
+    },
+    "Fog" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雾"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "霧"
+          }
+        }
+      }
+    },
+    "Freezing rain" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "冻雨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "凍雨"
           }
         }
       }
@@ -1718,6 +1907,38 @@
         }
       }
     },
+    "Heavy rain" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大雨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大雨"
+          }
+        }
+      }
+    },
+    "Heavy snow" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大雪"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大雪"
+          }
+        }
+      }
+    },
     "Illustration" : {
       "comment" : "Image style option",
       "localizations" : {
@@ -1751,6 +1972,9 @@
           }
         }
       }
+    },
+    "Image files must be imported from a PNG, JPEG or PDF." : {
+
     },
     "In progress" : {
       "localizations" : {
@@ -2040,6 +2264,9 @@
         }
       }
     },
+    "Link doesn't open" : {
+      "comment" : "Paper reference error"
+    },
     "Link expired" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2103,6 +2330,9 @@
           }
         }
       }
+    },
+    "Link shows a different work" : {
+      "comment" : "Paper reference error"
     },
     "Link to share" : {
       "localizations" : {
@@ -2204,6 +2434,9 @@
           }
         }
       }
+    },
+    "Misreferenced" : {
+      "comment" : "Paper reference error"
     },
     "Name" : {
       "localizations" : {
@@ -2614,6 +2847,56 @@
         }
       }
     },
+    "Paper" : {
+      "comment" : "Badge on a library tile that is a LaTeX paper",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "論文"
+          }
+        }
+      }
+    },
+    "Papers" : {
+      "comment" : "Library kind filter: LaTeX papers",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "論文"
+          }
+        }
+      }
+    },
+    "Partly cloudy" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多云"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多雲"
+          }
+        }
+      }
+    },
     "Paste a link or some text" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2718,6 +3001,9 @@
           }
         }
       }
+    },
+    "pgfplots Chart" : {
+
     },
     "Please open %@ and sign in." : {
       "localizations" : {
@@ -2845,6 +3131,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "公開連結"
+          }
+        }
+      }
+    },
+    "Rain" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雨"
           }
         }
       }
@@ -3028,6 +3330,12 @@
         }
       }
     },
+    "Reference error" : {
+      "comment" : "Paper reference error"
+    },
+    "Reference not found" : {
+      "comment" : "Paper reference error"
+    },
     "Remove file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3040,6 +3348,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除檔案"
+          }
+        }
+      }
+    },
+    "Report" : {
+      "comment" : "Paper template",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "报告"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "報告"
           }
         }
       }
@@ -3289,6 +3614,22 @@
         }
       }
     },
+    "Snow" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雪"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雪"
+          }
+        }
+      }
+    },
     "Something went wrong." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3369,6 +3710,22 @@
         }
       }
     },
+    "Strong wind" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大风"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "強風"
+          }
+        }
+      }
+    },
     "Summaries" : {
       "comment" : "Library kind filter: summary cards",
       "localizations" : {
@@ -3414,6 +3771,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摘要"
+          }
+        }
+      }
+    },
+    "System fonts and CJK text." : {
+      "comment" : "LaTeX engine description",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统字体和中日韩文字。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統字體與中日韓文字。"
+          }
+        }
+      }
+    },
+    "System fonts and Lua scripting." : {
+      "comment" : "LaTeX engine description",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统字体和 Lua 脚本。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統字體與 Lua 腳本。"
           }
         }
       }
@@ -3675,6 +4066,9 @@
         }
       }
     },
+    "The main file needs \\begin{document} before a figure can be added." : {
+
+    },
     "The page could not be loaded on this device. %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3706,6 +4100,12 @@
           }
         }
       }
+    },
+    "The paper's images together are limited to 25 MB." : {
+
+    },
+    "The paper's source text is limited to 800,000 characters." : {
+
     },
     "The request failed (%lld)." : {
       "localizations" : {
@@ -3831,6 +4231,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共享工作階段暫時無法使用。"
+          }
+        }
+      }
+    },
+    "The standard engine; fastest." : {
+      "comment" : "LaTeX engine description",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标准引擎，速度最快。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標準引擎，速度最快。"
           }
         }
       }
@@ -4081,6 +4498,25 @@
         }
       }
     },
+    "Thunderstorm" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雷雨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雷雨"
+          }
+        }
+      }
+    },
+    "TikZ Diagram" : {
+
+    },
     "Timeline" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4093,6 +4529,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時間軸"
+          }
+        }
+      }
+    },
+    "Title page, contents and chapters." : {
+      "comment" : "Paper template description",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题页、目录和各章。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標題頁、目錄與各章。"
           }
         }
       }
@@ -4217,22 +4670,6 @@
         }
       }
     },
-    "Try Again" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重试"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重試"
-          }
-        }
-      }
-    },
     "Try again" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4245,6 +4682,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試一次"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重試"
           }
         }
       }
@@ -4264,6 +4717,9 @@
           }
         }
       }
+    },
+    "Unreliable source" : {
+      "comment" : "Paper reference error"
     },
     "Untitled" : {
       "localizations" : {
@@ -4318,6 +4774,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "檔案上傳失敗（%lld）。"
+          }
+        }
+      }
+    },
+    "Use a LaTeX text file, PNG, JPEG or PDF." : {
+
+    },
+    "Use a relative path like sections/introduction.tex, with letters, digits, dots, dashes and underscores." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请使用相对路径，例如 sections/introduction.tex，只能包含字母、数字、点、连字符和下划线。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請使用相對路徑，例如 sections/introduction.tex，只能包含字母、數字、點、連字號與底線。"
           }
         }
       }
@@ -4515,198 +4990,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摘要已建立，但無法連結本機檔案。%@"
-          }
-        }
-      }
-    },
-    "Clear" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "晴"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "晴"
-          }
-        }
-      }
-    },
-    "Partly cloudy" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多云"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多雲"
-          }
-        }
-      }
-    },
-    "Cloudy" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "阴"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "陰"
-          }
-        }
-      }
-    },
-    "Fog" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雾"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "霧"
-          }
-        }
-      }
-    },
-    "Drizzle" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "毛毛雨"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "毛毛雨"
-          }
-        }
-      }
-    },
-    "Rain" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雨"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雨"
-          }
-        }
-      }
-    },
-    "Heavy rain" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "大雨"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "大雨"
-          }
-        }
-      }
-    },
-    "Freezing rain" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "冻雨"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "凍雨"
-          }
-        }
-      }
-    },
-    "Snow" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雪"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雪"
-          }
-        }
-      }
-    },
-    "Heavy snow" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "大雪"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "大雪"
-          }
-        }
-      }
-    },
-    "Thunderstorm" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雷雨"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "雷雨"
-          }
-        }
-      }
-    },
-    "Strong wind" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "大风"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "強風"
           }
         }
       }

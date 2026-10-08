@@ -62,8 +62,8 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 
 | Scope | Tools |
 |---|---|
-| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `get_upload` |
-| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source` |
+| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `get_upload`, `list_versions`, `get_version`, `list_papers`, `get_paper`, `compile_paper` |
+| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `restore_version`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source`, `create_paper`, `update_paper` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
 An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
@@ -188,6 +188,21 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `get_upload` | Checks a completed upload belongs to the caller and returns a temporary download URL. Free. | `getUpload` |
 | `upload_trip_image` | Stores a photo (copied from a URL, base64, or an owned upload) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
 | `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
+| `list_papers` | The user's LaTeX papers, most recently edited first. | `listPapers` (as `GET /api/v1/papers`) |
+| `get_paper` | A paper's working copy: title, main file, compiler, revision, version, files (`paths` limits which contents come back) and `references` with their fact-checks. | `getPaper` |
+| `create_paper` | A new LaTeX paper from files, or a template (`article`, `report`, `blank`). Free. | `createPaper` (as `POST /api/v1/papers`) |
+| `update_paper` | File operations (`write_file`, `edit_file` find-and-replace, `delete_file`, `rename_file`, `set_main_file`, `set_compiler`, `set_title`) in order; each call is its own version. New or changed bibliography entries are fact-checked before it answers: the edit is saved either way, and a `warning` lists the references to rewrite ([papers.md → References](papers.md#references)). Free. | `applyPaperEdits` |
+| `compile_paper` | Compiles the working copy, stopping at the first error; returns `{ ok, errors: [{ file, line, message }], log }`. Free. | `checkPaper` (as `POST /api/v1/papers/:id/check`) |
+| `list_versions` | A chip's, trip's or paper's saved versions, newest first (number, who saved it, when, title). | `listVersions` (as `GET /api/v1/summaries/:id/versions`) |
+| `get_version` | One version with its content (a chip's text, or a trip's document). | `getVersion` (as `GET /api/v1/summaries/:id/versions/:version`) |
+| `restore_version` | Saves an earlier version's content as the newest version. Free. | `restoreVersion` (as `POST …/versions/:version/restore`) |
+
+Paper images use `create_upload` and a direct S3 PUT, followed by `create_paper` or a
+`write_file` operation with `{ path: "images/result.png", asset: { key, mimeType, byteSize } }`.
+Leave `content` empty. PNG, JPEG and PDF are supported (10 MiB each, 25 MiB per paper). Saves
+copy uploads to immutable paper assets so older versions retain their images. Load `graphicx`
+for `\includegraphics`; TikZ and pgfplots figures use normal text files and package declarations.
+See [papers.md → Images and figures](papers.md#images-and-figures).
 
 `search_summaries` and `list_summaries` accept the same filters: `source` (`web`, `x`, `facebook`,
 `youtube`, `github`, `pdf`, `text`), `category`, `tag`, `visibility` (`public` / `private`), `kind`
@@ -254,6 +269,10 @@ for the storage protocol and browser CORS requirements.
 ### Trip tools
 
 The trip format and its operations are specified in [trips.md](trips.md).
+
+### Paper tools
+
+The paper format, its versions and compilation are specified in [papers.md](papers.md).
 
 A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update_place`,
 `add_to_trip_from_source`, `choose_plan_option`) update its title and text but never redesign the cover.
