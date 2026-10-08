@@ -24,6 +24,9 @@ Shared readers are excluded if the link becomes private or expires; sharing, vie
 ownership are checked again during delivery. The creator still receives private-trip updates.
 See [trips.md](trips.md).
 
+Trip weather sends the trip owner tomorrow's forecast the evening before each day, and an alert when
+the next 30 minutes turn bad or change. See [weather.md](weather.md).
+
 ## Enable delivery
 
 1. Enable Push Notifications for `com.rxlab.summary-chip` in the Apple Developer
@@ -64,11 +67,14 @@ Both endpoints require an OAuth bearer token and accept JSON.
   "installationId": "f6daa60d-d123-47a2-8512-596ffb2a9872",
   "token": "<hexadecimal APNs device token>",
   "environment": "sandbox",
-  "platform": "ios"
+  "platform": "ios",
+  "timeZone": "Asia/Tokyo"
 }
 ```
 
-`environment` is `sandbox` or `production`; `platform` is `ios` or `macos`.
+`environment` is `sandbox` or `production`; `platform` is `ios` or `macos`. `timeZone` is optional.
+It is the device's IANA zone; an unknown zone returns `400`. The app sends it with every
+registration, so trip weather alerts arrive at the right local time (see [weather.md](weather.md)).
 An installation belongs to the latest authenticated account that registers it.
 Token rotations replace its previous registration. `DELETE /api/v1/devices` takes
 `{"installationId":"<UUID>"}` and removes only the caller's registration. Both

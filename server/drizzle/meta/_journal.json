@@ -155,6 +155,13 @@
       "when": 1791383622141,
       "tag": "0021_trip_plan_selections",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1791462991361,
+      "tag": "0022_trip_weather",
+      "breakpoints": true
     }
   ]
 }

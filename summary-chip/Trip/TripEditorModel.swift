@@ -60,6 +60,8 @@ final class TripEditorModel {
     private(set) var savedCount = 0
     /// The trip's tracked flight segments, as the backend last stored them.
     private(set) var flights: [TripFlight] = []
+    /// The trip's forecasts per day, as the backend last stored them.
+    private(set) var weather: TripWeather = .empty
     /// When the user starred the trip (it's under Likes). Only reads carry it, so saves keep it as is.
     var likedAt: Date?
     /// The plan options the user follows (plan id → option id). Only reads carry them, so saves keep them as is.
@@ -69,6 +71,7 @@ final class TripEditorModel {
 
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var pendingFlightsTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingWeatherTask: Task<Void, Never>?
 
     init(api: SummaryAPIClient, id: String) {
         self.api = api
@@ -121,6 +124,7 @@ final class TripEditorModel {
             likedAt = fresh.likedAt
             loadError = nil
             await loadFlights()
+            await loadWeather()
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {
         } catch {
@@ -151,8 +155,9 @@ final class TripEditorModel {
             show(.reloaded)
         }
         savedCount += 1
-        // Saving re-syncs the tracked flights on the backend.
+        // Saving re-syncs the tracked flights and the forecast's places on the backend.
         Task { await loadFlights() }
+        Task { await loadWeather() }
     }
 
     func delete() async throws {
@@ -181,6 +186,7 @@ final class TripEditorModel {
         savedCount += 1
         show(.agentDone)
         await loadFlights()
+        await loadWeather()
     }
 
     /// Adds or updates the trip's events in the user's calendar.
@@ -237,6 +243,25 @@ final class TripEditorModel {
             apply(fresh)
         }
         await loadFlights()
+        await loadWeather()
+    }
+
+    /// Reads the forecasts the backend keeps for the trip (it refreshes them and sends the
+    /// weather alerts). A just-added place is fetched within seconds of the save, so look again shortly.
+    func loadWeather() async {
+        guard let weather = try? await api.tripWeather(tripId: id) else { return }
+        self.weather = weather
+        pendingWeatherTask?.cancel()
+        let waiting = weather.days.contains { day in
+            day.locations.contains { $0.forecast == nil } && TripWeatherWindow.isForecastable(day.date)
+        }
+        guard waiting else { return }
+        pendingWeatherTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled, let self else { return }
+            guard let weather = try? await self.api.tripWeather(tripId: self.id) else { return }
+            self.weather = weather
+        }
     }
 
     /// Reads the flights the backend tracks for the trip. A just-saved flight is `pending` for a

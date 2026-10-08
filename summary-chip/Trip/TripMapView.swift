@@ -105,8 +105,8 @@ final class TripMapCamera {
     }
 }
 
-/// Every day's route in its colour (earlier days strong, later ones faint), the day being read
-/// drawn up to the traveler, places marked active / visited, the selected place's pin, and the user's location.
+/// Every day's route in its colour along roads and tracks (earlier days strong, later ones faint), the day
+/// being read drawn up to the traveler, places marked active / visited, the selected place's pin, and the user's location.
 struct TripMapView: View {
     let document: TripDocument
     let activeDayID: String?
@@ -145,10 +145,35 @@ struct TripMapView: View {
         orderedDays.firstIndex { $0.id == activeDayID }
     }
 
+    private var routePaths: TripRoutePaths { .shared }
+
+    /// Every day's runs for `TripRoutePaths` to snap.
+    private var routeRuns: [TripRouteRun] {
+        orderedDays.flatMap { document.routeRuns(for: $0) }
+    }
+
+    /// A day's line along roads and tracks once snapped, else its waypoints.
+    private func routePoints(for day: TripDay) -> [TripCoordinate] {
+        document.routeRuns(for: day).reduce(into: []) { points, run in
+            let path = routePaths.points(for: run)
+            points += points.isEmpty ? path : Array(path.dropFirst())
+        }
+    }
+
+    /// Where a side trip out and back turns around: the first point of `points` at its middle waypoint.
+    private func turnaround(of day: TripDay, in points: [TripCoordinate]) -> Int? {
+        let waypoints = document.routeCoordinates(for: day)
+        guard day.route?.kind == .side, waypoints.count == 3, points.count >= 3 else { return nil }
+        let middle = waypoints[1]
+        let distances = points.map { $0.distance(to: middle) }
+        guard let nearest = distances.min() else { return nil }
+        return distances.firstIndex { $0 <= nearest + 50 }
+    }
+
     private var dayLines: [DayLine] {
         let active = activeIndex ?? 0
         return orderedDays.enumerated().compactMap { index, day in
-            let coordinates = document.routeCoordinates(for: day)
+            let coordinates = routePoints(for: day)
             guard coordinates.count >= 2 else { return nil }
             let opacity = camera.overview ? 0.78 : (index < active ? 0.72 : 0.1)
             return DayLine(id: day.id, coordinates: coordinates.map(\.clCoordinate), kind: day.route?.kind, opacity: opacity)
@@ -158,15 +183,16 @@ struct TripMapView: View {
     private var activeRoute: ActiveRoute? {
         guard !camera.overview, let index = activeIndex else { return nil }
         let day = orderedDays[index]
-        let points = document.routeCoordinates(for: day)
+        let points = routePoints(for: day)
         guard points.count >= 2 else { return nil }
         let geometry = TripRouteGeometry(points: points)
         guard let sample = geometry.sample(progress: reduceMotion ? 1 : progress) else { return nil }
         // A side trip out and back: draw the way back dashed over the faded way out.
-        let returning = day.route?.kind == .side && points.count == 3 && sample.segment == 2
+        let turn = turnaround(of: day, in: points)
+        let returning = turn.map { sample.segment > $0 } ?? false
         return ActiveRoute(
-            trail: returning ? points.prefix(2).map(\.clCoordinate) : [],
-            line: returning ? [points[1].clCoordinate, sample.point.clCoordinate] : sample.path.map(\.clCoordinate),
+            trail: returning ? points.prefix(through: turn ?? 0).map(\.clCoordinate) : [],
+            line: (returning ? Array(sample.path.dropFirst(turn ?? 0)) : sample.path).map(\.clCoordinate),
             kind: day.route?.kind,
             returning: returning,
             traveler: reduceMotion ? nil : sample.point.clCoordinate
@@ -186,6 +212,11 @@ struct TripMapView: View {
     var body: some View {
         MapReader { proxy in
             map(proxy: proxy)
+        }
+        .task(id: routeRuns) {
+            // The day being read first.
+            let active = document.day(id: activeDayID).map { document.routeRuns(for: $0) } ?? []
+            await routePaths.resolve(active + routeRuns)
         }
     }
 

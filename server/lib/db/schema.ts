@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import type { TripDocument } from "@/lib/contracts/trip";
 import type { ProviderFlight } from "@/lib/flights/provider";
+import type { NowcastAlertState } from "@/lib/weather/conditions";
+import type { LocationForecast } from "@/lib/weather/provider";
 import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** `local`: a file on the user's device; its text is summarised but never stored. */
@@ -292,6 +294,8 @@ export const pushDevices = sqliteTable("push_devices", {
   platform: text("platform", { enum: ["ios", "macos"] }).notNull(),
   /** ActivityKit push-to-start token for flight Live Activities (hex); null until the app sends one. */
   liveActivityStartToken: text("live_activity_start_token"),
+  /** The device's IANA time zone ("Asia/Tokyo"), refreshed on every registration; null from older apps. */
+  timeZone: text("time_zone"),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 }, (table) => [
   uniqueIndex("push_devices_token_environment_idx").on(table.token, table.environment),
@@ -367,6 +371,47 @@ export const flightLiveActivities = sqliteTable("flight_live_activities", {
 }, (table) => [
   primaryKey({ columns: [table.flightId, table.installationId] }),
 ]);
+
+/** One forecast location, keyed by its rounded coordinate (`35.01,135.77`). */
+export interface StoredForecast extends LocationForecast {
+  lat: number;
+  lng: number;
+  /** Unix ms. */
+  fetchedAt: number;
+}
+
+export interface TripWeatherData {
+  locations: Record<string, StoredForecast>;
+  /** When every location was last fetched (Unix ms); checks in between only fetch the nowcast place. */
+  fullFetchedAt: number | null;
+}
+
+/** What the weather alerts already said, so checks only alert on news. */
+export interface WeatherAlertState {
+  /** Trip dates whose tomorrow's-weather alert was sent. */
+  dayAhead: string[];
+  nowcast: NowcastAlertState | null;
+}
+
+/**
+ * A trip's weather: forecasts for the places of its days, refreshed by the `trackTripWeather`
+ * workflow, which also sends the owner's weather alerts. Spec: `docs/weather.md`.
+ */
+export const tripWeather = sqliteTable("trip_weather", {
+  tripId: text("trip_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  provider: text("provider"),
+  data: text("data", { mode: "json" }).$type<TripWeatherData>(),
+  alertState: text("alert_state", { mode: "json" }).$type<WeatherAlertState>(),
+  fetchedAt: integer("fetched_at", { mode: "timestamp_ms" }),
+  trackingState: text("tracking_state", { enum: FLIGHT_TRACKING_STATES }).notNull().default("idle"),
+  trackingRunId: text("tracking_run_id"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [
+  index("trip_weather_tracking_idx").on(table.trackingState),
+]);
+
+export type TripWeatherRow = typeof tripWeather.$inferSelect;
 
 /**
  * Personal API keys for the hosted MCP server (`/api/mcp`). Only the SHA-256 of a key is stored;

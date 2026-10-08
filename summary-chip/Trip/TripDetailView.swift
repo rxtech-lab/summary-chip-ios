@@ -151,6 +151,7 @@ struct TripDetailView: View {
         .environment(\.tripEditable, canEdit)
         .environment(\.tripReading, reading)
         .environment(\.tripFlights, model.flights)
+        .environment(\.tripWeather, model.weather)
         .environment(\.tripPlaces, model.document?.places ?? [])
         .environment(\.tripShowPlace, showPlace)
         .overlay(alignment: .top) {
@@ -308,6 +309,7 @@ struct TripDetailView: View {
                     .environment(\.tripEditable, canEdit)
                     .environment(\.tripReading, reading)
                     .environment(\.tripFlights, model.flights)
+                    .environment(\.tripWeather, model.weather)
                     .environment(\.tripPlaces, model.document?.places ?? [])
                     .environment(\.tripShowPlace, showPlace)
                     // Editors present from the diary sheet, over it.
@@ -785,6 +787,7 @@ struct TripDetailView: View {
             .environment(\.tripEditable, canEdit)
             .environment(\.tripReading, reading)
             .environment(\.tripFlights, model.flights)
+            .environment(\.tripWeather, model.weather)
             .environment(\.tripPlaces, model.document?.places ?? [])
             .environment(\.tripShowPlace, showPlace)
         }

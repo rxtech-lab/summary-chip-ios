@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */; };
+		0311AC9C6C371D5C0E1F4029 /* TripWeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */; };
 		0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
 		075EC82989959A4C8A7E69C5 /* SummaryCreditsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BEBC1DCD62F1EF24ECF546 /* SummaryCreditsTests.swift */; };
 		07AC26FBE6AFDDDD4A9309E0 /* ChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4588BFD6242B1A98762EE95A /* ChatModel.swift */; };
@@ -49,6 +50,7 @@
 		534BD288187C9377E60840BF /* ShareRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB98BA73AD0207559C1B2880 /* ShareRootView.swift */; };
 		54652453BAE43998A68A0E0C /* MCPSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F64B11D6B01961148BEFB3 /* MCPSettingsSheet.swift */; };
 		54FD4F89EB16B939F19753F2 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C5A7BD4177CFC47C1133D8 /* AppEnvironment.swift */; };
+		5575787A09B556EC773B6000 /* TripPhotoViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C48DDE20B08ADAB9350BFE9 /* TripPhotoViewer.swift */; };
 		564AE76AD47E4F9F9B2ADE6B /* TransportEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9147248712D5998AF2A4787 /* TransportEditorSheet.swift */; };
 		56BCE2626B1299876784CC29 /* SmartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8A7EB71A4033CCF6F9924D43 /* SmartShare.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		56FF4700B29B951F31999EBE /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 88D5FCB90F386567C1FBDC20 /* Localizable.xcstrings */; };
@@ -79,6 +81,7 @@
 		79A04458D9B574AFAF37B4AC /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2719F635F4138E9669D90258 /* MessagesViewController.swift */; };
 		7BA1D05FB693DF27C5CDA1F9 /* LikesPreviewFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081582646A80A90DCFF80871 /* LikesPreviewFixture.swift */; };
 		7CBD89FC124DB1D258F3264D /* ChatScrollDiagUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9236C39688F07F83A5447905 /* ChatScrollDiagUITests.swift */; };
+		7D52117422C76C0786A49561 /* TripRoutePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41D5880687BA9F33878476E7 /* TripRoutePaths.swift */; };
 		7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */; };
 		7E9967902150357183A256C2 /* RxAuthTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3649A0D60A27E6BD17E2B7C9 /* RxAuthTokenStorage.swift */; };
 		80E879BD308582FC7BD94229 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0871168308F08E98FC6F6407 /* UpdateService.swift */; };
@@ -260,6 +263,7 @@
 		3820B8E8451394AF3599C906 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		38248291CB9CE9415924E557 /* SummaryServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryServiceProvider.swift; sourceTree = "<group>"; };
 		3B5037737C6041899B8B79A7 /* NewSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSummarySheet.swift; sourceTree = "<group>"; };
+		41D5880687BA9F33878476E7 /* TripRoutePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripRoutePaths.swift; sourceTree = "<group>"; };
 		42BEBC1DCD62F1EF24ECF546 /* SummaryCreditsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryCreditsTests.swift; sourceTree = "<group>"; };
 		43AF207A8CA79F42701645A5 /* AddSummaryIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSummaryIntent.swift; sourceTree = "<group>"; };
 		4588BFD6242B1A98762EE95A /* ChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModel.swift; sourceTree = "<group>"; };
@@ -267,6 +271,7 @@
 		487B956EC8E5981B4B6719D9 /* CurrencyConversionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyConversionSheet.swift; sourceTree = "<group>"; };
 		48C15FBF5AEB32C5AFB00F46 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49DEBDFA453941E2776E7D5C /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		4C48DDE20B08ADAB9350BFE9 /* TripPhotoViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPhotoViewer.swift; sourceTree = "<group>"; };
 		4FFC9B14C68BCD30FAD007BB /* LikesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikesView.swift; sourceTree = "<group>"; };
 		524B34A75C54E4204F37A480 /* TripMetaEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripMetaEditorSheet.swift; sourceTree = "<group>"; };
 		5420C0D585DD5D87099BD561 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -319,6 +324,7 @@
 		A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		A539FC70C64E5189A1CEC6AB /* EducationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EducationSheet.swift; sourceTree = "<group>"; };
 		A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteSummarySheet.swift; sourceTree = "<group>"; };
+		A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripWeatherViews.swift; sourceTree = "<group>"; };
 		A9147248712D5998AF2A4787 /* TransportEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportEditorSheet.swift; sourceTree = "<group>"; };
 		AB6D008DA55CA83DC9BC51D7 /* MessagesState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesState.swift; sourceTree = "<group>"; };
 		AD3F719D42564B011442D1ED /* SummaryMessages.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SummaryMessages.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -666,9 +672,12 @@
 				8C701057B10532B2E37EAD1A /* TripDiaryView.swift */,
 				F6165D5EEFE21F50D353DBE4 /* TripEditorModel.swift */,
 				668A7FEAA95408549C61CC30 /* TripMapView.swift */,
+				4C48DDE20B08ADAB9350BFE9 /* TripPhotoViewer.swift */,
 				2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */,
 				A1D10142A25A654D12674F04 /* TripPlanPicker.swift */,
+				41D5880687BA9F33878476E7 /* TripRoutePaths.swift */,
 				853B4341050169BFBBC48CC1 /* TripStyle.swift */,
+				A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */,
 			);
 			path = Trip;
 			sourceTree = "<group>";
@@ -1239,10 +1248,13 @@
 				953D0EE9504CFED416C23FD6 /* TripEditorScaffold.swift in Sources */,
 				648137054CDF63C2F61C6C28 /* TripMapView.swift in Sources */,
 				099F4D8EE629B42B71A07FD0 /* TripMetaEditorSheet.swift in Sources */,
+				5575787A09B556EC773B6000 /* TripPhotoViewer.swift in Sources */,
 				01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */,
 				5C3C147B00EF6DC46457AC5C /* TripPlanPicker.swift in Sources */,
+				7D52117422C76C0786A49561 /* TripRoutePaths.swift in Sources */,
 				CE40302BFB17B541D454C812 /* TripStyle.swift in Sources */,
 				BB923035EDDB9A1B8B0331A6 /* TripViewEditorSheet.swift in Sources */,
+				0311AC9C6C371D5C0E1F4029 /* TripWeatherViews.swift in Sources */,
 				80E879BD308582FC7BD94229 /* UpdateService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

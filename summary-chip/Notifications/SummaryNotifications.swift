@@ -137,7 +137,11 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             #endif
             let pushEnvironment = Self.pushEnvironment
             do {
-                try await environment.api.registerPushDevice(installationId: installationId, token: token, environment: pushEnvironment, platform: platform)
+                // Sent on every launch and activation, so it follows the user across time zones.
+                try await environment.api.registerPushDevice(
+                    installationId: installationId, token: token, environment: pushEnvironment, platform: platform,
+                    timeZone: TimeZone.current.identifier
+                )
                 guard currentGeneration == generation else { return }
                 #if os(iOS)
                 // The backend only takes Live Activity tokens for a registered installation.

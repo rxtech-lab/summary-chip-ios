@@ -176,9 +176,13 @@ public final class SummaryAPIClient: Sendable {
 
     // MARK: Account
 
-    public func registerPushDevice(installationId: String, token: String, environment: String, platform: String) async throws {
-        struct Registration: Encodable { let installationId: String; let token: String; let environment: String; let platform: String }
-        _ = try await sendRaw(json("/api/v1/devices", method: "POST", body: Registration(installationId: installationId, token: token, environment: environment, platform: platform)))
+    /// `timeZone` is the device's IANA zone, so trip weather alerts arrive at the right local time.
+    public func registerPushDevice(installationId: String, token: String, environment: String, platform: String, timeZone: String? = nil) async throws {
+        struct Registration: Encodable {
+            let installationId: String; let token: String; let environment: String; let platform: String; let timeZone: String?
+        }
+        let registration = Registration(installationId: installationId, token: token, environment: environment, platform: platform, timeZone: timeZone)
+        _ = try await sendRaw(json("/api/v1/devices", method: "POST", body: registration))
     }
 
     public func unregisterPushDevice(installationId: String) async throws {

@@ -80,6 +80,8 @@ struct TripDiaryView: View {
                 TripHeaderView(document: document) { present(.meta) }
                     .padding(.bottom, 6)
 
+                TripWeatherNowBanner(timeZone: document.resolvedTimeZone)
+
                 if !tripPlans.isEmpty {
                     TripSection(title: String(localized: "Plans"), systemImage: "arrow.triangle.branch") {
                         ForEach(tripPlans) { plan in

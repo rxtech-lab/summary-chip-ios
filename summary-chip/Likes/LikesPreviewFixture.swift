@@ -174,6 +174,8 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             return json(["planSelections": planSelections])
         case ("GET", "trips", 3) where path[2] == "flights":
             return (200, Data(Self.tripFlights.utf8))
+        case ("GET", "trips", 3) where path[2] == "weather":
+            return json(["updatedAt": NSNull(), "days": [], "now": NSNull()])
         case ("GET", "facets", 1):
             return json(["categories": [], "tags": []])
         case ("GET", "api-keys", 1):
