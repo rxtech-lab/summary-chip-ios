@@ -148,34 +148,7 @@ public enum SharePayloadLoader {
                 raw.pdfFilename = provider.suggestedName ?? raw.pdfFile?.lastPathComponent
             }
             if raw.pdfFile == nil, raw.localFile == nil {
-                let textType = provider.registeredTypeIdentifiers.first {
-                    UTType($0)?.conforms(to: .plainText) == true || $0 == UTType(filenameExtension: "md")?.identifier
-                }
-                let suggestedExtension = provider.suggestedName.map { URL(fileURLWithPath: $0).pathExtension.lowercased() }
-                if let textType, provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) || textType != UTType.plainText.identifier || ["txt", "md", "markdown"].contains(suggestedExtension ?? "") {
-                    let file = try await copyFile(from: provider, typeIdentifier: textType)
-                    raw.localFile = file
-                    raw.localFilename = provider.suggestedName ?? file.lastPathComponent
-                    raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)
-                } else if let suggestedExtension, LocalDocument.isReadable(extension: suggestedExtension),
-                          let documentType = provider.registeredTypeIdentifiers.first(where: { LocalDocument.isReadable(typeIdentifier: $0) }) {
-                    // A named attachment (Mail, Messages…) such as an RTF, Word or code file.
-                    let file = try await copyFile(from: provider, typeIdentifier: documentType)
-                    raw.localFile = file
-                    raw.localFilename = provider.suggestedName ?? file.lastPathComponent
-                    raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)
-                } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
-                          let url = await loadURL(from: provider, typeIdentifier: UTType.fileURL.identifier), url.isFileURL {
-                    let file = try LocalDocument.copyForReading(url)
-                    do {
-                        raw.localDocument = try LocalDocument.read(fileURL: file, filename: url.lastPathComponent)
-                        raw.localFile = file
-                        raw.localFilename = url.lastPathComponent
-                    } catch {
-                        LocalDocument.discardCopy(file)
-                        throw error
-                    }
-                }
+                try await loadLocalDocument(from: provider, into: &raw)
             }
             if raw.url == nil, provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
                !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
@@ -210,6 +183,37 @@ public enum SharePayloadLoader {
         }
         completed = true
         return raw
+    }
+
+    private static func loadLocalDocument(from provider: NSItemProvider, into raw: inout RawShareContents) async throws {
+        let textType = provider.registeredTypeIdentifiers.first {
+            UTType($0)?.conforms(to: .plainText) == true || $0 == UTType(filenameExtension: "md")?.identifier
+        }
+        let suggestedExtension = provider.suggestedName.map { URL(fileURLWithPath: $0).pathExtension.lowercased() }
+        if let textType, provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) || textType != UTType.plainText.identifier || ["txt", "md", "markdown"].contains(suggestedExtension ?? "") {
+            let file = try await copyFile(from: provider, typeIdentifier: textType)
+            raw.localFile = file
+            raw.localFilename = provider.suggestedName ?? file.lastPathComponent
+            raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)
+        } else if let suggestedExtension, LocalDocument.isReadable(extension: suggestedExtension),
+                  let documentType = provider.registeredTypeIdentifiers.first(where: { LocalDocument.isReadable(typeIdentifier: $0) }) {
+            // A named attachment (Mail, Messages…) such as an RTF, Word or code file.
+            let file = try await copyFile(from: provider, typeIdentifier: documentType)
+            raw.localFile = file
+            raw.localFilename = provider.suggestedName ?? file.lastPathComponent
+            raw.localDocument = try LocalDocument.read(fileURL: file, filename: raw.localFilename)
+        } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
+                  let url = await loadURL(from: provider, typeIdentifier: UTType.fileURL.identifier), url.isFileURL {
+            let file = try LocalDocument.copyForReading(url)
+            do {
+                raw.localDocument = try LocalDocument.read(fileURL: file, filename: url.lastPathComponent)
+                raw.localFile = file
+                raw.localFilename = url.lastPathComponent
+            } catch {
+                LocalDocument.discardCopy(file)
+                throw error
+            }
+        }
     }
 
     private static func loadPreprocessing(from provider: NSItemProvider) async -> [String: String]? {

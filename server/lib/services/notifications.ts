@@ -84,6 +84,51 @@ export async function notifyTripTranslated(db: Database, userId: string, tripId:
   });
 }
 
+const PAPER_CHANGED_TITLES: Record<string, [added: string, updated: string]> = {
+  en: ["Paper added", "Paper updated"],
+  "zh-Hans": ["论文已添加", "论文已更新"],
+  "zh-Hant": ["論文已新增", "論文已更新"],
+  ja: ["論文を追加しました", "論文を更新しました"],
+  ko: ["논문이 추가되었습니다", "논문이 업데이트되었습니다"],
+  es: ["Artículo añadido", "Artículo actualizado"],
+  fr: ["Article ajouté", "Article mis à jour"],
+  de: ["Paper hinzugefügt", "Paper aktualisiert"],
+};
+
+/** The debounced alert (`workflows/notify-paper-changes.ts`) after a paper is created or an agent edits it. */
+export async function notifyPaperChanged(db: Database, paper: Pick<SummaryRow, "id" | "ownerId" | "title" | "language">, created: boolean): Promise<void> {
+  const [added, updated] = PAPER_CHANGED_TITLES[translationLanguageFor(paper.language) ?? "en"] ?? PAPER_CHANGED_TITLES.en;
+  await deliver(db, paper.ownerId, {
+    aps: { alert: { title: created ? added : updated, body: clipAlert(paper.title) }, sound: "default" },
+    summaryId: paper.id,
+    paperId: paper.id,
+    userId: paper.ownerId,
+  }, { collapseId: `paper-update:${paper.id}` });
+}
+
+const REFERENCE_ERROR_TITLES: Record<string, string> = {
+  en: "Reference check found problems",
+  "zh-Hans": "参考文献检查发现问题",
+  "zh-Hant": "參考文獻檢查發現問題",
+  ja: "参考文献の確認で問題が見つかりました",
+  ko: "참고문헌 검사에서 문제가 발견되었습니다",
+  es: "La revisión de referencias encontró problemas",
+  fr: "La vérification des références a trouvé des problèmes",
+  de: "Die Quellenprüfung hat Probleme gefunden",
+};
+
+/** After a reference check run: the entries it found errors in, by key. Replaces the paper's previous one. */
+export async function notifyReferenceErrors(db: Database, paper: Pick<SummaryRow, "id" | "ownerId" | "title" | "language">, keys: string[]): Promise<void> {
+  if (!keys.length) return;
+  const heading = REFERENCE_ERROR_TITLES[translationLanguageFor(paper.language) ?? "en"] ?? REFERENCE_ERROR_TITLES.en;
+  await deliver(db, paper.ownerId, {
+    aps: { alert: { title: heading, body: clipAlert(`${clipAlert(paper.title, 36)}: ${keys.join(", ")}`) }, sound: "default" },
+    summaryId: paper.id,
+    paperId: paper.id,
+    userId: paper.ownerId,
+  }, { collapseId: `paper-references:${paper.id}` });
+}
+
 /** APNs answers that mean the token will never work again. */
 export function isDeadToken(result: PushResult): boolean {
   return result.status === 410 || (result.status === 400 && ["BadDeviceToken", "DeviceTokenNotForTopic", "ExpiredToken"].includes(result.reason ?? ""));

@@ -10,8 +10,8 @@ struct PaperLineJump: Equatable {
 /// A LaTeX editor in the style of a code editor:
 /// * syntax highlighting for `.tex` and `.bib` files, and the bracket at the caret marked with its
 ///   partner; typing `{` adds its `}`;
-/// * line numbers, with the lines that have compile errors tinted, numbered in red and showing the
-///   message in a pill;
+/// * line numbers, with the lines that have compile or reference errors tinted, underlined with a
+///   red wave, numbered in red over a wave and showing the message in a pill;
 /// * completion of commands, environments, labels, citation keys and file paths, each with a
 ///   description (`symbols` scans the whole paper, only when needed);
 /// * hover cards describing the word under the pointer and the errors on its line (Mac, iPad with a

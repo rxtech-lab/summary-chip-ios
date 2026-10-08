@@ -6,8 +6,13 @@ import SwiftUI
 struct MCPSettingsSheet: View {
     let api: SummaryAPIClient
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var keys: [APIKey]?
     @State private var loadError: String?
+    @State private var tools: [MCPTool]?
+    @State private var toolsLoadError: String?
+    @State private var selectedTool: MCPTool?
+    @State private var interactionCount = 0
     @State private var showsCreate = false
     @State private var renaming: APIKey?
     @State private var revoking: APIKey?
@@ -42,7 +47,13 @@ struct MCPSettingsSheet: View {
                 #endif
             }
             .refreshable { await load() }
-            .task { await load() }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                await load()
+            }
+            .sheet(item: $selectedTool, onDismiss: { interactionCount += 1 }) { tool in
+                MCPToolDetailsSheet(tool: tool)
+            }
             .sheet(isPresented: $showsCreate) {
                 CreateAPIKeySheet(api: api) { created in
                     keys = [created] + (keys ?? [])
@@ -74,7 +85,9 @@ struct MCPSettingsSheet: View {
             }
             .animation(.default, value: toast)
             .sensoryFeedback(.success, trigger: successCount)
+            .sensoryFeedback(.selection, trigger: interactionCount)
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
+            .sensoryFeedback(.error, trigger: toolsLoadError) { _, new in new != nil }
             .statusAlert("MCP Server", message: errorMessage) { errorMessage = nil }
             .task(id: toast) {
                 guard toast != nil else { return }
@@ -159,12 +172,42 @@ struct MCPSettingsSheet: View {
 
     private var toolsSection: some View {
         Section("Tools") {
-            ForEach(MCPToolSummary.all) { tool in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: tool.name).font(.body.monospaced())
-                    Text(tool.detail)
-                        .font(.caption)
+            if let tools {
+                if tools.isEmpty {
+                    Text("No tools available")
                         .foregroundStyle(.secondary)
+                } else {
+                    ForEach(tools) { tool in
+                        Button {
+                            interactionCount += 1
+                            selectedTool = tool
+                        } label: {
+                            HStack {
+                                Text(verbatim: tool.name).font(.body.monospaced())
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("mcp-tool-\(tool.name)")
+                    }
+                }
+            } else if let toolsLoadError {
+                Text(toolsLoadError)
+                    .foregroundStyle(.secondary)
+                Button("Try Again", systemImage: "arrow.clockwise") {
+                    interactionCount += 1
+                    Task { await loadTools() }
+                }
+            } else {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
                 }
             }
         }
@@ -173,12 +216,30 @@ struct MCPSettingsSheet: View {
     // MARK: Actions
 
     private func load() async {
+        async let keysLoad: Void = loadKeys()
+        async let toolsLoad: Void = loadTools()
+        _ = await (keysLoad, toolsLoad)
+    }
+
+    private func loadKeys() async {
         do {
             keys = try await api.apiKeys()
             loadError = nil
         } catch is CancellationError {
         } catch {
+            guard !Task.isCancelled else { return }
             if keys == nil { loadError = error.localizedDescription } else { errorMessage = error.localizedDescription }
+        }
+    }
+
+    private func loadTools() async {
+        toolsLoadError = nil
+        do {
+            tools = try await api.mcpTools()
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled else { return }
+            if tools == nil { toolsLoadError = error.localizedDescription } else { errorMessage = error.localizedDescription }
         }
     }
 
@@ -263,21 +324,38 @@ private struct APIKeyRow: View {
     }
 }
 
-private struct MCPToolSummary: Identifiable {
-    let name: String
-    let detail: String
-    var id: String { name }
+private struct MCPToolDetailsSheet: View {
+    let tool: MCPTool
+    @Environment(\.dismiss) private var dismiss
 
-    static let all = [
-        MCPToolSummary(name: "add_summary", detail: String(localized: "Save a summary, its key points, tags and raw source text.")),
-        MCPToolSummary(name: "search_summaries", detail: String(localized: "Find summaries by meaning, optionally from one source.")),
-        MCPToolSummary(name: "list_summaries", detail: String(localized: "List summaries newest first by source, category, tag or visibility.")),
-        MCPToolSummary(name: "list_trips", detail: String(localized: "List trips, ongoing and upcoming first.")),
-        MCPToolSummary(name: "get_trip", detail: String(localized: "Read a trip’s days, places, transport, stays and expenses.")),
-        MCPToolSummary(name: "create_trip", detail: String(localized: "Create a trip from a complete trip document.")),
-        MCPToolSummary(name: "update_trip", detail: String(localized: "Add, change or delete a trip’s days, places and other records.")),
-        MCPToolSummary(name: "update_place", detail: String(localized: "Change a place’s description, photos, hours, prices or contact details.")),
-        MCPToolSummary(name: "upload_trip_image", detail: String(localized: "Store a photo for a place or view and get its URL.")),
-        MCPToolSummary(name: "add_to_trip_from_source", detail: String(localized: "Have Chippy’s trip agent add a web page or text to a trip. Costs points.")),
-    ]
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text(verbatim: tool.name)
+                        .font(.body.monospaced())
+                        .textSelection(.enabled)
+                }
+                if let description = tool.description {
+                    Section("Description") {
+                        Text(verbatim: description)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(tool.title ?? tool.name)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(width: 500, height: 420)
+        #endif
+    }
 }

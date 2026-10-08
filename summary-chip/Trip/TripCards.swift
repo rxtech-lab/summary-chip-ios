@@ -546,23 +546,7 @@ struct TripDayDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(document.dayLabel(day.date))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(accent)
-                        Text(day.title)
-                            .font(.title2.weight(.bold))
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let short = day.short ?? day.route?.summary {
-                            Text(short).font(.subheadline).foregroundStyle(.secondary)
-                        }
-                        if let hotel = document.hotel(id: day.stayId) {
-                            Label(hotel.name, systemImage: "moon.stars")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.indigo)
-                                .padding(.top, 4)
-                        }
-                    }
+                    dayHeader
 
                     if let blurb = day.blurb {
                         Text(blurb)
@@ -583,25 +567,9 @@ struct TripDayDetailSheet: View {
                         }
                     }
 
-                    let transports = day.transportIds.compactMap { document.transport(id: $0) }
-                    if !transports.isEmpty {
-                        section("Transport") {
-                            VStack(spacing: 8) {
-                                ForEach(transports) { transport in
-                                    TransportSummaryButton(document: document, transport: transport) { onOpenTransport(transport) }
-                                }
-                            }
-                        }
-                    }
+                    transportSection
 
-                    let places = document.guidePlaces(for: day)
-                    if !places.isEmpty {
-                        section("Places") {
-                            VStack(spacing: 10) {
-                                ForEach(places) { TripPlacePreviewCard(place: $0) }
-                            }
-                        }
-                    }
+                    placesSection
 
                     ForEach(document.views(forDay: day.id)) { view in
                         TripCustomViewCard(view: view, currency: document.currency, embedded: true) { onEditView(view) }
@@ -663,6 +631,52 @@ struct TripDayDetailSheet: View {
             }
         }
         .summarySheetSize()
+    }
+
+    private var dayHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(document.dayLabel(day.date))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(accent)
+            Text(day.title)
+                .font(.title2.weight(.bold))
+                .fixedSize(horizontal: false, vertical: true)
+            if let short = day.short ?? day.route?.summary {
+                Text(short).font(.subheadline).foregroundStyle(.secondary)
+            }
+            if let hotel = document.hotel(id: day.stayId) {
+                Label(hotel.name, systemImage: "moon.stars")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.indigo)
+                    .padding(.top, 4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var transportSection: some View {
+        let transports = day.transportIds.compactMap { document.transport(id: $0) }
+        if !transports.isEmpty {
+            section("Transport") {
+                VStack(spacing: 8) {
+                    ForEach(transports) { transport in
+                        TransportSummaryButton(document: document, transport: transport) { onOpenTransport(transport) }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var placesSection: some View {
+        let places = document.guidePlaces(for: day)
+        if !places.isEmpty {
+            section("Places") {
+                VStack(spacing: 10) {
+                    ForEach(places) { TripPlacePreviewCard(place: $0) }
+                }
+            }
+        }
     }
 
     private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {

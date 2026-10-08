@@ -7,7 +7,7 @@ import * as viewsRoute from "@/app/api/v1/views/route";
 import * as chatRoute from "@/app/api/v1/chat/route";
 import * as cronRoute from "@/app/api/cron/cleanup/route";
 import { focusedSummaryInstructions } from "@/lib/ai/chat";
-import { summaries, summaryViews, uploads } from "@/lib/db/schema";
+import { summaries, uploads } from "@/lib/db/schema";
 import { apiRequest, buildPdf, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
 let env: TestEnv;

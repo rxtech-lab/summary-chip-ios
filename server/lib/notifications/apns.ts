@@ -10,6 +10,8 @@ export interface PushPayload {
   tripId?: string;
   /** Set on flight alerts: the tracked flight (`docs/flights.md`). */
   flightId?: string;
+  /** Set on paper alerts (equal to `summaryId`): an open paper reloads itself. */
+  paperId?: string;
 }
 export interface PushResult { status: number; reason?: string }
 

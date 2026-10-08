@@ -4993,6 +4993,22 @@
           }
         }
       }
+    },
+    "Word (.docx)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word（.docx）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word（.docx）"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

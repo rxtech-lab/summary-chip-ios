@@ -3,6 +3,8 @@ import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson, readJson } from "@/lib/http/errors";
 import { autosavePaper, getOwnedPaper, getPaper } from "@/lib/services/papers";
 import { deleteSummary } from "@/lib/services/summaries";
+import { z } from "zod";
+import { TRANSLATION_LANGUAGES } from "@/lib/contracts/api";
 
 export const runtime = "nodejs";
 /** An autosave checks the bibliography entries it changed after the response (see `paper-references.ts`). */
@@ -14,7 +16,9 @@ type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, { params }: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
-    return noStoreJson({ paper: await getPaper(db, id, principal.sub) });
+    const raw = new URL(request.url).searchParams.get("lang");
+    const language = raw === null ? undefined : z.enum(["original", ...TRANSLATION_LANGUAGES]).parse(raw);
+    return noStoreJson({ paper: await getPaper(db, id, principal.sub, { language }) });
   }, { feature: "papers" });
 }
 

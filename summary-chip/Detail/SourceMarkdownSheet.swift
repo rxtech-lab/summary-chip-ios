@@ -32,50 +32,7 @@ struct SourceMarkdownSheet: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let markdown {
-                    ScrollView {
-                        if let language, language != summary.originalLanguage, !translationPending {
-                            Label("Translated from \(SummaryLanguage.displayName(for: summary.originalLanguage)) to \(SummaryLanguage.displayName(for: language))", systemImage: "translate")
-                                .font(.footnote.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: 700, alignment: .leading)
-                                .padding(.horizontal, 24)
-                                .padding(.top, 12)
-                                .frame(maxWidth: .infinity)
-                                .accessibilityIdentifier("source-translated-note")
-                        }
-                        if translationPending {
-                            Label("Translating the source text… Showing the original for now.", systemImage: "translate")
-                                .font(.footnote.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: 700, alignment: .leading)
-                                .padding(.horizontal, 24)
-                                .padding(.top, 12)
-                                .frame(maxWidth: .infinity)
-                                .accessibilityIdentifier("source-translation-pending")
-                        }
-                        MarkdownView(text: markdown, baseURL: summary.sourceUrl, style: Self.documentStyle)
-                            .textSelection(.enabled)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 12)
-                            .padding(.bottom, 40)
-                            .frame(maxWidth: 700, alignment: .leading)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .accessibilityIdentifier("source-markdown")
-                } else if let errorMessage {
-                    ContentUnavailableView {
-                        Label("Source unavailable", systemImage: "doc.plaintext")
-                    } description: {
-                        Text(errorMessage)
-                    } actions: {
-                        Button("Try Again") { attempt += 1 }
-                    }
-                } else {
-                    ProgressView("Loading source…")
-                }
-            }
+            sourceContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(summary.sourceTitle ?? summary.title)
             #if os(macOS)
@@ -125,6 +82,53 @@ struct SourceMarkdownSheet: View {
         .task { if onLanguageChanged != nil { translated = try? await api.translations(id: summary.id) } }
         .task(id: translationPending) { await pollTranslation() }
         .sensoryFeedback(.success, trigger: translationPending) { old, new in old && !new }
+    }
+
+    private var sourceContent: some View {
+        Group {
+            if let markdown {
+                ScrollView {
+                    if let language, language != summary.originalLanguage, !translationPending {
+                        Label("Translated from \(SummaryLanguage.displayName(for: summary.originalLanguage)) to \(SummaryLanguage.displayName(for: language))", systemImage: "translate")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: 700, alignment: .leading)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 12)
+                            .frame(maxWidth: .infinity)
+                            .accessibilityIdentifier("source-translated-note")
+                    }
+                    if translationPending {
+                        Label("Translating the source text… Showing the original for now.", systemImage: "translate")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: 700, alignment: .leading)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 12)
+                            .frame(maxWidth: .infinity)
+                            .accessibilityIdentifier("source-translation-pending")
+                    }
+                    MarkdownView(text: markdown, baseURL: summary.sourceUrl, style: Self.documentStyle)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 12)
+                        .padding(.bottom, 40)
+                        .frame(maxWidth: 700, alignment: .leading)
+                        .frame(maxWidth: .infinity)
+                }
+                .accessibilityIdentifier("source-markdown")
+            } else if let errorMessage {
+                ContentUnavailableView {
+                    Label("Source unavailable", systemImage: "doc.plaintext")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("Try Again") { attempt += 1 }
+                }
+            } else {
+                ProgressView("Loading source…")
+            }
+        }
     }
 
     /// Reading typography: a larger body with airy lines and paragraph spacing, like a printed article.

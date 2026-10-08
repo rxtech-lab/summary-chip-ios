@@ -400,6 +400,10 @@ struct TripDetailView: View {
     /// The diary, or the hotels or expenses pane over it. The diary stays laid out underneath so
     /// switching back keeps its scroll position and the day the map follows.
     private func diary(_ document: TripDocument, readingLine: @escaping (CGFloat) -> CGFloat) -> some View {
+        diaryExportPresentation(diaryContent(document, readingLine: readingLine))
+    }
+
+    private func diaryContent(_ document: TripDocument, readingLine: @escaping (CGFloat) -> CGFloat) -> some View {
         ZStack {
             TripDiaryView(
                 document: document,
@@ -449,6 +453,10 @@ struct TripDetailView: View {
             Text(record.deleteMessage)
         }
         .sensoryFeedback(.error, trigger: deleteFailed)
+    }
+
+    private func diaryExportPresentation(_ content: some View) -> some View {
+        content
         // Present the save dialog and errors from the diary sheet on iPhone.
         .statusAlert("Couldn't Export PDF", message: exportError) { exportError = nil }
         .fileExporter(
@@ -541,11 +549,6 @@ struct TripDetailView: View {
                     .accessibilityIdentifier("trip-share")
                 }
             }
-            if isOwner {
-                ToolbarItem(placement: .summaryTrailing) {
-                    VersionToolbarMenu(model: versions)
-                }
-            }
             ToolbarItem(placement: .summaryTrailing) {
                 Menu {
                     if model.displayDocument != nil {
@@ -577,8 +580,8 @@ struct TripDetailView: View {
                             .accessibilityIdentifier("trip-details")
                     }
                     if isOwner {
-                        Button { present(.versions) } label: { Label("Version History…", systemImage: "clock.arrow.circlepath") }
-                            .accessibilityIdentifier("trip-versions")
+                        // A submenu: preview a version in place, restore it, or open the full history.
+                        VersionToolbarMenu(model: versions)
                         Button { present(.language) } label: { Label("Language…", systemImage: "translate") }
                             .accessibilityIdentifier("trip-language")
                         Button { confirmsCover = true } label: { Label("Generate Cover", systemImage: "wand.and.stars") }
@@ -797,23 +800,7 @@ struct TripDetailView: View {
                 case .day(let id):
                     DayEditorSheet(model: model, document: document, day: document.day(id: id))
                 case .dayDetail(let id):
-                    // After switching routes the sheet shows the picked option's day for the same date.
-                    if let day = document.day(id: id) ?? model.document?.day(id: id).flatMap({ old in document.orderedDays.first { $0.date == old.date } }) {
-                        TripDayDetailSheet(
-                            document: document,
-                            day: day,
-                            onEdit: { activeSheet = .day(day.id) },
-                            onOpenTransport: { activeSheet = .transportDetail($0.id) },
-                            onEditView: { if canEdit { activeSheet = .view($0.id) } },
-                            onPlayTour: {
-                                tourDayID = day.id
-                                showsSheetTour = true
-                            },
-                            planSelections: model.planSelections,
-                            onSelectPlanOption: selectPlanOption
-                        )
-                        .tripTourPresentation(isPresented: $showsSheetTour) { tour }
-                    }
+                    dayDetailSheet(id, document: document)
                 case .place(let id):
                     PlaceEditorSheet(model: model, document: document, place: document.place(id: id))
                 case .transport(let id):
@@ -829,9 +816,7 @@ struct TripDetailView: View {
                 case .view(let id):
                     TripViewEditorSheet(model: model, document: document, view: document.view(id: id), dayID: pane == .diary ? activeDayID : nil)
                 case .placeDetail(let id):
-                    if let place = document.place(id: id) {
-                        TripPlaceDetailSheet(document: document, place: place) { activeSheet = .place(id) }
-                    }
+                    placeDetailSheet(id, document: document)
                 case .places:
                     TripPlacesSheet(places: document.places, onOpen: { activeSheet = .placeDetail($0.id) }, onAdd: { activeSheet = .place(nil) })
                 case .notes:
@@ -866,6 +851,34 @@ struct TripDetailView: View {
             .environment(\.tripWeather, model.weather)
             .environment(\.tripPlaces, (model.previewDocument ?? model.document)?.places ?? [])
             .environment(\.tripShowPlace, showPlace)
+        }
+    }
+
+    @ViewBuilder
+    private func dayDetailSheet(_ id: String, document: TripDocument) -> some View {
+        // After switching routes the sheet shows the picked option's day for the same date.
+        if let day = document.day(id: id) ?? model.document?.day(id: id).flatMap({ old in document.orderedDays.first { $0.date == old.date } }) {
+            TripDayDetailSheet(
+                document: document,
+                day: day,
+                onEdit: { activeSheet = .day(day.id) },
+                onOpenTransport: { activeSheet = .transportDetail($0.id) },
+                onEditView: { if canEdit { activeSheet = .view($0.id) } },
+                onPlayTour: {
+                    tourDayID = day.id
+                    showsSheetTour = true
+                },
+                planSelections: model.planSelections,
+                onSelectPlanOption: selectPlanOption
+            )
+            .tripTourPresentation(isPresented: $showsSheetTour) { tour }
+        }
+    }
+
+    @ViewBuilder
+    private func placeDetailSheet(_ id: String, document: TripDocument) -> some View {
+        if let place = document.place(id: id) {
+            TripPlaceDetailSheet(document: document, place: place) { activeSheet = .place(id) }
         }
     }
 

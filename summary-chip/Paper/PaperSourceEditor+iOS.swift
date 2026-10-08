@@ -260,6 +260,7 @@ final class PaperUITextView: UITextView {
         let current = selectedRange.length == 0 && isFirstResponder ? lineIndex.line(at: selectedRange.location) : nil
         PaperEditorDecorations.drawNumbers(lines, width: gutterWidth, offset: CGPoint(x: 0, y: offset.y), errors: errors, current: current)
         PaperEditorDecorations.drawErrorTints(lines, errors: errors, x: gutterWidth, width: bounds.width - gutterWidth, offset: offset)
+        PaperEditorDecorations.drawErrorWaves(lines, errors: errors, offset: offset)
         PaperEditorDecorations.drawPills(lines, issues: issuesByLine, maxX: bounds.width - 8, maxWidth: (bounds.width - gutterWidth) * 0.55, offset: offset)
     }
 

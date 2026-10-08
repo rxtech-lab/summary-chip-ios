@@ -309,6 +309,7 @@ final class PaperTextView: NSTextView {
         guard !issuesByLine.isEmpty, let layoutManager, let textContainer else { return }
         let lines = visibleLines(in: dirtyRect, layoutManager: layoutManager, container: textContainer)
         let origin = textContainerOrigin
+        PaperEditorDecorations.drawErrorWaves(lines, errors: Set(issuesByLine.keys), offset: CGPoint(x: origin.x, y: origin.y))
         PaperEditorDecorations.drawPills(lines, issues: issuesByLine, maxX: bounds.width - 8, maxWidth: bounds.width * 0.5, offset: CGPoint(x: origin.x, y: origin.y))
     }
 

@@ -131,18 +131,34 @@ public struct Paper: Codable, Sendable, Hashable, Identifiable {
     public var likedAt: Date?
     /// The bibliography entries with their fact-checks (the owner's only); see `referenceList`.
     public var references: [PaperReference]?
+    public var originalLanguage: String?
+    public var language: String?
+    public var displayLanguage: String?
+    public var translationOutdated: Bool?
+    public var renderingOptions: PaperRendering?
+    public var rendering: PaperRendering { renderingOptions ?? PaperRendering() }
+
+    public var writtenLanguage: String { originalLanguage ?? language ?? "en" }
+    public var readingLanguage: String { language ?? writtenLanguage }
+    public var isTranslated: Bool { readingLanguage != writtenLanguage }
 
     public init(
         id: String, slug: String, revision: Int, visibility: SummaryVisibility = .private, isOwner: Bool = true,
         createdAt: Date = .now, updatedAt: Date = .now, shareUrl: URL, title: String, files: [PaperFile], mainFile: String,
         compiler: PaperCompiler = .pdflatex, version: Int? = 1, hasUnversionedChanges: Bool = false, likedAt: Date? = nil,
-        references: [PaperReference]? = nil
+        references: [PaperReference]? = nil, originalLanguage: String? = nil, language: String? = nil,
+        displayLanguage: String? = nil, translationOutdated: Bool? = nil, renderingOptions: PaperRendering? = nil
     ) {
         self.id = id; self.slug = slug; self.revision = revision; self.visibility = visibility; self.isOwner = isOwner
         self.createdAt = createdAt; self.updatedAt = updatedAt; self.shareUrl = shareUrl; self.title = title; self.files = files
         self.mainFile = mainFile; self.compiler = compiler; self.version = version; self.hasUnversionedChanges = hasUnversionedChanges
         self.likedAt = likedAt
         self.references = references
+        self.originalLanguage = originalLanguage
+        self.language = language
+        self.displayLanguage = displayLanguage
+        self.translationOutdated = translationOutdated
+        self.renderingOptions = renderingOptions
     }
 
     /// What an autosave sends and a version keeps.

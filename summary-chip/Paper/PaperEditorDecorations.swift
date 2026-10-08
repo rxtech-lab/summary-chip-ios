@@ -6,23 +6,26 @@ import UIKit
 import AppKit
 #endif
 
-/// A compile error on a line of the open file.
+/// A compile or reference error on a line of the open file.
 struct PaperEditorIssue: Equatable {
     let line: Int
     let message: String
 }
 
-/// A line on screen: its 1-based number, the first fragment's rect, and all its fragments' (text
-/// container coordinates). A line wrapped in from above the visible area shows no number.
+/// A line on screen: its 1-based number, the first fragment's rect, all its fragments', and the
+/// text in each fragment, without indentation (text container coordinates). A line wrapped in from
+/// above the visible area shows no number.
 struct PaperVisibleLine {
     let number: Int
     let firstFragment: CGRect
     var bounds: CGRect
+    var text: [CGRect]
     let showsNumber: Bool
 }
 
 /// Line geometry and the drawing shared by both platforms' editors (TextKit 1): the gutter's line
-/// numbers and the compile errors, as a tinted line with the message in a pill at its right edge.
+/// numbers and the errors, as a tinted line underlined with a red wave, its number in red over a
+/// wave, and the message in a pill at its right edge.
 enum PaperEditorDecorations {
     static let numberFont = EditorFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
     static let pillFont = EditorFont.systemFont(ofSize: 11, weight: .medium)
@@ -39,26 +42,50 @@ enum PaperEditorDecorations {
     static func visibleLines(in rect: CGRect, layoutManager: NSLayoutManager, container: NSTextContainer, lines: LaTeXLineIndex) -> [PaperVisibleLine] {
         var result: [PaperVisibleLine] = []
         let glyphs = layoutManager.glyphRange(forBoundingRect: rect, in: container)
+        let string = (layoutManager.textStorage?.string ?? "") as NSString
         layoutManager.enumerateLineFragments(forGlyphRange: glyphs) { fragment, _, _, glyphRange, _ in
             let characters = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
             let number = lines.line(at: characters.location)
+            let text = textRect(of: characters, in: string, fragment: fragment, layoutManager: layoutManager, container: container)
             if let last = result.indices.last, result[last].number == number {
                 result[last].bounds = result[last].bounds.union(fragment)
+                if let text { result[last].text.append(text) }
             } else {
                 let start = lines.starts[number - 1]
-                result.append(PaperVisibleLine(number: number, firstFragment: fragment, bounds: fragment, showsNumber: characters.location == start))
+                result.append(PaperVisibleLine(
+                    number: number, firstFragment: fragment, bounds: fragment, text: text.map { [$0] } ?? [],
+                    showsNumber: characters.location == start
+                ))
             }
         }
         // The empty last line after a final line break.
         let extra = layoutManager.extraLineFragmentRect
         if layoutManager.extraLineFragmentTextContainer != nil, extra.intersects(rect) || result.isEmpty {
-            result.append(PaperVisibleLine(number: lines.lineCount, firstFragment: extra, bounds: extra, showsNumber: true))
+            result.append(PaperVisibleLine(number: lines.lineCount, firstFragment: extra, bounds: extra, text: [], showsNumber: true))
         }
         return result
     }
 
+    /// The rect of a fragment's text without leading and trailing whitespace; nil when it's blank.
+    private static func textRect(
+        of characters: NSRange, in string: NSString, fragment: CGRect, layoutManager: NSLayoutManager, container: NSTextContainer
+    ) -> CGRect? {
+        var start = characters.location
+        var end = NSMaxRange(characters)
+        let whitespace = CharacterSet.whitespacesAndNewlines
+        func isWhitespace(_ index: Int) -> Bool {
+            UnicodeScalar(string.character(at: index)).map(whitespace.contains) ?? false
+        }
+        while start < end, isWhitespace(start) { start += 1 }
+        while end > start, isWhitespace(end - 1) { end -= 1 }
+        guard end > start else { return nil }
+        let glyphs = layoutManager.glyphRange(forCharacterRange: NSRange(location: start, length: end - start), actualCharacterRange: nil)
+        let rect = layoutManager.boundingRect(forGlyphRange: glyphs, in: container)
+        return CGRect(x: rect.minX, y: fragment.minY, width: rect.width, height: fragment.height)
+    }
+
     /// Draws the numbers of `lines` right-aligned in a gutter `width` wide; `offset` moves container
-    /// coordinates into the drawing's. Lines with errors are numbered in red.
+    /// coordinates into the drawing's. Lines with errors are numbered in red over a wave.
     static func drawNumbers(_ lines: [PaperVisibleLine], width: CGFloat, offset: CGPoint, errors: Set<Int>, current: Int?) {
         for line in lines where line.showsNumber {
             let isError = errors.contains(line.number)
@@ -72,8 +99,33 @@ enum PaperEditorDecorations {
                 let dot = CGRect(x: 4, y: y + (size.height - 5) / 2, width: 5, height: 5)
                 EditorColor.systemRed.setFill()
                 pathWithOval(dot).fill()
+                drawWave(from: width - size.width - 8, to: width - 8, y: y + size.height)
             }
         }
+    }
+
+    /// Underlines the text of the lines with errors with a red wave; a blank line gets a short one.
+    static func drawErrorWaves(_ lines: [PaperVisibleLine], errors: Set<Int>, offset: CGPoint) {
+        for line in lines where errors.contains(line.number) {
+            let rects = line.text.isEmpty
+                ? [CGRect(x: line.firstFragment.minX + 4, y: line.firstFragment.minY, width: 16, height: line.firstFragment.height)]
+                : line.text
+            for rect in rects {
+                drawWave(from: rect.minX + offset.x, to: max(rect.maxX, rect.minX + 6) + offset.x, y: rect.maxY + offset.y - 2.5)
+            }
+        }
+    }
+
+    /// A red squiggle from `minX` to `maxX` around `y`.
+    private static func drawWave(from minX: CGFloat, to maxX: CGFloat, y: CGFloat) {
+        let amplitude: CGFloat = 1.5
+        let step: CGFloat = 2
+        let points = stride(from: minX, through: maxX, by: step).enumerated().map { index, x in
+            CGPoint(x: x, y: y + (index.isMultiple(of: 2) ? -amplitude : amplitude))
+        }
+        guard points.count > 1 else { return }
+        EditorColor.systemRed.setStroke()
+        strokeLine(through: points, width: 1)
     }
 
     /// Tints the lines with errors across `width`.
@@ -113,10 +165,26 @@ enum PaperEditorDecorations {
 
     #if os(iOS)
     private static func pathWithOval(_ rect: CGRect) -> UIBezierPath { UIBezierPath(ovalIn: rect) }
+    private static func strokeLine(through points: [CGPoint], width: CGFloat) {
+        let path = UIBezierPath()
+        path.move(to: points[0])
+        points.dropFirst().forEach(path.addLine(to:))
+        path.lineWidth = width
+        path.lineJoinStyle = .round
+        path.stroke()
+    }
     private static func pathWithRoundedRect(_ rect: CGRect, radius: CGFloat) -> UIBezierPath { UIBezierPath(roundedRect: rect, cornerRadius: radius) }
     private static func fill(_ rect: CGRect) { UIRectFillUsingBlendMode(rect, .normal) }
     #else
     private static func pathWithOval(_ rect: CGRect) -> NSBezierPath { NSBezierPath(ovalIn: rect) }
+    private static func strokeLine(through points: [CGPoint], width: CGFloat) {
+        let path = NSBezierPath()
+        path.move(to: points[0])
+        points.dropFirst().forEach(path.line(to:))
+        path.lineWidth = width
+        path.lineJoinStyle = .round
+        path.stroke()
+    }
     private static func pathWithRoundedRect(_ rect: CGRect, radius: CGFloat) -> NSBezierPath {
         NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
     }
@@ -124,7 +192,7 @@ enum PaperEditorDecorations {
     #endif
 }
 
-/// What's under the pointer: the word's description and the compile errors on its line, anchored to
+/// What's under the pointer: the word's description and the errors on its line, anchored to
 /// the word (or the line). Coordinates are the text container's.
 struct PaperHoverTarget: Equatable {
     let info: LaTeXHoverInfo?
@@ -159,7 +227,7 @@ extension PaperEditorDecorations {
     }
 }
 
-/// The card shown on hover: what the word is, and the compile errors on its line.
+/// The card shown on hover: what the word is, and the errors on its line.
 struct PaperHoverCard: View {
     let info: LaTeXHoverInfo?
     let errors: [String]
@@ -167,9 +235,13 @@ struct PaperHoverCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(errors, id: \.self) { message in
-                Label(message, systemImage: "xmark.octagon.fill")
-                    .font(.callout)
-                    .foregroundStyle(.red)
+                Label {
+                    Text(message)
+                } icon: {
+                    Image(systemName: "xmark.octagon.fill")
+                        .foregroundStyle(.red)
+                }
+                .font(.callout)
             }
             if let info {
                 VStack(alignment: .leading, spacing: 4) {

@@ -18,35 +18,7 @@ struct LibraryFilterSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("Show", selection: $draft.scope) {
-                        ForEach(LibraryScope.filterCases) { scope in
-                            Text(scope.title).tag(scope)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    Picker("Kind", selection: $draft.kind) {
-                        Text("All").tag(SummaryKind?.none)
-                        ForEach(SummaryKind.known) { kind in
-                            Text(kind.title).tag(SummaryKind?.some(kind))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("library-filter-kind")
-
-                    if draft.scope != .viewed {
-                        Picker("Visibility", selection: $draft.visibility) {
-                            Text("All").tag(SummaryVisibility?.none)
-                            ForEach(SummaryVisibility.allCases) { value in
-                                Text(value.title).tag(SummaryVisibility?.some(value))
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                } footer: {
-                    Text("Viewed summaries are ones other people shared that you opened.")
-                }
+                scopeSection
 
                 Section {
                     Picker("Source", selection: $draft.source) {
@@ -107,5 +79,37 @@ struct LibraryFilterSheet: View {
             }
         }
         .summarySheetSize()
+    }
+
+    private var scopeSection: some View {
+        Section {
+            Picker("Show", selection: $draft.scope) {
+                ForEach(LibraryScope.filterCases) { scope in
+                    Text(scope.title).tag(scope)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Picker("Kind", selection: $draft.kind) {
+                Text("All").tag(SummaryKind?.none)
+                ForEach(SummaryKind.known) { kind in
+                    Text(kind.title).tag(SummaryKind?.some(kind))
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("library-filter-kind")
+
+            if draft.scope != .viewed {
+                Picker("Visibility", selection: $draft.visibility) {
+                    Text("All").tag(SummaryVisibility?.none)
+                    ForEach(SummaryVisibility.allCases) { value in
+                        Text(value.title).tag(SummaryVisibility?.some(value))
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+        } footer: {
+            Text("Viewed summaries are ones other people shared that you opened.")
+        }
     }
 }

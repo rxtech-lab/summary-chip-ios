@@ -76,6 +76,20 @@ public struct APIKey: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+/// Live tool metadata from `GET /api/v1/mcp/tools`, derived from the server's MCP registrations.
+public struct MCPTool: Codable, Sendable, Hashable, Identifiable {
+    public var name: String
+    public var title: String?
+    public var description: String?
+    public var id: String { name }
+
+    public init(name: String, title: String? = nil, description: String? = nil) {
+        self.name = name
+        self.title = title
+        self.description = description
+    }
+}
+
 /// `POST /api/v1/api-keys`: the new key in full, the only time it can be read.
 public struct CreatedAPIKey: Codable, Sendable, Hashable {
     public var key: String

@@ -327,7 +327,12 @@ describe("/api/v1/trips/:id/pdf", () => {
     const trip = await create();
     // As stored by the previous release: places without `photos` / `pricing`, no `views`.
     const { document } = await storedTrip(trip.id);
-    const legacy = { ...document, places: document.places.map(({ photos: _photos, pricing: _pricing, ...place }) => place) } as Record<string, unknown>;
+    const legacy = { ...document, places: document.places.map((place) => {
+      const legacyPlace: Partial<typeof place> = { ...place };
+      delete legacyPlace.photos;
+      delete legacyPlace.pricing;
+      return legacyPlace;
+    }) } as Record<string, unknown>;
     delete legacy.views;
     await env.handle.db.update(trips).set({ document: legacy as unknown as TripDocument }).where(eq(trips.summaryId, trip.id));
 

@@ -45,7 +45,11 @@ struct EducationPage: Identifiable, Equatable {
         .init(id: "trip-diary-v1", kind: .feature,
               title: String(localized: "Meet your Trip Diary"),
               message: String(localized: "Plan each day with places, transport and bookings, and follow your itinerary on the map. Track expenses in your chosen currency, share your trip, and ask the trip agent to help organise your plans. Find it all in Trips."),
-              imageName: "FeatureTripDiary")
+              imageName: "FeatureTripDiary"),
+        .init(id: "latex-papers-v1", kind: .feature,
+              title: String(localized: "Research papers, in LaTeX"),
+              message: String(localized: "Write LaTeX papers with a live PDF preview. Let your AI agent research, write and edit through MCP. Chippy cross-checks references for source accuracy and support for your cited claims. Start with + → New Paper, and review issues in the References sheet."),
+              imageName: "FeatureLaTeXPapers")
     ]
 }
 

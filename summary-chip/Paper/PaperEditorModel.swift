@@ -88,7 +88,7 @@ final class PaperEditorModel {
 
     var isOwner: Bool { paper?.isOwner ?? false }
     /// Only the owner edits, and only the working copy: a past version is read-only.
-    var canEdit: Bool { isOwner && previewSource == nil }
+    var canEdit: Bool { isOwner && previewSource == nil && paper?.isTranslated != true }
     /// The source on screen: the previewed version, else the working copy.
     var shownSource: PaperSource? { previewSource ?? source }
     var shownPDF: Data? { previewSource == nil ? pdf : previewPDF }
@@ -118,9 +118,20 @@ final class PaperEditorModel {
 
     /// Takes the server's paper as the working copy, keeping the open file when it's still there.
     private func adopt(_ fresh: Paper) {
+        let layoutChanged = fresh.rendering != paper?.rendering
+        if fresh.readingLanguage != paper?.readingLanguage || fresh.rendering != paper?.rendering || (fresh.revision == paper?.revision && fresh.source != paper?.source) {
+            pdf = nil
+            pdfRevision = nil
+        }
         paper = fresh
         source = fresh.source
         if selectedPath.flatMap({ fresh.source.file($0) }) == nil { selectedPath = fresh.mainFile }
+        if layoutChanged, let previewSource { preview(previewSource, version: previewVersion) }
+    }
+
+    func readingChanged(_ fresh: Paper) async {
+        adopt(fresh)
+        await compile()
     }
 
     /// Checks for edits made elsewhere (an agent, another device) while the paper is open; picks
@@ -129,11 +140,12 @@ final class PaperEditorModel {
         guard paper != nil, !hasLocalChanges, saveTask == nil, autosaveTask == nil else { return }
         guard let fresh = try? await api.paper(id: id), let current = paper else { return }
         // Reference checks finish after the save that started them: the same revision, newer checks.
-        if fresh.revision == current.revision, fresh.references != current.references {
+        if fresh.revision == current.revision, fresh.readingLanguage == current.readingLanguage,
+           fresh.rendering == current.rendering, fresh.source == current.source, fresh.references != current.references {
             paper?.references = fresh.references
             return
         }
-        guard fresh.revision > current.revision else { return }
+        guard fresh.revision > current.revision || fresh.readingLanguage != current.readingLanguage || fresh.source != current.source || fresh.rendering != current.rendering else { return }
         // Typing started while this was in flight: the next save merges instead.
         guard !hasLocalChanges, saveTask == nil else { return }
         adopt(fresh)
@@ -340,19 +352,26 @@ final class PaperEditorModel {
             self.isCompiling = true
             defer { self.isCompiling = false }
             while let revision = self.paper?.revision, revision != self.pdfRevision, !Task.isCancelled {
+                let reading = self.paper?.readingLanguage
+                let rendering = self.paper?.rendering
                 do {
-                    let compiled = try await self.api.paperPDF(id: self.id)
+                    let compiled = try await self.api.paperPDF(id: self.id, language: self.paper?.isTranslated == true ? SummaryLanguage(languageTag: self.paper?.readingLanguage ?? "") : .auto)
+                    guard !Task.isCancelled else { return }
+                    guard self.paper?.readingLanguage == reading, self.paper?.rendering == rendering else { continue }
                     self.pdf = compiled.data
                     self.pdfRevision = compiled.revision ?? revision
                     self.compileIssues = []
                     self.compileError = nil
                 } catch let error as SummaryAPIError where error.latexIssues != nil {
+                    guard self.paper?.readingLanguage == reading, self.paper?.rendering == rendering else { continue }
                     self.compileIssues = error.latexIssues ?? []
                     self.compileError = nil
                     self.pdfRevision = revision
                 } catch is CancellationError {
                     return
                 } catch {
+                    guard !Task.isCancelled else { return }
+                    guard self.paper?.readingLanguage == reading, self.paper?.rendering == rendering else { continue }
                     self.compileError = error.localizedDescription
                     return
                 }
@@ -393,7 +412,7 @@ final class PaperEditorModel {
             self.isCompilingPreview = true
             defer { self.isCompilingPreview = false }
             do {
-                let compiled = try await self.api.paperPDF(id: self.id, version: version)
+                let compiled = try await self.api.paperPDF(id: self.id, version: version, language: .auto)
                 guard !Task.isCancelled else { return }
                 self.previewPDF = compiled.data
             } catch let error as SummaryAPIError where error.latexIssues != nil {

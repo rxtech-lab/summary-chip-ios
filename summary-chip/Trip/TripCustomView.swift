@@ -123,34 +123,49 @@ private struct TripViewNode: View {
         case "Divider":
             Divider()
         case "Link":
-            if let url = element.string("url").flatMap(URL.init(string:)), url.scheme?.hasPrefix("http") == true {
-                Link(destination: url) {
-                    Label(element.string("title") ?? url.absoluteString, systemImage: "link")
-                        .font(.subheadline.weight(.semibold))
-                }
-            }
+            link(element)
         case "Image":
-            if let url = element.string("url") {
-                TripPhotoView(
-                    photo: TripPhoto(url: url, caption: element.string("caption"), credit: element.string("credit")),
-                    aspectRatio: Self.aspectRatio(element.string("aspect"))
-                )
-            }
+            image(element)
         case "Gallery":
-            let photos = element.objects("images").compactMap { image -> TripPhoto? in
-                guard let url = image["url"]?.stringValue else { return nil }
-                return TripPhoto(url: url, caption: image["caption"]?.stringValue, credit: image["credit"]?.stringValue)
-            }
-            if !photos.isEmpty {
-                TripPhotoCarousel(photos: photos, aspectRatio: 1)
-                    .frame(maxHeight: 260)
-            }
+            gallery(element)
         case "Place":
             if let placeID = element.string("placeId"), let place = places.first(where: { $0.id == placeID }) {
                 TripPlacePreviewCard(place: place)
             }
         default:
             EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func gallery(_ element: TripViewElement) -> some View {
+        let photos = element.objects("images").compactMap { image -> TripPhoto? in
+            guard let url = image["url"]?.stringValue else { return nil }
+            return TripPhoto(url: url, caption: image["caption"]?.stringValue, credit: image["credit"]?.stringValue)
+        }
+        if !photos.isEmpty {
+            TripPhotoCarousel(photos: photos, aspectRatio: 1)
+                .frame(maxHeight: 260)
+        }
+    }
+
+    @ViewBuilder
+    private func link(_ element: TripViewElement) -> some View {
+        if let url = element.string("url").flatMap(URL.init(string:)), url.scheme?.hasPrefix("http") == true {
+            Link(destination: url) {
+                Label(element.string("title") ?? url.absoluteString, systemImage: "link")
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func image(_ element: TripViewElement) -> some View {
+        if let url = element.string("url") {
+            TripPhotoView(
+                photo: TripPhoto(url: url, caption: element.string("caption"), credit: element.string("credit")),
+                aspectRatio: Self.aspectRatio(element.string("aspect"))
+            )
         }
     }
 
@@ -606,55 +621,5 @@ private struct ViewBarChart: View {
                 .accessibilityElement(children: .combine)
             }
         }
-    }
-}
-
-/// A place preview shared by diary days and custom views; its photo and guide open the details sheet.
-struct TripPlacePreviewCard: View {
-    let place: TripPlace
-    @Environment(\.tripShowPlace) private var showPlace
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button { showPlace?(place.id) } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    if let photo = place.photos.first {
-                        TripPhotoView(photo: photo, aspectRatio: 16.0 / 9.0, opensViewer: false)
-                            .padding(.bottom, 6)
-                    }
-                    HStack(spacing: 6) {
-                        Image(systemName: place.kind.systemImage).foregroundStyle(.secondary)
-                        Text(place.name).font(.headline)
-                        Spacer(minLength: 0)
-                        if showPlace != nil {
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                    }
-                    if let description = place.description?.nilIfBlank ?? place.note?.nilIfBlank {
-                        Text(description)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    let facts = [place.hours, place.pricing.first.map { item in
-                        "\(item.label) \(item.price?.formatted ?? String(localized: "Free"))"
-                    }].compactMap(\.self)
-                    if !facts.isEmpty {
-                        Text(facts.joined(separator: " · "))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(showPlace == nil)
-            TripDirectionsButton(place: place, prominent: false)
-        }
-        .padding(12)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityIdentifier("trip-view-place-\(place.id)")
     }
 }

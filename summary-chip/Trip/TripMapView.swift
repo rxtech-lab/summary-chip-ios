@@ -253,46 +253,7 @@ struct TripMapView: View {
                     .mapOverlayLevel(level: .aboveLabels)
             }
             ForEach(document.places) { place in
-                let selected = selectedPlaceID == place.id
-                Annotation(place.name, coordinate: place.coordinate.clCoordinate, anchor: selected ? .bottom : .center) {
-                    Button {
-                        selectedPlaceID = place.id
-                        onSelectPlace(place)
-                        popoverPlaceID = place.id
-                    } label: {
-                        if selected {
-                            PlacePin(systemImage: place.kind.systemImage)
-                        } else {
-                            PlaceDot(major: place.major, active: activeIDs.contains(place.id), visited: visitedIDs.contains(place.id))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(place.name)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityIdentifier("trip-map-place-\(place.id)")
-                    .popover(isPresented: Binding(
-                        get: { !usesInlinePlaceCallout && popoverPlaceID == place.id },
-                        set: {
-                            if !usesInlinePlaceCallout && !$0 && popoverPlaceID == place.id {
-                                popoverPlaceID = nil
-                                if detailPlaceID != place.id { selectedPlaceID = nil }
-                            }
-                        }
-                    ), arrowEdge: .bottom) {
-                        TripMapPlacePopover(place: place) {
-                            detailPlaceID = place.id
-                            popoverPlaceID = nil
-                        }
-                        .presentationCompactAdaptation(.popover)
-                        .onDisappear {
-                            // Present the details after the marker's popover has closed.
-                            guard detailPlaceID == place.id else { return }
-                            detailPlaceID = nil
-                            onOpenPlace(place)
-                        }
-                    }
-                }
-                .annotationTitles(selected || place.major || activeIDs.contains(place.id) ? .visible : .hidden)
+                placeAnnotation(place, activeIDs: activeIDs, visitedIDs: visitedIDs)
             }
             if let traveler = active?.traveler {
                 Annotation("", coordinate: traveler, anchor: .center) {
@@ -321,6 +282,50 @@ struct TripMapView: View {
         .overlay(alignment: .topLeading) { inlinePlaceCallout }
         .sensoryFeedback(.selection, trigger: popoverPlaceID)
         .accessibilityIdentifier("trip-map")
+    }
+
+    @MapContentBuilder
+    private func placeAnnotation(_ place: TripPlace, activeIDs: Set<String>, visitedIDs: Set<String>) -> some MapContent {
+        let selected = selectedPlaceID == place.id
+        Annotation(place.name, coordinate: place.coordinate.clCoordinate, anchor: selected ? .bottom : .center) {
+            Button {
+                selectedPlaceID = place.id
+                onSelectPlace(place)
+                popoverPlaceID = place.id
+            } label: {
+                if selected {
+                    PlacePin(systemImage: place.kind.systemImage)
+                } else {
+                    PlaceDot(major: place.major, active: activeIDs.contains(place.id), visited: visitedIDs.contains(place.id))
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(place.name)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .accessibilityIdentifier("trip-map-place-\(place.id)")
+            .popover(isPresented: Binding(
+                get: { !usesInlinePlaceCallout && popoverPlaceID == place.id },
+                set: {
+                    if !usesInlinePlaceCallout && !$0 && popoverPlaceID == place.id {
+                        popoverPlaceID = nil
+                        if detailPlaceID != place.id { selectedPlaceID = nil }
+                    }
+                }
+            ), arrowEdge: .bottom) {
+                TripMapPlacePopover(place: place) {
+                    detailPlaceID = place.id
+                    popoverPlaceID = nil
+                }
+                .presentationCompactAdaptation(.popover)
+                .onDisappear {
+                    // Present the details after the marker's popover has closed.
+                    guard detailPlaceID == place.id else { return }
+                    detailPlaceID = nil
+                    onOpenPlace(place)
+                }
+            }
+        }
+        .annotationTitles(selected || place.major || activeIDs.contains(place.id) ? .visible : .hidden)
     }
 
     @ViewBuilder

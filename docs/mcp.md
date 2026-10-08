@@ -306,6 +306,7 @@ A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update
 |---|---|
 | `server/app/api/mcp/route.ts` | `POST` handler: API key auth, then a fresh `McpServer` + `WebStandardStreamableHTTPServerTransport` per request (stateless, JSON responses). `GET`/`DELETE` answer `405` |
 | `server/lib/mcp/server.ts` | Tool catalog (zod input schemas), mapping to the summary and trip services, results and usage counting |
+| `server/lib/mcp/catalog.ts`, `server/app/api/v1/mcp/tools/route.ts` | App-authenticated live tool metadata from the same server's `tools/list`; no API key or tool invocation required |
 | `server/lib/services/trips.ts` | Trip create/read/list/edit and the trip agent run behind the trip tools |
 | `server/lib/services/uploads.ts` | Presigned upload creation, ownership/completion checks and temporary download URLs |
 | `server/lib/services/trip-images.ts` | URL/base64/presigned-upload image processing and lasting trip photo URLs |
@@ -314,11 +315,17 @@ A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update
 | `server/lib/mcp/oauth*.ts`, `server/app/api/mcp/oauth/**` | OAuth discovery, registration, RxAuth login, consent and credential lifecycle |
 | `server/app/api/v1/api-keys/**` | Key management routes (OAuth) |
 | `server/tests/integration/mcp.test.ts` | Key routes and MCP tool calls end to end |
-| `summary-chip/MCP/MCPSettingsSheet.swift` | The settings sheet: endpoint, key list with usage, revoke |
+| `summary-chip/MCP/MCPSettingsSheet.swift` | The settings sheet: endpoint, key list with usage, revoke, live tool list and tool detail sheets |
 | `summary-chip/MCP/APIKeySheets.swift` | Create (shows the key once, with agent configuration) and rename sheets |
 
 The server is stateless: there are no `MCP-Session-Id`s, so any serverless instance can answer any
 request, and `add_summary` runs within the route's `maxDuration` (300 s).
+
+The app loads `GET /api/v1/mcp/tools` when MCP settings opens, when the app becomes active and on
+pull-to-refresh. This uncached route uses the app's existing bearer token and discovers the registered
+tools through an in-memory MCP connection. Tool names, titles and descriptions therefore follow the
+deployed server without an app release; descriptions display in the server's language. The stateless
+HTTP endpoint has no server-initiated stream, so changes are picked up on the next refresh.
 
 Check the endpoint by hand. Expect `401` without the key, then a JSON-RPC result with the server's
 capabilities:

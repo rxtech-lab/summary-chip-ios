@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as apiKeysRoute from "@/app/api/v1/api-keys/route";
 import * as apiKeyRoute from "@/app/api/v1/api-keys/[id]/route";
 import * as mcpRoute from "@/app/api/mcp/route";
+import * as mcpToolsRoute from "@/app/api/v1/mcp/tools/route";
 import * as importRoute from "@/app/api/v1/summaries/import/route";
 import * as tripImageRoute from "@/app/api/public/trip-images/[file]/route";
 import type { TripDocument } from "@/lib/contracts/trip";
@@ -123,6 +124,35 @@ describe("/api/v1/api-keys", () => {
     const response = await apiKeysRoute.POST(apiRequest("POST", "/api/v1/api-keys", { token: env.tokens.alice, body: { name: "One more" } }));
     expect(response.status).toBe(409);
     expect((await response.json()).error.code).toBe("API_KEY_LIMIT_REACHED");
+  });
+});
+
+describe("/api/v1/mcp/tools", () => {
+  it("lists the same metadata as tools/list before the account has any API keys", async () => {
+    const response = await mcpToolsRoute.GET(apiRequest("GET", "/api/v1/mcp/tools", { token: env.tokens.alice }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    const catalog = await response.json();
+    expect(await env.handle.db.select().from(apiKeys)).toHaveLength(0);
+    expect(catalog.items.length).toBeGreaterThan(0);
+
+    const { key } = await createKey();
+    const rpc = await (await mcpRequest(key, "tools/list")).json();
+    expect(catalog.items).toEqual(rpc.result.tools.map((tool: { name: string; title?: string; description?: string }) => ({
+      name: tool.name, title: tool.title, description: tool.description,
+    })));
+    const [storedKey] = await env.handle.db.select().from(apiKeys);
+    expect(storedKey.toolCallCount).toBe(0);
+    expect(storedKey.summariesAddedCount).toBe(0);
+    expect(Object.values(env.ai.calls).every((calls) => calls.length === 0)).toBe(true);
+  });
+
+  it("requires the app's sign-in and rejects MCP API keys", async () => {
+    const { key } = await createKey();
+    for (const token of [undefined, "invalid-token", key]) {
+      const response = await mcpToolsRoute.GET(apiRequest("GET", "/api/v1/mcp/tools", { token }));
+      expect(response.status).toBe(401);
+    }
   });
 });
 

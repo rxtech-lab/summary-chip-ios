@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { PaperRendering } from "@/lib/contracts/paper-rendering";
 import type { PaperCompiler, PaperFile, PaperReferenceIssue } from "@/lib/contracts/paper";
 import type { TripDocument } from "@/lib/contracts/trip";
 import type { ProviderFlight } from "@/lib/flights/provider";
@@ -271,6 +272,7 @@ export const papers = sqliteTable("papers", {
   versionedRevision: integer("versioned_revision").notNull().default(0),
   pdfHash: text("pdf_hash"),
   pdfKey: text("pdf_key"),
+  renderingOptions: text("rendering_options", { mode: "json" }).$type<Partial<PaperRendering>>().notNull().default({}),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
 });
 
@@ -294,6 +296,21 @@ export const paperReferenceChecks = sqliteTable("paper_reference_checks", {
 ]);
 
 export type PaperReferenceCheckRow = typeof paperReferenceChecks.$inferSelect;
+
+/**
+ * The owner's pending "paper added / updated" alert, one per paper. Later saves extend its quiet
+ * period; delivery deletes it. `created` keeps a new paper's alert "added" through the edits after.
+ */
+export const paperNotificationBatches = sqliteTable("paper_notification_batches", {
+  paperId: text("paper_id").primaryKey().references(() => papers.summaryId, { onDelete: "cascade" }),
+  created: integer("created", { mode: "boolean" }).notNull().default(false),
+  revision: integer("revision").notNull(),
+  dueAt: integer("due_at", { mode: "timestamp_ms" }).notNull(),
+  runnerId: text("runner_id"),
+  leaseUntil: integer("lease_until", { mode: "timestamp_ms" }),
+}, (table) => [
+  index("paper_notifications_due_idx").on(table.dueAt),
+]);
 
 /** One pending batch per trip. Later saves extend its quiet period and final document. */
 export const tripNotificationBatches = sqliteTable("trip_notification_batches", {
@@ -366,6 +383,17 @@ export const tripTranslations = sqliteTable("trip_translations", {
 ]);
 
 export type TripTranslationRow = typeof tripTranslations.$inferSelect;
+
+/** A paper's prose translations. Revision marks which original working copy they cover. */
+export const paperTranslations = sqliteTable("paper_translations", {
+  summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  language: text("language").notNull(),
+  strings: text("strings", { mode: "json" }).$type<Record<string, string>>().notNull(),
+  revision: integer("revision").notNull(),
+  translatingSince: integer("translating_since", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, (table) => [primaryKey({ columns: [table.summaryId, table.language] })]);
 
 /**
  * The plan options one reader last picked in a trip (`plans[].id` → option id). Picks are the

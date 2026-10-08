@@ -22,7 +22,7 @@ struct DeleteSummarySheet: View {
             #else
             NavigationStack {
                 deletionForm
-                    .navigationTitle("Delete Summary")
+                    .navigationTitle(deleteTitle)
                     .summaryInlineNavigationTitle()
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -41,6 +41,22 @@ struct DeleteSummarySheet: View {
         }
         .interactiveDismissDisabled(isDeleting)
         .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
+    }
+
+    private var deleteTitle: LocalizedStringKey {
+        switch summary.kind {
+        case .trip: "Delete Trip"
+        case .paper: "Delete Paper"
+        case .summary, .other: "Delete Summary"
+        }
+    }
+
+    private var deleteMessage: LocalizedStringKey {
+        switch summary.kind {
+        case .trip: "The link and preview stop working and the trip is removed permanently. To only stop sharing, make it private instead."
+        case .paper: "The link and preview stop working and the paper is removed permanently. To only stop sharing, make it private instead."
+        case .summary, .other: "The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead."
+        }
     }
 
     private var deletingOverlay: some View {
@@ -63,7 +79,7 @@ struct DeleteSummarySheet: View {
         Form {
             Section {
                 Text(summary.title).font(.headline)
-                Text("The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead.")
+                Text(deleteMessage)
                     .foregroundStyle(.secondary)
             }
             if let errorMessage {
@@ -81,7 +97,7 @@ struct DeleteSummarySheet: View {
     #if os(macOS)
     private var macToolbar: some View {
         HStack(spacing: 12) {
-            Text("Delete Summary")
+            Text(deleteTitle)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 16)
@@ -104,7 +120,7 @@ struct DeleteSummarySheet: View {
         Button(role: .destructive) {
             Task { await delete() }
         } label: {
-            Label("Delete Summary", systemImage: "trash")
+            Label(deleteTitle, systemImage: "trash")
         }
         .disabled(isDeleting)
         .accessibilityIdentifier("confirm-delete-summary")

@@ -27,6 +27,21 @@ See [trips.md](trips.md).
 Tomorrow's forecast is included in the evening itinerary briefing below. Trip weather also sends
 the owner a separate alert when the next 30 minutes turn bad or change. See [weather.md](weather.md).
 
+## Paper notifications
+
+Creating a paper (app or MCP `create_paper`) and every MCP `update_paper` edit queue a “Paper added” /
+“Paper updated” alert for the owner. The owner's own autosaves in the editor don't. Like trip updates,
+`server/workflows/notify-paper-changes.ts` waits until **five minutes after the latest save**, and
+later saves extend the quiet period, so an agent writing a paper sends one alert. A new paper's alert
+stays “Paper added” through the edits that follow it. The batch (`0030_paper_notifications.sql`, one
+row per paper) is saved in the same transaction as the revision update; it is deleted before sending,
+so a retried step sends at most once. `/api/cron/trip-notifications` also restarts overdue paper batches.
+
+When a reference check run finds errors, the owner gets “Reference check found problems” right away,
+with the paper title and the failing entries' keys. Each run replaces the paper's previous one (APNs
+collapse ID `paper-references:<id>`). Both alerts carry `paperId` (equal to `summaryId`) and are
+localized from the paper's language.
+
 ## Trip itinerary reminders
 
 Trips send one combined itinerary and weather briefing at **20:00 the previous day**, in the document's `timeZone`,

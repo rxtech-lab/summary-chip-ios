@@ -36,41 +36,7 @@ struct PlaceEditorSheet: View {
             save: save,
             delete: delete
         ) {
-            Section {
-                TextField("Search Maps", text: $search.query)
-                    .summaryInputCapitalization()
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("place-search-field")
-                ForEach(search.results.prefix(6), id: \.self) { completion in
-                    Button {
-                        Task { await pick(completion) }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(completion.title).foregroundStyle(.primary)
-                            if !completion.subtitle.isEmpty {
-                                Text(completion.subtitle).font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-                Button {
-                    Task { await useCurrentLocation() }
-                } label: {
-                    HStack {
-                        Label("Use Current Location", systemImage: "location.fill")
-                        if isLocating {
-                            Spacer()
-                            ProgressView()
-                        }
-                    }
-                }
-                .disabled(isLocating)
-                .accessibilityIdentifier("place-current-location")
-            } footer: {
-                if let lookupError {
-                    Text(lookupError).foregroundStyle(.red)
-                }
-            }
+            searchSection
 
             if hasCoordinate {
                 Section {
@@ -123,56 +89,9 @@ struct PlaceEditorSheet: View {
                     #endif
             }
 
-            Section {
-                ForEach(place.pricing.indices, id: \.self) { index in
-                    let item = place.pricing[index]
-                    Button { editingPrice = TripListDraft(index: index, value: item) } label: {
-                        LabeledContent(item.label, value: item.price?.formatted ?? String(localized: "Free"))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .onDelete { place.pricing.remove(atOffsets: $0) }
-                .onMove { place.pricing.move(fromOffsets: $0, toOffset: $1) }
-                Button {
-                    editingPrice = TripListDraft(index: nil, value: TripPriceItem(label: "", price: TripMoney(amount: 0, currency: document.currency)))
-                } label: { Label("Add Price", systemImage: "plus") }
-                .accessibilityIdentifier("place-add-price")
-            } header: {
-                Text("Prices")
-            } footer: {
-                Text("Admission tiers, set menus or rates. Leave the amount empty for free.")
-            }
+            pricingSection
 
-            Section {
-                ForEach(place.photos.indices, id: \.self) { index in
-                    let photo = place.photos[index]
-                    Button { editingPhoto = TripListDraft(index: index, value: photo) } label: {
-                        HStack(spacing: 10) {
-                            SummaryRemoteImage(url: photo.imageURL) { Rectangle().fill(.quaternary) }
-                                .frame(width: 52, height: 40)
-                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            Text(photo.caption?.nilIfBlank ?? photo.url)
-                                .lineLimit(1)
-                                .foregroundStyle(photo.caption?.nilIfBlank == nil ? .secondary : .primary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .onDelete { place.photos.remove(atOffsets: $0) }
-                .onMove { place.photos.move(fromOffsets: $0, toOffset: $1) }
-                if place.photos.count < 12 {
-                    Button { editingPhoto = TripListDraft(index: nil, value: TripPhoto(url: "")) } label: {
-                        Label("Add Photo", systemImage: "photo.badge.plus")
-                    }
-                    .accessibilityIdentifier("place-add-photo")
-                }
-            } header: {
-                Text("Photos")
-            } footer: {
-                Text("Link to images on the web (https). The trip agent adds photos from pages you share.")
-            }
+            photosSection
         }
         .sheet(item: $editingPrice) { draft in
             TripPriceItemSheet(item: draft.value, isNew: draft.index == nil, defaultCurrency: document.currency) { item in
@@ -186,6 +105,99 @@ struct PlaceEditorSheet: View {
         }
         .sensoryFeedback(.selection, trigger: picked)
         .onDisappear { location.stopLiveUpdates() }
+    }
+
+    private var searchSection: some View {
+        Section {
+            TextField("Search Maps", text: $search.query)
+                .summaryInputCapitalization()
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("place-search-field")
+            ForEach(search.results.prefix(6), id: \.self) { completion in
+                Button {
+                    Task { await pick(completion) }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(completion.title).foregroundStyle(.primary)
+                        if !completion.subtitle.isEmpty {
+                            Text(completion.subtitle).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            Button {
+                Task { await useCurrentLocation() }
+            } label: {
+                HStack {
+                    Label("Use Current Location", systemImage: "location.fill")
+                    if isLocating {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(isLocating)
+            .accessibilityIdentifier("place-current-location")
+        } footer: {
+            if let lookupError {
+                Text(lookupError).foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var pricingSection: some View {
+        Section {
+            ForEach(place.pricing.indices, id: \.self) { index in
+                let item = place.pricing[index]
+                Button { editingPrice = TripListDraft(index: index, value: item) } label: {
+                    LabeledContent(item.label, value: item.price?.formatted ?? String(localized: "Free"))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .onDelete { place.pricing.remove(atOffsets: $0) }
+            .onMove { place.pricing.move(fromOffsets: $0, toOffset: $1) }
+            Button {
+                editingPrice = TripListDraft(index: nil, value: TripPriceItem(label: "", price: TripMoney(amount: 0, currency: document.currency)))
+            } label: { Label("Add Price", systemImage: "plus") }
+            .accessibilityIdentifier("place-add-price")
+        } header: {
+            Text("Prices")
+        } footer: {
+            Text("Admission tiers, set menus or rates. Leave the amount empty for free.")
+        }
+    }
+
+    private var photosSection: some View {
+        Section {
+            ForEach(place.photos.indices, id: \.self) { index in
+                let photo = place.photos[index]
+                Button { editingPhoto = TripListDraft(index: index, value: photo) } label: {
+                    HStack(spacing: 10) {
+                        SummaryRemoteImage(url: photo.imageURL) { Rectangle().fill(.quaternary) }
+                            .frame(width: 52, height: 40)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        Text(photo.caption?.nilIfBlank ?? photo.url)
+                            .lineLimit(1)
+                            .foregroundStyle(photo.caption?.nilIfBlank == nil ? .secondary : .primary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .onDelete { place.photos.remove(atOffsets: $0) }
+            .onMove { place.photos.move(fromOffsets: $0, toOffset: $1) }
+            if place.photos.count < 12 {
+                Button { editingPhoto = TripListDraft(index: nil, value: TripPhoto(url: "")) } label: {
+                    Label("Add Photo", systemImage: "photo.badge.plus")
+                }
+                .accessibilityIdentifier("place-add-photo")
+            }
+        } header: {
+            Text("Photos")
+        } footer: {
+            Text("Link to images on the web (https). The trip agent adds photos from pages you share.")
+        }
     }
 
     private func pick(_ completion: MKLocalSearchCompletion) async {

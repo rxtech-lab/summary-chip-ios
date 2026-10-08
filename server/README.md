@@ -177,6 +177,14 @@ after the SSRF-guarded fetch, so JavaScript-built content is summarised. Pages t
 plain fetch are retried in the browser. If rendering fails, the static HTML is used instead. When the vars
 are unset, only the plain fetch runs.
 
+### Firecrawl reference checking (optional)
+
+Set `FIRECRAWL_API_KEY` to open papers' reference links with Firecrawl's `/v2/scrape` endpoint. It loads
+each link from Firecrawl's network (in a browser when needed, PDFs included) and reports the page's real
+HTTP status, so a dead link is told apart from a page that only blocks plain fetches. Links must still be
+public by their text (no localhost, `.local`/`.internal` names or private IPs). When the key is unset or a
+call fails, the server's own fetch and Cloudflare Browser Rendering are used instead.
+
 ### Auth
 
 `AUTH_ISSUER` (default `https://auth.rxlab.app`) must serve `/.well-known/jwks.json`. Tokens must be RS256,
