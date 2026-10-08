@@ -24,8 +24,58 @@ Shared readers are excluded if the link becomes private or expires; sharing, vie
 ownership are checked again during delivery. The creator still receives private-trip updates.
 See [trips.md](trips.md).
 
-Trip weather sends the trip owner tomorrow's forecast the evening before each day, and an alert when
-the next 30 minutes turn bad or change. See [weather.md](weather.md).
+Tomorrow's forecast is included in the evening itinerary briefing below. Trip weather also sends
+the owner a separate alert when the next 30 minutes turn bad or change. See [weather.md](weather.md).
+
+## Trip itinerary reminders
+
+Trips send one combined itinerary and weather briefing at **20:00 the previous day**, in the document's `timeZone`,
+for each date with a planned day or transport. The first day's reminder arrives the evening before
+the trip starts. Empty itinerary dates do not send alerts. A read-only agent chooses the most useful
+details from tomorrow's selected plan: first departure, main activities, saved warnings/tips,
+hotel check-in/check-out and the forecast for that route's places. It can recommend preparation
+supported by the forecast (such as an umbrella for a rainy outdoor day). The agent body is at most
+140 characters; the trip title prefix keeps the whole alert within 180 characters.
+
+The agent has no trip-editing or web tools. Other days, unselected transport options, booking
+references, confirmation codes and unrelated personal notes are excluded from its input. It writes
+in the trip's language. Forecasts come from the existing weather tracker; missing forecasts and
+ones older than six hours are omitted. No separate evening weather alert is sent. Live nowcast
+alerts and exact leg-start reminders remain separate. If the agent fails or returns invalid text,
+the reminder falls back to the saved itinerary and available forecast.
+
+`0024_trip_reminder_briefings.sql` adds a cache keyed by the selected itinerary and forecast, so
+identical plans reuse one generated briefing across installations and delivery retries. Each step
+generates at most three new briefings and sends at most 20 pushes. A changed document, plan pick or
+forecast during generation invalidates that result before delivery. Sharing and registration are
+checked again after generation. Cached briefings expire at midnight and are removed by the
+notification cron; deleting the trip or account also removes them.
+
+At the departure of **each timed segment** in a planned/booked transport's selected option (or its
+first option when none is selected), a second alert shows the departure time, route and service.
+The first segment may inherit its option's departure; later segments without a time are skipped.
+An option with no segments uses its own departure as one leg. Ideas and unselected options do not
+send leg alerts. Local departure timestamps use the document's time zone, as in calendar sync.
+
+Recipients are the creator and signed-in shared-link readers with registered devices, as for trip
+updates. Each reminder follows that reader's saved plan selections. Sharing permissions, plan picks
+and device ownership are checked during delivery. Tapping opens the trip through the existing
+account-checked notification handler. Enable delivery in **Settings → Notifications** on each device.
+
+`server/workflows/remind-trip.ts` sleeps durably until the next reminder. Creates and document edits
+start a new run that fences the old one; every wake reads the current itinerary. All plan alternatives
+supply wake-up times so changing a reader's pick needs no document edit. The existing five-minute
+notification cron recovers failed starts and expired leases, and enrolls upcoming trips created before
+this feature. The schedule checks at least daily when a trip is far ahead.
+
+Apply **`0023_trip_reminders.sql`** and **`0024_trip_reminder_briefings.sql`** with `cd server && bun run db:migrate` before deployment. They add
+schedule leases and per-event/installation/recipient receipts; account and trip deletion cascade.
+Accepted installations are skipped on retries and later edits. A crash between APNs acceptance and
+receipt persistence can still resend; a distinct, bounded collapse ID per event reduces duplicates.
+Reminder fan-out is bounded to 20 pushes per step, with workflow retries for transient failures.
+Previous-evening alerts expire at midnight; leg reminders expire ten minutes after departure,
+including their APNs queue lifetime. Recovery skips expired reminders. APNs acceptance does not
+guarantee display or exact delivery timing. Unconfigured APNs skips delivery.
 
 ## Enable delivery
 

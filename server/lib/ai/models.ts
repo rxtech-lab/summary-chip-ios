@@ -1,6 +1,6 @@
 import { createGateway, type GatewayProvider } from "@ai-sdk/gateway";
 import type { ModelPricing } from "./provider";
-import type { EmbeddingModel, Experimental_EvaluationModel, ImageModel, LanguageModel } from "ai";
+import { wrapLanguageModel, type EmbeddingModel, type Experimental_EvaluationModel, type ImageModel, type LanguageModel, type LanguageModelMiddleware, type SpeechModel } from "ai";
 
 let provider: GatewayProvider | undefined;
 
@@ -18,7 +18,33 @@ export function textModelId(): string {
 }
 
 export function textModel(): LanguageModel {
-  return gateway()(textModelId());
+  return cachedChatModel(textModelId());
+}
+
+const EPHEMERAL = { anthropic: { cacheControl: { type: "ephemeral" } } };
+
+/**
+ * Anthropic models only cache with explicit breakpoints. Marks the last system message (caches tools + instructions)
+ * and the last message (so each tool-loop step reads the previous step's prefix). Two of the four allowed breakpoints.
+ */
+export const anthropicCacheMiddleware: LanguageModelMiddleware = {
+  specificationVersion: "v4",
+  transformParams: async ({ params }) => {
+    const prompt = [...params.prompt];
+    const lastSystem = prompt.findLastIndex((message) => message.role === "system");
+    const marks = new Set([lastSystem, prompt.length - 1].filter((index) => index >= 0));
+    for (const index of marks) {
+      const message = prompt[index];
+      prompt[index] = { ...message, providerOptions: { ...message.providerOptions, anthropic: { ...message.providerOptions?.anthropic, ...EPHEMERAL.anthropic } } };
+    }
+    return { ...params, prompt };
+  },
+};
+
+/** A Gateway chat model; Anthropic ones get explicit prompt-cache breakpoints. */
+function cachedChatModel(id: string): LanguageModel {
+  const model = gateway()(id);
+  return id.startsWith("anthropic/") ? wrapLanguageModel({ model, middleware: anthropicCacheMiddleware }) : model;
 }
 
 /** Provider-independent search, authenticated through the same Gateway as chat. */
@@ -107,4 +133,38 @@ export function dedicatedImageModel(id: string): ImageModel {
 export function imageTimeoutMs(): number {
   const configured = Number(process.env.AI_IMAGE_TIMEOUT_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : 60_000;
+}
+
+/** Tour narration model (`AI_TOUR_MODEL`): pick a fast one, it writes every scene of a trip tour. Defaults to the text model. */
+export function tourModelId(): string {
+  return process.env.AI_TOUR_MODEL?.trim() || textModelId();
+}
+
+export function tourModel(): LanguageModel {
+  return cachedChatModel(tourModelId());
+}
+
+/** Default narrator; MAI voices are multilingual, so one voice reads every language. */
+export const DEFAULT_TOUR_VOICE = "en-US-Harper";
+/** MAI-Voice-2.1-Flash's list price per input character (US$15 per million), when `AI_SPEECH_USD_PER_CHARACTER` isn't set. */
+const DEFAULT_SPEECH_USD_PER_CHARACTER = 0.000015;
+
+/** Speech model that reads tours aloud (`AI_SPEECH_MODEL`, an AI Gateway id); null when unset, so tours play as subtitles only. */
+export function speechModelId(): string | null {
+  return process.env.AI_SPEECH_MODEL?.trim() || null;
+}
+
+/** Narrator voice (`AI_TOUR_VOICE`). */
+export function tourVoice(): string {
+  return process.env.AI_TOUR_VOICE?.trim() || DEFAULT_TOUR_VOICE;
+}
+
+export function speechModel(id: string): SpeechModel {
+  return gateway().speechModel(id);
+}
+
+/** Price per spoken character in USD (`AI_SPEECH_USD_PER_CHARACTER`), used to charge points for narration. */
+export function speechUsdPerCharacter(): number {
+  const configured = Number(process.env.AI_SPEECH_USD_PER_CHARACTER);
+  return Number.isFinite(configured) && configured >= 0 && process.env.AI_SPEECH_USD_PER_CHARACTER?.trim() ? configured : DEFAULT_SPEECH_USD_PER_CHARACTER;
 }

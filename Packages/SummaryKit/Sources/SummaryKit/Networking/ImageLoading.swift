@@ -23,6 +23,15 @@ public final class SummaryAssetLoader: Sendable {
     /// Anonymous loader (App Clip, previews).
     public static let anonymous = SummaryAssetLoader(tokenProvider: nil)
 
+    #if DEBUG
+    /// Lets offline app previews serve image requests through their fixture protocol.
+    public static func usePreviewImageProtocols(_ protocols: [AnyClass]) {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = protocols
+        ImageDownloader.default.sessionConfiguration = configuration
+    }
+    #endif
+
     /// Adds the bearer token to image requests when `authorized` (use for summaries the user owns).
     public func requestModifier(authorized: Bool) -> any AsyncImageDownloadRequestModifier {
         BearerTokenModifier(tokenProvider: authorized ? tokenProvider : nil)

@@ -133,6 +133,38 @@ nonisolated final class ScreenshotTests: XCTestCase {
         capture(app, "04g-day-sheet-route-1")
     }
 
+    /// Play mode: the tour opens from More, writes its scenes, and steps through them.
+    @MainActor func test04cTripTour() {
+        let app = launch()
+        openTrip(app)
+        let more = app.buttons["trip-more-menu"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        let play = app.buttons["trip-play-tour"].firstMatch
+        XCTAssertFalse(play.exists)
+        more.tap()
+        XCTAssertTrue(play.waitForExistence(timeout: 5))
+        capture(app, "04c-trip-tour-menu")
+        play.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["trip-tour"].firstMatch.waitForExistence(timeout: 10))
+        let details = app.buttons["Show Details"].firstMatch
+        XCTAssertTrue(details.waitForExistence(timeout: 10))
+        details.tap()
+        XCTAssertTrue(app.staticTexts["North by rail"].waitForExistence(timeout: 10))
+        settle(4)
+        capture(app, "04c-trip-tour-intro")
+        let next = app.buttons["Next Stop"].firstMatch
+        for _ in 0..<2 { next.tap() }
+        XCTAssertTrue(app.staticTexts["A night in Tokyo"].waitForExistence(timeout: 5))
+        settle(5)
+        capture(app, "04d-trip-tour-stay")
+        app.buttons["Pause"].firstMatch.tap()
+        app.buttons["Close Tour"].firstMatch.tap()
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        XCTAssertFalse(play.exists)
+        more.tap()
+        XCTAssertTrue(play.waitForExistence(timeout: 5))
+    }
+
     @MainActor func test08Likes() {
         let app = launch()
         if isPad {
@@ -144,6 +176,57 @@ nonisolated final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Why specialty roasters are buying their own farms"].waitForExistence(timeout: 5))
         settle(2)
         capture(app, "08-likes")
+    }
+
+    /// Custom JSON gallery images appear in the tour even when the saved place has no photos.
+    @MainActor func test04dTripTourPhotos() {
+        let app = launch(extraArguments: ["--preview-tour-photos"])
+        openTrip(app)
+        let more = app.buttons["trip-more-menu"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        app.buttons["trip-play-tour"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["trip-tour"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["Next Stop"].firstMatch.tap()
+        let carousel = app.descendants(matching: .any)["trip-tour-photo-carousel"].firstMatch
+        XCTAssertTrue(carousel.waitForExistence(timeout: 20))
+        settle(2)
+        capture(app, "04h-tour-photo-popover")
+        // The second image appears as narration progresses, without touching the carousel.
+        XCTAssertTrue(app.staticTexts["2 / 2"].waitForExistence(timeout: 30))
+        app.buttons["Pause"].firstMatch.tap()
+        app.buttons["Previous Photo"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["1 / 2"].waitForExistence(timeout: 5))
+        app.buttons["Next Photo"].firstMatch.tap()
+        settle()
+        capture(app, "04i-tour-photo-carousel")
+        app.buttons["Preview photo 2"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["trip-photo-viewer"].firstMatch.waitForExistence(timeout: 5))
+        settle()
+        capture(app, "04j-tour-photo-sheet")
+        app.buttons["Close"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Play"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Play"].firstMatch.tap()
+        app.buttons["Preview photo 2"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["trip-photo-viewer"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Close"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Pause"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    /// A museum named in the itinerary can move the camera beyond its saved city-level stop.
+    @MainActor func test04eTripTourLandmark() {
+        let app = launch(extraArguments: ["--preview-tour-photos", "--preview-tour-landmarks"])
+        openTrip(app)
+        let more = app.buttons["trip-more-menu"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        app.buttons["trip-play-tour"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["trip-tour"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["Next Stop"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Nezu Museum"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.descendants(matching: .any)["trip-tour-photo-carousel"].firstMatch.exists)
+        settle(8)
+        capture(app, "04k-tour-museum-map")
     }
 
     @MainActor func test09MCP() {
@@ -184,9 +267,9 @@ nonisolated final class ScreenshotTests: XCTestCase {
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
-    @MainActor private func launch() -> XCUIApplication {
+    @MainActor private func launch(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--preview-likes"]
+        app.launchArguments = ["--preview-likes"] + extraArguments
         // Portrait on iPad too: landscape screenshots come back sideways and cropped. The 13-inch
         // iPad is regular width either way, so it still shows the sidebar layout.
         XCUIDevice.shared.orientation = .portrait

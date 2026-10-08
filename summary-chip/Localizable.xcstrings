@@ -113,6 +113,38 @@
         }
       }
     },
+    "%@ chance of rain" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "降水概率 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "降雨機率 %@"
+          }
+        }
+      }
+    },
+    "%@ from %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ 起%1$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ 起%1$@"
+          }
+        }
+      }
+    },
     "%@ left" : {
       "localizations" : {
         "zh-Hans" : {
@@ -195,6 +227,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已使用 %@"
+          }
+        }
+      }
+    },
+    "%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
+      }
+    },
+    "%lld / %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld / %2$lld"
           }
         }
       }
@@ -2452,6 +2504,22 @@
         }
       }
     },
+    "Close Tour" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭导览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉導覽"
+          }
+        }
+      }
+    },
     "Compare two options side by side." : {
 
     },
@@ -2823,6 +2891,9 @@
         }
       }
     },
+    "Couldn't Play Tour" : {
+
+    },
     "Couldn't Save" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3182,6 +3253,18 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Day %1$lld · %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %1$lld 天 · %2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %1$lld 天 · %2$@"
           }
         }
       }
@@ -4149,6 +4232,22 @@
         }
       }
     },
+    "Explore the neighborhood" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "探索街区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "探索街區"
+          }
+        }
+      }
+    },
     "Export PDF…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4788,6 +4887,9 @@
         }
       }
     },
+    "Getting there" : {
+
+    },
     "Google Maps" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4906,6 +5008,9 @@
           }
         }
       }
+    },
+    "Hide Details" : {
+
     },
     "Highlight" : {
       "localizations" : {
@@ -5049,6 +5154,9 @@
       }
     },
     "Item" : {
+
+    },
+    "Journey's end" : {
 
     },
     "JR East" : {
@@ -6231,6 +6339,15 @@
         }
       }
     },
+    "Next Photo" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下一张照片" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "下一張照片" } }
+      }
+    },
+    "Next Stop" : {
+
+    },
     "NH 12" : {
       "shouldTranslate" : false
     },
@@ -6298,6 +6415,22 @@
         }
       }
     },
+    "No change in the next 30 minutes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未来 30 分钟天气不变"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未來 30 分鐘天氣不變"
+          }
+        }
+      }
+    },
     "No costs yet." : {
       "localizations" : {
         "zh-Hans" : {
@@ -6348,6 +6481,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%2$@ 找不到航班 %1$@。請檢查航班編號和出發日期。"
+          }
+        }
+      }
+    },
+    "No forecast yet. Forecasts cover the next 16 days." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无天气预报。预报涵盖未来 16 天。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暫無天氣預報。預報涵蓋未來 16 天。"
           }
         }
       }
@@ -6741,6 +6890,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無特定項目"
+          }
+        }
+      }
+    },
+    "Nothing to Play" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可播放的内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有可播放的內容"
           }
         }
       }
@@ -7393,6 +7558,9 @@
     "Paste a receipt or describe a cost" : {
 
     },
+    "Pause" : {
+
+    },
     "Payment disputed" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7612,6 +7780,57 @@
     "Plans" : {
 
     },
+    "Play" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放"
+          }
+        }
+      }
+    },
+    "Play Again" : {
+
+    },
+    "Play day %lld tour" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放第 %lld 天导览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放第 %lld 天導覽"
+          }
+        }
+      }
+    },
+    "Play Tour" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放导览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放導覽"
+          }
+        }
+      }
+    },
     "Point of interest" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7757,6 +7976,15 @@
       }
     },
     "Preview" : {
+
+    },
+    "Previous Photo" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上一张照片" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "上一張照片" } }
+      }
+    },
+    "Previous Stop" : {
 
     },
     "Price" : {
@@ -8003,18 +8231,18 @@
         }
       }
     },
-    "Receive a notification when a summary is added through the API or an AI agent. Tap the notification to open the summary. Summary titles may appear on your lock screen." : {
+    "Receive notifications for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过 API 或 AI 智能体添加摘要时接收通知。轻点通知即可打开摘要。摘要标题可能会显示在锁定屏幕上。"
+            "value" : "接收新摘要、行程更新、行程时区晚上 8 点的明日行程与天气综合提醒，以及每段已设定出发时间的行程提醒。轻点通知即可打开。行程详情可能会显示在锁定屏幕上。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "透過 API 或 AI 代理程式加入摘要時接收通知。點一下通知即可打開摘要。摘要標題可能會顯示在鎖定畫面上。"
+            "value" : "接收新摘要、行程更新、行程時區晚上 8 點的明日行程與天氣綜合提醒，以及每段已設定出發時間的行程提醒。點一下通知即可打開。行程詳情可能會顯示在鎖定畫面上。"
           }
         }
       }
@@ -8114,6 +8342,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新產生圖片…"
+          }
+        }
+      }
+    },
+    "Regenerate this tour?" : {
+
+    },
+    "Regenerate Tour" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新生成导览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新生成導覽"
           }
         }
       }
@@ -9072,8 +9319,27 @@
         }
       }
     },
+    "Show Details" : {
+
+    },
     "Show In" : {
 
+    },
+    "Shows the day's forecast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示当天的天气预报"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示當天的天氣預報"
+          }
+        }
+      }
     },
     "Shows the place's details" : {
       "localizations" : {
@@ -9107,6 +9373,9 @@
           }
         }
       }
+    },
+    "Sight" : {
+
     },
     "Sign in with RxLab" : {
       "localizations" : {
@@ -9498,6 +9767,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "停止"
+          }
+        }
+      }
+    },
+    "Stop %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Stop %1$lld of %2$lld"
           }
         }
       }
@@ -9977,6 +10256,9 @@
         }
       }
     },
+    "The narration is written again from the trip as it is now. This uses points." : {
+
+    },
     "The place is removed from routes, moments and hotels that use it." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10009,6 +10291,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "第一次選擇語言時，摘要、重點和來源文字會被翻譯。Chippy 會記住你為此摘要所做的選擇。你分享的對象會以他們自己的語言閱讀。"
+          }
+        }
+      }
+    },
+    "The tour doesn't cover this day yet. Regenerate it to include the trip as it is now." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导览尚未包含这一天。重新生成即可按行程现状加入。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "導覽尚未包含這一天。重新生成即可依行程現況加入。"
           }
         }
       }
@@ -10947,6 +11245,22 @@
         }
       }
     },
+    "UV %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "紫外线 %lld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "紫外線 %lld"
+          }
+        }
+      }
+    },
     "Version" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11105,6 +11419,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "注意事項"
+          }
+        }
+      }
+    },
+    "Weather" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "天气"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "天氣"
           }
         }
       }
@@ -11384,6 +11714,9 @@
         }
       }
     },
+    "Writing your tour…" : {
+
+    },
     "Wrong type at “%@”." : {
 
     },
@@ -11399,6 +11732,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "完成後會通知你。"
+          }
+        }
+      }
+    },
+    "You'll get tomorrow's forecast the evening before each day, and an alert when the next 30 minutes turn bad." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天前一晚会收到第二天的天气预报；未来 30 分钟天气转差时也会提醒你。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天前一晚會收到隔天的天氣預報；未來 30 分鐘天氣轉差時也會提醒你。"
           }
         }
       }
@@ -11595,133 +11944,8 @@
         }
       }
     },
-    "Weather" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "天气"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "天氣"
-          }
-        }
-      }
-    },
-    "You'll get tomorrow's forecast the evening before each day, and an alert when the next 30 minutes turn bad." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "每天前一晚会收到第二天的天气预报；未来 30 分钟天气转差时也会提醒你。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "每天前一晚會收到隔天的天氣預報；未來 30 分鐘天氣轉差時也會提醒你。"
-          }
-        }
-      }
-    },
-    "No forecast yet. Forecasts cover the next 16 days." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暂无天气预报。预报涵盖未来 16 天。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暫無天氣預報。預報涵蓋未來 16 天。"
-          }
-        }
-      }
-    },
-    "UV %lld" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "紫外线 %lld"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "紫外線 %lld"
-          }
-        }
-      }
-    },
-    "%@ from %@" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%2$@ 起%1$@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%2$@ 起%1$@"
-          }
-        }
-      }
-    },
-    "No change in the next 30 minutes" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未来 30 分钟天气不变"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未來 30 分鐘天氣不變"
-          }
-        }
-      }
-    },
-    "Shows the day's forecast" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示当天的天气预报"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示當天的天氣預報"
-          }
-        }
-      }
-    },
-    "%@ chance of rain" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "降水概率 %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "降雨機率 %@"
-          }
-        }
-      }
+    "Your trip" : {
+
     },
     "Zoom In" : {
       "localizations" : {

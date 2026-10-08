@@ -162,6 +162,20 @@
       "when": 1791462991361,
       "tag": "0022_trip_weather",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1791467578080,
+      "tag": "0023_trip_reminders",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791468620445,
+      "tag": "0024_trip_reminder_briefings",
+      "breakpoints": true
     }
   ]
 }

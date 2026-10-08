@@ -7,7 +7,6 @@ import { ApiError } from "@/lib/http/errors";
 import {
   assessNowcast,
   dailyCondition,
-  dayAheadAlertText,
   detectNowcastEvent,
   nowcastAlertText,
   type Condition,
@@ -16,7 +15,6 @@ import {
 import { getWeatherProvider, WeatherProviderError, type DailyForecast, type WeatherProvider } from "@/lib/weather/provider";
 import {
   addDays,
-  dayAheadTimes,
   FORECAST_DAYS,
   FULL_REFRESH_MS,
   inForecastRange,
@@ -382,16 +380,20 @@ function payload(ownerId: string, tripId: string, alert: { title: string; body: 
   return { aps: { alert, sound: "default", "thread-id": `weather:${tripId}` }, summaryId: tripId, tripId, userId: ownerId, kind: "weather" };
 }
 
-/** The day-ahead lines for `date`: each distinct place of the day with its forecast for that day. */
-function dayAheadLines(entries: DayLocations[], data: TripWeatherData, date: string): DayAheadLine[] | null {
-  const locations = entries.filter((entry) => entry.date === date).flatMap((entry) => entry.locations);
+/** Fresh stored forecasts for tomorrow's active route, consumed by the combined trip briefing. */
+export async function tripBriefingWeather(db: Database, tripId: string, document: TripDocument, date: string, now = Date.now()): Promise<DayAheadLine[]> {
+  const [row] = await db.select({ data: tripWeather.data }).from(tripWeather).where(eq(tripWeather.tripId, tripId));
+  const data = row?.data;
+  if (!data) return [];
+  const locations = tripLocations(document).filter((entry) => entry.date === date).flatMap((entry) => entry.locations);
   const seen = new Set<string>();
   const lines: DayAheadLine[] = [];
   for (const location of locations) {
-    if (seen.has(location.key) || lines.length >= 2) continue;
+    if (seen.has(location.key) || lines.length >= 3) continue;
     seen.add(location.key);
+    const stored = data.locations[location.key];
     const forecast = forecastFor(data, location.key, date);
-    if (!forecast) return null;
+    if (!forecast || !stored || now - stored.fetchedAt > 2 * FULL_REFRESH_MS) continue;
     lines.push({ place: location.name, forecast });
   }
   return lines;
@@ -399,7 +401,7 @@ function dayAheadLines(entries: DayLocations[], data: TripWeatherData, date: str
 
 /**
  * Fetches the trip's forecasts (every place every 3 hours; in between only where the traveller is
- * now), stores them, sends tomorrow's weather at 20:00 the evening before each day and alerts when
+ * now), stores them for the combined evening briefing and alerts when
  * the next 30 minutes turn bad or change. Returns when to check next. Provider failures never
  * throw: the stored forecast stays and the check is retried.
  */
@@ -456,16 +458,7 @@ export async function refreshTripWeather(db: Database, tripId: string, deps: Wea
   const alerts: WeatherAlertState = { dayAhead: [...row.alertState?.dayAhead ?? []], nowcast: row.alertState?.nowcast ?? null };
   const sends: { alert: { title: string; body: string }; collapseId: string }[] = [];
 
-  for (const due of dayAheadTimes(schedule)) {
-    // From 20:00 until midnight that evening, where the traveller spends it.
-    if (alerts.dayAhead.includes(due.date) || now < due.at || now >= due.until) continue;
-    const lines = dayAheadLines(activeEntries, data, due.date);
-    // No forecast yet (provider down): try again at the next check this evening.
-    if (lines === null) continue;
-    alerts.dayAhead.push(due.date);
-    if (lines.length) sends.push({ alert: dayAheadAlertText(lines, language), collapseId: `weather:${tripId}:${due.date}` });
-  }
-  alerts.dayAhead = alerts.dayAhead.filter((date) => date >= schedule.startDate && date <= schedule.endDate);
+  // Tomorrow's weather is sent once with the itinerary by the trip reminder workflow.
 
   const stored = here ? data.locations[here.key] : undefined;
   if (here && stored && now - stored.fetchedAt < NOWCAST_FRESH_MS) {

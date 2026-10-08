@@ -1,5 +1,5 @@
 import type { SummaryKind } from "@/lib/db/schema";
-import { embedMany, experimental_evaluate as evaluate, generateImage, generateText, Output, type LanguageModel, type LanguageModelUsage } from "ai";
+import { embedMany, experimental_evaluate as evaluate, generateImage, generateSpeech, generateText, Output, type LanguageModel, type LanguageModelUsage } from "ai";
 import { TRANSLATION_LANGUAGES, type OutputLanguage, type TranslationLanguage } from "@/lib/contracts/api";
 import { z } from "zod";
 import { ApiError } from "@/lib/http/errors";
@@ -15,14 +15,22 @@ import {
   imageModelId,
   imageTimeoutMs,
   isLanguageImageModel,
+  speechModel,
+  speechModelId,
+  speechUsdPerCharacter,
   textModel,
   textModelId,
   textModelPricing,
+  tourModel,
+  tourModelId,
 } from "./models";
 import { splitIntoParts, stripFence, writeDocument, type DocumentSource } from "./document-agent";
 import { findDuplicate, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import { runTripAgent, type TripAgentInput, type TripAgentResult } from "./trip-agent";
 import { summarizeTripChanges, type TripChangeInput } from "./trip-change-agent";
+import { briefTripDay, type TripBriefingInput } from "./trip-briefing-agent";
+import { narrateTour, type TourNarrationInput, type TourNarrationOptions } from "./tour-agent";
+import type { TourNarration } from "@/lib/contracts/tour";
 import { LANGUAGE_NAMES, llmSummarySchema, llmTranslationSchema, type LlmSummary, type LlmTranslation } from "./summary-schema";
 
 /**
@@ -146,6 +154,8 @@ export interface AiProvider {
   updateTrip(input: TripAgentInput, options?: TripAgentCallOptions): Promise<TripAgentResult | null>;
   /** A notification agent summarizing persisted net changes; failures are retried by Workflow. */
   summarizeTripChanges(input: TripChangeInput): Promise<string>;
+  /** A short combined itinerary/weather briefing based on tomorrow's saved, selected plan. */
+  briefTripDay(input: TripBriefingInput): Promise<string>;
   /** The cover theme (palette, mode, emoji, accent, headline) for an imported summary, or null when it failed. */
   designCover(input: CoverInput): Promise<LlmSummary["design"] | null>;
   /** Raw SVG markup (unsanitised) for the OG background, or null. */
@@ -157,6 +167,18 @@ export interface AiProvider {
   chatModelId(): string;
   /** The chat model's API list price, or null when the catalog has none. */
   chatPricing(): Promise<ModelPricing | null>;
+  /** Narration for every scene of a trip tour, in order, from the tour model. Throws when it failed. */
+  narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]>;
+  /** Gateway id of the tour model (`AI_TOUR_MODEL`), recorded on the points it charges. */
+  tourModelId(): string;
+  /** The tour model's API list price, or null when the catalog has none. */
+  tourPricing(): Promise<ModelPricing | null>;
+  /** Gateway id of the speech model that reads tours aloud (`AI_SPEECH_MODEL`); null when tours have no voice. */
+  speechModelId(): string | null;
+  /** The speech model's price per spoken character in USD. */
+  speechUsdPerCharacter(): number;
+  /** `text` read aloud by `voice`, as MP3 audio. Throws when it failed. */
+  speak(text: string, voice: string): Promise<{ bytes: Uint8Array; mediaType: string }>;
   /** Id of the embedding model `embed` uses, or null when semantic search is disabled. */
   embeddingModelId(): string | null;
   /** One embedding per value, in order. Throws when the model is unavailable. */
@@ -245,6 +267,10 @@ Answer false when the text is substantial content in its own right (an article, 
 export class GatewayAiProvider implements AiProvider {
   async summarizeTripChanges(input: TripChangeInput): Promise<string> {
     return summarizeTripChanges(textModel(), input);
+  }
+
+  async briefTripDay(input: TripBriefingInput): Promise<string> {
+    return briefTripDay(textModel(), input);
   }
 
   async isSharedLink(text: string): Promise<boolean> {
@@ -509,6 +535,39 @@ export class GatewayAiProvider implements AiProvider {
 
   chatPricing(): Promise<ModelPricing | null> {
     return textModelPricing(textModelId());
+  }
+
+  narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]> {
+    return narrateTour(tourModel(), input, options);
+  }
+
+  tourModelId(): string {
+    return tourModelId();
+  }
+
+  tourPricing(): Promise<ModelPricing | null> {
+    return textModelPricing(tourModelId());
+  }
+
+  speechModelId(): string | null {
+    return speechModelId();
+  }
+
+  speechUsdPerCharacter(): number {
+    return speechUsdPerCharacter();
+  }
+
+  async speak(text: string, voice: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+    const modelId = speechModelId();
+    if (!modelId) throw new Error("AI_SPEECH_MODEL is not set");
+    const { audio } = await generateSpeech({
+      model: speechModel(modelId),
+      text,
+      voice,
+      maxRetries: 2,
+      abortSignal: AbortSignal.timeout(45_000),
+    });
+    return { bytes: audio.uint8Array, mediaType: audio.mediaType || "audio/mpeg" };
   }
 
   embeddingModelId(): string | null {

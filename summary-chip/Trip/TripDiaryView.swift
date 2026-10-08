@@ -65,6 +65,8 @@ struct TripDiaryView: View {
     let readingLine: (CGFloat) -> CGFloat
     let onRead: (String, Double) -> Void
     let present: (TripSheet) -> Void
+    /// Plays one day's part of the tour.
+    var onPlayTour: (String) -> Void = { _ in }
 
     @State private var tracker = TripReadingTracker()
 
@@ -126,7 +128,8 @@ struct TripDiaryView: View {
                         onSelectPlanOption: onSelectPlanOption,
                         onEdit: { present(.day(day.id)) },
                         onOpenTransport: { present(.transportDetail($0.id)) },
-                        onOpenDetails: { present(.dayDetail(day.id)) }
+                        onOpenDetails: { present(.dayDetail(day.id)) },
+                        onPlayTour: { onPlayTour(day.id) }
                     )
                     .equatable()
                     .id(day.id)

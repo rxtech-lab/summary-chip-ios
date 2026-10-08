@@ -62,8 +62,8 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 
 | Scope | Tools |
 |---|---|
-| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip` |
-| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `upload_trip_image`, `add_to_trip_from_source` |
+| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `get_upload` |
+| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
 An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
@@ -184,7 +184,9 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `update_trip` | Applies operations (upsert/delete records by id, `set_meta`, `add_source`) in order, as one change. Free. | `applyTripOperations` (as `POST /api/v1/trips/:id/operations`) |
 | `choose_plan_option` | Records which option of a plan (route 1 / route 2…) the user follows; saved per user, the document doesn't change. Free. | `selectPlanOption` (as `PUT /api/v1/trips/:id/plan-selections`) |
 | `update_place` | Changes some of a place's details (description, photos, hours, prices, website, phone…) and appends photos, without resending the place. Free. | `applyTripOperations` with an `update_place` operation |
-| `upload_trip_image` | Stores a photo (copied from a URL, or base64) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
+| `create_upload` | Prepares a presigned S3-compatible PUT URL for an image or file (up to 25 MB). Free. | `createUpload` |
+| `get_upload` | Checks a completed upload belongs to the caller and returns a temporary download URL. Free. | `getUpload` |
+| `upload_trip_image` | Stores a photo (copied from a URL, base64, or an owned upload) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
 | `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
 
 `search_summaries` and `list_summaries` accept the same filters: `source` (`web`, `x`, `facebook`,
@@ -212,6 +214,43 @@ never to the translation the owner reads; changing the title, summary or key poi
 translations (and their covers), which are re-made on the next read. The cover itself isn't redesigned.
 Only the owner can update a chip, and trips are refused (use `update_trip`).
 
+### Image and file uploads
+
+The MCP transport carries upload metadata, not file bytes. Storage uses the existing Cloudflare R2
+S3-compatible signer. No new storage credentials or bucket are required.
+
+1. Call `create_upload` with `filename` (1–300 characters), `mimeType` (a MIME type without parameters,
+   such as `image/png`, `application/pdf`, `text/plain` or `application/octet-stream`) and `byteSize`
+   (the exact file size, 1–26,214,400 bytes). It returns
+   `{key, uploadUrl, method:"PUT", headers:{"content-type":…}, expiresAt}`. The URL expires in ten minutes.
+2. PUT the raw bytes directly to `uploadUrl` with the returned headers. Use the URL exactly as returned;
+   the signature binds the MIME type and content length. Do not send a multipart form, base64, or the
+   Chippy Authorization header to storage. For example, after preparing an `image/png` upload:
+
+   ```sh
+   curl --fail-with-body --request PUT --upload-file /path/to/photo.png \
+     --header 'Content-Type: image/png' "$UPLOAD_URL"
+   ```
+
+3. Call `get_upload` with `{key}` to check completion and obtain
+   `{key, filename, mimeType, byteSize, downloadUrl, expiresAt}`. This download URL expires in five minutes
+   and uses an attachment disposition. A missing object returns `UPLOAD_INCOMPLETE`; a size different
+   from `byteSize` returns `UPLOAD_SIZE_MISMATCH`. Other accounts and keys outside the upload namespace
+   are refused before storage access.
+4. For a lasting trip photo, call `upload_trip_image` with `{tripId, uploadKey:key}` after PUT succeeds,
+   then pass its `image.url` to `update_place` or a trip view. It verifies both upload and trip ownership
+   and applies the same 15 MB image limit, resizing and metadata removal as URL/base64 uploads.
+
+`create_upload` requires `chippy:write`; `get_upload` requires `chippy:read`. Raw uploads get an
+owner-scoped random key under `uploads/` and are accessed through signed URLs, with no public URL
+returned by these tools. Upload rows and objects not attached to a summary are removed by the existing
+cleanup cron once older than 24 hours. `get_upload` does not extend their lifetime. The processed trip
+photo is stored separately and survives cleanup of the raw upload. The app's `POST /api/v1/uploads`
+continues to accept PDFs only.
+
+See [R2 presigned URL documentation](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)
+for the storage protocol and browser CORS requirements.
+
 ### Trip tools
 
 The trip format and its operations are specified in [trips.md](trips.md).
@@ -232,7 +271,8 @@ A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update
   there, at most 12 in all) and an optional `revision`. It returns `{place, revision}`; an unknown `placeId` is a tool
   error listing the trip's place ids.
 - `upload_trip_image` takes `tripId` and exactly one of `url` (a public image, fetched with the same SSRF checks as
-  link summaries) or `data` (base64 or a `data:` URL). JPEG, PNG, WebP, GIF, AVIF or HEIC up to 15 MB is re-encoded as a
+  link summaries), `data` (base64 or a `data:` URL) or `uploadKey` (from `create_upload`, after PUT completes).
+  JPEG, PNG, WebP, GIF, AVIF or HEIC up to 15 MB is re-encoded as a
   JPEG of at most 2048 px with EXIF (GPS, camera) stripped, stored in R2 under `trip-images/<tripId>-<time>-<random>.jpg`,
   and returned as `{image: {url, width, height, byteSize}}`. The URL is on `R2_PUBLIC_BASE_URL` when set, else
   `/api/public/trip-images/:file` (the unguessable file name is the capability, like OG image keys). Put it in a place's
@@ -248,6 +288,8 @@ A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update
 | `server/app/api/mcp/route.ts` | `POST` handler: API key auth, then a fresh `McpServer` + `WebStandardStreamableHTTPServerTransport` per request (stateless, JSON responses). `GET`/`DELETE` answer `405` |
 | `server/lib/mcp/server.ts` | Tool catalog (zod input schemas), mapping to the summary and trip services, results and usage counting |
 | `server/lib/services/trips.ts` | Trip create/read/list/edit and the trip agent run behind the trip tools |
+| `server/lib/services/uploads.ts` | Presigned upload creation, ownership/completion checks and temporary download URLs |
+| `server/lib/services/trip-images.ts` | URL/base64/presigned-upload image processing and lasting trip photo URLs |
 | `server/lib/services/api-keys.ts` | Key generation, hashing, list/create/rename/revoke, authentication and usage counters |
 | `server/lib/http/handler.ts` | `withMcpAuth`: personal keys or resource-bound OAuth tokens; OAuth discovery challenges on `401` |
 | `server/lib/mcp/oauth*.ts`, `server/app/api/mcp/oauth/**` | OAuth discovery, registration, RxAuth login, consent and credential lifecycle |

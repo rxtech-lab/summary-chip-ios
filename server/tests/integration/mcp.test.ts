@@ -7,8 +7,10 @@ import * as mcpRoute from "@/app/api/mcp/route";
 import * as importRoute from "@/app/api/v1/summaries/import/route";
 import * as tripImageRoute from "@/app/api/public/trip-images/[file]/route";
 import type { TripDocument } from "@/lib/contracts/trip";
-import { apiKeys, summaries } from "@/lib/db/schema";
+import { MAX_UPLOAD_BYTES } from "@/lib/contracts/api";
+import { apiKeys, summaries, uploads } from "@/lib/db/schema";
 import { hashApiKey, MAX_API_KEYS_PER_USER } from "@/lib/services/api-keys";
+import { ownerKeyPrefix } from "@/lib/storage/r2";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
 let env: TestEnv;
@@ -145,11 +147,91 @@ describe("/api/mcp", () => {
 
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
-      "add_summary", "add_to_trip_from_source", "choose_plan_option", "create_trip", "get_profile", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_summary", "update_trip", "upload_trip_image",
+      "add_summary", "add_to_trip_from_source", "choose_plan_option", "create_trip", "create_upload", "get_profile", "get_trip", "get_upload", "list_summaries", "list_trips", "search_summaries", "update_place", "update_summary", "update_trip", "upload_trip_image",
     ]);
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
     expect(add.inputSchema.required).toEqual(expect.arrayContaining(["title", "summary", "text"]));
+  });
+
+  it("prepares owner-scoped presigned uploads for images, PDFs and other files", async () => {
+    const { key, apiKey } = await createKey();
+    const signedPut = vi.spyOn(env.store, "signedPut");
+    for (const [filename, mimeType, extension] of [
+      ["photo.png", "image/png", "png"], ["report.pdf", "application/pdf", "pdf"],
+      ["../archive.zip", "application/zip", "bin"],
+    ]) {
+      const result = await callTool(key, "create_upload", { filename, mimeType, byteSize: 1024 });
+      expect(result.isError).toBeFalsy();
+      const upload = result.structuredContent as { key: string; expiresAt: string };
+      expect(upload.key).toMatch(new RegExp(`^uploads/${ownerKeyPrefix("user-alice")}/[0-9a-f-]{36}\\.${extension}$`));
+      expect(result.structuredContent).toMatchObject({
+        method: "PUT", uploadUrl: expect.any(String), headers: { "content-type": mimeType }, expiresAt: expect.any(String),
+      });
+      expect(Date.parse(upload.expiresAt) - Date.now()).toBeGreaterThan(9 * 60 * 1000);
+      expect(signedPut).toHaveBeenLastCalledWith(upload.key, mimeType, 1024);
+      const [row] = await env.handle.db.select().from(uploads).where(eq(uploads.key, upload.key));
+      expect(row).toMatchObject({ ownerId: "user-alice", filename, byteSize: 1024, attachedAt: null });
+      // Preparing a PUT must not pretend the bytes have arrived.
+      expect(await env.store.head(upload.key)).toBeNull();
+      expect(JSON.parse(result.content[0].text)).toEqual(result.structuredContent);
+    }
+    const [usage] = await env.handle.db.select().from(apiKeys).where(eq(apiKeys.id, apiKey.id));
+    expect(usage).toMatchObject({ toolCallCount: 3, summariesAddedCount: 0 });
+  });
+
+  it("rejects invalid upload metadata before signing or creating a row", async () => {
+    const { key } = await createKey();
+    const signedPut = vi.spyOn(env.store, "signedPut");
+    for (const invalid of [
+      { filename: " " }, { filename: "x".repeat(301) }, { mimeType: "png" },
+      { mimeType: "image/png\r\nX-Other: injected" }, { mimeType: "text/plain; charset=utf-8" },
+      { byteSize: 0 }, { byteSize: -1 }, { byteSize: 1.5 }, { byteSize: MAX_UPLOAD_BYTES + 1 },
+    ]) {
+      const result = await callTool(key, "create_upload", { filename: "photo.png", mimeType: "image/png", byteSize: 100, ...invalid });
+      expect(result.isError).toBe(true);
+    }
+    expect(signedPut).not.toHaveBeenCalled();
+    expect(await env.handle.db.select().from(uploads)).toHaveLength(0);
+  });
+
+  it("verifies completion and ownership before issuing a file download URL", async () => {
+    const { key } = await createKey();
+    const bytes = new TextEncoder().encode("Trip packing notes");
+    const result = await callTool(key, "create_upload", { filename: "notes.txt", mimeType: "text/plain", byteSize: bytes.length });
+    const uploadKey = (result.structuredContent as { key: string }).key;
+    const signedGet = vi.spyOn(env.store, "signedGet");
+    const early = await callTool(key, "get_upload", { key: uploadKey });
+    expect(early.isError).toBe(true);
+    expect(early.content[0].text).toContain("UPLOAD_INCOMPLETE");
+    expect(signedGet).not.toHaveBeenCalled();
+
+    // Represents the client PUT to S3, outside of the MCP transport.
+    await env.store.put(uploadKey, { bytes, contentType: "text/plain" });
+    const downloaded = await callTool(key, "get_upload", { key: uploadKey });
+    expect(downloaded.isError).toBeFalsy();
+    expect(downloaded.structuredContent).toMatchObject({
+      key: uploadKey, filename: "notes.txt", mimeType: "text/plain", byteSize: bytes.length,
+      downloadUrl: expect.stringContaining("https://downloads.invalid/"), expiresAt: expect.any(String),
+    });
+    expect(signedGet).toHaveBeenCalledWith(uploadKey, { filename: "notes.txt" });
+    signedGet.mockClear();
+    const bob = await createKey("Bob", env.tokens.bob);
+    for (const [caller, badKey, error] of [
+      [bob.key, uploadKey, "UPLOAD_FORBIDDEN"],
+      [key, uploadKey.replace(/[^/]+$/, `${crypto.randomUUID()}.txt`), "UPLOAD_NOT_FOUND"],
+      [key, "og/not-an-upload.png", "UPLOAD_FORBIDDEN"],
+    ]) {
+      const denied = await callTool(caller, "get_upload", { key: badKey });
+      expect(denied.isError).toBe(true);
+      expect(denied.content[0].text).toContain(error);
+    }
+    await env.store.put(uploadKey, { bytes: bytes.slice(1), contentType: "text/plain" });
+    expect((await callTool(key, "get_upload", { key: uploadKey })).content[0].text).toContain("UPLOAD_SIZE_MISMATCH");
+    const head = vi.spyOn(env.store, "head").mockResolvedValueOnce({ contentType: "text/plain", byteSize: MAX_UPLOAD_BYTES + 1 });
+    expect((await callTool(key, "get_upload", { key: uploadKey })).content[0].text).toContain("UPLOAD_TOO_LARGE");
+    head.mockRestore();
+    expect(signedGet).not.toHaveBeenCalled();
   });
 
   it("answers GET with 405 (stateless, no server stream)", async () => {
@@ -416,6 +498,45 @@ describe("/api/mcp trip tools", () => {
     const document = (resolved.structuredContent as { trip: { document: TripDocument } }).trip.document;
     expect(document.plans).toEqual([]);
     expect(document.days.map((day) => day.id)).toEqual(["day-1", "day-2-onsen"]);
+  });
+
+  it("turns a completed presigned image upload into a lasting trip photo", async () => {
+    const { key } = await createKey();
+    const tripId = ((await callTool(key, "create_trip", { document: TRIP })).structuredContent as { trip: { id: string } }).trip.id;
+    const png = await sharp({ create: { width: 60, height: 30, channels: 3, background: "#3366cc" } }).png().toBuffer();
+    const prepared = await callTool(key, "create_upload", { filename: "sapporo.png", mimeType: "image/png", byteSize: png.length });
+    const uploadKey = (prepared.structuredContent as { key: string }).key;
+    const early = await callTool(key, "upload_trip_image", { tripId, uploadKey });
+    expect(early.isError).toBe(true);
+    expect(early.content[0].text).toContain("UPLOAD_INCOMPLETE");
+    await env.store.put(uploadKey, { bytes: png, contentType: "image/png" });
+    const uploaded = await callTool(key, "upload_trip_image", { tripId, uploadKey });
+    expect(uploaded.isError).toBeFalsy();
+    const image = (uploaded.structuredContent as { image: { url: string; width: number; height: number } }).image;
+    expect(image).toMatchObject({ width: 60, height: 30 });
+    const file = image.url.split("/api/public/trip-images/")[1];
+    const served = await tripImageRoute.GET(apiRequest("GET", `/api/public/trip-images/${file}`), params({ file }));
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("image/jpeg");
+    const patched = await callTool(key, "update_place", { tripId, placeId: "sapporo", addPhotos: [{ url: image.url }] });
+    expect(patched.structuredContent).toMatchObject({ place: { photos: [{ url: image.url }] } });
+
+    const get = vi.spyOn(env.store, "get");
+    const bob = await createKey("Bob", env.tokens.bob);
+    const bobTrip = ((await callTool(bob.key, "create_trip", { document: TRIP })).structuredContent as { trip: { id: string } }).trip.id;
+    const foreign = await callTool(bob.key, "upload_trip_image", { tripId: bobTrip, uploadKey });
+    expect(foreign.content[0].text).toContain("UPLOAD_FORBIDDEN");
+    expect(get).not.toHaveBeenCalled();
+    expect((await callTool(key, "upload_trip_image", { tripId, uploadKey, data: png.toString("base64") })).isError).toBe(true);
+    expect((await callTool(key, "upload_trip_image", { tripId, uploadKey, url: "https://example.com/photo.png" })).isError).toBe(true);
+
+    const invalid = await callTool(key, "create_upload", { filename: "fake.png", mimeType: "image/png", byteSize: 12 });
+    const invalidKey = (invalid.structuredContent as { key: string }).key;
+    await env.store.put(invalidKey, { bytes: new TextEncoder().encode("not an image"), contentType: "image/png" });
+    expect((await callTool(key, "upload_trip_image", { tripId, uploadKey: invalidKey })).content[0].text).toContain("IMAGE_INVALID");
+    const large = await callTool(key, "create_upload", { filename: "large.png", mimeType: "image/png", byteSize: 15 * 1024 * 1024 + 1 });
+    const largeKey = (large.structuredContent as { key: string }).key;
+    expect((await callTool(key, "upload_trip_image", { tripId, uploadKey: largeKey })).content[0].text).toContain("UPLOAD_TOO_LARGE");
   });
 
   it("uploads photos and patches a place's details", async () => {

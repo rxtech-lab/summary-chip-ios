@@ -54,6 +54,12 @@ it("selects production and returns APNs rejection details", async () => {
   expect(session.destroy).toHaveBeenCalledTimes(1);
 });
 
+it("expires a time-sensitive reminder at its supplied deadline", async () => {
+  const { session } = transport(200);
+  await sendPush({ token: "abc123", environment: "sandbox" }, payload, { expiration: 1_800_000_000, collapseId: "leg-reminder" });
+  expect(session.request.mock.calls[0][0]).toMatchObject({ "apns-expiration": "1800000000", "apns-collapse-id": "leg-reminder" });
+});
+
 it("closes a failed request and exposes a redacted error", async () => {
   const { session } = transport(0, "", true);
   await expect(sendPush({ token: "abc123", environment: "sandbox" }, payload)).rejects.toThrow("APNs request failed");
