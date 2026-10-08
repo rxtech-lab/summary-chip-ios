@@ -1,7 +1,7 @@
 import { facetQuerySchema, queryObject } from "@/lib/contracts/api";
 import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson } from "@/lib/http/errors";
-import { getFacets, searchFacets } from "@/lib/services/summaries";
+import { getFacets, searchFacets } from "@/lib/services/facets";
 
 export const runtime = "nodejs";
 
