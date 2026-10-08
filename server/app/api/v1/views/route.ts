@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const { slug } = await readJson(request, (body) => recordViewSchema.parse(body));
     return noStoreJson(await recordView(db, principal.sub, slug, {
       email: principal.email,
+      authorization: request.headers.get("authorization"),
       accepted: acceptedLanguage(request),
       billingEnvironment: () => billingEnvironment(request, principal),
     }));

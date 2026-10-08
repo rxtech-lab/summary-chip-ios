@@ -5,6 +5,7 @@ import path from "node:path";
 import { MockAiProvider } from "@/lib/ai/mock";
 import { setAiProviderForTests } from "@/lib/ai/provider";
 import { setBearerConfigForTests } from "@/lib/auth/bearer";
+import { setUserInfoFetcherForTests } from "@/lib/auth/userinfo";
 import { createDatabase, setDatabaseForTests, type DatabaseHandle } from "@/lib/db/client";
 import { setHostResolverForTests } from "@/lib/extract/ssrf";
 import { MockFlightProvider } from "@/lib/flights/mock";
@@ -49,6 +50,8 @@ export interface TestEnv {
 export async function setupTestEnv(options: { transactional?: boolean } = {}): Promise<TestEnv> {
   keys ??= await generateKeyPair("RS256");
   setBearerConfigForTests({ issuer: ISSUER, allowedClientIds: new Set([CLIENT_ID]), key: keys.publicKey });
+  // No identity provider in tests: userinfo knows no emails unless a test says otherwise.
+  setUserInfoFetcherForTests(async () => null);
   // libsql opens a new connection for interactive transactions; :memory: would lose the schema.
   const directory = options.transactional ? mkdtempSync(path.join(tmpdir(), "chippy-test-")) : undefined;
   const handle = createDatabase(directory ? `file:${path.join(directory, "db.sqlite")}` : ":memory:");
@@ -83,6 +86,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setObjectStoreForTests(undefined);
       setAiProviderForTests(undefined);
       setBearerConfigForTests(undefined);
+      setUserInfoFetcherForTests(undefined);
       setHostResolverForTests(undefined);
       setFlightProviderForTests(undefined);
       setFlightTrackerForTests(undefined);
