@@ -1,0 +1,48 @@
+# SwiftLint config for every Swift target and SummaryKit. Run with `make lint-swift`.
+# Only size and complexity rules are on: warnings flag code that is getting long, errors fail CI.
+only_rules:
+  - file_length
+  - type_body_length
+  - function_body_length
+  - closure_body_length
+  - cyclomatic_complexity
+
+included:
+  - summary-chip
+  - summary-chip-macOS
+  - summary-chipTests
+  - summary-chipUITests
+  - summary-chipMacUITests
+  - SmartShare
+  - MacSmartShare
+  - SummaryClip
+  - SummaryMessages
+  - ChippyWidgets
+  - Packages/SummaryKit/Sources
+  - Packages/SummaryKit/Tests
+
+# Line counts below exclude blank and comment-only lines.
+file_length:
+  warning: 600
+  error: 800
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 400
+  error: 600
+
+function_body_length:
+  warning: 60
+  error: 100
+
+# SwiftUI view builders are closures, so allow more room than for functions.
+closure_body_length:
+  warning: 80
+  error: 150
+
+cyclomatic_complexity:
+  warning: 15
+  error: 30
+  ignores_case_statements: true
+
+reporter: xcode
