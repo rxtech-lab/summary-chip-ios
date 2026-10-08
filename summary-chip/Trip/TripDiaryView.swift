@@ -23,6 +23,7 @@ enum TripSheet: Identifiable, Hashable {
     case share
     case editSharing
     case language
+    case versions
 
     var id: String {
         switch self {
@@ -45,6 +46,7 @@ enum TripSheet: Identifiable, Hashable {
         case .share: "share"
         case .editSharing: "edit-sharing"
         case .language: "language"
+        case .versions: "versions"
         }
     }
 }

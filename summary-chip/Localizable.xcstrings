@@ -94,6 +94,9 @@
         }
       }
     },
+    "%@ (Current)" : {
+
+    },
     "%@ → %@" : {
       "shouldTranslate" : false
     },
@@ -1356,6 +1359,9 @@
         }
       }
     },
+    "All Versions…" : {
+
+    },
     "Allow notifications for Chippy in system Settings to receive summary alerts." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1796,6 +1802,9 @@
           }
         }
       }
+    },
+    "Back to Current" : {
+
     },
     "Balance" : {
       "localizations" : {
@@ -2240,6 +2249,9 @@
       }
     },
     "Chippy can't use your calendar. Allow full calendar access for Chippy in Settings." : {
+
+    },
+    "Chippy chat" : {
 
     },
     "Chippy checks tracked flights and sends alerts when the gate, times or status change." : {
@@ -3101,6 +3113,12 @@
     "Currency Conversion" : {
 
     },
+    "Current" : {
+
+    },
+    "Current (%@)" : {
+
+    },
     "Current balance" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3835,6 +3853,9 @@
         }
       }
     },
+    "Each edit saves a version you can come back to." : {
+
+    },
     "Economy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4067,6 +4088,9 @@
 
     },
     "Edit View" : {
+
+    },
+    "Edited" : {
 
     },
     "Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link, Image, Gallery, Place. Or ask the trip agent to build one." : {
@@ -5152,6 +5176,9 @@
           }
         }
       }
+    },
+    "It becomes the newest version. The current one stays in the history, so you can switch back." : {
+
     },
     "Item" : {
 
@@ -6341,8 +6368,18 @@
     },
     "Next Photo" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下一张照片" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "下一張照片" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一张照片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一張照片"
+          }
+        }
       }
     },
     "Next Stop" : {
@@ -6698,6 +6735,9 @@
           }
         }
       }
+    },
+    "No Versions Yet" : {
+
     },
     "No web results" : {
 
@@ -7310,6 +7350,9 @@
           }
         }
       }
+    },
+    "Opening version %lld…" : {
+
     },
     "Opens a summary in Chippy." : {
       "localizations" : {
@@ -7980,8 +8023,18 @@
     },
     "Previous Photo" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上一张照片" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "上一張照片" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一张照片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一張照片"
+          }
+        }
       }
     },
     "Previous Stop" : {
@@ -8598,6 +8651,12 @@
         }
       }
     },
+    "Restore" : {
+
+    },
+    "Restore %@?" : {
+
+    },
     "Restore Purchases" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8613,6 +8672,18 @@
           }
         }
       }
+    },
+    "Restore this version?" : {
+
+    },
+    "Restore This Version…" : {
+
+    },
+    "Restored" : {
+
+    },
+    "Restored version %lld" : {
+
     },
     "Restoring purchases…" : {
       "localizations" : {
@@ -8645,6 +8716,9 @@
           }
         }
       }
+    },
+    "Restoring…" : {
+
     },
     "Return" : {
       "comment" : "Trip route kind: heading back",
@@ -9323,6 +9397,9 @@
 
     },
     "Show In" : {
+
+    },
+    "Shown" : {
 
     },
     "Shows the day's forecast" : {
@@ -10888,6 +10965,9 @@
         }
       }
     },
+    "Trip agent" : {
+
+    },
     "Trip Agent" : {
 
     },
@@ -11293,6 +11373,18 @@
         }
       }
     },
+    "Version %lld" : {
+
+    },
+    "Version History…" : {
+
+    },
+    "Version restored" : {
+
+    },
+    "Versions" : {
+
+    },
     "View" : {
 
     },
@@ -11342,6 +11434,9 @@
           }
         }
       }
+    },
+    "Viewing %@" : {
+
     },
     "Visibility" : {
       "localizations" : {
@@ -11720,6 +11815,9 @@
     "Wrong type at “%@”." : {
 
     },
+    "You" : {
+
+    },
     "You'll get a notification when it's ready." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11831,6 +11929,9 @@
           }
         }
       }
+    },
+    "Your agent" : {
+
     },
     "Your API Key" : {
       "localizations" : {

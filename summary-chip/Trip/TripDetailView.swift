@@ -14,6 +14,8 @@ struct TripDetailView: View {
     let title: String
     let onOpenTrip: (() -> Void)?
     @State private var model: TripEditorModel
+    /// The trip's saved versions; the toolbar's menu shows a past one in place, read-only.
+    @State private var versions: DocumentVersionsModel
     @State private var camera = TripMapCamera()
     @State private var location = LocationProvider()
     @State private var activeDayID: String?
@@ -72,6 +74,7 @@ struct TripDetailView: View {
         self.title = title
         self.onOpenTrip = onOpenTrip
         _model = State(initialValue: TripEditorModel(api: environment.api, id: tripID))
+        _versions = State(initialValue: DocumentVersionsModel(api: environment.api, id: tripID))
     }
 
     private var isCompact: Bool {
@@ -83,8 +86,8 @@ struct TripDetailView: View {
     }
 
     private var isOwner: Bool { model.trip?.isOwner ?? false }
-    /// Only the owner edits, and only the trip as written: a translation is read-only.
-    private var canEdit: Bool { isOwner && model.trip?.isTranslated == false }
+    /// Only the owner edits, and only the trip as written: a translation and a past version are read-only.
+    private var canEdit: Bool { isOwner && model.trip?.isTranslated == false && model.previewDocument == nil }
 
     /// The language the diary is shown in; the owner can change it from the header's note.
     private var reading: TripReadingLanguage? {
@@ -158,21 +161,45 @@ struct TripDetailView: View {
         .environment(\.tripReading, reading)
         .environment(\.tripFlights, model.flights)
         .environment(\.tripWeather, model.weather)
-        .environment(\.tripPlaces, model.document?.places ?? [])
+        .environment(\.tripPlaces, (model.previewDocument ?? model.document)?.places ?? [])
         .environment(\.tripShowPlace, showPlace)
         .overlay(alignment: .top) {
-            if let notice = model.notice {
-                Label(notice.message, systemImage: notice.systemImage)
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .glassEffect(.regular, in: Capsule())
-                    .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .accessibilityIdentifier("trip-notice")
+            VStack(spacing: 0) {
+                if let notice = model.notice {
+                    Label(notice.message, systemImage: notice.systemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: Capsule())
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .accessibilityIdentifier("trip-notice")
+                }
+                VersionPreviewBanner(model: versions)
+                    .frame(maxWidth: 560)
             }
         }
         .animation(.spring(duration: 0.35), value: model.notice)
+        .documentVersions(versions, presentsHistory: false) { restored in
+            guard let trip = restored.trip else { return }
+            model.restored(trip)
+            // The library card's title and text follow the document.
+            Task { if let item = try? await environment.api.summary(id: model.id) { environment.library.upsert(item) } }
+        }
+        .onChange(of: versions.showsHistory) { _, shows in
+            guard shows else { return }
+            versions.showsHistory = false
+            present(.versions)
+        }
+        .onChange(of: versions.preview) { _, preview in
+            if case .trip(let document) = preview?.content { model.preview(document) } else { model.preview(nil) }
+        }
+        .task(id: isOwner) { if isOwner { await versions.reload() } }
+        // Every save (here, by an agent or on another device) is a new version.
+        .onChange(of: model.trip?.revision) { old, new in
+            guard isOwner, old != nil, old != new else { return }
+            Task { await versions.reload() }
+        }
         .likeStatusOverlay($likeStatus, edge: .top)
         .task {
             await model.load()
@@ -318,7 +345,7 @@ struct TripDetailView: View {
                     .environment(\.tripReading, reading)
                     .environment(\.tripFlights, model.flights)
                     .environment(\.tripWeather, model.weather)
-                    .environment(\.tripPlaces, model.document?.places ?? [])
+                    .environment(\.tripPlaces, (model.previewDocument ?? model.document)?.places ?? [])
                     .environment(\.tripShowPlace, showPlace)
                     // Editors present from the diary sheet, over it.
                     .sheet(item: $activeSheet) { sheet in sheetContent(sheet) }
@@ -514,6 +541,11 @@ struct TripDetailView: View {
                     .accessibilityIdentifier("trip-share")
                 }
             }
+            if isOwner {
+                ToolbarItem(placement: .summaryTrailing) {
+                    VersionToolbarMenu(model: versions)
+                }
+            }
             ToolbarItem(placement: .summaryTrailing) {
                 Menu {
                     if model.displayDocument != nil {
@@ -545,6 +577,8 @@ struct TripDetailView: View {
                             .accessibilityIdentifier("trip-details")
                     }
                     if isOwner {
+                        Button { present(.versions) } label: { Label("Version History…", systemImage: "clock.arrow.circlepath") }
+                            .accessibilityIdentifier("trip-versions")
                         Button { present(.language) } label: { Label("Language…", systemImage: "translate") }
                             .accessibilityIdentifier("trip-language")
                         Button { confirmsCover = true } label: { Label("Generate Cover", systemImage: "wand.and.stars") }
@@ -730,7 +764,7 @@ struct TripDetailView: View {
         // Read-only sheets open for anyone; settings only for the owner; editors only for the trip as written.
         switch sheet {
         case .dayDetail, .transportDetail, .placeDetail, .places, .notes, .sources, .currency, .share: break
-        case .editSharing, .language: if !isOwner { return }
+        case .editSharing, .language, .versions: if !isOwner { return }
         default: if !canEdit { return }
         }
         // On iPhone the diary sheet presents editors; make sure it's up.
@@ -822,13 +856,15 @@ struct TripDetailView: View {
                     if let trip = model.trip {
                         DisplayLanguageSheet(api: environment.api, trip: trip) { updated in languageSaved(updated) }
                     }
+                case .versions:
+                    VersionHistorySheet(model: versions)
                 }
             }
             .environment(\.tripEditable, canEdit)
             .environment(\.tripReading, reading)
             .environment(\.tripFlights, model.flights)
             .environment(\.tripWeather, model.weather)
-            .environment(\.tripPlaces, model.document?.places ?? [])
+            .environment(\.tripPlaces, (model.previewDocument ?? model.document)?.places ?? [])
             .environment(\.tripShowPlace, showPlace)
         }
     }

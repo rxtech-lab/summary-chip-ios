@@ -20,6 +20,7 @@ final class TripEditorModel {
         case switchingLanguage
         case languageChanged
         case translatingInBackground
+        case restored
 
         var message: String {
             switch self {
@@ -34,6 +35,7 @@ final class TripEditorModel {
             case .switchingLanguage: String(localized: "Switching language…")
             case .languageChanged: String(localized: "Language changed")
             case .translatingInBackground: String(localized: "Translating — we'll notify you")
+            case .restored: String(localized: "Version restored")
             }
         }
 
@@ -44,6 +46,7 @@ final class TripEditorModel {
             case .coverUpdated, .agentDone, .calendarSynced, .calendarRemoved: "checkmark.circle"
             case .languageChanged: "translate"
             case .translatingInBackground: "hourglass"
+            case .restored: "clock.arrow.circlepath"
             }
         }
 
@@ -68,6 +71,8 @@ final class TripEditorModel {
     private(set) var planSelections: [String: String] = [:]
     /// The trip as the user follows it: only the picked plan options' days, stays, transport and costs.
     private(set) var displayDocument: TripDocument?
+    /// A past version's document shown read-only instead of the trip (from the toolbar's version menu).
+    private(set) var previewDocument: TripDocument?
 
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var pendingFlightsTask: Task<Void, Never>?
@@ -85,7 +90,27 @@ final class TripEditorModel {
     private func apply(_ trip: Trip) {
         self.trip = trip
         if let selections = trip.planSelections { planSelections = selections }
-        displayDocument = trip.document.following(planSelections)
+        showDocument()
+    }
+
+    /// What's shown follows the picked plan options, of the previewed version or of the trip.
+    private func showDocument() {
+        displayDocument = (previewDocument ?? trip?.document)?.following(planSelections)
+    }
+
+    /// Shows a past version's document in place of the trip, or the trip again with nil.
+    func preview(_ document: TripDocument?) {
+        previewDocument = document
+        showDocument()
+    }
+
+    /// A version was restored: show the trip as restored.
+    func restored(_ trip: Trip) {
+        previewDocument = nil
+        apply(trip)
+        show(.restored)
+        Task { await loadFlights() }
+        Task { await loadWeather() }
     }
 
     /// Follows another option of a plan at once and returns the save of the pick for the user; when
@@ -112,7 +137,7 @@ final class TripEditorModel {
 
     private func follow(_ selections: [String: String]) {
         planSelections = selections
-        if let trip { displayDocument = trip.document.following(selections) }
+        showDocument()
     }
 
     func load() async {

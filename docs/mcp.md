@@ -62,8 +62,8 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 
 | Scope | Tools |
 |---|---|
-| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `get_upload` |
-| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source` |
+| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `get_upload`, `list_versions`, `get_version` |
+| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `restore_version`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
 An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
@@ -188,6 +188,9 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `get_upload` | Checks a completed upload belongs to the caller and returns a temporary download URL. Free. | `getUpload` |
 | `upload_trip_image` | Stores a photo (copied from a URL, base64, or an owned upload) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
 | `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
+| `list_versions` | A chip's or trip's saved versions, newest first (number, who saved it, when, title). | `listVersions` (as `GET /api/v1/summaries/:id/versions`) |
+| `get_version` | One version with its content (a chip's text, or a trip's document). | `getVersion` (as `GET /api/v1/summaries/:id/versions/:version`) |
+| `restore_version` | Saves an earlier version's content as the newest version. Free. | `restoreVersion` (as `POST …/versions/:version/restore`) |
 
 `search_summaries` and `list_summaries` accept the same filters: `source` (`web`, `x`, `facebook`,
 `youtube`, `github`, `pdf`, `text`), `category`, `tag`, `visibility` (`public` / `private`), `kind`

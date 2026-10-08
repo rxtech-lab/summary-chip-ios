@@ -14,7 +14,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
+import { documentVersions, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -36,6 +36,7 @@ import { reserveDocumentPoints, settleUsage, type ChatCharge } from "@/lib/subsc
 import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
+import { summaryContent, versionStatements, type VersionContent, type VersionOptions } from "./document-versions";
 import { findDuplicateChip } from "./duplicates";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, relevance } from "./search";
@@ -429,8 +430,8 @@ type BatchStatement = Parameters<Database["batch"]>[0][number];
 
 /**
  * Saves a new summary under a fresh slug (retrying collisions) with its tags, attached upload,
- * `extra` rows that belong to it (a trip's document) and embedding. On failure its already-stored
- * images are deleted.
+ * `extra` rows that belong to it (a trip's document), its first version (`content`, the card's
+ * text unless given) and embedding. On failure its already-stored images are deleted.
  */
 export async function insertSummary(
   db: Database,
@@ -438,6 +439,7 @@ export async function insertSummary(
   base: Omit<SummaryRow, "slug">,
   embedding: Promise<SummaryEmbedding | null>,
   extra: () => BatchStatement[] = () => [],
+  content: VersionContent = summaryContent(base),
 ): Promise<SummaryRow> {
   const uploadKey = base.sourceFileKey;
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -451,6 +453,7 @@ export async function insertSummary(
           ? [db.update(uploads).set({ attachedAt: row.createdAt, summaryId: row.id }).where(eq(uploads.key, uploadKey))]
           : []),
         ...extra(),
+        ...versionStatements(db, row, content, { at: row.createdAt }),
       ]);
       await saveSummaryEmbedding(db, row.id, await embedding);
       return row;
@@ -696,7 +699,7 @@ export async function patchSummary(
   id: string,
   patch: PatchSummaryInput,
   /** `asWritten`: the edit is to the text as written, never to the translation the owner reads (agents). */
-  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & { billingEnvironment?: BillingEnvironmentResolver; asWritten?: boolean } = {},
+  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & VersionOptions & { billingEnvironment?: BillingEnvironmentResolver; asWritten?: boolean } = {},
 ): Promise<SummaryJson> {
   const existing = await getOwnedSummary(db, id, ownerId);
   const now = deps.now?.() ?? new Date();
@@ -758,11 +761,15 @@ export async function patchSummary(
     changes.tags = tags;
   }
   const tagsChanged = tags !== undefined && JSON.stringify(tags) !== JSON.stringify(existing.tags);
+  // A change to the card's text is a new version; sharing and reading language aren't.
+  const content = summaryContent({ ...existing, ...changes });
+  const versioned = existing.kind === "summary" && JSON.stringify(content) !== JSON.stringify(summaryContent(existing));
   const statements = [
     db.update(summaries).set(changes).where(eq(summaries.id, existing.id)),
     ...(tags !== undefined ? [db.delete(summaryTags).where(eq(summaryTags.summaryId, existing.id))] : []),
     ...(tags?.length ? [db.insert(summaryTags).values(tags.map((tag) => ({ summaryId: existing.id, tag })))] : []),
     ...(tagsChanged ? [db.update(summaryTranslations).set({ tags: null }).where(eq(summaryTranslations.summaryId, existing.id))] : []),
+    ...(versioned ? versionStatements(db, existing, content, { at: now, actor: deps.actor, restoredFrom: deps.restoredFrom }) : []),
   ] as const;
   await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
   await deleteObjects(store, retiredKeys);
@@ -848,6 +855,7 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
     db.delete(summaryLikes).where(inArray(summaryLikes.summaryId, ids)),
     db.delete(summaryEmbeddings).where(inArray(summaryEmbeddings.summaryId, ids)),
     db.delete(summaryTranslations).where(inArray(summaryTranslations.summaryId, ids)),
+    db.delete(documentVersions).where(inArray(documentVersions.summaryId, ids)),
     db.delete(trips).where(inArray(trips.summaryId, ids)),
     db.delete(summaries).where(inArray(summaries.id, ids)),
     ...(fileKeys.length ? [db.delete(uploads).where(inArray(uploads.key, fileKeys))] : []),

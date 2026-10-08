@@ -90,6 +90,9 @@ summary_translations(summary_id, language, title, summary, highlights JSON[],
   created_at, updated_at)                        -- one per summary and translation language
 trips(summary_id PK FK summaries ON DELETE CASCADE, document JSON (TripDocument, docs/trips.md),
   revision (bumped on every save; optimistic concurrency), start_date, end_date, updated_at)
+document_versions(summary_id FK summaries ON DELETE CASCADE, version (1, 2, … per item), kind,
+  content JSON (a summary's title/summary/highlights/category/tags/keywords, or a trip's { document }),
+  actor 'owner' | 'agent' | 'chat' | 'source' | 'restore', restored_from, created_at)  -- latest 100 per item
 api_keys(id, owner_id FK users, name, key_hash UNIQUE (sha-256), hint, tool_call_count,
   summaries_added_count, last_used_at, created_at)  -- MCP API keys
 summaries_fts  FTS5(title, summary, highlights, tags, keywords, category, site_name)
@@ -280,6 +283,28 @@ returns saved translations at once and translates the rest after the response, m
 `translationPending`. The kept source document is translated after the response the first time a
 translation is read (the first ~120k characters; the rest stays in the original language). The
 clients send `Accept-Language` from the system's preferred languages.
+
+### Versions
+
+Every library item keeps its history, whatever its kind (`lib/services/document-versions.ts` says
+what each kind saves; a new kind adds its content there and its restore in `versions.ts`). Version 1
+is the item as created (or, for items from before versions, as it was when they arrived); each save
+that changes its content adds the next one, in the same batch as the save, so a trip save refused by
+its revision check adds none. Sharing, link lifetime, reading language and the cover aren't
+versioned. Only the latest 100 versions are kept. Versions are the owner's only.
+
+* `GET /summaries/:id/versions?cursor&limit` → `{ items: [{ version, kind, actor, restoredFrom,
+  createdAt, title, isCurrent }], nextCursor }`, newest first (`limit` ≤ 100, default 50).
+* `GET /summaries/:id/versions/:version` → the same fields plus `content` (a trip's `document` gets
+  the stored defaults like `GET /trips/:id`).
+* `POST /summaries/:id/versions/:version/restore` → `{ version, summary, trip }`: the content is
+  saved as a new version (`actor: "restore"`, `restoredFrom`), so a restore can be undone the same
+  way. The item comes back under its kind's key (the other is `null`); `version` is `null` when it
+  already matched. A trip is restored over its latest revision (bumping it) and its derived
+  summary text, flights, weather and reminders follow like any save.
+
+`actor` says who saved it: `owner` (the app), `agent` (MCP), `chat` (the in-app chat), `source`
+(the trip agent reading a shared page) or `restore`.
 
 ### Create body
 

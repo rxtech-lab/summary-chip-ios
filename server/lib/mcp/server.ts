@@ -15,6 +15,7 @@ import { getOwnedSummary, importSummary, listSummaries, patchSummary } from "@/l
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
 import { createUpload, getUpload } from "@/lib/services/uploads";
+import { getVersion, listVersions, restoreVersion } from "@/lib/services/versions";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 
@@ -33,6 +34,9 @@ export const TOOL_NAMES = {
   getUpload: "get_upload",
   addToTripFromSource: "add_to_trip_from_source",
   choosePlanOption: "choose_plan_option",
+  listVersions: "list_versions",
+  getVersion: "get_version",
+  restoreVersion: "restore_version",
   getProfile: "get_profile",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
@@ -51,7 +55,8 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "directly to that URL with the returned headers before expiresAt, then get_upload returns a temporary download URL "
   + "or upload_trip_image consumes the uploadKey to make a lasting trip photo. Unattached raw uploads are cleaned up "
   + "after 24 hours. add_to_trip_from_source lets Chippy's trip agent "
-  + "add a web page or text (a booking, a timetable) to a trip, which costs points.";
+  + "add a web page or text (a booking, a timetable) to a trip, which costs points. Every edit of a chip's text or a trip saves "
+  + "a version: list_versions and get_version read the history, restore_version brings an earlier version back (free).";
 
 export interface McpContext {
   db: Database;
@@ -283,7 +288,7 @@ export function createMcpServer(context: McpContext): McpServer {
     if (Object.values(patch).every((value) => value === undefined)) return { result: failure("Nothing to change: pass at least one field.") };
     const existing = await getOwnedSummary(db, args.summaryId, principal.sub);
     if (existing.kind === "trip") return { result: failure("This is a trip: edit it with update_trip.") };
-    const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true });
+    const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true, actor: "agent" });
     return { result: success({ summary: chipPayload(summary) }, `Updated "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`) };
   }));
 
@@ -389,7 +394,7 @@ export function createMcpServer(context: McpContext): McpServer {
     annotations: { title: "Update Trip", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.updateTrip, async () => {
     const input = tripOperationsRequestSchema.parse({ operations: args.operations, revision: args.revision });
-    const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
+    const trip = await applyTripOperations(db, principal.sub, args.tripId, input, { actor: "agent" });
     return { result: success({ trip: tripPayload(trip) }, `Updated "${trip.document.title}" (revision ${trip.revision}).`) };
   }));
 
@@ -409,6 +414,53 @@ export function createMcpServer(context: McpContext): McpServer {
   }, (args) => run(TOOL_NAMES.choosePlanOption, async () => {
     const { planSelections } = await selectPlanOption(db, principal.sub, args.tripId, { planId: args.planId, optionId: args.optionId });
     return { result: success({ planSelections }, `Now following ${args.optionId ?? "the default option"} for plan ${args.planId}.`) };
+  }));
+
+  const itemId = z.string().trim().min(1).max(100).describe("The chip's or trip's id.");
+  const versionNumber = z.number().int().min(1).describe("The version number, from list_versions.");
+
+  server.registerTool(TOOL_NAMES.listVersions, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.listVersions) },
+    title: "List Versions",
+    description: "List the saved versions of one of the user's own chips or trips, newest first: version number, who saved it "
+      + "(owner in the app, agent over MCP, chat, source for the trip agent, restore), when, and the title then. Each edit of "
+      + "a chip's text or a trip's document is a version; sharing and language changes aren't. The latest 100 are kept.",
+    inputSchema: {
+      id: itemId,
+      cursor: z.string().max(20).optional().describe("nextCursor from a previous list_versions call, for older versions."),
+    },
+    annotations: { title: "List Versions", readOnlyHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.listVersions, async () => {
+    const page = await listVersions(db, principal.sub, args.id, { cursor: args.cursor, limit: 20 });
+    return { result: success(page) };
+  }));
+
+  server.registerTool(TOOL_NAMES.getVersion, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getVersion) },
+    title: "Get Version",
+    description: "Read one saved version of the user's chip or trip with its content: a chip's title, summary, highlights "
+      + "(key points), category, tags and keywords, or a trip's full document. Use it to compare with the current one.",
+    inputSchema: { id: itemId, version: versionNumber },
+    annotations: { title: "Get Version", readOnlyHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.getVersion, async () => {
+    return { result: success({ version: await getVersion(db, principal.sub, args.id, args.version) }) };
+  }));
+
+  server.registerTool(TOOL_NAMES.restoreVersion, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.restoreVersion) },
+    title: "Restore Version",
+    description: "Bring back an earlier version of the user's chip or trip: its content is saved as a new version, so the "
+      + "restore can be undone the same way. Sharing, language and cover don't change. Only call it when the user asks. Free.",
+    inputSchema: { id: itemId, version: versionNumber },
+    annotations: { title: "Restore Version", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.restoreVersion, async () => {
+    const restored = await restoreVersion(db, principal.sub, args.id, args.version, { billingEnvironment: async () => context.billingEnvironment });
+    const title = restored.trip?.document.title ?? restored.summary?.title ?? "";
+    const payload = { version: restored.version, ...(restored.trip ? { trip: tripPayload(restored.trip) } : { summary: restored.summary && chipPayload(restored.summary) }) };
+    const text = restored.version
+      ? `Restored "${title}" to version ${args.version} (now version ${restored.version.version}).`
+      : `"${title}" already matches version ${args.version}; nothing changed.`;
+    return { result: success(payload, text) };
   }));
 
   server.registerTool(TOOL_NAMES.updatePlace, {
@@ -436,7 +488,7 @@ export function createMcpServer(context: McpContext): McpServer {
       operations: [{ op: "update_place", id: args.placeId, changes: args.changes ?? {}, addPhotos: args.addPhotos ?? [] }],
       revision: args.revision,
     });
-    const trip = await applyTripOperations(db, principal.sub, args.tripId, input);
+    const trip = await applyTripOperations(db, principal.sub, args.tripId, input, { actor: "agent" });
     const place = trip.document.places.find((candidate) => candidate.id === args.placeId);
     return { result: success({ place, revision: trip.revision }, `Updated "${place?.name ?? args.placeId}" (revision ${trip.revision}).`) };
   }));
