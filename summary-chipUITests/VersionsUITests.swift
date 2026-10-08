@@ -18,7 +18,8 @@ nonisolated final class VersionsUITests: XCTestCase {
         app.staticTexts[title].firstMatch.tap()
 
         tapToolbarItem(app, id: "version-menu")
-        let first = app.descendants(matching: .any)["version-menu-1"].firstMatch
+        // Menu toggles drop their accessibility identifier on iOS, so match the row by its label.
+        let first = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "version-menu-1", "Version 1,")).firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 5))
         capture(app, name: "versions-01-menu")
         first.tap()
@@ -31,7 +32,8 @@ nonisolated final class VersionsUITests: XCTestCase {
         capture(app, name: "versions-02-previewing")
 
         app.buttons["version-banner-restore"].tap()
-        let confirm = app.buttons.matching(NSPredicate(format: "label == %@", "Restore")).element(boundBy: 0)
+        // The banner's own button is also labelled "Restore"; pick the dialog's.
+        let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Restore", "version-banner-restore")).firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         capture(app, name: "versions-03-confirm")
         confirm.tap()
