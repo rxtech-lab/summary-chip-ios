@@ -343,3 +343,11 @@ Flight segments in trips are tracked by a Vercel Workflow per flight (`workflows
 which polls AeroDataBox, stores the result, sends delay/gate/boarding/landing alerts and drives the
 flight Live Activity. Apps only read the stored copy. Set `AERODATABOX_API_KEY` and apply the
 `flights` migration; see [flight tracking](../docs/flights.md).
+
+## Trip weather
+
+Each trip that isn't over has a Vercel Workflow (`workflows/track-trip-weather.ts`) that fetches
+Open-Meteo forecasts for the places of its days, sends tomorrow's weather at 20:00 the evening
+before each day, and alerts when the next 30 minutes turn bad. Apps only read the stored copy.
+Apply the `trip_weather` migration; set `OPEN_METEO_API_KEY` for commercial use. See
+[trip weather](../docs/weather.md).

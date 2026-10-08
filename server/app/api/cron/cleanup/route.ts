@@ -5,6 +5,7 @@ import { getAiProvider } from "@/lib/ai/provider";
 import { runCleanup } from "@/lib/services/cleanup";
 import { backfillEmbeddings } from "@/lib/services/embeddings";
 import { deleteStaleFlights, resumeFlightTracking } from "@/lib/services/flights";
+import { resumeWeatherTracking } from "@/lib/services/weather";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
       // Safety net for flight tracker runs that died; and lookups nobody tracks, long past.
       flightTracking: await resumeFlightTracking(db),
       staleFlights: await deleteStaleFlights(db),
+      // And for trip weather runs that died.
+      weatherTracking: await resumeWeatherTracking(db),
     };
     console.log(`[cron] cleanup ${JSON.stringify(report)}`);
     return Response.json({ ok: true, ...report }, { headers: { "cache-control": "no-store" } });

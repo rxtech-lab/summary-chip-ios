@@ -26,6 +26,7 @@ import { reserveTripAgentPoints, settleUsage, type ChatCharge } from "@/lib/subs
 import { selectCoverTheme } from "./cover-colors";
 import { embedSummary, indexSummary } from "./embeddings";
 import { syncTripFlights } from "./flights";
+import { syncTripWeather } from "./weather";
 import { queueTripChangesStatement, startTripNotification } from "./trip-notifications";
 import { shareUrlFor } from "./serialize";
 import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, resolveDeps, type ServiceDeps } from "./summaries";
@@ -353,6 +354,7 @@ export async function createTrip(db: Database, principal: ApiPrincipal, input: C
     updatedAt: createdAt,
   }, embedding, () => [db.insert(trips).values(tripRow)]);
   runAfter(() => syncTripFlights(db, id, principal.sub, document));
+  runAfter(() => syncTripWeather(db, id, document));
   return toTripJson(row, tripRow, principal.sub);
 }
 
@@ -431,6 +433,8 @@ async function saveDocument(
   runAfter(() => indexSummary(db, ai, updated));
   // Flights added, changed or removed start or stop being tracked.
   runAfter(() => syncTripFlights(db, summary.id, summary.ownerId, document));
+  // So do the trip's weather forecasts (new places, new dates).
+  runAfter(() => syncTripWeather(db, summary.id, document));
   return toTripJson(updated, { ...trip, document, revision, startDate: document.startDate, endDate: document.endDate, updatedAt }, summary.ownerId);
 }
 

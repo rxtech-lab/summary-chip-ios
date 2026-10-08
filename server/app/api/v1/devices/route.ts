@@ -3,6 +3,7 @@ import { z } from "zod";
 import { pushDevices } from "@/lib/db/schema";
 import { readJson } from "@/lib/http/errors";
 import { withApiAuth } from "@/lib/http/handler";
+import { isTimeZone } from "@/lib/weather/schedule";
 
 export const runtime = "nodejs";
 const installation = z.object({ installationId: z.uuid() }).strict();
@@ -11,6 +12,8 @@ const registration = installation.extend({
   token: z.string().regex(/^(?:[a-fA-F0-9]{2}){16,256}$/).transform((value) => value.toLowerCase()),
   environment: z.enum(["sandbox", "production"]),
   platform: z.enum(["ios", "macos"]),
+  // Where the device is, so trip weather alerts arrive at the right local time. Older apps omit it.
+  timeZone: z.string().trim().max(64).refine(isTimeZone, "must be an IANA time zone").optional(),
 }).strict();
 
 export async function POST(request: Request) {

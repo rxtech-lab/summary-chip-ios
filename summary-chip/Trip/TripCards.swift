@@ -348,6 +348,8 @@ struct TripDayCard: View, Equatable {
                 TripEditButton(title: String(localized: "Edit day"), action: onEdit)
             }
 
+            TripDayWeatherRow(day: day, title: day.title)
+
             ForEach(plans) { plan in
                 TripPlanPicker(plan: plan, selectedID: plan.selectedOptionID(in: planSelections), embedded: true) { option in
                     onSelectPlanOption(plan, option)
@@ -521,6 +523,7 @@ struct TripDayDetailSheet: View {
     var onSelectPlanOption: (TripPlan, TripPlanOption) -> Void = { _, _ in }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tripEditable) private var editable
+    @Environment(\.tripWeather) private var weather
 
     private var accent: Color { TripStyle.color(for: day.route?.kind) }
 
@@ -551,6 +554,12 @@ struct TripDayDetailSheet: View {
                             .font(.body)
                             .lineSpacing(3)
                             .textSelection(.enabled)
+                    }
+
+                    if let dayWeather = weather.day(id: day.id, date: day.date), dayWeather.primary != nil {
+                        section("Weather") {
+                            TripDayWeatherList(dayWeather: dayWeather)
+                        }
                     }
 
                     if !day.moments.isEmpty {

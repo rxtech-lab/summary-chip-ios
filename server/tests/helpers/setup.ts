@@ -15,6 +15,9 @@ import { finishTripTranslation, runTripTranslationPass, type TripTranslationJob 
 import { MemoryObjectStore, setObjectStoreForTests } from "@/lib/storage/r2";
 import { setTripTranslatorForTests } from "@/lib/trips/translator";
 import { setTripNotifierForTests } from "@/lib/trips/notifier";
+import { MockWeatherProvider } from "@/lib/weather/mock";
+import { setWeatherProviderForTests } from "@/lib/weather/provider";
+import { setWeatherTrackerForTests, type WeatherTracker } from "@/lib/weather/tracker";
 
 export const ISSUER = "https://auth.test.example";
 export const CLIENT_ID = "ios-test-client";
@@ -38,6 +41,8 @@ export interface TestEnv {
   ai: MockAiProvider;
   /** Records the flights whose tracking workflow was started (no workflow runtime in tests). */
   tracker: FlightTracker & { started: string[] };
+  /** Records the trips whose weather workflow was started. */
+  weatherTracker: WeatherTracker & { started: string[] };
   /** Background trip translations, run in place of the workflow by `runTripTranslations()`. */
   tripTranslations: TripTranslationJob[];
   /** Runs the queued trip translations like `workflows/translate-trip.ts` does (one pass each). */
@@ -66,6 +71,10 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   const started: string[] = [];
   const tracker = { started, start: async (flightId: string) => { started.push(flightId); return `run-${started.length}`; }, isActive: async () => true };
   setFlightTrackerForTests(tracker);
+  setWeatherProviderForTests(new MockWeatherProvider());
+  const weatherStarted: string[] = [];
+  const weatherTracker = { started: weatherStarted, start: async (tripId: string) => { weatherStarted.push(tripId); return `weather-run-${weatherStarted.length}`; }, isActive: async () => true };
+  setWeatherTrackerForTests(weatherTracker);
   const tripTranslations: TripTranslationJob[] = [];
   setTripNotifierForTests({ start: async () => {} });
   setTripTranslatorForTests({ start: async (job) => { tripTranslations.push(job); } });
@@ -78,6 +87,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
     store,
     ai,
     tracker,
+    weatherTracker,
     tripTranslations,
     runTripTranslations,
     tokens,
@@ -90,6 +100,8 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setHostResolverForTests(undefined);
       setFlightProviderForTests(undefined);
       setFlightTrackerForTests(undefined);
+      setWeatherProviderForTests(undefined);
+      setWeatherTrackerForTests(undefined);
       setTripTranslatorForTests(undefined);
       setTripNotifierForTests(undefined);
       handle.close();
