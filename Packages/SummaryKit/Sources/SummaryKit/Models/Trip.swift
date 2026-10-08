@@ -1,3 +1,6 @@
+// TODO: Split this file; it predates the SwiftLint size limits.
+// swiftlint:disable file_length
+
 import CoreLocation
 import Foundation
 

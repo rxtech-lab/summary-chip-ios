@@ -1,3 +1,6 @@
+// TODO: Split this file; it predates the SwiftLint size limits.
+// swiftlint:disable file_length type_body_length
+
 import MapKit
 import SummaryKit
 import SwiftUI

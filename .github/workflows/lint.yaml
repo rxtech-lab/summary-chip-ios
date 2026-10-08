@@ -1,0 +1,49 @@
+name: Lint
+
+# `make lint` on every push to any branch: SwiftLint size and complexity rules (.swiftlint.yml),
+# plus ESLint and the TypeScript typecheck for the server. Run the same checks locally with `make lint`.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift:
+    name: make lint-swift
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/realm/swiftlint:0.65.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install make
+        run: command -v make || (apt-get update && apt-get install -y --no-install-recommends make)
+
+      - name: SwiftLint
+        run: make lint-swift SWIFTLINT_FLAGS="--reporter github-actions-logging"
+
+  server:
+    name: make lint-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: server/package.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: bun install --frozen-lockfile
+
+      - name: ESLint and typecheck
+        run: make lint-server
