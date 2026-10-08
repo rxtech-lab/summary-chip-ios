@@ -8,6 +8,7 @@ import type { TripBriefingInput } from "./trip-briefing-agent";
 import type { TourNarrationInput, TourNarrationOptions } from "./tour-agent";
 import type { TourNarration } from "@/lib/contracts/tour";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
+import type { ReferenceInput, ReferenceTools, ReferenceVerdict } from "./reference-agent";
 import type { LlmSummary, LlmTranslation } from "./summary-schema";
 
 /** One model step of 10 input + 10 output tokens. */
@@ -24,6 +25,7 @@ export class MockAiProvider implements AiProvider {
     translateDocument: { markdown: string; to: TranslationLanguage }[];
     translateStrings: { texts: string[]; to: TranslationLanguage }[];
     findDuplicate: DuplicateInput[];
+    checkReference: ReferenceInput[];
     updateTrip: TripAgentInput[];
     summarizeTripChanges: TripChangeInput[];
     briefTripDay: TripBriefingInput[];
@@ -41,6 +43,7 @@ export class MockAiProvider implements AiProvider {
     translateDocument: [],
     translateStrings: [],
     findDuplicate: [],
+    checkReference: [],
     updateTrip: [],
     summarizeTripChanges: [],
     briefTripDay: [],
@@ -141,6 +144,21 @@ export class MockAiProvider implements AiProvider {
       if (sameContentStart(chip.content, input.text)) return { duplicateOf: id, reason: "Same content." };
     }
     return { duplicateOf: null, reason: "No chip shares the source, title or content." };
+  }
+
+  /**
+   * Opens the entry's link (a dead one is `link_not_found`); a title with "fabricated" in it is
+   * `reference_not_found`; anything else is verified.
+   */
+  async checkReference(input: ReferenceInput, tools: ReferenceTools): Promise<ReferenceVerdict | null> {
+    this.calls.checkReference.push(input);
+    if (input.url && !(await tools.openLink(input.url)).reachable) {
+      return { status: "error", issue: "link_not_found", message: `The link ${input.url} doesn't open.` };
+    }
+    if (/fabricated/i.test(input.fields.title ?? input.fields.text ?? "")) {
+      return { status: "error", issue: "reference_not_found", message: "No work with this title and these authors could be found." };
+    }
+    return { status: "verified", issue: null, message: "Found the work as described." };
   }
 
   /** What the trip agent answers; `null` from tests simulates a failed run. Default: a note with the source's start, and the source's URL. */

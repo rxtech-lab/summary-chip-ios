@@ -48,4 +48,15 @@ describe("cover colors", () => {
     expect(prompt).toContain("NO text of any kind");
     expect(prompt).not.toContain("editorial illustration");
   });
+
+  it("draws papers as a text-free research-notebook page", () => {
+    const prompt = illustrationInstruction({
+      title: "Sparse attention", headline: "Sparse attention", summary: "Faster transformers", category: "Research",
+      keywords: ["transformers", "sparsity"], colors: [...COVER_PALETTES[0].colors], mode: "light", kind: "paper",
+    });
+    expect(prompt).toContain("research notebook");
+    expect(prompt).toContain("transformers, sparsity");
+    expect(prompt).toContain("NO text of any kind");
+    expect(prompt).not.toContain("editorial illustration");
+  });
 });

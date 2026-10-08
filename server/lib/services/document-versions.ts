@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { PaperDocument } from "@/lib/contracts/paper";
 import type { TripDocument } from "@/lib/contracts/trip";
 import type { Database } from "@/lib/db/client";
 import type { SummaryKind, SummaryRow, VersionActor } from "@/lib/db/schema";
@@ -10,6 +11,8 @@ import type { SummaryKind, SummaryRow, VersionActor } from "@/lib/db/schema";
 export interface VersionContentByKind {
   summary: Pick<SummaryRow, "title" | "summary" | "highlights" | "category" | "tags" | "keywords">;
   trip: { document: TripDocument };
+  /** A paper's title and LaTeX source; only what's saved as a version, never the autosaved working copy in between. */
+  paper: PaperDocument;
 }
 
 export type VersionContent = VersionContentByKind[SummaryKind];
@@ -21,6 +24,7 @@ export const MAX_DOCUMENT_VERSIONS = 100;
 export const VERSION_TITLE_PATHS: Record<SummaryKind, string> = {
   summary: "$.title",
   trip: "$.document.title",
+  paper: "$.title",
 };
 
 export function summaryContent(row: VersionContentByKind["summary"]): VersionContentByKind["summary"] {
@@ -29,6 +33,10 @@ export function summaryContent(row: VersionContentByKind["summary"]): VersionCon
 
 export function tripContent(document: TripDocument): VersionContentByKind["trip"] {
   return { document };
+}
+
+export function paperContent(paper: PaperDocument): VersionContentByKind["paper"] {
+  return { title: paper.title, files: paper.files, mainFile: paper.mainFile, compiler: paper.compiler };
 }
 
 export interface VersionOptions {

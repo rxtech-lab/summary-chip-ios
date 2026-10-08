@@ -14,7 +14,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { documentVersions, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
+import { documentVersions, papers, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -440,6 +440,7 @@ export async function insertSummary(
   embedding: Promise<SummaryEmbedding | null>,
   extra: () => BatchStatement[] = () => [],
   content: VersionContent = summaryContent(base),
+  versionOptions: VersionOptions = {},
 ): Promise<SummaryRow> {
   const uploadKey = base.sourceFileKey;
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -453,7 +454,7 @@ export async function insertSummary(
           ? [db.update(uploads).set({ attachedAt: row.createdAt, summaryId: row.id }).where(eq(uploads.key, uploadKey))]
           : []),
         ...extra(),
-        ...versionStatements(db, row, content, { at: row.createdAt }),
+        ...versionStatements(db, row, content, { ...versionOptions, at: row.createdAt }),
       ]);
       await saveSummaryEmbedding(db, row.id, await embedding);
       return row;
@@ -849,6 +850,11 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
   const ids = rows.map((row) => row.id);
   const fileKeys = rows.map((row) => row.sourceFileKey).filter((key): key is string => Boolean(key));
   await retireTranslatedCovers(db, store, ids);
+  // A paper's last compiled PDF goes with it.
+  const pdfKeys = (await db.select({ key: papers.pdfKey }).from(papers).where(inArray(papers.summaryId, ids)))
+    .map((row) => row.key).filter((key): key is string => Boolean(key));
+  // Includes removed images retained by paper versions and imports cancelled before saving.
+  const assetKeys = (await db.select({ key: uploads.key }).from(uploads).where(inArray(uploads.summaryId, ids))).map((row) => row.key);
   await db.batch([
     db.delete(summaryTags).where(inArray(summaryTags.summaryId, ids)),
     db.delete(summaryViews).where(inArray(summaryViews.summaryId, ids)),
@@ -857,10 +863,12 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
     db.delete(summaryTranslations).where(inArray(summaryTranslations.summaryId, ids)),
     db.delete(documentVersions).where(inArray(documentVersions.summaryId, ids)),
     db.delete(trips).where(inArray(trips.summaryId, ids)),
+    db.delete(papers).where(inArray(papers.summaryId, ids)),
     db.delete(summaries).where(inArray(summaries.id, ids)),
+    db.delete(uploads).where(inArray(uploads.summaryId, ids)),
     ...(fileKeys.length ? [db.delete(uploads).where(inArray(uploads.key, fileKeys))] : []),
   ]);
-  const keys = rows.flatMap((row) => [row.ogImageKey, row.artImageKey, row.sourceFileKey]).filter((key): key is string => Boolean(key));
+  const keys = [...new Set([...rows.flatMap((row) => [row.ogImageKey, row.artImageKey, row.sourceFileKey]), ...pdfKeys, ...assetKeys].filter((key): key is string => Boolean(key)))];
   const results = await Promise.allSettled(keys.map((key) => store.delete(key)));
   const objectFailures = results.filter((result) => result.status === "rejected").length;
   if (objectFailures) console.warn(`[summaries] ${objectFailures} object deletions failed`);

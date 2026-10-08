@@ -9,6 +9,7 @@ import type { SummaryJson } from "./serialize";
 import type { BillingEnvironmentResolver } from "./translations";
 import { VERSION_TITLE_PATHS, type VersionContent, type VersionContentByKind } from "./document-versions";
 import { getOwnedTrip, saveDocument, validDocument, withStoredDefaults, type TripJson } from "./trips";
+import { restorePaper, type PaperJson } from "./papers";
 
 /** One row of `GET /api/v1/summaries/:id/versions`. */
 export interface VersionJson {
@@ -34,6 +35,7 @@ export interface RestoreJson {
   version: VersionJson | null;
   summary: SummaryJson | null;
   trip: TripJson | null;
+  paper: PaperJson | null;
 }
 
 export const DEFAULT_VERSION_PAGE = 50;
@@ -107,7 +109,7 @@ async function findVersion(db: Database, summaryId: string, version: number): Pr
 function titleOf(row: DocumentVersionRow): string {
   return row.kind === "trip"
     ? (row.content as unknown as VersionContentByKind["trip"]).document?.title ?? ""
-    : (row.content as unknown as VersionContentByKind["summary"]).title ?? "";
+    : (row.content as unknown as VersionContentByKind["summary" | "paper"]).title ?? "";
 }
 
 /** One of the owner's versions with its content. */
@@ -116,7 +118,7 @@ export async function getVersion(db: Database, ownerId: string, id: string, vers
   const [row, current] = await Promise.all([findVersion(db, summary.id, version), latestVersion(db, summary.id)]);
   const content = row.kind === "trip"
     ? { document: withStoredDefaults((row.content as unknown as VersionContentByKind["trip"]).document) }
-    : row.content as unknown as VersionContentByKind["summary"];
+    : row.content as unknown as VersionContentByKind["summary" | "paper"];
   return { ...toVersionJson(row, titleOf(row), current), content };
 }
 
@@ -140,11 +142,15 @@ export async function restoreVersion(
   let result: Omit<RestoreJson, "version">;
   if (row.kind === "trip") {
     const document = validDocument(withStoredDefaults((row.content as unknown as VersionContentByKind["trip"]).document), "Restoring this version");
-    result = { summary: null, trip: await saveTripVersion(db, ownerId, id, document, { ...deps, ...restore }) };
+    result = { summary: null, paper: null, trip: await saveTripVersion(db, ownerId, id, document, { ...deps, ...restore }) };
+  } else if (row.kind === "paper") {
+    // Manual edits not saved as a version yet are saved first, so the restore can be undone to them.
+    result = { summary: null, trip: null, paper: await restorePaper(db, ownerId, id, row.content as unknown as VersionContentByKind["paper"], { ...deps, ...restore }) };
   } else {
     const content = row.content as unknown as VersionContentByKind["summary"];
     result = {
       trip: null,
+      paper: null,
       summary: await patchSummary(db, ownerId, id, {
         title: content.title,
         summary: content.summary,

@@ -124,15 +124,17 @@ public enum SummaryOrigin: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
-/// What a library item is: a summary card, or a trip diary (`/api/v1/trips/:id`, same id).
+/// What a library item is: a summary card, a trip diary (`/api/v1/trips/:id`, same id) or a
+/// LaTeX paper (`/api/v1/papers/:id`, same id).
 /// Mirrors `kind` in the contract; older payloads without it are summaries, unknown kinds decode as `.other`.
 public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
     case summary
     case trip
+    case paper
     case other(String)
 
     /// Every kind the server knows, in the order the library's filter lists them.
-    public static let known: [SummaryKind] = [.summary, .trip]
+    public static let known: [SummaryKind] = [.summary, .trip, .paper]
 
     public var id: String { rawValue }
 
@@ -140,6 +142,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         switch rawValue {
         case "summary": self = .summary
         case "trip": self = .trip
+        case "paper": self = .paper
         default: self = .other(rawValue)
         }
     }
@@ -148,6 +151,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         switch self {
         case .summary: "summary"
         case .trip: "trip"
+        case .paper: "paper"
         case .other(let raw): raw
         }
     }
@@ -165,6 +169,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         switch self {
         case .summary: String(localized: "Summaries", bundle: .module, comment: "Library kind filter: summary cards")
         case .trip: String(localized: "Trips", bundle: .module, comment: "Library kind filter: trip diaries")
+        case .paper: String(localized: "Papers", bundle: .module, comment: "Library kind filter: LaTeX papers")
         case .other(let raw): raw.capitalized
         }
     }
@@ -173,6 +178,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         switch self {
         case .summary: "text.quote"
         case .trip: "map"
+        case .paper: "doc.richtext"
         case .other: "doc"
         }
     }

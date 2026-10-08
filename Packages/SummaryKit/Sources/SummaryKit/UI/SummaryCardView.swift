@@ -45,8 +45,8 @@ public struct SummaryCardView: View {
                 .grayscale(summary.isExpired ? 1 : 0)
             VStack(alignment: .leading, spacing: compact ? 6 : 10) {
                 HStack(spacing: 6) {
-                    if summary.kind == .trip {
-                        TripKindBadge()
+                    if let badge = KindBadge(kind: summary.kind) {
+                        badge
                     } else {
                         Text(summary.sourceLabel)
                             .font(.caption.weight(.semibold))
@@ -164,25 +164,41 @@ public struct TranslationBadge: View {
     }
 }
 
-/// Marks a library item that opens as a trip diary.
-public struct TripKindBadge: View {
-    public init() {}
+/// Marks a library item that opens as a trip diary or a paper rather than a summary.
+public struct KindBadge: View {
+    let kind: SummaryKind
+
+    /// Nil for kinds that open as a plain summary and carry no badge.
+    public init?(kind: SummaryKind) {
+        guard kind == .trip || kind == .paper else { return nil }
+        self.kind = kind
+    }
 
     public var body: some View {
         Label {
-            Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
+            title
         } icon: {
-            Image(systemName: "map.fill")
+            Image(systemName: kind == .trip ? "map.fill" : "doc.richtext.fill")
         }
         .labelStyle(.titleAndIcon)
         .font(.caption.weight(.semibold))
         .foregroundStyle(.white)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(Color(red: 0.95, green: 0.5, blue: 0.35), in: Capsule())
+        .background(tint, in: Capsule())
         .lineLimit(1)
         .fixedSize()
-        .accessibilityIdentifier("trip-badge")
+        .accessibilityIdentifier("\(kind.rawValue)-badge")
+    }
+
+    private var title: Text {
+        kind == .trip
+            ? Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
+            : Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
+    }
+
+    private var tint: Color {
+        kind == .trip ? Color(red: 0.95, green: 0.5, blue: 0.35) : Color(red: 0.36, green: 0.42, blue: 0.85)
     }
 }
 
@@ -219,11 +235,11 @@ public struct SummaryTileView: View {
         case inset
         case hero
 
-        /// Stable per summary so a card keeps its look across launches and reloads. Trips always
-        /// show their cover, with the title laid over it.
+        /// Stable per summary so a card keeps its look across launches and reloads. Trips and papers
+        /// always show their cover, with the title laid over it.
         public static func style(for summary: Summary) -> Style {
             let hash = summary.id.unicodeScalars.reduce(UInt64(5381)) { ($0 &* 33) &+ UInt64($1.value) }
-            if summary.kind == .trip { return .hero }
+            if summary.kind == .trip || summary.kind == .paper { return .hero }
             switch hash % 5 {
             case 0, 1: return summary.summary.isEmpty ? .inset : .text
             case 2, 3: return .inset
@@ -348,8 +364,8 @@ public struct SummaryTileView: View {
     private func header(ink: Color, secondary: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
-                if summary.kind == .trip {
-                    TripKindBadge()
+                if let badge = KindBadge(kind: summary.kind) {
+                    badge
                         .padding(.trailing, 4)
                 }
                 if dateKind == .viewed {

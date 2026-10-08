@@ -203,21 +203,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             return json(version)
         case ("POST", "summaries", 5) where path[2] == "versions" && path[4] == "restore":
             guard let item = items.first(where: { $0.id == id && $0.isOwner }), let number = Int(path[3]) else { return notFound }
-            var history = versions(of: item)
-            guard history.indices.contains(number - 1), let content = history[number - 1]["content"] as? [String: Any] else { return notFound }
-            let added: [String: Any] = ["version": history.count + 1, "kind": "summary", "actor": "restore", "restoredFrom": number,
-                                        "createdAt": iso(.now), "content": content]
-            history.append(added)
-            versionHistory[item.id] = history
-            var restored = summary(item)
-            for key in ["title", "summary", "highlights", "category", "tags"] { restored[key] = content[key] }
-            restored["displayTags"] = content["tags"]
-            restored["displayCategory"] = content["category"]
-            var row = added
-            row["isCurrent"] = true
-            row["title"] = content["title"]
-            row.removeValue(forKey: "content")
-            return json(["version": row, "summary": restored, "trip": NSNull()])
+            return restore(item, to: number)
         case ("GET", "facets", 1):
             return json(["categories": [], "tags": []])
         case ("GET", "api-keys", 1):
@@ -234,6 +220,24 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         default:
             return notFound
         }
+    }
+
+    private func restore(_ item: Item, to number: Int) -> (Int, Data) {
+        var history = versions(of: item)
+        guard history.indices.contains(number - 1), let content = history[number - 1]["content"] as? [String: Any] else { return notFound }
+        let added: [String: Any] = ["version": history.count + 1, "kind": "summary", "actor": "restore", "restoredFrom": number,
+                                    "createdAt": iso(.now), "content": content]
+        history.append(added)
+        versionHistory[item.id] = history
+        var restored = summary(item)
+        for key in ["title", "summary", "highlights", "category", "tags"] { restored[key] = content[key] }
+        restored["displayTags"] = content["tags"]
+        restored["displayCategory"] = content["category"]
+        var row = added
+        row["isCurrent"] = true
+        row["title"] = content["title"]
+        row.removeValue(forKey: "content")
+        return json(["version": row, "summary": restored, "trip": NSNull()])
     }
 
     private func sortDate(_ item: Item, liked: Bool) -> Date {

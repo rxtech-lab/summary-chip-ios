@@ -9,6 +9,9 @@ import { setUserInfoFetcherForTests } from "@/lib/auth/userinfo";
 import { createDatabase, setDatabaseForTests, type DatabaseHandle } from "@/lib/db/client";
 import { setHostResolverForTests } from "@/lib/extract/ssrf";
 import { MockFlightProvider } from "@/lib/flights/mock";
+import { setLatexCompilerForTests } from "@/lib/latex/compiler";
+import { setReferenceQuietMsForTests } from "@/lib/services/paper-references";
+import { MockLatexCompiler } from "@/lib/latex/mock";
 import { setFlightProviderForTests } from "@/lib/flights/provider";
 import { setFlightTrackerForTests, type FlightTracker } from "@/lib/flights/tracker";
 import { finishTripTranslation, runTripTranslationPass, type TripTranslationJob } from "@/lib/services/trip-translations";
@@ -40,6 +43,8 @@ export interface TestEnv {
   handle: DatabaseHandle;
   store: MemoryObjectStore;
   ai: MockAiProvider;
+  /** Compiles every paper to a blank page; a `\\undefinedcommand` line is an error there. */
+  latex: MockLatexCompiler;
   /** Records the flights whose tracking workflow was started (no workflow runtime in tests). */
   tracker: FlightTracker & { started: string[] };
   /** Records the trips whose weather workflow was started. */
@@ -69,6 +74,10 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   setAiProviderForTests(ai);
   setHostResolverForTests(async (hostname) => (hostname.endsWith(".internal-test") ? ["10.0.0.5"] : ["93.184.216.34"]));
   setFlightProviderForTests(new MockFlightProvider());
+  const latex = new MockLatexCompiler();
+  setLatexCompilerForTests(latex);
+  // Autosaves check their references at once instead of after the typing pause.
+  setReferenceQuietMsForTests(0);
   const started: string[] = [];
   const tracker = { started, start: async (flightId: string) => { started.push(flightId); return `run-${started.length}`; }, isActive: async () => true };
   setFlightTrackerForTests(tracker);
@@ -88,6 +97,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
     handle,
     store,
     ai,
+    latex,
     tracker,
     weatherTracker,
     tripTranslations,
@@ -101,6 +111,8 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setUserInfoFetcherForTests(undefined);
       setHostResolverForTests(undefined);
       setFlightProviderForTests(undefined);
+      setLatexCompilerForTests(undefined);
+      setReferenceQuietMsForTests(undefined);
       setFlightTrackerForTests(undefined);
       setWeatherProviderForTests(undefined);
       setWeatherTrackerForTests(undefined);

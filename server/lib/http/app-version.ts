@@ -14,6 +14,8 @@ export const APP_PLATFORM_HEADER = "x-app-platform";
 export const FEATURE_MIN_APP_VERSIONS = {
   /** Trip diaries (`/api/v1/trips/*`, chat about a trip). */
   trips: "1.9.0",
+  /** LaTeX papers (`/api/v1/papers/*`). */
+  papers: "2.0.0",
 } as const satisfies Record<string, string>;
 
 export type AppFeature = keyof typeof FEATURE_MIN_APP_VERSIONS;

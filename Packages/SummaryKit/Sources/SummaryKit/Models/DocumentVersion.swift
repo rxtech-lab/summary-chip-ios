@@ -46,7 +46,7 @@ public enum DocumentVersionActor: Codable, Sendable, Hashable {
     }
 }
 
-/// One saved state of a summary's text or a trip's document (`GET /api/v1/summaries/:id/versions`).
+/// One saved state of a summary's text, a trip's document or a paper's LaTeX (`GET /api/v1/summaries/:id/versions`).
 /// Every content edit adds one; sharing, language and cover changes don't.
 public struct DocumentVersion: Codable, Sendable, Hashable, Identifiable {
     public var version: Int
@@ -107,6 +107,8 @@ public struct SummaryVersionContent: Codable, Sendable, Hashable {
 public enum DocumentVersionContent: Sendable, Hashable {
     case summary(SummaryVersionContent)
     case trip(TripDocument)
+    /// A paper's title and LaTeX project.
+    case paper(PaperSource)
     /// A kind this build doesn't know; it can be listed and restored, not shown.
     case unsupported
 }
@@ -132,6 +134,7 @@ public struct DocumentVersionDetail: Decodable, Sendable, Hashable, Identifiable
         switch info.kind {
         case .summary: content = .summary(try c.decode(SummaryVersionContent.self, forKey: .content))
         case .trip: content = .trip(try c.decode(TripContent.self, forKey: .content).document)
+        case .paper: content = .paper(try c.decode(PaperSource.self, forKey: .content))
         case .other: content = .unsupported
         }
     }
@@ -143,11 +146,13 @@ public struct DocumentVersionRestore: Decodable, Sendable, Hashable {
     public var version: DocumentVersion?
     public var summary: Summary?
     public var trip: Trip?
+    public var paper: Paper?
 
-    public init(version: DocumentVersion?, summary: Summary? = nil, trip: Trip? = nil) {
+    public init(version: DocumentVersion?, summary: Summary? = nil, trip: Trip? = nil, paper: Paper? = nil) {
         self.version = version
         self.summary = summary
         self.trip = trip
+        self.paper = paper
     }
 }
 

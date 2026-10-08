@@ -285,6 +285,13 @@ export default async function SummaryPage({ params, searchParams }: Props) {
           </ul>
         ) : null}
 
+        {row.kind === "paper" ? (
+          <a href={`/s/${slug}/paper.pdf`} target="_blank" rel="noopener" className="md-button mt-10" style={{ backgroundColor: accent, color: accentText }}>
+            Read the paper (PDF)
+            <span aria-hidden>↗</span>
+          </a>
+        ) : null}
+
         {href ? (
           <a
             href={href}

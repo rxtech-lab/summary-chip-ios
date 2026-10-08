@@ -69,18 +69,7 @@ struct SummaryDetailView: View {
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar {
-            // Ask on its own; like and share together; everything else waits in "More".
-            if allowsChat {
-                ToolbarItem(placement: .summaryTrailing) {
-                    Button {
-                        showsChat = true
-                    } label: {
-                        Label("Ask About This", systemImage: "sparkles")
-                    }
-                    .accessibilityIdentifier("ask-summary")
-                }
-                ToolbarSpacer(.fixed, placement: .summaryTrailing)
-            }
+            // Like and share together; everything else, including Ask, waits in "More".
             if summary.isOwner {
                 ToolbarItem(placement: .summaryTrailing) {
                     VersionToolbarMenu(model: versions)
@@ -180,6 +169,13 @@ struct SummaryDetailView: View {
 
     @ViewBuilder
     private var moreActions: some View {
+        if allowsChat {
+            Button { showsChat = true } label: {
+                Label("Ask About This", systemImage: "sparkles")
+            }
+            .accessibilityIdentifier("ask-summary")
+            Divider()
+        }
         if summary.hasSourceMarkdown {
             Button { showsSourceText = true } label: {
                 Label("Source Text", systemImage: "doc.plaintext")
@@ -285,7 +281,7 @@ struct SummaryDetailView: View {
 
 }
 
-/// The page a library item opens: a trip diary for trips, the summary detail otherwise.
+/// The page a library item opens: a trip diary for trips, the LaTeX editor for papers, the summary detail otherwise.
 struct SummaryDestination: View {
     let environment: AppEnvironment
     let summary: Summary
@@ -301,6 +297,8 @@ struct SummaryDestination: View {
                 title: summary.title,
                 onOpenTrip: onOpenTrip.map { action in { action(summary) } }
             )
+        } else if summary.kind == .paper {
+            PaperDetailView(environment: environment, paperID: summary.id, title: summary.title)
         } else {
             SummaryDetailView(environment: environment, summary: summary, allowsChat: allowsChat, onUpdate: onUpdate)
         }

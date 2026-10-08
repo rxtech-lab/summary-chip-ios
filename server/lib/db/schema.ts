@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { PaperCompiler, PaperFile, PaperReferenceIssue } from "@/lib/contracts/paper";
 import type { TripDocument } from "@/lib/contracts/trip";
 import type { ProviderFlight } from "@/lib/flights/provider";
 import type { NowcastAlertState } from "@/lib/weather/conditions";
@@ -11,8 +12,11 @@ export const SOURCE_TYPES = ["url", "webpage", "pdf", "text", "local"] as const;
 export const SUMMARY_SOURCES = ["web", "pdf", "text", "x", "facebook", "youtube", "github"] as const;
 export const IMAGE_STYLES = ["graphic", "illustration"] as const;
 export const VISIBILITIES = ["public", "private"] as const;
-/** What a library item is: a summary card, or a trip diary (its structured document lives in `trips`). */
-export const SUMMARY_KINDS = ["summary", "trip"] as const;
+/**
+ * What a library item is: a summary card, a trip diary (its structured document lives in `trips`)
+ * or a LaTeX paper (its source files live in `papers`).
+ */
+export const SUMMARY_KINDS = ["summary", "trip", "paper"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -251,6 +255,45 @@ export const trips = sqliteTable("trips", {
 });
 
 export type TripRow = typeof trips.$inferSelect;
+
+/**
+ * The LaTeX source of a `kind = "paper"` summary (1:1): the working copy the app autosaves to.
+ * `revision` counts saves, for optimistic concurrency between app autosaves and agent edits.
+ * `versionedRevision` is the revision the latest saved version holds; a higher `revision` means
+ * manual edits not saved as a version yet. `pdfKey`/`pdfHash` cache the working copy's last PDF.
+ */
+export const papers = sqliteTable("papers", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  files: text("files", { mode: "json" }).$type<PaperFile[]>().notNull(),
+  mainFile: text("main_file").notNull(),
+  compiler: text("compiler").$type<PaperCompiler>().notNull().default("pdflatex"),
+  revision: integer("revision").notNull().default(0),
+  versionedRevision: integer("versioned_revision").notNull().default(0),
+  pdfHash: text("pdf_hash"),
+  pdfKey: text("pdf_key"),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+export type PaperRow = typeof papers.$inferSelect;
+
+/**
+ * The check of one bibliography entry of a paper, keyed by a hash of the entry's content (not its
+ * key), so an entry is checked once until its content changes. Rows for entries the paper no
+ * longer has are pruned on save; an entry without a row hasn't been checked.
+ */
+export const paperReferenceChecks = sqliteTable("paper_reference_checks", {
+  summaryId: text("summary_id").notNull().references(() => papers.summaryId, { onDelete: "cascade" }),
+  hash: text("hash").notNull(),
+  status: text("status", { enum: ["checking", "verified", "error"] }).notNull().default("checking"),
+  issue: text("issue").$type<PaperReferenceIssue>(),
+  message: text("message"),
+  startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull().default(now),
+  checkedAt: integer("checked_at", { mode: "timestamp_ms" }),
+}, (table) => [
+  primaryKey({ columns: [table.summaryId, table.hash] }),
+]);
+
+export type PaperReferenceCheckRow = typeof paperReferenceChecks.$inferSelect;
 
 /** One pending batch per trip. Later saves extend its quiet period and final document. */
 export const tripNotificationBatches = sqliteTable("trip_notification_batches", {

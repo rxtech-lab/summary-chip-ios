@@ -173,11 +173,11 @@ export const regenerateImageSchema = z.object({ imageStyle: z.enum(IMAGE_STYLES)
 
 export const createUploadSchema = z.object({
   filename: z.string().trim().min(1).max(300),
-  mimeType: z.literal("application/pdf"),
+  mimeType: z.enum(["application/pdf", "image/png", "image/jpeg"]),
   byteSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
 });
 
-/** MCP uploads can stage any file; the app's upload route remains PDF-only. */
+/** MCP uploads can stage any file; the app accepts PDFs and LaTeX image formats. */
 export const createFileUploadSchema = createUploadSchema.extend({
   mimeType: z.string().trim().min(1).max(200).toLowerCase()
     .regex(/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/, "must be a MIME type without parameters"),
