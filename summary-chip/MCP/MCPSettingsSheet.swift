@@ -109,7 +109,7 @@ struct MCPSettingsSheet: View {
                 }
             }
         } footer: {
-            Text("AI agents such as Claude connect to this URL with an API key to add, search and list your summaries and trips. They act as your account, from any device, and added summaries count against your allowance.")
+            Text("AI agents such as Claude connect to this URL with an API key to add, search and list your summaries and trips. They act as your account, from any device. Summaries and trips they add are free and don't use your allowance or points.")
         }
     }
 

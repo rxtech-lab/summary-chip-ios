@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { ALLOWED_TTL_DAYS } from "@/lib/config";
-import { CATEGORIES, LIBRARY_SCOPES, importSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
+import { CATEGORIES, LIBRARY_SCOPES, importSummarySchema, patchSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { PLAN_GUIDE, VIEW_GUIDE } from "@/lib/ai/trip-agent";
 import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/http/errors";
 import { recordApiKeyUsage } from "@/lib/services/api-keys";
 import type { McpPrincipal } from "./oauth-tokens";
 import { authChallenge, securitySchemes, toolScope } from "./oauth-config";
-import { importSummary, listSummaries } from "@/lib/services/summaries";
+import { getOwnedSummary, importSummary, listSummaries, patchSummary } from "@/lib/services/summaries";
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
@@ -19,6 +19,7 @@ import type { BillingEnvironment } from "@/lib/subscription/config";
 
 export const TOOL_NAMES = {
   addSummary: "add_summary",
+  updateSummary: "update_summary",
   searchSummaries: "search_summaries",
   listSummaries: "list_summaries",
   listTrips: "list_trips",
@@ -36,8 +37,8 @@ export const MAX_LIST_RESULTS = 10;
 
 export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"chips\"). Use search_summaries to find chips by meaning "
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
-  + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and each "
-  + "added chip counts against the user's summary allowance. Trips are structured travel diaries (days, places, trains and "
+  + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding "
+  + "is free; update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
   + "flights, hotels, expenses, custom views such as a fare comparison table, and alternative plans such as route 1 / route 2 "
   + "for a day or the whole trip): list_trips and get_trip read them, create_trip saves a new TripDocument, update_trip applies "
   + "entity-level operations (upsert or delete records by id; free), choose_plan_option records which alternative the user "
@@ -194,7 +195,7 @@ export function createMcpServer(context: McpContext): McpServer {
     description: "Save a summary to the user's Chippy library, with its key points, tags and the raw source text. "
       + "Nothing is re-summarised: write the title, summary and key points yourself. The server designs the cover, indexes "
       + "the chip for search and returns the created summary with its share link. A chip already in the library (same "
-      + "source, title or content) is refused unless allowDuplicate is true. Counts as one summary against the user's allowance. "
+      + "source, title or content) is refused unless allowDuplicate is true. Free: it doesn't use the user's summary allowance or points. "
       + "Takes up to about 3 minutes.",
     inputSchema: {
       title: z.string().describe("Title of the chip, at most 200 characters."),
@@ -234,11 +235,50 @@ export function createMcpServer(context: McpContext): McpServer {
       visibility: args.visibility,
       allowDuplicate: args.allowDuplicate,
     });
-    const summary = await importSummary(db, principal, input, { billingEnvironment: context.billingEnvironment });
+    const summary = await importSummary(db, principal, input, { free: true });
     return {
       result: success({ summary: chipPayload(summary) }, `Added "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`),
       summaryAdded: true,
     };
+  }));
+
+  server.registerTool(TOOL_NAMES.updateSummary, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.updateSummary) },
+    title: "Update Summary",
+    description: "Change some fields of one of the user's own chips: title, summary, keyPoints (replaces the list), tags "
+      + "(replaces the list), keywords, category, visibility or ttlDays. Fields you leave out stay as they are. Write the "
+      + "text in the chip's language (its language field), as written; editing the summary or key points drops its "
+      + "translations, which are re-made on the next read. The cover isn't redesigned. Trips are edited with update_trip. Free.",
+    inputSchema: {
+      summaryId: z.string().trim().min(1).max(100).describe("The chip's id, from search_summaries or list_summaries."),
+      title: z.string().optional().describe("New title, at most 200 characters."),
+      summary: z.string().optional().describe("New summary, at most 1200 characters."),
+      keyPoints: z.array(z.string()).optional().describe("New key points; at most 5, each at most 300 characters."),
+      tags: z.array(z.string()).optional().describe("New tags; at most 12, lowercased by the server."),
+      keywords: z.array(z.string()).optional().describe("New search keywords; at most 10."),
+      category: z.enum(CATEGORIES).optional().describe("New category."),
+      visibility: z.enum(VISIBILITIES).optional().describe("public: anyone with the share link can open it. private: only the user."),
+      ttlDays: z.union([z.number().int(), z.literal("never")]).optional()
+        .describe(`How long the public link stays alive from now: ${ALLOWED_TTL_DAYS.join(", ")} days, or "never".`),
+    },
+    annotations: { title: "Update Summary", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.updateSummary, async () => {
+    // The PATCH route's own validation, so the limits and messages are the API's.
+    const patch = patchSummarySchema.parse({
+      title: args.title,
+      summary: args.summary,
+      highlights: args.keyPoints,
+      tags: args.tags,
+      keywords: args.keywords,
+      category: args.category,
+      visibility: args.visibility,
+      ttlDays: args.ttlDays === "never" ? null : args.ttlDays,
+    });
+    if (Object.values(patch).every((value) => value === undefined)) return { result: failure("Nothing to change: pass at least one field.") };
+    const existing = await getOwnedSummary(db, args.summaryId, principal.sub);
+    if (existing.kind === "trip") return { result: failure("This is a trip: edit it with update_trip.") };
+    const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true });
+    return { result: success({ summary: chipPayload(summary) }, `Updated "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`) };
   }));
 
   server.registerTool(TOOL_NAMES.searchSummaries, {
@@ -309,8 +349,7 @@ export function createMcpServer(context: McpContext): McpServer {
       + "timeZone, currency, places, days, transports, hotels, expenses, notes, sources, views, plans). Records reference each other by "
       + "id, and every referenced id must exist. "
       + `${PLAN_GUIDE} `
-      + "The trip appears in the user's library; it does not count against the "
-      + "summary allowance.",
+      + "The trip appears in the user's library. Free: it doesn't use the user's summary allowance or points.",
     inputSchema: {
       document: tripDocumentSchema.describe("The trip document."),
       visibility: z.enum(VISIBILITIES).optional().describe("private: only the user (default). public: anyone with the share link."),
