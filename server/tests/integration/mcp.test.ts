@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as apiKeysRoute from "@/app/api/v1/api-keys/route";
 import * as apiKeyRoute from "@/app/api/v1/api-keys/[id]/route";
 import * as mcpRoute from "@/app/api/mcp/route";
+import * as importRoute from "@/app/api/v1/summaries/import/route";
 import * as tripImageRoute from "@/app/api/public/trip-images/[file]/route";
 import type { TripDocument } from "@/lib/contracts/trip";
-import { apiKeys } from "@/lib/db/schema";
+import { apiKeys, summaries } from "@/lib/db/schema";
 import { hashApiKey, MAX_API_KEYS_PER_USER } from "@/lib/services/api-keys";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -19,6 +20,7 @@ beforeEach(async () => {
 afterEach(() => {
   env.teardown();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 async function createKey(name = "Claude Code", token = env.tokens.alice) {
@@ -42,6 +44,14 @@ async function callTool(key: string, name: string, args: Record<string, unknown>
   expect(response.status).toBe(200);
   const body = await response.json();
   return body.result as { isError?: boolean; content: { type: string; text: string }[]; structuredContent?: Record<string, unknown> };
+}
+
+/** What a chip's cover is made of: the designed art and card, their theme and headline. */
+async function coverOf(id: string) {
+  const [row] = await env.handle.db.select({
+    ogImageKey: summaries.ogImageKey, artImageKey: summaries.artImageKey, theme: summaries.theme, ogHeadline: summaries.ogHeadline,
+  }).from(summaries).where(eq(summaries.id, id));
+  return row;
 }
 
 const CHIP = {
@@ -135,7 +145,7 @@ describe("/api/mcp", () => {
 
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
-      "add_summary", "add_to_trip_from_source", "choose_plan_option", "create_trip", "get_profile", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_trip", "upload_trip_image",
+      "add_summary", "add_to_trip_from_source", "choose_plan_option", "create_trip", "get_profile", "get_trip", "list_summaries", "list_trips", "search_summaries", "update_place", "update_summary", "update_trip", "upload_trip_image",
     ]);
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
@@ -172,6 +182,37 @@ describe("/api/mcp", () => {
     expect(bobList.structuredContent).toMatchObject({ count: 0, items: [], nextCursor: null });
   });
 
+  it("adds chips and trips for free, without metering the allowance or points", async () => {
+    vi.stubEnv("SUMMARY_OG_REMOTE_ASSETS", "false");
+    vi.stubEnv("RX_SUBSCRIPTION_URL", "https://subscription.test");
+    vi.stubEnv("RX_SUBSCRIPTION_ENVIRONMENT", "sandbox");
+    vi.stubEnv("RX_SUBSCRIPTION_API_KEY", "rxs_sandbox_test-secret");
+    vi.stubEnv("RX_SUBSCRIPTION_PUBLISHABLE_KEY", "rxs_pk_sandbox_test-public");
+    // An allowance that is used up: anything metered would be refused.
+    const usage = vi.fn(async () => Response.json({ allowed: false }, { status: 402 }));
+    vi.stubGlobal("fetch", usage);
+    const { key, apiKey } = await createKey();
+
+    const added = await callTool(key, "add_summary", CHIP);
+    expect(added.isError).toBeFalsy();
+    const trip = await callTool(key, "create_trip", { document: {
+      title: "Weekend in Kyoto", startDate: "2027-04-03", endDate: "2027-04-04", timeZone: "Asia/Tokyo", currency: "JPY",
+      places: [{ id: "kyoto", name: "Kyoto", kind: "city", coordinate: { lat: 35.0116, lng: 135.7681 } }],
+      days: [{ id: "day-1", date: "2027-04-03", title: "Temples" }],
+    } });
+    expect(trip.isError).toBeFalsy();
+    expect(usage).not.toHaveBeenCalled();
+    const [row] = await env.handle.db.select().from(apiKeys).where(eq(apiKeys.id, apiKey.id));
+    expect(row.summariesAddedCount).toBe(1);
+
+    // The import API is still metered.
+    const imported = await importRoute.POST(apiRequest("POST", "/api/v1/summaries/import", {
+      token: env.tokens.alice, body: { ...CHIP, highlights: CHIP.keyPoints, keyPoints: undefined, title: "Other", allowDuplicate: true },
+    }));
+    expect(imported.status).toBe(402);
+    expect(usage).toHaveBeenCalledTimes(1);
+  });
+
   it("reports a duplicate as a tool error naming the existing chip", async () => {
     const { key, apiKey } = await createKey();
     await callTool(key, "add_summary", CHIP);
@@ -194,6 +235,40 @@ describe("/api/mcp", () => {
     expect(badTtl.isError).toBe(true);
     const missing = await callTool(key, "add_summary", { title: "No text" });
     expect(missing.isError).toBe(true);
+  });
+
+  it("updates only the owner's chip, keeping fields it isn't given", async () => {
+    const { key } = await createKey();
+    const added = await callTool(key, "add_summary", CHIP);
+    const id = (added.structuredContent as { summary: { id: string } }).summary.id;
+
+    const result = await callTool(key, "update_summary", {
+      summaryId: id, summary: "Monarchs migrate up to 4,000 km to Mexico.", keyPoints: ["Up to 4,000 km", "They winter in Mexico"],
+      tags: ["Monarchs"], category: "World", visibility: "private",
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("Updated \"Monarch migration\" (private).");
+    expect((result.structuredContent as { summary: Record<string, unknown> }).summary).toMatchObject({
+      id, title: CHIP.title, summary: "Monarchs migrate up to 4,000 km to Mexico.",
+      keyPoints: ["Up to 4,000 km", "They winter in Mexico"], tags: ["monarchs"], category: "World", visibility: "private",
+    });
+    const listed = await callTool(key, "list_summaries", { tag: "monarchs" });
+    expect(listed.structuredContent).toMatchObject({ count: 1, items: [{ id, category: "World" }] });
+
+    const empty = await callTool(key, "update_summary", { summaryId: id });
+    expect(empty.isError).toBe(true);
+    const tooMany = await callTool(key, "update_summary", { summaryId: id, keyPoints: ["1", "2", "3", "4", "5", "6"] });
+    expect(tooMany.content[0].text).toMatch(/^Invalid keyPoints: /);
+
+    const before = await coverOf(id);
+    expect(before.ogImageKey).toBeTruthy();
+    await callTool(key, "update_summary", { summaryId: id, title: "Monarchs head to Mexico", category: "Science", visibility: "public" });
+    // Edits never redesign the cover (going private above only moved it to fresh keys).
+    expect({ ...(await coverOf(id)), ogImageKey: undefined, artImageKey: undefined }).toEqual({ ...before, ogImageKey: undefined, artImageKey: undefined });
+
+    const bob = await createKey("Bob", env.tokens.bob);
+    const bobUpdate = await callTool(bob.key, "update_summary", { summaryId: id, title: "Mine now" });
+    expect(bobUpdate.isError).toBe(true);
   });
 
   it("lists and searches the library with filters and cursors", async () => {
@@ -289,6 +364,25 @@ describe("/api/mcp trip tools", () => {
     await callTool(key, "add_summary", CHIP);
     const trips = await callTool(key, "list_summaries", { kind: "trip" });
     expect(trips.structuredContent).toMatchObject({ count: 1, items: [{ id: trip.id }] });
+  });
+
+  it("keeps the trip's cover when the trip is edited", async () => {
+    const { key } = await createKey();
+    const tripId = ((await callTool(key, "create_trip", { document: TRIP })).structuredContent as { trip: { id: string } }).trip.id;
+    const before = await coverOf(tripId);
+    expect(before.ogImageKey).toBeTruthy();
+
+    const renamed = await callTool(key, "update_trip", { tripId, operations: [
+      { op: "set_meta", meta: { title: "Hokkaido snow and onsen" } },
+      { op: "upsert_day", day: { id: "day-2", date: "2027-02-02", title: "Otaru canal" } },
+    ] });
+    expect(renamed.isError).toBeFalsy();
+    const placed = await callTool(key, "update_place", { tripId, placeId: "sapporo", changes: { description: "Hokkaido's capital." } });
+    expect(placed.isError).toBeFalsy();
+
+    const [row] = await env.handle.db.select({ title: summaries.title }).from(summaries).where(eq(summaries.id, tripId));
+    expect(row.title).toBe("Hokkaido snow and onsen");
+    expect(await coverOf(tripId)).toEqual(before);
   });
 
   it("lays out alternative routes and records the user's pick", async () => {

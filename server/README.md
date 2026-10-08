@@ -122,7 +122,7 @@ app/
   api/cron/account-deletion         hourly: purge accounts whose deletion came due
 lib/
   auth/bearer.ts                    RxAuth JWT verification (JWKS, RS256, client_id allow list)
-  mcp/server.ts                     MCP tools: add_summary, search_summaries, list_summaries
+  mcp/server.ts                     MCP tools: add_summary, update_summary, search_summaries, list_summaries
   http/                             handler wrapper, error envelope, cron auth, app-version gating
   db/                               drizzle schema + libsql client
   extract/                          URL fetch (SSRF-guarded) + Cloudflare Browser Rendering, Readability/linkedom, unpdf

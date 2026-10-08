@@ -129,6 +129,11 @@ export const patchSummarySchema = z.object({
   ttlDays: ttlDaysSchema.optional(),
   title: z.string().trim().min(1).max(200).optional(),
   tags: z.array(tagSchema).max(12).optional(),
+  /** The card's text as written; changing summary or highlights drops its translations, re-made on the next read. */
+  summary: z.string().trim().min(1).max(1200).optional(),
+  highlights: z.array(z.string().trim().min(1).max(300)).max(5).optional(),
+  category: z.enum(CATEGORIES).optional(),
+  keywords: z.array(z.string().trim().min(1).max(60)).max(10).optional(),
   /** Owner only: the language to read the summary in from now on (translated on first use); null = as written. */
   displayLanguage: z.enum(TRANSLATION_LANGUAGES).nullable().optional(),
 }).strict();

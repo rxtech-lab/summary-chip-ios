@@ -1222,8 +1222,21 @@
         }
       }
     },
-    "AI agents such as Claude connect to this URL with an API key to add, search and list your summaries and trips. They act as your account, from any device, and added summaries count against your allowance." : {
-
+    "AI agents such as Claude connect to this URL with an API key to add, search and list your summaries and trips. They act as your account, from any device. Summaries and trips they add are free and don't use your allowance or points." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude 等 AI 智能体使用 API 密钥连接此 URL，即可添加、搜索和列出你的摘要和行程。它们以你的账户身份操作，可在任何设备上使用。它们添加的摘要和行程免费，不会计入你的额度，也不会扣除点数。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude 等 AI 代理程式使用 API 金鑰連接此 URL，即可新增、搜尋和列出你的摘要和行程。它們以你的帳號身分操作，可在任何裝置上使用。它們新增的摘要和行程免費，不會計入你的額度，也不會扣除點數。"
+          }
+        }
+      }
     },
     "AI agents such as Claude connect to this URL with an API key to add, search and list your summaries. They act as your account, from any device, and added summaries count against your allowance." : {
       "extractionState" : "stale",

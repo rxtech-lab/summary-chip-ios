@@ -63,7 +63,7 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 | Scope | Tools |
 |---|---|
 | `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip` |
-| `chippy:write` | `add_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `upload_trip_image`, `add_to_trip_from_source` |
+| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `update_place`, `choose_plan_option`, `upload_trip_image`, `add_to_trip_from_source` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
 An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
@@ -174,12 +174,13 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 
 | Tool | What it does | Service |
 |---|---|---|
-| `add_summary` | Saves a summary the agent wrote, with key points, tags and the raw source text. Nothing is re-summarised. | `importSummary` (as `POST /api/v1/summaries/import`) |
+| `add_summary` | Saves a summary the agent wrote, with key points, tags and the raw source text. Nothing is re-summarised. Free. | `importSummary` (as `POST /api/v1/summaries/import`) |
+| `update_summary` | Changes some fields of one of the user's own chips (title, summary, key points, tags, keywords, category, visibility, link lifetime). Free. | `patchSummary` (as `PATCH /api/v1/summaries/:id`) |
 | `search_summaries` | Natural-language search (meaning + keywords), most relevant first. Up to 50 per page. | `listSummaries` with `q` |
 | `list_summaries` | The library newest first, filtered. Up to 200 per call. | `listSummaries` |
 | `list_trips` | The user's trips, ongoing and upcoming first, then past ones. | `listTrips` (as `GET /api/v1/trips`) |
 | `get_trip` | A trip's full TripDocument and its revision. | `getTrip` |
-| `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance). | `createTrip` (as `POST /api/v1/trips`) |
+| `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance or points). | `createTrip` (as `POST /api/v1/trips`) |
 | `update_trip` | Applies operations (upsert/delete records by id, `set_meta`, `add_source`) in order, as one change. Free. | `applyTripOperations` (as `POST /api/v1/trips/:id/operations`) |
 | `choose_plan_option` | Records which option of a plan (route 1 / route 2…) the user follows; saved per user, the document doesn't change. Free. | `selectPlanOption` (as `PUT /api/v1/trips/:id/plan-selections`) |
 | `update_place` | Changes some of a place's details (description, photos, hours, prices, website, phone…) and appends photos, without resending the place. Free. | `applyTripOperations` with an `update_place` operation |
@@ -197,16 +198,26 @@ to get the next page. Each item has `id`, `title`, `summary`, `keyPoints`, `cate
 (≤ 12), `keywords` (≤ 10), `category`, `language`, `sourceUrl`, `sourceTitle`, `siteName`, `visibility`,
 `ttlDays` (`1`, `3`, `7`, `30`, `90`, `365` or `"never"`) and `allowDuplicate`. The arguments are checked
 with the import API's own schema, so the limits under [Import body](ARCHITECTURE.md#import-body) apply.
-Added chips always get an illustrated cover. Each one counts against the summary allowance. The account's
-devices with notifications on are alerted, the same as for the import API.
+Added chips always get an illustrated cover. They are free: unlike the import API, they don't use the summary
+allowance or points. The account's devices with notifications on are alerted, the same as for the import API.
 
 A chip that is already in the library (`409 DUPLICATE_SUMMARY`) comes back as a tool error. The message
-names the existing chip and its link, and suggests `allowDuplicate: true`. Other API errors, such as an
-allowance that is used up, come back as tool errors carrying the server's message and code.
+names the existing chip and its link, and suggests `allowDuplicate: true`. Other API errors come back as
+tool errors carrying the server's message and code.
+
+`update_summary` takes `summaryId` plus any of `title`, `summary`, `keyPoints`, `tags`, `keywords`,
+`category`, `visibility` and `ttlDays`; fields left out stay as they are, and lists replace the old ones.
+The arguments are checked with the `PATCH /api/v1/summaries/:id` schema. Edits go to the chip as written,
+never to the translation the owner reads; changing the title, summary or key points drops the chip's
+translations (and their covers), which are re-made on the next read. The cover itself isn't redesigned.
+Only the owner can update a chip, and trips are refused (use `update_trip`).
 
 ### Trip tools
 
 The trip format and its operations are specified in [trips.md](trips.md).
+
+A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update_place`,
+`add_to_trip_from_source`, `choose_plan_option`) update its title and text but never redesign the cover.
 
 - `list_trips` takes no arguments and returns `{count, trips: [{id, slug, title, subtitle, startDate, endDate, revision, updatedAt, dayCount, placeCount}]}`.
 - `get_trip` takes `tripId` and returns `{trip: {id, revision, visibility, shareUrl, updatedAt, document, planSelections}}` (`planSelections`: plan id → the option the user picked). Anyone may read

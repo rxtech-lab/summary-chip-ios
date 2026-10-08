@@ -497,7 +497,8 @@ export async function importSummary(
   db: Database,
   principal: ApiPrincipal,
   input: ImportSummaryInput,
-  deps?: ServiceDeps,
+  /** `free`: not charged to the allowance or points (chips added by the user's MCP agents). */
+  deps?: ServiceDeps & { free?: boolean },
 ): Promise<SummaryJson> {
   const { ai, store, now } = await resolveDeps(deps);
   const text = input.text.trim();
@@ -515,7 +516,7 @@ export async function importSummary(
     }
   }
   const id = crypto.randomUUID();
-  await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
+  if (!deps?.free) await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
   // The model designs the headline and emoji; the server assigns the palette below, including
   // when the model fails, so similar topics still get varied colors.
@@ -748,11 +749,26 @@ export async function patchSummary(
   ownerId: string,
   id: string,
   patch: PatchSummaryInput,
-  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & { billingEnvironment?: BillingEnvironmentResolver } = {},
+  /** `asWritten`: the edit is to the text as written, never to the translation the owner reads (agents). */
+  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & { billingEnvironment?: BillingEnvironmentResolver; asWritten?: boolean } = {},
 ): Promise<SummaryJson> {
   const existing = await getOwnedSummary(db, id, ownerId);
   const now = deps.now?.() ?? new Date();
   const changes: Partial<SummaryRow> = { updatedAt: now };
+  if (patch.summary !== undefined) changes.summary = patch.summary;
+  if (patch.highlights !== undefined) changes.highlights = patch.highlights;
+  if (patch.category !== undefined) changes.category = patch.category;
+  if (patch.keywords !== undefined) changes.keywords = [...new Set(patch.keywords)];
+  if (patch.title !== undefined && deps.asWritten) changes.title = patch.title;
+  // Translations of the old text would read stale: dropped, and re-made from the new text on the next read.
+  const textChanged = (changes.summary !== undefined && changes.summary !== existing.summary)
+    || (changes.highlights !== undefined && JSON.stringify(changes.highlights) !== JSON.stringify(existing.highlights))
+    || (changes.title !== undefined && changes.title !== existing.title);
+  const store = deps.store ?? getObjectStore();
+  if (textChanged) {
+    await retireTranslatedCovers(db, store, [existing.id]);
+    await db.delete(summaryTranslations).where(eq(summaryTranslations.summaryId, existing.id));
+  }
   if (patch.displayLanguage !== undefined) {
     // Reading it as written is stored as null, so a later edit of the original shows through.
     const language = patch.displayLanguage;
@@ -770,7 +786,7 @@ export async function patchSummary(
   if (existing.kind === "trip" && patch.displayLanguage !== undefined) await translateTrip(db, existing, language, translationPayer(existing, ownerId, deps.billingEnvironment), ai);
   // The owner edits the title they are reading: a translation's, or the original's.
   let renamedTranslation = false;
-  if (patch.title !== undefined && reading.translation && language) {
+  if (patch.title !== undefined && !deps.asWritten && reading.translation && language) {
     renamedTranslation = await renameTranslation(db, existing.id, language, patch.title, now);
     if (renamedTranslation) reading.translation = { ...reading.translation, title: patch.title, updatedAt: now };
   }
@@ -778,7 +794,6 @@ export async function patchSummary(
   if (patch.visibility !== undefined) changes.visibility = patch.visibility;
   // Going private: move the images to fresh random keys so their public CDN URLs stop working.
   let retiredKeys: string[] = [];
-  const store = deps.store ?? getObjectStore();
   if (patch.visibility === "private" && existing.visibility === "public") {
     const rotation = await rotateImageKeys(store, existing, now);
     Object.assign(changes, rotation.changes);
@@ -807,7 +822,8 @@ export async function patchSummary(
   await deleteObjects(store, retiredKeys);
   if (retiredKeys.length) await retireTranslatedCovers(db, store, [existing.id]);
   const updated = { ...existing, ...changes };
-  if (changes.title !== undefined || patch.tags !== undefined) await indexSummary(db, ai, updated);
+  if (changes.title !== undefined || patch.tags !== undefined || patch.summary !== undefined || patch.highlights !== undefined
+    || patch.category !== undefined || patch.keywords !== undefined) await indexSummary(db, ai, updated);
   if (tagsChanged && reading.translation) return readSummaryJson(db, updated, ownerId, null, { ai, billingEnvironment: deps.billingEnvironment });
   return toSummaryJson(updated, ownerId, null, reading);
 }
