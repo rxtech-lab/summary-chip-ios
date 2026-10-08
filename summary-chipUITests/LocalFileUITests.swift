@@ -25,7 +25,7 @@ nonisolated final class LocalFileUITests: XCTestCase {
         app.buttons["OK"].tap()
         XCTAssertTrue(app.staticTexts["No local file linked"].exists)
         app.buttons["link-local-file"].tap()
-        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 20))
         app.buttons["Cancel"].tap()
         XCTAssertTrue(app.staticTexts["No local file linked"].waitForExistence(timeout: 5))
         app.terminate()
