@@ -28,7 +28,8 @@ export function browserRenderingConfig(): BrowserRenderingConfig | null {
 /**
  * Renders a public URL in Cloudflare's headless browser and returns the page HTML, or null when
  * the service is not configured or the render fails — callers fall back to the static fetch.
- * The browser runs on Cloudflare's network, but callers must still pass an SSRF-checked URL.
+ * The browser runs on Cloudflare's network, but callers must still pass a URL that is public by its
+ * text (`assertPublicUrlSyntax`) or an SSRF-checked one.
  */
 export async function renderWithBrowser(url: string, options: { maxChars?: number } = {}): Promise<string | null> {
   const config = browserRenderingConfig();

@@ -62,14 +62,46 @@ extension SummaryAPIClient {
 
     /// The working copy (or saved `version`) compiled to a PDF. A compile that produced no PDF
     /// fails with `422 LATEX_COMPILE_FAILED` (`latexIssues`); the service being down is `503`.
-    public func paperPDF(id: String, version: Int? = nil) async throws -> PaperPDF {
-        var request = request("/api/v1/papers/\(id.urlPathEscaped)/pdf", query: version.map { [URLQueryItem(name: "version", value: String($0))] } ?? [])
+    public func paperPDF(id: String, version: Int? = nil, language: SummaryLanguage? = nil) async throws -> PaperPDF {
+        var query = version.map { [URLQueryItem(name: "version", value: String($0))] } ?? []
+        if let language { query.append(URLQueryItem(name: "lang", value: language == .auto ? "original" : language.rawValue)) }
+        var request = request("/api/v1/papers/\(id.urlPathEscaped)/pdf", query: query)
         request.setValue("application/pdf, application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = Self.paperCompileTimeout
         let (data, response) = try await authorizedData(for: request)
         try Self.validate(data: data, response: response)
         let revision = (response.value(forHTTPHeaderField: "x-paper-revision")).flatMap(Int.init)
         return PaperPDF(data: data, revision: revision)
+    }
+
+    public func exportPaper(id: String, format: PaperExportFormat, language: SummaryLanguage, version: Int? = nil) async throws -> PaperExport {
+        var query = [URLQueryItem(name: "format", value: format.rawValue), URLQueryItem(name: "lang", value: language == .auto ? "original" : language.rawValue)]
+        if let version { query.append(URLQueryItem(name: "version", value: String(version))) }
+        var request = request("/api/v1/papers/\(id.urlPathEscaped)/export", query: query)
+        request.setValue(format == .pdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = Self.paperCompileTimeout
+        let (data, response) = try await authorizedData(for: request)
+        try Self.validate(data: data, response: response)
+        return PaperExport(data: data, format: format, language: response.value(forHTTPHeaderField: "content-language"), revision: response.value(forHTTPHeaderField: "x-paper-revision").flatMap(Int.init))
+    }
+
+    public func paperTranslations(id: String) async throws -> SummaryTranslations {
+        try await send(get("/api/v1/papers/\(id.urlPathEscaped)/translations"))
+    }
+
+    /// Saves layout without editing the source or invalidating translations.
+    public func savePaperRendering(id: String, options: PaperRendering) async throws -> Paper {
+        let envelope: PaperEnvelope = try await send(json("/api/v1/papers/\(id.urlPathEscaped)/rendering", method: "PUT", body: options))
+        return envelope.paper
+    }
+
+    /// Translates new/changed prose and selects this reading language. Original never changes.
+    public func translatePaper(id: String, language: SummaryLanguage) async throws -> Paper {
+        struct Body: Encodable { let language: String? }
+        var request = try json("/api/v1/papers/\(id.urlPathEscaped)/translations", method: "POST", body: Body(language: language == .auto ? nil : language.rawValue))
+        request.timeoutInterval = Self.createTimeout
+        let envelope: PaperEnvelope = try await send(request)
+        return envelope.paper
     }
 
     /// Compiles the working copy strictly and lists its LaTeX errors by file and line.

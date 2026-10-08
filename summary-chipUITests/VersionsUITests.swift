@@ -17,7 +17,7 @@ nonisolated final class VersionsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 15))
         app.staticTexts[title].firstMatch.tap()
 
-        tapToolbarItem(app, id: "version-menu")
+        openVersionMenu(app)
         // Menu toggles drop their accessibility identifier on iOS, so match the row by its label.
         let first = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "version-menu-1", "Version 1,")).firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 5))
@@ -42,8 +42,8 @@ nonisolated final class VersionsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["First draft: \(title)"].waitForExistence(timeout: 5))
 
         // The restore is the newest version in the history.
-        tapToolbarItem(app, id: "version-menu")
-        let history = app.buttons["version-history"].firstMatch
+        openVersionMenu(app)
+        let history = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label BEGINSWITH %@", "version-history", "All Versions")).firstMatch
         XCTAssertTrue(history.waitForExistence(timeout: 5))
         history.tap()
         XCTAssertTrue(app.buttons["version-row-4"].waitForExistence(timeout: 5))
@@ -52,17 +52,15 @@ nonisolated final class VersionsUITests: XCTestCase {
         capture(app, name: "versions-04-history")
     }
 
-    @MainActor private func tapToolbarItem(_ app: XCUIApplication, id: String) {
-        let button = app.buttons[id].firstMatch
-        if button.waitForExistence(timeout: 3), button.isHittable {
-            button.tap()
-            return
-        }
-        let overflow = app.navigationBars.buttons.matching(NSPredicate(format: "label IN %@", ["More", "Show More"])).firstMatch
-        XCTAssertTrue(overflow.waitForExistence(timeout: 3))
-        overflow.tap()
-        XCTAssertTrue(button.waitForExistence(timeout: 3))
-        button.tap()
+    /// Versions is a submenu of "More" (the system overflow on iOS 27), where menu items drop
+    /// their accessibility identifier, so it's also matched by its label.
+    @MainActor private func openVersionMenu(_ app: XCUIApplication) {
+        let more = app.navigationBars.buttons.matching(NSPredicate(format: "identifier == %@ OR label IN %@", "summary-more", ["More", "Show More"])).firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        more.tap()
+        let versions = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@ OR label BEGINSWITH %@", "version-menu", "Versions", "Version ")).firstMatch
+        XCTAssertTrue(versions.waitForExistence(timeout: 5))
+        versions.tap()
     }
 
     @MainActor private func capture(_ app: XCUIApplication, name: String) {

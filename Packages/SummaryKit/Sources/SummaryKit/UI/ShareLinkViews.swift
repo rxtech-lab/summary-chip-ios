@@ -257,28 +257,7 @@ public struct ShareLinkEditorSheet: View {
                     Text("Only you see the name.", bundle: .module)
                 }
 
-                Section {
-                    ForEach(ShareLinkAccess.allCases) { value in
-                        Button { access = value } label: {
-                            HStack(spacing: 12) {
-                                ShareLinkIcon(systemImage: value.systemImage, tint: value == .invited ? .indigo : .blue)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(value.title).foregroundStyle(.primary)
-                                    Text(value.detail).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if access == value {
-                                    Image(systemName: "checkmark").foregroundStyle(.tint).fontWeight(.semibold)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .accessibilityAddTraits(access == value ? .isSelected : [])
-                        .sensoryFeedback(.selection, trigger: access == value) { _, new in new }
-                    }
-                } header: {
-                    Text("Who can open it", bundle: .module)
-                }
+                accessSection
 
                 if access == .invited { invitedSection }
 
@@ -340,6 +319,31 @@ public struct ShareLinkEditorSheet: View {
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
         .summarySheetSize()
+    }
+
+    private var accessSection: some View {
+        Section {
+            ForEach(ShareLinkAccess.allCases) { value in
+                Button { access = value } label: {
+                    HStack(spacing: 12) {
+                        ShareLinkIcon(systemImage: value.systemImage, tint: value == .invited ? .indigo : .blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(value.title).foregroundStyle(.primary)
+                            Text(value.detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if access == value {
+                            Image(systemName: "checkmark").foregroundStyle(.tint).fontWeight(.semibold)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .accessibilityAddTraits(access == value ? .isSelected : [])
+                .sensoryFeedback(.selection, trigger: access == value) { _, new in new }
+            }
+        } header: {
+            Text("Who can open it", bundle: .module)
+        }
     }
 
     private var invitedSection: some View {

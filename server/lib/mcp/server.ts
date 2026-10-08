@@ -69,7 +69,9 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "PDF preview: list_papers and get_paper read them, create_paper starts one, update_paper edits its files (each call is "
   + "one version), and compile_paper compiles it and returns LaTeX errors with file and line so you can fix them (free). "
   + "Each new or changed bibliography entry is fact-checked when you save it; create_paper and update_paper return a "
-  + "warning for references that don't hold up, so rewrite those with update_paper.";
+  + "warning for references that don't hold up, so rewrite those with update_paper. Keep the bibliography in one place: "
+  + "a single .bib file (cited with \\bibliography or \\addbibresource) or a thebibliography environment, never both, "
+  + "and don't add files the paper doesn't compile (copies, notes or reference-only files).";
 
 export interface McpContext {
   db: Database;
@@ -559,7 +561,8 @@ export function createMcpServer(context: McpContext): McpServer {
       + "TikZ and pgfplots figures work in .tex or .tikz files; load their packages in the preamble. "
       + "Without files, a template (article, report or blank) is used. The title defaults to the "
       + "main file's \\title. Use xelatex or lualatex for system fonts or CJK text. Call compile_paper afterwards to check "
-      + "it compiles. The paper opens in the app with a live PDF preview. Free.",
+      + "it compiles. Write the bibliography once, either as a .bib file or as a thebibliography environment, not both, "
+      + "and only include files the paper compiles. The paper opens in the app with a live PDF preview. Free.",
     inputSchema: {
       title: paperTitleSchema.optional().describe("The paper's title in the library."),
       files: z.array(paperFileSchema).max(60).optional().describe("Text: { path, content }. Images: { path, asset: { key, mimeType, byteSize } } from a completed S3 upload."),
@@ -589,7 +592,9 @@ export function createMcpServer(context: McpContext): McpServer {
       + "and recompiles the preview. Pass the revision from get_paper to refuse the edit if the paper changed meanwhile. "
       + "Call compile_paper afterwards to check for LaTeX errors. New or changed bibliography entries are fact-checked "
       + "before it answers (their link, whether the work exists and is reliable, and whether it supports the citing "
-      + "sentences); the edit is saved either way, and a warning lists the references to rewrite. Free.",
+      + "sentences); the edit is saved either way, and a warning lists the references to rewrite. Edit the paper's "
+      + "existing bibliography instead of adding a second one (a .bib next to a thebibliography, or the reverse), and "
+      + "don't create files the paper doesn't compile. Free.",
     inputSchema: {
       paperId: z.string().trim().min(1).max(100).describe("The paper's id."),
       operations: z.array(paperOperationSchema).min(1).max(100).describe("Operations, applied in order."),

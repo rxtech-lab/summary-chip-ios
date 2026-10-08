@@ -17,6 +17,7 @@ import { setFlightTrackerForTests, type FlightTracker } from "@/lib/flights/trac
 import { finishTripTranslation, runTripTranslationPass, type TripTranslationJob } from "@/lib/services/trip-translations";
 import { MemoryObjectStore, setObjectStoreForTests } from "@/lib/storage/r2";
 import { setTripTranslatorForTests } from "@/lib/trips/translator";
+import { setPaperNotifierForTests } from "@/lib/papers/notifier";
 import { setTripNotifierForTests } from "@/lib/trips/notifier";
 import { setTripReminderSchedulerForTests } from "@/lib/trips/reminders";
 import { MockWeatherProvider } from "@/lib/weather/mock";
@@ -87,6 +88,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   setWeatherTrackerForTests(weatherTracker);
   const tripTranslations: TripTranslationJob[] = [];
   setTripNotifierForTests({ start: async () => {} });
+  setPaperNotifierForTests({ start: async () => {} });
   setTripReminderSchedulerForTests({ start: async () => {} });
   setTripTranslatorForTests({ start: async (job) => { tripTranslations.push(job); } });
   const runTripTranslations = async () => {
@@ -118,6 +120,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setWeatherTrackerForTests(undefined);
       setTripTranslatorForTests(undefined);
       setTripNotifierForTests(undefined);
+      setPaperNotifierForTests(undefined);
       setTripReminderSchedulerForTests(undefined);
       handle.close();
       if (directory) rmSync(directory, { recursive: true, force: true });

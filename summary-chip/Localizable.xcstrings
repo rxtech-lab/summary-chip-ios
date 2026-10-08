@@ -97,6 +97,16 @@
     "%@ (Current)" : {
 
     },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "%@ → %@" : {
       "shouldTranslate" : false
     },
@@ -234,6 +244,9 @@
         }
       }
     },
+    "%@: reference error" : {
+
+    },
     "%@%@" : {
       "localizations" : {
         "en" : {
@@ -243,6 +256,9 @@
           }
         }
       }
+    },
+    "%lld" : {
+
     },
     "%lld / %lld" : {
       "localizations" : {
@@ -272,6 +288,12 @@
           }
         }
       }
+    },
+    "%lld errors" : {
+
+    },
+    "%lld Errors" : {
+
     },
     "%lld LaTeX errors" : {
       "localizations" : {
@@ -326,9 +348,6 @@
       }
     },
     "%lld reference errors" : {
-
-    },
-    "%lld references have errors" : {
 
     },
     "%lld results" : {
@@ -544,6 +563,9 @@
         }
       }
     },
+    "1 Error" : {
+
+    },
     "1 LaTeX error" : {
       "localizations" : {
         "zh-Hans" : {
@@ -594,9 +616,6 @@
       }
     },
     "1 reference error" : {
-
-    },
-    "1 reference has an error" : {
 
     },
     "1 result" : {
@@ -741,6 +760,12 @@
           }
         }
       }
+    },
+    "A4" : {
+
+    },
+    "A5" : {
+
     },
     "About" : {
       "localizations" : {
@@ -1227,9 +1252,6 @@
         }
       }
     },
-    "Add, change or delete a trip’s days, places and other records." : {
-
-    },
     "Added to Likes" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1427,6 +1449,23 @@
         }
       }
     },
+    "Alignment" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对齐方式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "對齊方式"
+          }
+        }
+      }
+    },
     "All" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1439,6 +1478,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全部"
+          }
+        }
+      }
+    },
+    "All Heading Levels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有标题层级"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有標題層級"
           }
         }
       }
@@ -1686,6 +1742,23 @@
         }
       }
     },
+    "Applies to the PDF preview and PDF / Word exports in every language. Custom rendering uses XeLaTeX. Text stays editable; pagination may differ between formats." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于所有语言的 PDF 预览及 PDF / Word 导出。自定义渲染使用 XeLaTeX。文字可编辑；不同格式的分页可能不同。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於所有語言的 PDF 預覽及 PDF / Word 匯出。自訂算繪使用 XeLaTeX。文字可編輯；不同格式的分頁可能不同。"
+          }
+        }
+      }
+    },
     "Apply" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1698,6 +1771,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "套用"
+          }
+        }
+      }
+    },
+    "Apply Preset…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用预设…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "套用預設…"
           }
         }
       }
@@ -1906,6 +1996,57 @@
         }
       }
     },
+    "Black" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黑色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黑色"
+          }
+        }
+      }
+    },
+    "Blue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蓝色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "藍色"
+          }
+        }
+      }
+    },
+    "Body Font Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正文字号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正文字級"
+          }
+        }
+      }
+    },
     "Booked" : {
       "comment" : "Booking status",
       "localizations" : {
@@ -1951,6 +2092,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "預訂"
+          }
+        }
+      }
+    },
+    "Bottom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下"
           }
         }
       }
@@ -2149,8 +2307,22 @@
         }
       }
     },
-    "Change a place’s description, photos, hours, prices or contact details." : {
-
+    "Center" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "居中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "置中"
+          }
+        }
+      }
     },
     "Change language" : {
       "localizations" : {
@@ -2440,6 +2612,22 @@
         }
       }
     },
+    "Chippy translates the paper's title and text using your points. Existing translations are reused; only new or changed text is translated. Equations, references and images are preserved. Switch to Original to edit the paper." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 使用你的点数翻译论文的标题和正文。已有翻译会被复用，仅翻译新增或更改的文字。公式、参考文献和图片会保留。切换到「原文」即可编辑论文。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chippy 使用你的點數翻譯論文的標題和正文。已有翻譯會被重用，僅翻譯新增或變更的文字。公式、參考文獻和圖片會保留。切換到「原文」即可編輯論文。"
+          }
+        }
+      }
+    },
     "Chippy translates the summary, key points, category, tags and source text into %@. The source text can take a minute to finish." : {
 
     },
@@ -2666,6 +2854,57 @@
         }
       }
     },
+    "Column Gap" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "栏间距"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "欄間距"
+          }
+        }
+      }
+    },
+    "Columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分欄"
+          }
+        }
+      }
+    },
+    "Comfortable Reading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "舒适阅读"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "舒適閱讀"
+          }
+        }
+      }
+    },
     "Compare two options side by side." : {
 
     },
@@ -2833,6 +3072,23 @@
         }
       }
     },
+    "Contents Depth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目录层级"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目錄層級"
+          }
+        }
+      }
+    },
     "Convert Totals" : {
 
     },
@@ -2950,6 +3206,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法刪除"
+          }
+        }
+      }
+    },
+    "Couldn't Export Paper" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法导出论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法匯出論文"
           }
         }
       }
@@ -3078,6 +3350,23 @@
         }
       }
     },
+    "Couldn't Save Rendering Options" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存渲染选项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存算繪選項"
+          }
+        }
+      }
+    },
     "Couldn't Share Trip" : {
 
     },
@@ -3163,9 +3452,6 @@
           }
         }
       }
-    },
-    "Create a trip from a complete trip document." : {
-
     },
     "Create API Key…" : {
       "localizations" : {
@@ -3336,6 +3622,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cursor 及其他"
+          }
+        }
+      }
+    },
+    "Custom rendering applies to PDF and Word." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义渲染适用于 PDF 和 Word。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂算繪適用於 PDF 和 Word。"
           }
         }
       }
@@ -3644,6 +3947,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除我的帳號"
+          }
+        }
+      }
+    },
+    "Delete Paper" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除論文"
           }
         }
       }
@@ -4041,6 +4360,23 @@
         }
       }
     },
+    "Document Structure" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文档结构"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件結構"
+          }
+        }
+      }
+    },
     "Done" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4057,10 +4393,8 @@
         }
       }
     },
-    "Download Anyway" : {
-
-    },
     "Download PDF" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -4460,6 +4794,16 @@
         }
       }
     },
+    "Error %lld of %lld · Line %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Error %1$lld of %2$lld · Line %3$lld"
+          }
+        }
+      }
+    },
     "Evening" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4575,6 +4919,54 @@
         }
       }
     },
+    "Export" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匯出"
+          }
+        }
+      }
+    },
+    "Export Anyway" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仍然导出"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仍然匯出"
+          }
+        }
+      }
+    },
+    "Export Paper" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匯出論文"
+          }
+        }
+      }
+    },
     "Export PDF…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4587,6 +4979,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "輸出 PDF…"
+          }
+        }
+      }
+    },
+    "Export with reference errors?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仍要导出包含参考文献错误的论文吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仍要匯出包含參考文獻錯誤的論文嗎？"
+          }
+        }
+      }
+    },
+    "Export…" : {
+
+    },
+    "Exported" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导出"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已匯出"
           }
         }
       }
@@ -4794,6 +5221,7 @@
       }
     },
     "Find summaries by meaning, optionally from one source." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -4853,6 +5281,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "頭等艙"
+          }
+        }
+      }
+    },
+    "First Line Indent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首行缩进"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首行縮排"
           }
         }
       }
@@ -5002,6 +5447,23 @@
         }
       }
     },
+    "Font Family" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字体类型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字體類型"
+          }
+        }
+      }
+    },
     "Food" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5018,6 +5480,74 @@
         }
       }
     },
+    "Footer · Center" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页脚 · 居中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁尾 · 置中"
+          }
+        }
+      }
+    },
+    "Footer · Left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页脚 · 左侧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁尾 · 左側"
+          }
+        }
+      }
+    },
+    "Footer · Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页脚 · 右侧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁尾 · 右側"
+          }
+        }
+      }
+    },
+    "Footer Text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页脚文字"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁尾文字"
+          }
+        }
+      }
+    },
     "For" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5030,6 +5560,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用於"
+          }
+        }
+      }
+    },
+    "Format" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "格式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "格式"
           }
         }
       }
@@ -5284,6 +5830,12 @@
     "Getting there" : {
 
     },
+    "Go to Error" : {
+
+    },
+    "Go to Next Error" : {
+
+    },
     "Google Maps" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5348,11 +5900,144 @@
         }
       }
     },
-    "Have Chippy’s trip agent add a web page or text to a trip. Costs points." : {
-
-    },
     "Hayabusa" : {
       "shouldTranslate" : false
+    },
+    "Header · Center" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页眉 · 居中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁首 · 置中"
+          }
+        }
+      }
+    },
+    "Header · Left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页眉 · 左侧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁首 · 左側"
+          }
+        }
+      }
+    },
+    "Header · Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页眉 · 右侧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁首 · 右側"
+          }
+        }
+      }
+    },
+    "Header Text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页眉文字"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁首文字"
+          }
+        }
+      }
+    },
+    "Headers & Footers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页眉与页脚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁首與頁尾"
+          }
+        }
+      }
+    },
+    "Heading Color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题颜色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標題顏色"
+          }
+        }
+      }
+    },
+    "Heading Font Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题字号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標題字級"
+          }
+        }
+      }
+    },
+    "Headings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標題"
+          }
+        }
+      }
     },
     "Help" : {
       "localizations" : {
@@ -5482,6 +6167,23 @@
     "https://…" : {
       "shouldTranslate" : false
     },
+    "Hyphenation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动断词"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動斷字"
+          }
+        }
+      }
+    },
     "Idea" : {
       "comment" : "Booking status: not planned yet",
       "localizations" : {
@@ -5536,6 +6238,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在主檔案中以 \\input{%@} 引入它。"
+          }
+        }
+      }
+    },
+    "Indigo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靛蓝色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靛藍色"
           }
         }
       }
@@ -5596,6 +6315,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "問問 Siri 就好"
+          }
+        }
+      }
+    },
+    "Justified" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两端对齐"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左右對齊"
           }
         }
       }
@@ -5731,6 +6467,23 @@
         }
       }
     },
+    "Landscape" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横向"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向"
+          }
+        }
+      }
+    },
     "Language" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5862,6 +6615,23 @@
         }
       }
     },
+    "Left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左"
+          }
+        }
+      }
+    },
     "Legal" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5954,6 +6724,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "路線"
+          }
+        }
+      }
+    },
+    "Line Spacing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行间距"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行間距"
           }
         }
       }
@@ -6056,6 +6843,7 @@
       }
     },
     "List summaries newest first by source, category, tag or visibility." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -6070,9 +6858,6 @@
           }
         }
       }
-    },
-    "List trips, ongoing and upcoming first." : {
-
     },
     "Listed your trips" : {
       "localizations" : {
@@ -6446,6 +7231,22 @@
         }
       }
     },
+    "Manage Translations…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理翻译…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理翻譯…"
+          }
+        }
+      }
+    },
     "Manage…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6458,6 +7259,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "管理…"
+          }
+        }
+      }
+    },
+    "Margins" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页边距"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁邊距"
           }
         }
       }
@@ -6528,6 +7346,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時刻"
+          }
+        }
+      }
+    },
+    "Monospace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等宽字体"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等寬字體"
           }
         }
       }
@@ -7293,6 +8128,22 @@
         }
       }
     },
+    "No tools available" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可用工具"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有可用工具"
+          }
+        }
+      }
+    },
     "No transport yet." : {
       "localizations" : {
         "zh-Hans" : {
@@ -7622,6 +8473,23 @@
         }
       }
     },
+    "Number Sections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章节编号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章節編號"
+          }
+        }
+      }
+    },
     "Off" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7682,6 +8550,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "透過代理或 API 新增摘要時通知。"
+          }
+        }
+      }
+    },
+    "One Column" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "單欄"
           }
         }
       }
@@ -8099,6 +8984,23 @@
         }
       }
     },
+    "Orientation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方向"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "方向"
+          }
+        }
+      }
+    },
     "Original" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8170,6 +9072,23 @@
         }
       }
     },
+    "Page & Columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面与分栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁面與分欄"
+          }
+        }
+      }
+    },
     "Page %lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -8188,6 +9107,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "第 %1$lld 頁，共 %2$lld 頁"
+          }
+        }
+      }
+    },
+    "Page Numbers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "頁碼"
+          }
+        }
+      }
+    },
+    "Page Size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纸张大小"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "紙張大小"
           }
         }
       }
@@ -8252,6 +9205,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法開啟論文"
+          }
+        }
+      }
+    },
+    "Paragraph Spacing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "段间距"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "段間距"
+          }
+        }
+      }
+    },
+    "Paragraphs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "段落"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "段落"
           }
         }
       }
@@ -8680,6 +9667,23 @@
         }
       }
     },
+    "Portrait" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纵向"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "直向"
+          }
+        }
+      }
+    },
     "Premium economy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8692,6 +9696,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "豪華經濟艙"
+          }
+        }
+      }
+    },
+    "Preparing export…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备导出…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備匯出…"
           }
         }
       }
@@ -8881,9 +9901,6 @@
 
     },
     "Rates From" : {
-
-    },
-    "Read a trip’s days, places, transport, stays and expenses." : {
 
     },
     "Read more" : {
@@ -9370,6 +10387,40 @@
         }
       }
     },
+    "Rendering Options" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "渲染选项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "算繪選項"
+          }
+        }
+      }
+    },
+    "Rendering Options…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "渲染选项…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "算繪選項…"
+          }
+        }
+      }
+    },
     "Replace file link…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9395,6 +10446,22 @@
     "Replacing image…" : {
 
     },
+    "Research papers, in LaTeX" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用 LaTeX 撰写研究论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用 LaTeX 撰寫研究論文"
+          }
+        }
+      }
+    },
     "Reserved" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9407,6 +10474,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "指定席"
+          }
+        }
+      }
+    },
+    "Reset rendering options?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置渲染选项？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設算繪選項？"
+          }
+        }
+      }
+    },
+    "Reset to Original Layout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置为原始布局"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設為原始版面"
           }
         }
       }
@@ -9532,9 +10633,6 @@
         }
       }
     },
-    "Review References" : {
-
-    },
     "Revoke" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9615,6 +10713,23 @@
         }
       }
     },
+    "Right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右"
+          }
+        }
+      }
+    },
     "Route" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9663,6 +10778,23 @@
         }
       }
     },
+    "Sans Serif" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无衬线字体"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無襯線字體"
+          }
+        }
+      }
+    },
     "Save" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9680,6 +10812,7 @@
       }
     },
     "Save a summary, its key points, tags and raw source text." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -9707,6 +10840,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "立即儲存版本"
+          }
+        }
+      }
+    },
+    "Save your changes before exporting or changing language." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在导出或更改语言前保存更改。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在匯出或變更語言前儲存變更。"
+          }
+        }
+      }
+    },
+    "Save your changes before exporting." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在导出前保存更改。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在匯出前儲存變更。"
           }
         }
       }
@@ -9755,6 +10920,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已儲存的摘要和圖片將從此裝置移除。你的摘要仍會保留在帳號中。"
+          }
+        }
+      }
+    },
+    "Saving changes…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保存更改…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在儲存變更…"
+          }
+        }
+      }
+    },
+    "Saving rendering options…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保存渲染选项…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在儲存算繪選項…"
           }
         }
       }
@@ -10063,6 +11261,40 @@
         }
       }
     },
+    "Sections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章节"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章節"
+          }
+        }
+      }
+    },
+    "Sections & Subsections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章节与小节"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章節與小節"
+          }
+        }
+      }
+    },
     "Select some text or a link to summarize." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10107,6 +11339,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "以連結形式傳送摘要。選擇連結的有效期限，或將其設為私密。打開摘要的「編輯分享」面板，即可更改可見度和連結到期時間。"
+          }
+        }
+      }
+    },
+    "Separate Title Page" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "独立标题页"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "獨立標題頁"
+          }
+        }
+      }
+    },
+    "Serif" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "衬线字体"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "襯線字體"
           }
         }
       }
@@ -10508,6 +11774,23 @@
         }
       }
     },
+    "Slate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "石板灰"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "石板灰"
+          }
+        }
+      }
+    },
     "Software Update" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10542,6 +11825,22 @@
     },
     "Some edits didn't fit the trip, so the agent corrected them." : {
 
+    },
+    "Some references have errors. The exported document will include them as they are." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分参考文献存在错误，导出的文档将保留这些参考文献。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分參考文獻存在錯誤，匯出的文件將保留這些參考文獻。"
+          }
+        }
+      }
     },
     "Something Went Wrong" : {
       "localizations" : {
@@ -10673,6 +11972,23 @@
     },
     "Spec (JSON)" : {
 
+    },
+    "Standard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标准"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標準"
+          }
+        }
+      }
     },
     "Star a summary to keep it here." : {
       "localizations" : {
@@ -10831,9 +12147,6 @@
           }
         }
       }
-    },
-    "Store a photo for a place or view and get its URL." : {
-
     },
     "Style" : {
       "localizations" : {
@@ -11163,6 +12476,23 @@
         }
       }
     },
+    "Table of Contents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目錄"
+          }
+        }
+      }
+    },
     "Tag" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11191,6 +12521,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "資料庫中有摘要後，標籤會顯示在這裡。"
+          }
+        }
+      }
+    },
+    "Teal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蓝绿色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "藍綠色"
           }
         }
       }
@@ -11306,6 +12653,22 @@
         }
       }
     },
+    "The link and preview stop working and the paper is removed permanently. To only stop sharing, make it private instead." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接和预览将失效，论文也会被永久删除。如果只想停止分享，请将其设为私密。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結和預覽將失效，論文也會被永久刪除。如果只想停止分享，請將其設為私密。"
+          }
+        }
+      }
+    },
     "The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11318,6 +12681,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連結和預覽將會失效，摘要也會被永久刪除。如果只想停止分享，請改為設成私密。"
+          }
+        }
+      }
+    },
+    "The link and preview stop working and the trip is removed permanently. To only stop sharing, make it private instead." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接和预览将失效，行程也会被永久删除。如果只想停止分享，请将其设为私密。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結和預覽將失效，行程也會被永久刪除。如果只想停止分享，請將其設為私密。"
           }
         }
       }
@@ -11358,6 +12737,7 @@
       }
     },
     "The paper has LaTeX errors, so there's no PDF to download. Fix them and try again." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -11495,9 +12875,6 @@
     "The view is removed from the trip." : {
 
     },
-    "Their links don't open, the works can't be found or aren't reliable, or they don't support what cites them. The PDF will include them as they are." : {
-
-    },
     "There is no calendar to add events to." : {
 
     },
@@ -11574,6 +12951,22 @@
     "This isn't valid JSON." : {
 
     },
+    "This language needs a translation or an update. Open Manage Translations before exporting." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此语言需要翻译或更新。请在导出前打开「管理翻译」。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此語言需要翻譯或更新。請在匯出前開啟「管理翻譯」。"
+          }
+        }
+      }
+    },
     "This link is saved on this device. Chat reads the latest version of the file; changing it does not regenerate the summary." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11592,6 +12985,23 @@
     },
     "This paper can't be edited." : {
 
+    },
+    "This restores the LaTeX layout after you save. Your source and translations stay unchanged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存后将恢复 LaTeX 原始布局。源文件和译文保持不变。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存後將恢復 LaTeX 原始版面。原始檔和譯文保持不變。"
+          }
+        }
+      }
     },
     "This summary is private, its link has expired, or it was deleted." : {
       "localizations" : {
@@ -11775,6 +13185,23 @@
         }
       }
     },
+    "Top" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上"
+          }
+        }
+      }
+    },
     "Top Up" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11931,6 +13358,22 @@
     "Translated" : {
 
     },
+    "Translated · Read-only" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已翻译 · 只读"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已翻譯 · 唯讀"
+          }
+        }
+      }
+    },
     "Translated from %@ to %@" : {
       "localizations" : {
         "en" : {
@@ -12013,6 +13456,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在翻譯…"
+          }
+        }
+      }
+    },
+    "Translation outdated — update before exporting" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译已过期 — 请在导出前更新"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻譯已過期 — 請在匯出前更新"
+          }
+        }
+      }
+    },
+    "Translations are read-only and become outdated when the original paper changes. Choose an outdated language to update it before exporting." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译版本为只读，原始论文更改后会过期。导出前请选择过期的语言以更新翻译。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻譯版本為唯讀，原始論文變更後會過期。匯出前請選擇過期的語言以更新翻譯。"
           }
         }
       }
@@ -12102,6 +13577,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試一次"
+          }
+        }
+      }
+    },
+    "Two Columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雙欄"
+          }
+        }
+      }
+    },
+    "Two-column Paper" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双栏论文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雙欄論文"
+          }
+        }
+      }
+    },
+    "Typography" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字体排版"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字體排版"
           }
         }
       }
@@ -12329,6 +13855,40 @@
         }
       }
     },
+    "US Legal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美式法律纸"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美式法律紙"
+          }
+        }
+      }
+    },
+    "US Letter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美式信纸"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美式信紙"
+          }
+        }
+      }
+    },
     "Usage" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12396,6 +13956,40 @@
         }
       }
     },
+    "Use Custom Rendering" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用自定义渲染"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用自訂算繪"
+          }
+        }
+      }
+    },
+    "Use Original Layout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用原始布局"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用原始版面"
+          }
+        }
+      }
+    },
     "Use These Details" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12440,6 +14034,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用了工具"
+          }
+        }
+      }
+    },
+    "Using the paper's original layout. Choose Rendering Options to customize PDF and Word." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前使用论文的原始布局。选择渲染选项以自定义 PDF 和 Word。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前使用論文的原始版面。選擇算繪選項以自訂 PDF 和 Word。"
           }
         }
       }
@@ -12915,6 +14526,39 @@
     "Whole Trip" : {
 
     },
+    "Word (.docx)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word（.docx）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word（.docx）"
+          }
+        }
+      }
+    },
+    "Word keeps text, headings, tables and supported equations editable. Layout may differ from PDF. Custom diagrams need image replacements." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word 中的文字、标题、表格及受支持的公式均可编辑。版式可能与 PDF 不同。自定义图表需要替换为图片。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word 中的文字、標題、表格及支援的公式均可編輯。版式可能與 PDF 不同。自訂圖表需要替換為圖片。"
+          }
+        }
+      }
+    },
     "Working…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12927,6 +14571,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在處理…"
+          }
+        }
+      }
+    },
+    "Write LaTeX papers with a live PDF preview. Let your AI agent research, write and edit through MCP. Chippy cross-checks references for source accuracy and support for your cited claims. Start with + → New Paper, and review issues in the References sheet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撰写 LaTeX 论文，实时预览 PDF。让你的 AI 智能体通过 MCP 协助研究、撰写和编辑。Chippy 会交叉核查参考文献的来源信息是否准确，以及是否支持你引用的论点。点击 + → 新建论文开始，并在参考文献面板中查看问题。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撰寫 LaTeX 論文，即時預覽 PDF。讓你的 AI 代理透過 MCP 協助研究、撰寫和編輯。Chippy 會交叉核查參考文獻的來源資訊是否準確，以及是否支持你引用的論點。點擊 + → 新增論文開始，並在參考文獻面板中查看問題。"
           }
         }
       }
@@ -13230,6 +14890,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "縮小"
+          }
+        }
+      }
+    },
+    "Applies to the PDF preview and PDF / Word exports in every language. Your source stays unchanged. Text stays editable; pagination may differ between formats." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于所有语言的 PDF 预览及 PDF / Word 导出。源文件保持不变。文字可编辑；不同格式的分页可能不同。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於所有語言的 PDF 預覽及 PDF / Word 匯出。原始檔保持不變。文字可編輯；不同格式的分頁可能不同。"
           }
         }
       }

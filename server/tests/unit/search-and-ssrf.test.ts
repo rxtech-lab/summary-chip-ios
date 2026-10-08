@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPrivateAddress } from "@/lib/extract/ssrf";
+import { assertPublicUrlSyntax, isPrivateAddress } from "@/lib/extract/ssrf";
 import { searchTokens } from "@/lib/services/search";
 import { normalizeDraft } from "@/lib/ai/summary-schema";
 import { isBotUserAgent } from "@/lib/bots";
@@ -20,6 +20,19 @@ describe("isPrivateAddress", () => {
   });
   it.each(["93.184.216.34", "1.1.1.1", "2606:4700:4700::1111"])("allows %s", (address) => {
     expect(isPrivateAddress(address)).toBe(false);
+  });
+});
+
+describe("assertPublicUrlSyntax", () => {
+  it("accepts public names without resolving them", () => {
+    expect(assertPublicUrlSyntax("https://github.com/sirily11/msbd5017-docs").hostname).toBe("github.com");
+    expect(assertPublicUrlSyntax("http://8.8.8.8/").hostname).toBe("8.8.8.8");
+  });
+
+  it("rejects local names, private literals, other schemes and credentials", () => {
+    for (const url of ["http://localhost:3000/", "http://db.internal/", "http://printer.local/", "http://127.0.0.1/", "http://[::1]/", "http://10.0.0.5/", "ftp://example.com/", "https://user:pass@example.com/"]) {
+      expect(() => assertPublicUrlSyntax(url), url).toThrow();
+    }
   });
 });
 

@@ -4,13 +4,16 @@ import type { AiProvider } from "@/lib/ai/provider";
 import type { ReferenceInput, ReferenceLink } from "@/lib/ai/reference-agent";
 import type { PaperDocument, PaperReference } from "@/lib/contracts/paper";
 import type { Database } from "@/lib/db/client";
-import { paperReferenceChecks, papers, type PaperReferenceCheckRow } from "@/lib/db/schema";
+import { paperReferenceChecks, papers, summaries, type PaperReferenceCheckRow } from "@/lib/db/schema";
 import { renderWithBrowser } from "@/lib/extract/browser";
 import { decodeText, fetchPublicDocument, type FetchedDocument } from "@/lib/extract/fetch";
+import { scrapeWithFirecrawl } from "@/lib/extract/firecrawl";
 import { extractHtml, normalizeWhitespace } from "@/lib/extract/html";
 import { extractPdfText } from "@/lib/extract/pdf";
+import { assertPublicUrlSyntax } from "@/lib/extract/ssrf";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
+import { notifyReferenceErrors } from "./notifications";
 import { latexToText, stripComments } from "./paper-document";
 
 /* ------------------------------------------------------------------------------------------------
@@ -248,20 +251,55 @@ function httpStatusOf(error: ApiError): number | null {
   return match ? Number(match[1]) : null;
 }
 
+const NOT_PUBLIC: ReferenceLink = { reachable: false, httpStatus: null, note: "The link is not a public web address.", finalUrl: null, title: null, text: "" };
+
 /**
- * Opens a reference's link: a plain fetch says whether it exists (its HTTP status), and Cloudflare
- * Browser Rendering reads pages that build themselves with JavaScript or turn plain fetches away.
+ * Opens a reference's link with Firecrawl when it's configured: it loads the page from Firecrawl's
+ * network (in a browser when needed, PDFs included) and reports the page's HTTP status. Without
+ * Firecrawl, or when its call fails, the server opens the link itself (`openWithFetch`).
  */
 export async function openReferenceLink(url: string): Promise<ReferenceLink> {
+  try {
+    assertPublicUrlSyntax(url);
+  } catch {
+    return NOT_PUBLIC;
+  }
+  const page = await scrapeWithFirecrawl(url);
+  if (!page) return openWithFetch(url);
+  const status = page.statusCode;
+  const gone = status === 404 || status === 410;
+  const text = page.markdown.trim();
+  const reachable = !gone && (status === null || status < 400 || text.length > 0);
+  return {
+    reachable,
+    httpStatus: status,
+    note: gone ? `HTTP ${status}.`
+      : !reachable ? `HTTP ${status ?? "error"} and no content.`
+      : status !== null && status >= 400 ? `HTTP ${status}; the page may block automated access.`
+      : status === null ? "The HTTP status is unknown: check the title and text show the cited work, not an error page."
+      : null,
+    finalUrl: page.finalUrl ?? url,
+    title: page.title,
+    text: text.slice(0, LINK_TEXT_CHARS),
+  };
+}
+
+/**
+ * Opens a link from the server: a plain fetch says whether it exists (its HTTP status), and
+ * Cloudflare Browser Rendering reads pages that build themselves with JavaScript or turn plain
+ * fetches away. When the server's own DNS can't resolve the name or resolves it to a private
+ * address (a proxy's fake IPs, split DNS), only the browser opens it: it runs on Cloudflare's
+ * network, not ours, so a name that is public by its text alone is safe to hand it.
+ */
+async function openWithFetch(url: string): Promise<ReferenceLink> {
   let fetched: FetchedDocument | null = null;
   let failure: ApiError | null = null;
   try {
     fetched = await fetchPublicDocument(url, { maxBytes: 8 * 1024 * 1024, timeoutMs: 20_000 });
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
-    if (error.code === "INVALID_URL" || error.code === "URL_NOT_ALLOWED") {
-      return { reachable: false, httpStatus: null, note: "The link is not a public web address.", finalUrl: null, title: null, text: "" };
-    }
+    // Public by its text (checked by the caller): a private DNS answer only blocks our own fetch.
+    if (error.code === "INVALID_URL") return NOT_PUBLIC;
     failure = error;
   }
   const finalUrl = fetched?.url.toString() ?? url;
@@ -270,7 +308,7 @@ export async function openReferenceLink(url: string): Promise<ReferenceLink> {
     return { reachable: true, httpStatus: 200, note: "A PDF.", finalUrl, title: pdf?.title ?? null, text: (pdf?.text ?? "").slice(0, LINK_TEXT_CHARS) };
   }
   const status = failure ? httpStatusOf(failure) : 200;
-  const gone = status === 404 || status === 410 || failure?.code === "URL_UNREACHABLE";
+  const gone = status === 404 || status === 410;
   const rendered = gone ? null : await renderWithBrowser(finalUrl);
   const html = rendered ?? (fetched ? decodeText(fetched.bytes, fetched.charset) : null);
   const page = html ? extractHtml(html, finalUrl) : null;
@@ -280,7 +318,9 @@ export async function openReferenceLink(url: string): Promise<ReferenceLink> {
   return {
     reachable: true,
     httpStatus: status,
-    note: failure ? `${failure.message} to a plain fetch; it loaded in a browser.` : null,
+    note: !failure ? null : status === null
+      ? "Only Cloudflare's browser could open it, so the HTTP status is unknown: check the title and text show the cited work, not an error page."
+      : `${failure.message} to a plain fetch; it loaded in Cloudflare's browser.`,
     finalUrl,
     title: page.title,
     text: page.text.slice(0, LINK_TEXT_CHARS),
@@ -378,7 +418,8 @@ function referenceInput(entry: ParsedReference): ReferenceInput {
   return { key: entry.key, type: entry.type, fields: entry.fields, url: entry.url, contexts: entry.contexts };
 }
 
-async function checkOne(db: Database, summaryId: string, entry: ParsedReference, deps: ReferenceCheckDeps): Promise<void> {
+/** Whether the check found the entry in error (false when it couldn't run or was superseded). */
+async function checkOne(db: Database, summaryId: string, entry: ParsedReference, deps: ReferenceCheckDeps): Promise<boolean> {
   const where = and(eq(paperReferenceChecks.summaryId, summaryId), eq(paperReferenceChecks.hash, entry.hash), eq(paperReferenceChecks.status, "checking"));
   const openLink = deps.openLink ?? openReferenceLink;
   const verdict = await deps.ai.checkReference(referenceInput(entry), {
@@ -389,20 +430,33 @@ async function checkOne(db: Database, summaryId: string, entry: ParsedReference,
   if (!verdict) {
     // Unchecked again: the next save that touches the bibliography retries it.
     await db.delete(paperReferenceChecks).where(where);
-    return;
+    return false;
   }
-  await db.update(paperReferenceChecks)
+  const result = await db.update(paperReferenceChecks)
     .set({ status: verdict.status, issue: verdict.issue, message: verdict.message.slice(0, 400), checkedAt: deps.now() })
     .where(where);
+  return verdict.status === "error" && result.rowsAffected > 0;
 }
 
-/** Checks `entries`, a few at a time. */
+/** Checks `entries`, a few at a time, then tells the owner about the ones found in error. */
 async function checkAll(db: Database, summaryId: string, entries: ParsedReference[], deps: ReferenceCheckDeps): Promise<void> {
   const queue = [...entries];
+  const errors: string[] = [];
   const worker = async () => {
-    for (let entry = queue.shift(); entry; entry = queue.shift()) await checkOne(db, summaryId, entry, deps);
+    for (let entry = queue.shift(); entry; entry = queue.shift()) {
+      if (await checkOne(db, summaryId, entry, deps)) errors.push(entry.key);
+    }
   };
   await Promise.all(Array.from({ length: Math.min(CHECK_CONCURRENCY, queue.length) }, worker));
+  if (!errors.length) return;
+  const order = new Map(entries.map((entry, index) => [entry.key, index]));
+  errors.sort((a, b) => order.get(a)! - order.get(b)!);
+  try {
+    const [paper] = await db.select().from(summaries).where(eq(summaries.id, summaryId));
+    if (paper) await notifyReferenceErrors(db, paper, errors);
+  } catch {
+    console.warn("[paper-references] error notification failed");
+  }
 }
 
 /** The entries of `claimed` the working copy still has (an autosave since may have changed them). */

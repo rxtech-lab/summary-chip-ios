@@ -8,6 +8,9 @@ import { z } from "zod";
 export const PAPER_COMPILERS = ["pdflatex", "xelatex", "lualatex"] as const;
 export type PaperCompiler = (typeof PAPER_COMPILERS)[number];
 
+export const PAPER_EXPORT_FORMATS = ["pdf", "docx"] as const;
+export type PaperExportFormat = (typeof PAPER_EXPORT_FORMATS)[number];
+
 /** Text files a LaTeX project is made of. */
 export const PAPER_FILE_EXTENSIONS = [
   "tex", "bib", "sty", "cls", "bst", "bbx", "cbx", "lbx", "def", "cfg", "clo", "ist", "tikz", "txt", "csv", "tsv", "dat", "md",

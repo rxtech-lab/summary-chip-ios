@@ -69,13 +69,8 @@ struct SummaryDetailView: View {
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar {
-            // Like and share together; everything else, including Ask, waits in "More".
-            if summary.isOwner {
-                ToolbarItem(placement: .summaryTrailing) {
-                    VersionToolbarMenu(model: versions)
-                }
-            }
-            ToolbarItemGroup(placement: .summaryTrailing) {
+            // Only Like stays in the bar; everything else, including Share and Versions, waits in "More".
+            ToolbarItem(placement: .summaryTrailing) {
                 Button {
                     Task { await toggleLike() }
                 } label: {
@@ -84,12 +79,6 @@ struct SummaryDetailView: View {
                 }
                 .disabled(isTogglingLike)
                 .accessibilityIdentifier("summary-like")
-                Button {
-                    showsShare = true
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-                .accessibilityIdentifier("share-summary")
             }
             moreToolbarActions
         }
@@ -176,6 +165,17 @@ struct SummaryDetailView: View {
             .accessibilityIdentifier("ask-summary")
             Divider()
         }
+        Button {
+            showsShare = true
+        } label: {
+            Label("Share…", systemImage: "square.and.arrow.up")
+        }
+        .accessibilityIdentifier("share-summary")
+        if summary.isOwner {
+            // A submenu: pick a version to preview in place, restore it, or open the full history.
+            VersionToolbarMenu(model: versions)
+        }
+        Divider()
         if summary.hasSourceMarkdown {
             Button { showsSourceText = true } label: {
                 Label("Source Text", systemImage: "doc.plaintext")
@@ -192,15 +192,6 @@ struct SummaryDetailView: View {
             Label("Local File", systemImage: "doc.badge.gearshape")
         }
         .accessibilityIdentifier("summary-local-file")
-        if summary.isOwner {
-            Divider()
-            Button {
-                versions.showsHistory = true
-            } label: {
-                Label("Version History…", systemImage: "clock.arrow.circlepath")
-            }
-            .accessibilityIdentifier("summary-versions")
-        }
         if summary.isOwner && !isPreviewingVersion {
             Divider()
             Button {

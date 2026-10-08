@@ -177,107 +177,6 @@ public struct SummaryCreationFlow<Result: View>: View {
         }
     }
 
-    private func compose(error: String?) -> some View {
-        Form {
-            Section {
-                if let fixedInput {
-                    SummaryInputPreview(input: fixedInput)
-                } else if let pickedDocument {
-                    SummaryInputPreview(input: pickedDocument)
-                    Button(role: .destructive) {
-                        clearPickedDocument()
-                    } label: { Label(String(localized: "Remove file", bundle: .module), systemImage: "xmark.circle") }
-                } else {
-                    TextField(String(localized: "Paste a link or some text", bundle: .module), text: $draft, axis: .vertical)
-                        .lineLimit(3...10)
-                        .summaryInputCapitalization()
-                        .autocorrectionDisabled()
-                        .accessibilityIdentifier("new-summary-input")
-                    #if os(iOS)
-                    PasteButton(payloadType: String.self) { strings in
-                        if let first = strings.first { draft = first }
-                    }
-                    .buttonBorderShape(.capsule)
-                    #endif
-                    if allowsFilePicking {
-                        Button {
-                            isImporting = true
-                        } label: {
-                            Label(String(localized: "Choose a file…", bundle: .module), systemImage: "doc.badge.plus")
-                            .accessibilityIdentifier("choose-summary-file")
-                        }
-                    }
-                }
-            } header: {
-                Text("Source", bundle: .module)
-            } footer: {
-                if fixedInput == nil, pickedDocument == nil {
-                    Text(allowsFilePicking ? String(localized: "A web link, text, or drop or choose a PDF, document, text, Markdown or code file.", bundle: .module) : draftHint)
-                } else if sourceFile != nil {
-                    readOnDeviceFooter(keepsCopy: true)
-                } else if case .copy = pickedLink {
-                    readOnDeviceFooter(keepsCopy: true)
-                } else if pickedDocument != nil {
-                    readOnDeviceFooter(keepsCopy: false)
-                }
-            }
-
-            if offersKeepingSourceText {
-                Section {
-                    Toggle(isOn: $options.keepsSourceText) {
-                        Label(String(localized: "Keep source text", bundle: .module), systemImage: "doc.plaintext")
-                    }
-                    .sensoryFeedback(.selection, trigger: options.keepsSourceText)
-                    .accessibilityIdentifier("keep-source-text")
-                } footer: {
-                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it.", bundle: .module)
-                }
-            }
-
-            Section {
-                NavigationLink(value: OptionsRoute()) {
-                    LabeledContent {
-                        Text(optionsSummary).lineLimit(1)
-                    } label: {
-                        Text("Options", bundle: .module)
-                    }
-                }
-            }
-
-            #if os(iOS)
-            Section {
-                Button {
-                    generate()
-                } label: {
-                    Label(error == nil ? String(localized: "Generate summary", bundle: .module) : String(localized: "Try again", bundle: .module), systemImage: "sparkles")
-                        .frame(maxWidth: .infinity)
-                        .fontWeight(.semibold)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(currentInput == nil)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-                .accessibilityIdentifier("generate-summary")
-            }
-            #endif
-        }
-        .formStyle(.grouped)
-        .disabled(isReadingFile)
-        .fileImporter(isPresented: $isImporting, allowedContentTypes: LocalDocument.contentTypes) { result in
-            importFile(result)
-        }
-        .summaryDropDestination(isEnabled: acceptsDrops) { isDropTargeted = $0 } onFile: { file in
-            importDocument(at: file.url, keepsOriginal: !file.isStagedCopy)
-        } onLink: { url in
-            clearPickedDocument()
-            draft = url.absoluteString
-        }
-        .overlay {
-            if isDropTargeted { SummaryDropHighlight() }
-        }
-    }
-
     private var acceptsDrops: Bool {
         allowsFilePicking && fixedInput == nil && !isReadingFile && !session.isGenerating
     }
@@ -458,6 +357,113 @@ public struct SummaryCreationFlow<Result: View>: View {
             } catch {
                 if !keepsOriginal { LocalDocument.discardCopy(url) }
                 importError = error.localizedDescription
+            }
+        }
+    }
+}
+
+private extension SummaryCreationFlow {
+    func compose(error: String?) -> some View {
+        Form {
+            sourceSection
+
+            if offersKeepingSourceText {
+                Section {
+                    Toggle(isOn: $options.keepsSourceText) {
+                        Label(String(localized: "Keep source text", bundle: .module), systemImage: "doc.plaintext")
+                    }
+                    .sensoryFeedback(.selection, trigger: options.keepsSourceText)
+                    .accessibilityIdentifier("keep-source-text")
+                } footer: {
+                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it.", bundle: .module)
+                }
+            }
+
+            Section {
+                NavigationLink(value: OptionsRoute()) {
+                    LabeledContent {
+                        Text(optionsSummary).lineLimit(1)
+                    } label: {
+                        Text("Options", bundle: .module)
+                    }
+                }
+            }
+
+            #if os(iOS)
+            Section {
+                Button {
+                    generate()
+                } label: {
+                    Label(error == nil ? String(localized: "Generate summary", bundle: .module) : String(localized: "Try again", bundle: .module), systemImage: "sparkles")
+                        .frame(maxWidth: .infinity)
+                        .fontWeight(.semibold)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(currentInput == nil)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+                .accessibilityIdentifier("generate-summary")
+            }
+            #endif
+        }
+        .formStyle(.grouped)
+        .disabled(isReadingFile)
+        .fileImporter(isPresented: $isImporting, allowedContentTypes: LocalDocument.contentTypes) { result in
+            importFile(result)
+        }
+        .summaryDropDestination(isEnabled: acceptsDrops) { isDropTargeted = $0 } onFile: { file in
+            importDocument(at: file.url, keepsOriginal: !file.isStagedCopy)
+        } onLink: { url in
+            clearPickedDocument()
+            draft = url.absoluteString
+        }
+        .overlay {
+            if isDropTargeted { SummaryDropHighlight() }
+        }
+    }
+
+    var sourceSection: some View {
+        Section {
+            if let fixedInput {
+                SummaryInputPreview(input: fixedInput)
+            } else if let pickedDocument {
+                SummaryInputPreview(input: pickedDocument)
+                Button(role: .destructive) {
+                    clearPickedDocument()
+                } label: { Label(String(localized: "Remove file", bundle: .module), systemImage: "xmark.circle") }
+            } else {
+                TextField(String(localized: "Paste a link or some text", bundle: .module), text: $draft, axis: .vertical)
+                    .lineLimit(3...10)
+                    .summaryInputCapitalization()
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("new-summary-input")
+                #if os(iOS)
+                PasteButton(payloadType: String.self) { strings in
+                    if let first = strings.first { draft = first }
+                }
+                .buttonBorderShape(.capsule)
+                #endif
+                if allowsFilePicking {
+                    Button {
+                        isImporting = true
+                    } label: {
+                        Label(String(localized: "Choose a file…", bundle: .module), systemImage: "doc.badge.plus")
+                        .accessibilityIdentifier("choose-summary-file")
+                    }
+                }
+            }
+        } header: {
+            Text("Source", bundle: .module)
+        } footer: {
+            if fixedInput == nil, pickedDocument == nil {
+                Text(allowsFilePicking ? String(localized: "A web link, text, or drop or choose a PDF, document, text, Markdown or code file.", bundle: .module) : draftHint)
+            } else if sourceFile != nil {
+                readOnDeviceFooter(keepsCopy: true)
+            } else if case .copy = pickedLink {
+                readOnDeviceFooter(keepsCopy: true)
+            } else if pickedDocument != nil {
+                readOnDeviceFooter(keepsCopy: false)
             }
         }
     }

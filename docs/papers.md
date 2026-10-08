@@ -23,7 +23,7 @@ project becomes **one PDF**.
 
 ## Images and figures
 
-The editor's **Add Image** toolbar button opens a dedicated figure sheet with a file picker,
+The editor's **More → Add Image** menu entry opens a dedicated figure sheet with a file picker,
 preview, caption, and figure path. Dropping an image onto the editor opens the same sheet with
 the image preselected; the image section also accepts drops for adding or replacing an image.
 Add one image at a time. Images remain local until Save uploads them and includes the figure
@@ -100,6 +100,41 @@ project into a blank page. The provider sits behind `lib/latex/compiler.ts`.
   `{ ok: true, revision, byteSize }` or `{ ok: false, revision, errors, log }`.
 * The service being down is `503 LATEX_UNAVAILABLE`.
 
+## Export, languages and rendering
+
+The toolbar's **More → Export** entry opens a sheet with PDF / Word (`.docx`) and language dropdowns.
+Word uses Pandoc in an isolated WASM worker and produces editable paragraphs, headings, tables,
+and supported equations. It uses the paper's private assets and included files. TikZ and pgfplots
+must be replaced with images for Word; unresolved content fails export instead of being silently
+discarded. PDF retains native LaTeX diagrams. Word and PDF can paginate differently.
+
+**More → Language** manages saved translations in English, Simplified/Traditional Chinese,
+Japanese, Korean, Spanish, French, and German, matching trip languages. Translating uses points;
+reading or exporting never starts a paid translation. Only human prose is translated; LaTeX
+commands, equations, citation keys, file paths, assets and bibliography records stay intact.
+The original source is editable; translated readings are read-only. Source edits mark translations
+outdated; updating reuses unchanged prose. An outdated/missing export language returns
+`409 PAPER_TRANSLATION_OUTDATED`. `lang=original` always chooses the source language; omitted
+`lang` follows the owner's selected reading (other viewers receive the original by default).
+
+**More → Rendering Options** and the export sheet's **Rendering Options** entry open the same
+dedicated settings sheet. Options cover one/two columns, column gap, A4/Letter/Legal/A5 paper,
+orientation, four margins, original/serif/sans/monospace fonts, body/heading sizes, heading color,
+line/paragraph spacing, first-line indent, alignment, hyphenation, section numbering, contents
+and depth, title page, page-number placement, header and footer text. Presets include Standard,
+Two-column Paper and Comfortable Reading. Custom rendering is opt-in; disabling it restores
+the source's native layout. Settings affect the live preview and both exports, including saved
+versions. They are stored separately from source history, do not advance its revision and do
+not invalidate translations. PDF cache keys include rendered layout.
+
+Custom rendering and translated PDFs use XeLaTeX. The compiler needs `geometry`, `fontspec`,
+`setspace`, `ragged2e`, `xcolor`, `titlesec`, `fancyhdr`, TeX Gyre OTF fonts and CJK fonts for those
+languages (`xeCJK`; Noto Serif CJK or Fandol/HaranoAji/UnBatang fallbacks). Custom document classes
+may conflict with these packages; turning off custom rendering preserves their own layout.
+Apply migrations `0028_paper_translations` and `0029_paper_rendering` before deploying this API.
+The export route traces the Pandoc worker and WASM files into the deployment; no host Pandoc
+installation is required.
+
 ## References
 
 Every bibliography entry (each entry of the `.bib` files, and each `\bibitem` of a
@@ -143,6 +178,11 @@ The editor refreshes it while checks run.
 | `DELETE /api/v1/papers/:id` | – | `204` (versions and PDF go with it) |
 | `POST /api/v1/papers/:id/versions` | – | `{ paper: Paper, version: number \| null }` |
 | `GET /api/v1/papers/:id/pdf?version=` | – | `application/pdf`, or `422 LATEX_COMPILE_FAILED` |
+| `GET /api/v1/papers/:id/export?format=pdf\|docx&lang=original\|…&version=` | – | PDF/Word attachment, `Content-Language`, `X-Paper-Revision` for current source |
+| `POST /api/v1/papers/:id/export` | `{ format?, lang?, version?, rendering? }` | Same attachment; optional per-export rendering override does not change saved settings |
+| `PUT /api/v1/papers/:id/rendering` | Rendering options (`server/lib/contracts/paper-rendering.ts`) | `{ paper: Paper }`; owner only, source revision unchanged |
+| `GET /api/v1/papers/:id/translations` | – | `{ originalLanguage, items: [{ language, upToDate, translating }] }` |
+| `POST /api/v1/papers/:id/translations` | `{ language: en\|zh-Hans\|zh-Hant\|ja\|ko\|es\|fr\|de\|null }` | `{ paper: Paper }`; owner only, `null` selects original |
 | `GET /api/v1/papers/:id/assets?path=images/result.png&version=` | – | Image bytes for an authorized viewer; saved versions are owner-only |
 | `POST /api/v1/papers/:id/check` | – | `{ ok, revision, errors?, log?, byteSize? }` |
 | `GET /s/:key/paper.pdf` | – | The PDF for whoever the share link lets in |
@@ -181,9 +221,11 @@ The paper opens from the library (`kind == .paper`) in `PaperDetailView`:
   windows. The divider also supports accessibility adjustments. The preview recompiles after
   each autosave and continues fitting its pane unless the reader has zoomed manually.
 * **iPhone**: the editor fills the screen; the toolbar's **PDF** button shows the preview in a sheet.
-* Files are picked from a menu, added and renamed in sheets; the toolbar also has **Check LaTeX**
+* Files are picked from a menu, added and renamed in sheets; **More** also has **Check LaTeX**
   (lists errors by file and line), **Versions** (the shared history sheet: view and restore), and
-  **Download PDF**.
+  **Export** (PDF/Word and language options).
+* **More** contains **Add Image**, **Share**, **Language** and **Rendering Options**. Export
+  also links to rendering settings and translation management.
 * **Add Image** opens a dedicated sheet with a native file picker and preview. **Add Figure**
   opens a TikZ or pgfplots sheet with editable starter code. Saving loads the required package,
   creates a figure `.tex` file and includes it in the open TeX file (or the main file). Imported
@@ -223,4 +265,4 @@ The paper opens from the library (`kind == .paper`) in `PaperDetailView`:
   shows a popover with the issue and what to fix. A capsule under the preview counts the errors
   (or says references are being checked) and opens the **References** sheet (also in the More
   menu), which lists every entry with its check; choosing one opens its entry in the editor.
-  **Download PDF** asks for confirmation while references have errors.
+  **Export** asks for confirmation while references have errors.

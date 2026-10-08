@@ -216,6 +216,15 @@ public final class SummaryAPIClient: Sendable {
     /// The hosted MCP server agents connect to with an API key.
     public var mcpEndpoint: URL { baseURL.appending(path: "/api/mcp") }
 
+    /// The server's current MCP tools. Uses the app's sign-in, including before any API key exists.
+    public func mcpTools() async throws -> [MCPTool] {
+        struct Page: Decodable { let items: [MCPTool] }
+        var request = get("/api/v1/mcp/tools")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let page: Page = try await send(request)
+        return page.items
+    }
+
     /// The account's MCP API keys with their usage, newest first.
     public func apiKeys() async throws -> [APIKey] {
         struct Page: Decodable { let items: [APIKey] }

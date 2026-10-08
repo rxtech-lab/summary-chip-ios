@@ -1226,24 +1226,28 @@ public extension TripDocument {
         }
     }
 
+    private mutating func removePlace(_ id: String) {
+        places.removeAll { $0.id == id }
+        for i in days.indices {
+            days[i].route?.placeIds.removeAll { $0 == id }
+            for j in days[i].moments.indices where days[i].moments[j].placeId == id { days[i].moments[j].placeId = nil }
+        }
+        for i in hotels.indices where hotels[i].placeId == id { hotels[i].placeId = nil }
+        for i in transports.indices {
+            for j in transports[i].options.indices {
+                for k in transports[i].options[j].segments.indices {
+                    if transports[i].options[j].segments[k].fromPlaceId == id { transports[i].options[j].segments[k].fromPlaceId = nil }
+                    if transports[i].options[j].segments[k].toPlaceId == id { transports[i].options[j].segments[k].toPlaceId = nil }
+                }
+            }
+        }
+    }
+
     /// Deletes a record and clears every reference to it, so the document stays valid.
     mutating func remove(_ collection: TripCollection, id: String) {
         switch collection {
         case .places:
-            places.removeAll { $0.id == id }
-            for i in days.indices {
-                days[i].route?.placeIds.removeAll { $0 == id }
-                for j in days[i].moments.indices where days[i].moments[j].placeId == id { days[i].moments[j].placeId = nil }
-            }
-            for i in hotels.indices where hotels[i].placeId == id { hotels[i].placeId = nil }
-            for i in transports.indices {
-                for j in transports[i].options.indices {
-                    for k in transports[i].options[j].segments.indices {
-                        if transports[i].options[j].segments[k].fromPlaceId == id { transports[i].options[j].segments[k].fromPlaceId = nil }
-                        if transports[i].options[j].segments[k].toPlaceId == id { transports[i].options[j].segments[k].toPlaceId = nil }
-                    }
-                }
-            }
+            removePlace(id)
         case .days:
             days.removeAll { $0.id == id }
             for i in expenses.indices where expenses[i].dayId == id { expenses[i].dayId = nil }

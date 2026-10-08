@@ -46,11 +46,10 @@ export function setHostResolverForTests(value?: HostResolver): void {
 const blockedUrl = () => new ApiError(422, "URL_NOT_ALLOWED", "This URL points to a private or unsupported address");
 
 /**
- * Rejects anything but public http(s) targets. Every address the name resolves to must be public.
- * (A DNS answer that changes between this check and the connection is not covered; redirects are
- * re-validated hop by hop by the fetcher.)
+ * Rejects what is not a public http(s) target by its text alone: other schemes, credentials,
+ * local names and private literal addresses. Doesn't resolve the name.
  */
-export async function assertPublicUrl(raw: string | URL): Promise<URL> {
+export function assertPublicUrlSyntax(raw: string | URL): URL {
   let url: URL;
   try {
     url = new URL(raw);
@@ -63,10 +62,19 @@ export async function assertPublicUrl(raw: string | URL): Promise<URL> {
   if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal")) {
     throw blockedUrl();
   }
-  if (isIP(hostname)) {
-    if (isPrivateAddress(hostname)) throw blockedUrl();
-    return url;
-  }
+  if (isIP(hostname) && isPrivateAddress(hostname)) throw blockedUrl();
+  return url;
+}
+
+/**
+ * Rejects anything but public http(s) targets. Every address the name resolves to must be public.
+ * (A DNS answer that changes between this check and the connection is not covered; redirects are
+ * re-validated hop by hop by the fetcher.)
+ */
+export async function assertPublicUrl(raw: string | URL): Promise<URL> {
+  const url = assertPublicUrlSyntax(raw);
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (isIP(hostname)) return url;
   let addresses: string[];
   try {
     addresses = await resolver(hostname);

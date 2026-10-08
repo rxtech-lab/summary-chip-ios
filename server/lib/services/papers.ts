@@ -15,10 +15,14 @@ import { paperContent, versionStatements, type VersionContentByKind, type Versio
 import { embedSummary, indexSummary } from "./embeddings";
 import { applyPaperOperations, latexTitle, paperDigest, paperHash, paperText, samePaper, templateFiles, validPaper } from "./paper-document";
 import { paperAssetBytes, paperAssetStatements, preparePaperAssets } from "./paper-assets";
+import { queuePaperChangesStatement, startPaperNotification } from "./paper-notifications";
 import { checkReferencesLater, checkReferencesNow, claimReferences, referenceQuietMs, referenceStatuses, type ReferenceCheckDeps } from "./paper-references";
 import { shareUrlFor } from "./serialize";
 import { canViewerRead } from "./share-access";
 import { coverImages, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, resolveDeps, type ServiceDeps } from "./summaries";
+import { readPaperDocument } from "./paper-translations";
+import { paperRenderingSchema, type PaperRendering } from "@/lib/contracts/paper-rendering";
+import { renderLatex } from "@/lib/latex/rendering";
 
 export type CreatePaperInput = z.infer<typeof createPaperSchema>;
 export type PutPaperInput = z.infer<typeof putPaperSchema>;
@@ -61,6 +65,11 @@ export interface PaperJson {
   references: PaperReference[];
   /** `GET` only: when the caller starred the paper; null when they haven't. */
   likedAt?: string | null;
+  originalLanguage: string;
+  language: string;
+  displayLanguage: string | null;
+  translationOutdated: boolean;
+  renderingOptions: PaperRendering;
 }
 
 /** One row of `GET /api/v1/papers`. */
@@ -123,6 +132,11 @@ export function toPaperJson(summary: SummaryRow, paper: PaperRow, viewerId: stri
     version,
     hasUnversionedChanges: isOwner && paper.revision > paper.versionedRevision,
     references: isOwner ? references : [],
+    originalLanguage: summary.language,
+    language: summary.language,
+    displayLanguage: isOwner ? summary.displayLanguage : null,
+    translationOutdated: false,
+    renderingOptions: paperRenderingSchema.parse(paper.renderingOptions),
   };
 }
 
@@ -176,10 +190,14 @@ export async function getOwnedPaper(db: Database, id: string, ownerId: string): 
 }
 
 /** `GET /api/v1/papers/:id`: the owner, or anyone signed in who may open it (read-only). */
-export async function getPaper(db: Database, id: string, viewerId: string): Promise<PaperJson> {
+export async function getPaper(db: Database, id: string, viewerId: string, options?: { language?: string | null }): Promise<PaperJson> {
   const found = await findPaperForViewer(db, id, viewerId);
   if (!found) throw paperNotFound();
   const [likedAt, json] = await Promise.all([findLikedAt(db, viewerId, id), paperJson(db, found.summary, found.paper, viewerId)]);
+  if (options) {
+    const reading = await readPaperDocument(db, found.summary, found.paper, viewerId, options);
+    return { ...json, ...reading.document, language: reading.language, translationOutdated: reading.outdated, likedAt: likedAt ? likedAt.toISOString() : null };
+  }
   return { ...json, likedAt: likedAt ? likedAt.toISOString() : null };
 }
 
@@ -238,6 +256,7 @@ export async function createPaper(db: Database, principal: ApiPrincipal, input: 
     versionedRevision: 0,
     pdfHash: null,
     pdfKey: null,
+    renderingOptions: {},
     updatedAt: createdAt,
   };
   const row = await insertSummary(db, store, {
@@ -271,7 +290,13 @@ export async function createPaper(db: Database, principal: ApiPrincipal, input: 
     viewCount: 0,
     createdAt,
     updatedAt: createdAt,
-  }, embedding, () => [db.insert(papers).values(paperRow), ...paperAssetStatements(db, id, document, createdAt)], paperContent(document), { actor: deps.actor });
+  }, embedding, () => [
+    db.insert(papers).values(paperRow),
+    ...paperAssetStatements(db, id, document, createdAt),
+    queuePaperChangesStatement(db, id, paperRow.revision, createdAt, true),
+  ], paperContent(document), { actor: deps.actor });
+  // Debounced: an agent usually fills a paper in with edits right after creating it.
+  runAfter(() => startPaperNotification(id).catch(() => console.warn("[papers] notification not started")));
   await checkReferences(db, id, document, { ai, now }, { referenceQuietMs: 0, ...deps });
   return paperJson(db, row, paperRow, principal.sub);
 }
@@ -337,9 +362,12 @@ async function savePaper(
     versionedRevision: options.version ? revision : paper.versionedRevision,
     updatedAt,
   } satisfies Partial<PaperRow>;
-  // SQLite changes() fences the summary update and the version to the CAS on the paper.
+  // An agent's edit tells the owner (debounced); their own typing in the editor doesn't.
+  const notify = deps.actor === "agent";
+  // SQLite changes() fences the alert, the summary update and the version to the CAS on the paper.
   const [result] = await db.batch([
     db.update(papers).set(saved).where(and(eq(papers.summaryId, paper.summaryId), eq(papers.revision, paper.revision))),
+    ...(notify ? [queuePaperChangesStatement(db, summary.id, revision, updatedAt)] : []),
     db.update(summaries).set(changes).where(and(eq(summaries.id, summary.id), sql`changes() > 0`)),
     ...paperAssetStatements(db, summary.id, document, updatedAt, true),
     ...(options.version ? versionStatements(db, summary, paperContent(document), { at: updatedAt, actor: deps.actor, restoredFrom: deps.restoredFrom, fenced: true }) : []),
@@ -349,6 +377,7 @@ async function savePaper(
     if (!current) throw paperNotFound();
     throw revisionConflict(current.revision);
   }
+  if (notify) runAfter(() => startPaperNotification(summary.id).catch(() => console.warn("[papers] notification not started")));
   const updated = { ...summary, ...changes };
   runAfter(() => indexSummary(db, ai, updated));
   await checkReferences(db, summary.id, document, { ai, now }, deps);
@@ -460,7 +489,7 @@ function pdfKeyFor(summaryId: string, hash: string): string {
   return `papers/${summaryId}/${hash}.pdf`;
 }
 
-async function compile(project: PaperDocument, strict: boolean, paperId: string, store: ObjectStore): Promise<LatexResult> {
+export async function compilePaperDocument(project: PaperDocument, strict: boolean, paperId: string, store: ObjectStore): Promise<LatexResult> {
   const compiler = await getLatexCompiler();
   const assetData: Record<string, Uint8Array> = {};
   await Promise.all(project.files.map(async (file) => {
@@ -505,19 +534,19 @@ export async function paperPdf(
     const [row] = await db.select().from(documentVersions)
       .where(and(eq(documentVersions.summaryId, id), eq(documentVersions.version, options.version))).limit(1);
     if (!row) throw new ApiError(404, "VERSION_NOT_FOUND", `Version ${options.version} does not exist (only the latest versions are kept)`);
-    const document = row.content as unknown as VersionContentByKind["paper"];
-    const result = await compile(document, false, id, store);
+    const document = renderLatex(row.content as unknown as VersionContentByKind["paper"], paper.renderingOptions);
+    const result = await compilePaperDocument(document, false, id, store);
     if (!result.ok) throw compileFailed(result);
     return { bytes: result.pdf, filename: paperFilename(document.title), revision: null };
   }
 
-  const document = documentOf(summary, paper);
+  const document = renderLatex(documentOf(summary, paper), paper.renderingOptions);
   const hash = paperHash(document);
   if (paper.pdfHash === hash && paper.pdfKey) {
     const cached = await store.get(paper.pdfKey).catch(() => null);
     if (cached) return { bytes: cached.bytes, filename: paperFilename(summary.title), revision: paper.revision };
   }
-  const result = await compile(document, false, id, store);
+  const result = await compilePaperDocument(document, false, id, store);
   if (!result.ok) throw compileFailed(result);
   await cachePdf(db, store, paper, hash, result.pdf);
   return { bytes: result.pdf, filename: paperFilename(summary.title), revision: paper.revision };
@@ -529,7 +558,7 @@ async function cachePdf(db: Database, store: ObjectStore, paper: PaperRow, hash:
   try {
     await store.put(key, { bytes: pdf, contentType: "application/pdf", cacheControl: "private, max-age=0" });
     const result = await db.update(papers).set({ pdfHash: hash, pdfKey: key })
-      .where(and(eq(papers.summaryId, paper.summaryId), eq(papers.revision, paper.revision)));
+      .where(and(eq(papers.summaryId, paper.summaryId), eq(papers.revision, paper.revision), eq(papers.renderingOptions, paper.renderingOptions)));
     if (result.rowsAffected > 0 && paper.pdfKey && paper.pdfKey !== key) await store.delete(paper.pdfKey).catch(() => undefined);
   } catch (error) {
     console.warn("[papers] PDF not cached", error);
@@ -542,9 +571,9 @@ async function cachePdf(db: Database, store: ObjectStore, paper: PaperRow, hash:
  */
 export async function checkPaper(db: Database, ownerId: string, id: string, deps: Pick<ServiceDeps, "store"> = {}): Promise<{ ok: true; revision: number; byteSize: number } | ({ ok: false; revision: number } & PaperCompileFailure)> {
   const { summary, paper } = await getOwnedPaper(db, id, ownerId);
-  const document = documentOf(summary, paper);
+  const document = renderLatex(documentOf(summary, paper), paper.renderingOptions);
   const store = deps.store ?? (await resolveDeps()).store;
-  const result = await compile(document, true, id, store);
+  const result = await compilePaperDocument(document, true, id, store);
   if (!result.ok) return { ok: false, revision: paper.revision, errors: result.errors, log: result.log };
   await cachePdf(db, store, paper, paperHash(document), result.pdf);
   return { ok: true, revision: paper.revision, byteSize: result.pdf.byteLength };

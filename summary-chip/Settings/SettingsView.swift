@@ -125,18 +125,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Help") {
-                SettingsActionRow(String(localized: "Welcome Tour"), systemImage: "hand.wave.fill", tint: .orange,
-                                  detail: String(localized: "A quick look at how Chippy works.")) {
-                    Button("Show") { helpSheet = .welcome }
-                        .accessibilityIdentifier("settings-welcome")
-                }
-                SettingsActionRow(String(localized: "What’s New"), systemImage: "sparkles", tint: .purple,
-                                  detail: String(localized: "Features added in recent updates.")) {
-                    Button("Show") { helpSheet = .features }
-                        .accessibilityIdentifier("settings-features")
-                }
-            }
+            macHelpSection
 
             Section("About") {
                 appIdentity
@@ -178,6 +167,21 @@ struct SettingsView: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { formWidth = $0 }
         .task { await notifications.refreshStatus() }
         .task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
+    }
+
+    private var macHelpSection: some View {
+        Section("Help") {
+            SettingsActionRow(String(localized: "Welcome Tour"), systemImage: "hand.wave.fill", tint: .orange,
+                              detail: String(localized: "A quick look at how Chippy works.")) {
+                Button("Show") { helpSheet = .welcome }
+                    .accessibilityIdentifier("settings-welcome")
+            }
+            SettingsActionRow(String(localized: "What’s New"), systemImage: "sparkles", tint: .purple,
+                              detail: String(localized: "Features added in recent updates.")) {
+                Button("Show") { helpSheet = .features }
+                    .accessibilityIdentifier("settings-features")
+            }
+        }
     }
 
     /// Who is signed in, with this account's usage at a glance and the way to manage it.

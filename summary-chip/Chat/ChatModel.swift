@@ -250,21 +250,25 @@ final class ChatModel {
                 onTripUpdated?()
             }
         case .toolOutputError(let callID, let error):
-            update(id) { entry in
-                let index = entry.tools.firstIndex(where: { $0.id == callID }) ?? {
-                    entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: []))
-                    return entry.tools.count - 1
-                }()
-                entry.tools[index].isRunning = false
-                entry.tools[index].finished = true
-                entry.tools[index].errorText = error
-            }
+            applyToolError(callID, error: error, to: id)
         case .error(let message):
             update(id) { $0.errorText = message }
         case .finish:
             update(id) { entry in
                 for index in entry.tools.indices { entry.tools[index].isRunning = false }
             }
+        }
+    }
+
+    private func applyToolError(_ callID: String, error: String, to id: String) {
+        update(id) { entry in
+            let index = entry.tools.firstIndex(where: { $0.id == callID }) ?? {
+                entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: []))
+                return entry.tools.count - 1
+            }()
+            entry.tools[index].isRunning = false
+            entry.tools[index].finished = true
+            entry.tools[index].errorText = error
         }
     }
 

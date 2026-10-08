@@ -56,6 +56,7 @@ struct SummaryChipApp: App {
                     if ProcessInfo.processInfo.arguments.contains("--preview-education") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-credits") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-paper-editor") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--preview-paper-export") { return }
                     if LikesPreviewFixture.isEnabled { return }
                     #if os(macOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-mac") { return }
@@ -118,6 +119,8 @@ struct SummaryChipApp: App {
             OnboardingPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-paper-editor") {
             PaperEditorPreviewHost()
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-paper-export") {
+            PaperExportPreviewHost()
         } else {
             #if os(macOS)
             if ProcessInfo.processInfo.arguments.contains("--preview-mac") {

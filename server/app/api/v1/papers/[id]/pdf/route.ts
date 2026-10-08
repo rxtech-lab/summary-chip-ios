@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/http/errors";
 import { withApiAuth } from "@/lib/http/handler";
-import { paperPdf } from "@/lib/services/papers";
+import { exportPaper } from "@/lib/services/paper-export";
 
 export const runtime = "nodejs";
 /** Compiling a long paper with a bibliography takes a while. */
@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: Context) {
     const raw = new URL(request.url).searchParams.get("version");
     const version = raw === null ? undefined : Number(raw);
     if (version !== undefined && !(Number.isInteger(version) && version > 0)) throw new ApiError(400, "VALIDATION_ERROR", "version must be a positive integer");
-    const pdf = await paperPdf(db, id, principal.sub, { version });
+    const pdf = await exportPaper(db, id, principal.sub, { format: "pdf", version, language: new URL(request.url).searchParams.get("lang") ?? undefined });
     return new Response(pdf.bytes as BodyInit, {
       headers: {
         "content-type": "application/pdf",

@@ -160,39 +160,10 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             guard let index = items.firstIndex(where: { $0.slug == slug }), !items[index].isExpired else { return notFound }
             viewed.insert(items[index].id)
             return json(summary(items[index]))
-        case ("GET", "trips", 2):
-            guard let trip = items.first(where: { $0.id == id && $0.kind == "trip" }) else { return notFound }
-            let document = TripTourPreviewPhotos.document(Data(Self.tripDocument.utf8))
-            return json(["trip": [
-                "id": trip.id, "slug": trip.slug, "revision": 3, "visibility": "public", "isOwner": false,
-                "createdAt": iso(trip.createdAt), "updatedAt": iso(trip.createdAt),
-                "shareUrl": "https://summary.rxlab.app/s/\(trip.slug)", "document": document,
-                "likedAt": iso(likes[trip.id]), "planSelections": planSelections,
-            ]])
-        case ("PUT", "trips", 3) where path[2] == "plan-selections":
-            let body = request.httpBodyStream.map(Self.read) ?? request.httpBody ?? Data()
-            let pick = (try? JSONSerialization.jsonObject(with: body) as? [String: Any]) ?? [:]
-            guard let planID = pick["planId"] as? String else { return notFound }
-            planSelections[planID] = pick["optionId"] as? String
-            return json(["planSelections": planSelections])
-        case ("GET", "trips", 3) where path[2] == "flights":
-            return (200, Data(Self.tripFlights.utf8))
-        case ("POST", "trips", 3) where path[2] == "tour":
-            // No narration audio offline: the tour reads its subtitles at a calm pace.
-            return json(TripTourPreviewPhotos.tour(Data(Self.tripTour.utf8)))
-        case ("GET", "trips", 3) where path[2] == "weather":
-            return json(["updatedAt": NSNull(), "days": [], "now": NSNull()])
+        case (_, "trips", _):
+            return routeTrip(request, id: id, path: path, method: method)
         case ("GET", "summaries", 3) where path[2] == "versions":
-            guard let item = items.first(where: { $0.id == id && $0.isOwner }) else { return notFound }
-            let history = versions(of: item)
-            let rows = history.reversed().map { version -> [String: Any] in
-                var row = version
-                row["isCurrent"] = (version["version"] as? Int) == history.count
-                row["title"] = (version["content"] as? [String: Any])?["title"]
-                row.removeValue(forKey: "content")
-                return row
-            }
-            return json(["items": rows, "nextCursor": NSNull()])
+            return summaryVersions(id)
         case ("GET", "summaries", 4) where path[2] == "versions":
             guard let item = items.first(where: { $0.id == id && $0.isOwner }), let number = Int(path[3]) else { return notFound }
             let history = versions(of: item)
@@ -207,12 +178,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         case ("GET", "facets", 1):
             return json(["categories": [], "tags": []])
         case ("GET", "api-keys", 1):
-            return json(["items": [
-                ["id": "key-claude", "name": "Claude Code on MacBook", "hint": "chippy_Ab3x…9fQz", "toolCallCount": 1284,
-                 "summariesAddedCount": 37, "lastUsedAt": iso(.now.addingTimeInterval(-40 * 60)), "createdAt": iso(.now.addingTimeInterval(-60 * 86_400))],
-                ["id": "key-desktop", "name": "Claude Desktop", "hint": "chippy_Q7mN…k2Lp", "toolCallCount": 212,
-                 "summariesAddedCount": 4, "lastUsedAt": iso(.now.addingTimeInterval(-3 * 86_400)), "createdAt": iso(.now.addingTimeInterval(-20 * 86_400))],
-            ]])
+            return apiKeysResponse
         case ("POST", "chat", 1):
             // The whole answer arrives at once; the app parses it as the same UI message stream.
             let lines = Self.chatEvents.split(separator: "\n").map { "data: \($0)\n\n" }.joined() + "data: [DONE]\n\n"
@@ -220,6 +186,57 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         default:
             return notFound
         }
+    }
+
+    private func routeTrip(_ request: URLRequest, id: String, path: [String], method: String) -> (Int, Data) {
+        switch (method, path.count) {
+        case ("GET", 2):
+            guard let trip = items.first(where: { $0.id == id && $0.kind == "trip" }) else { return notFound }
+            let document = TripTourPreviewPhotos.document(Data(Self.tripDocument.utf8))
+            return json(["trip": [
+                "id": trip.id, "slug": trip.slug, "revision": 3, "visibility": "public", "isOwner": false,
+                "createdAt": iso(trip.createdAt), "updatedAt": iso(trip.createdAt),
+                "shareUrl": "https://summary.rxlab.app/s/\(trip.slug)", "document": document,
+                "likedAt": iso(likes[trip.id]), "planSelections": planSelections,
+            ]])
+        case ("PUT", 3) where path[2] == "plan-selections":
+            let body = request.httpBodyStream.map(Self.read) ?? request.httpBody ?? Data()
+            let pick = (try? JSONSerialization.jsonObject(with: body) as? [String: Any]) ?? [:]
+            guard let planID = pick["planId"] as? String else { return notFound }
+            planSelections[planID] = pick["optionId"] as? String
+            return json(["planSelections": planSelections])
+        case ("GET", 3) where path[2] == "flights":
+            return (200, Data(Self.tripFlights.utf8))
+        case ("POST", 3) where path[2] == "tour":
+            // No narration audio offline: the tour reads its subtitles at a calm pace.
+            return json(TripTourPreviewPhotos.tour(Data(Self.tripTour.utf8)))
+        case ("GET", 3) where path[2] == "weather":
+            return json(["updatedAt": NSNull(), "days": [], "now": NSNull()])
+        default:
+            return notFound
+        }
+    }
+
+    private var apiKeysResponse: (Int, Data) {
+        return json(["items": [
+            ["id": "key-claude", "name": "Claude Code on MacBook", "hint": "chippy_Ab3x…9fQz", "toolCallCount": 1284,
+             "summariesAddedCount": 37, "lastUsedAt": iso(.now.addingTimeInterval(-40 * 60)), "createdAt": iso(.now.addingTimeInterval(-60 * 86_400))],
+            ["id": "key-desktop", "name": "Claude Desktop", "hint": "chippy_Q7mN…k2Lp", "toolCallCount": 212,
+             "summariesAddedCount": 4, "lastUsedAt": iso(.now.addingTimeInterval(-3 * 86_400)), "createdAt": iso(.now.addingTimeInterval(-20 * 86_400))],
+        ]])
+    }
+
+    private func summaryVersions(_ id: String) -> (Int, Data) {
+        guard let item = items.first(where: { $0.id == id && $0.isOwner }) else { return notFound }
+        let history = versions(of: item)
+        let rows = history.reversed().map { version -> [String: Any] in
+            var row = version
+            row["isCurrent"] = (version["version"] as? Int) == history.count
+            row["title"] = (version["content"] as? [String: Any])?["title"]
+            row.removeValue(forKey: "content")
+            return row
+        }
+        return json(["items": rows, "nextCursor": NSNull()])
     }
 
     private func restore(_ item: Item, to number: Int) -> (Int, Data) {

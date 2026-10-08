@@ -39,53 +39,7 @@ struct LibraryView: View {
                     guard phase == .active, model.hasLoaded else { return }
                     Task { await model.reload() }
                 }
-                .toolbar {
-                    ToolbarItem(placement: .summaryLeading) {
-                        Button {
-                            showsCredits = true
-                        } label: {
-                            // Toolbars collapse `Label` to its icon, so lay out the count explicitly.
-                            HStack(spacing: 4) {
-                                Image(systemName: "sparkles")
-                                Text("\(pointsTitle) pts")
-                                    .monospacedDigit()
-                                    .fixedSize()
-                            }
-                        }
-                        .accessibilityLabel("Points: \(pointsTitle)")
-                        .accessibilityIdentifier("library-points")
-                    }
-                    ToolbarItemGroup(placement: .summaryTrailing) {
-                        filterMenu
-                        Menu {
-                            Button {
-                                showsNewSummary = true
-                            } label: {
-                                Label("New Summary", systemImage: "text.quote")
-                            }
-                            .accessibilityIdentifier("new-summary-menu-summary")
-                            Button {
-                                showsNewTrip = true
-                            } label: {
-                                Label("New Trip", systemImage: "map")
-                            }
-                            .accessibilityIdentifier("new-trip")
-                            Button {
-                                showsNewPaper = true
-                            } label: {
-                                Label("New Paper", systemImage: "doc.richtext")
-                            }
-                            .accessibilityIdentifier("new-paper")
-                        } label: {
-                            Label("New", systemImage: "plus")
-                        }
-                        .accessibilityIdentifier("new-summary")
-                        if let openSearch {
-                            SummarySearchButton(action: openSearch)
-                        }
-                    }
-                    ChatPanelToolbarContent(isVisible: chatPanelVisibility)
-                }
+                .toolbar { libraryToolbar }
                 .sheet(isPresented: $showsFilters) {
                     LibraryFilterSheet(model: model) { applyFilter($0) }
                 }
@@ -122,6 +76,55 @@ struct LibraryView: View {
                 .sensoryFeedback(.selection, trigger: model.filter)
                 .likeStatusOverlay($likeStatus)
         }
+    }
+
+    @ToolbarContentBuilder
+    private var libraryToolbar: some ToolbarContent {
+        ToolbarItem(placement: .summaryLeading) {
+            Button {
+                showsCredits = true
+            } label: {
+                // Toolbars collapse `Label` to its icon, so lay out the count explicitly.
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                    Text("\(pointsTitle) pts")
+                        .monospacedDigit()
+                        .fixedSize()
+                }
+            }
+            .accessibilityLabel("Points: \(pointsTitle)")
+            .accessibilityIdentifier("library-points")
+        }
+        ToolbarItemGroup(placement: .summaryTrailing) {
+            filterMenu
+            Menu {
+                Button {
+                    showsNewSummary = true
+                } label: {
+                    Label("New Summary", systemImage: "text.quote")
+                }
+                .accessibilityIdentifier("new-summary-menu-summary")
+                Button {
+                    showsNewTrip = true
+                } label: {
+                    Label("New Trip", systemImage: "map")
+                }
+                .accessibilityIdentifier("new-trip")
+                Button {
+                    showsNewPaper = true
+                } label: {
+                    Label("New Paper", systemImage: "doc.richtext")
+                }
+                .accessibilityIdentifier("new-paper")
+            } label: {
+                Label("New", systemImage: "plus")
+            }
+            .accessibilityIdentifier("new-summary")
+            if let openSearch {
+                SummarySearchButton(action: openSearch)
+            }
+        }
+        ChatPanelToolbarContent(isVisible: chatPanelVisibility)
     }
 
     /// Pushes a paper made in the New Paper sheet once the sheet has closed.
