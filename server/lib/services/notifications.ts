@@ -3,6 +3,7 @@ import type { Database } from "@/lib/db/client";
 import { pushDevices, type SummaryRow } from "@/lib/db/schema";
 import { apnsConfigured, sendPush, type PushOptions, type PushPayload, type PushResult } from "@/lib/notifications/apns";
 import { translationLanguageFor } from "./translations";
+import type { TripReminder } from "@/lib/trips/reminders";
 
 function clipAlert(text: string, max = 180): string {
   return [...text].slice(0, max).join("");
@@ -36,6 +37,25 @@ export function tripUpdatedPayload(userId: string, tripId: string, title: string
     summaryId: tripId,
     tripId,
     userId,
+  };
+}
+
+const TRIP_REMINDER_TITLES: Record<string, [day: string, leg: string]> = {
+  en: ["Tomorrow's trip", "Your next leg starts now"],
+  "zh-Hans": ["明日行程", "下一段行程现在出发"],
+  "zh-Hant": ["明日行程", "下一段行程現在出發"],
+  ja: ["明日の旅程", "次の移動の出発時刻です"],
+  ko: ["내일의 여행 일정", "다음 구간이 지금 시작됩니다"],
+  es: ["El viaje de mañana", "Tu próximo trayecto empieza ahora"],
+  fr: ["Le voyage de demain", "Votre prochaine étape commence"],
+  de: ["Die Reise morgen", "Deine nächste Etappe beginnt jetzt"],
+};
+
+export function tripReminderPayload(userId: string, tripId: string, title: string, reminder: TripReminder, language: string): PushPayload {
+  const headings = TRIP_REMINDER_TITLES[translationLanguageFor(language) ?? "en"];
+  return {
+    aps: { alert: { title: headings[reminder.kind === "day" ? 0 : 1], body: clipAlert(`${clipAlert(title, 36)}: ${reminder.detail}`) }, sound: "default" },
+    summaryId: tripId, tripId, userId,
   };
 }
 

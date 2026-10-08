@@ -23,13 +23,15 @@ extension View {
 /// swipe between photos when not.
 struct TripPhotoViewer: View {
     let photos: [TripPhoto]
+    private let start: Int
     @State private var page: Int?
     @State private var zoomed = false
     @Environment(\.dismiss) private var dismiss
 
     init(photos: [TripPhoto], start: Int) {
         self.photos = photos
-        _page = State(initialValue: start)
+        self.start = min(max(0, start), max(0, photos.count - 1))
+        _page = State(initialValue: self.start)
     }
 
     var body: some View {
@@ -45,6 +47,7 @@ struct TripPhotoViewer: View {
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $page)
+        .defaultScrollAnchor(UnitPoint(x: photos.count > 1 ? CGFloat(start) / CGFloat(photos.count - 1) : 0, y: 0), for: .initialOffset)
         .scrollIndicators(.hidden)
         .scrollDisabled(zoomed)
         .background(.black)
@@ -53,7 +56,7 @@ struct TripPhotoViewer: View {
         .onChange(of: page) { zoomed = false }
         .sensoryFeedback(.selection, trigger: page)
         .sensoryFeedback(.impact(weight: .light), trigger: zoomed)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
         #if os(macOS)
         .frame(minWidth: 720, idealWidth: 960, minHeight: 540, idealHeight: 720)
         #endif

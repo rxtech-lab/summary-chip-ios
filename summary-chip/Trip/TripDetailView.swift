@@ -52,6 +52,12 @@ struct TripDetailView: View {
     @State private var exportFinished = 0
     @State private var exportFailed = 0
     @State private var planError: String?
+    /// Play mode is up.
+    @State private var showsTour = false
+    /// Play mode over a day's details sheet, which has to present it itself.
+    @State private var showsSheetTour = false
+    /// The day play mode is limited to; nil plays the whole trip.
+    @State private var tourDayID: String?
     @State private var planFailed = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -219,6 +225,7 @@ struct TripDetailView: View {
         .sensoryFeedback(.selection, trigger: activeDayID)
         .sensoryFeedback(.selection, trigger: pane)
         .sensoryFeedback(.selection, trigger: activeSheet)
+        .sensoryFeedback(.impact(weight: .light), trigger: showsTour) { _, presented in presented }
         .sensoryFeedback(.success, trigger: model.savedCount)
         .sensoryFeedback(trigger: model.notice) { _, notice in
             [.coverUpdated, .agentDone, .calendarSynced, .calendarRemoved, .languageChanged].contains(notice) ? .success : nil
@@ -268,6 +275,7 @@ struct TripDetailView: View {
             if isExportingPDF { ActionStatusOverlay(String(localized: "Preparing PDF…")) }
         }
         .sheet(item: $activeSheet) { sheet in sheetContent(sheet) }
+        .tripTourPresentation(isPresented: $showsTour) { tour }
     }
 
     #if os(iOS)
@@ -314,6 +322,7 @@ struct TripDetailView: View {
                     .environment(\.tripShowPlace, showPlace)
                     // Editors present from the diary sheet, over it.
                     .sheet(item: $activeSheet) { sheet in sheetContent(sheet) }
+                    .tripTourPresentation(isPresented: $showsTour) { tour }
             }
             // Hotels and expenses need room; lift the collapsed sheet when switching to them.
             .onChange(of: pane) { _, pane in
@@ -378,7 +387,8 @@ struct TripDetailView: View {
                     guard pane == .diary else { return }
                     read(dayID, progress)
                 },
-                present: present
+                present: present,
+                onPlayTour: playTour(dayID:)
             )
             .opacity(pane == .diary ? 1 : 0)
             .allowsHitTesting(pane == .diary)
@@ -506,6 +516,13 @@ struct TripDetailView: View {
             }
             ToolbarItem(placement: .summaryTrailing) {
                 Menu {
+                    if model.displayDocument != nil {
+                        Button { playTour() } label: {
+                            Label("Play Tour", systemImage: "play.circle")
+                        }
+                        .accessibilityIdentifier("trip-play-tour")
+                        Divider()
+                    }
                     if isCompact {
                         if canEdit {
                             Menu {
@@ -615,6 +632,24 @@ struct TripDetailView: View {
             } catch {
                 calendarError = error.localizedDescription
             }
+        }
+    }
+
+    // MARK: Tour
+
+    /// Plays the trip, or one day of it, as a narrated tour over the map.
+    private func playTour(dayID: String? = nil) {
+        // On iPhone the diary sheet presents the tour; make sure it's up.
+        if isCompact && !showsDiary { showsDiary = true }
+        tourDayID = dayID
+        showsTour = true
+    }
+
+    @ViewBuilder
+    private var tour: some View {
+        if let document = model.displayDocument {
+            TripTourView(api: environment.api, tripID: model.id, document: document, dayID: tourDayID)
+                .id(tourDayID ?? "trip")
         }
     }
 
@@ -736,9 +771,14 @@ struct TripDetailView: View {
                             onEdit: { activeSheet = .day(day.id) },
                             onOpenTransport: { activeSheet = .transportDetail($0.id) },
                             onEditView: { if canEdit { activeSheet = .view($0.id) } },
+                            onPlayTour: {
+                                tourDayID = day.id
+                                showsSheetTour = true
+                            },
                             planSelections: model.planSelections,
                             onSelectPlanOption: selectPlanOption
                         )
+                        .tripTourPresentation(isPresented: $showsSheetTour) { tour }
                     }
                 case .place(let id):
                     PlaceEditorSheet(model: model, document: document, place: document.place(id: id))

@@ -390,7 +390,7 @@ public final class SummaryAPIClient: Sendable {
         let path = request.url?.path
         guard path == "/api/v1/billing" ||
             (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat"
-                || Self.isTripIngestPath(path))),
+                || Self.isTripIngestPath(path) || Self.isTripTourPath(path))),
             let proof = await billingProofProvider() else { return }
         switch proof {
         case .xcode:

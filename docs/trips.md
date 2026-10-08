@@ -113,6 +113,10 @@ without `plans` keeps the saved plans and the records' `planOptionId`s.
 
 ## Plans (alternatives)
 
+Trip reminders follow each reader's selected plan: a brief itinerary at 20:00 the previous evening
+in the trip's time zone, and an alert at each timed travel leg's departure. See
+[notifications.md](notifications.md#trip-itinerary-reminders) for scheduling and delivery details.
+
 A **Plan** offers alternatives the reader picks between: `id`, `title`, `scope` (`trip` | `day`, default
 `trip`), `date?` (required for `day`, within the trip), `options[]` (2–6 `{ id, label, summary? }`; option ids
 are unique across all plans) and `defaultOptionId?`.

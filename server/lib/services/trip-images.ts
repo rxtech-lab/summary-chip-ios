@@ -7,10 +7,11 @@ import { fetchPublicDocument } from "@/lib/extract/fetch";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, publicObjectUrl, type ObjectStore } from "@/lib/storage/r2";
 import { getOwnedTrip } from "./trips";
+import { getCompletedUpload } from "./uploads";
 
 /**
  * Photos agents upload for a trip's places and views. Each one is fetched (from a public URL, SSRF
- * checked) or decoded (base64), re-encoded as a JPEG no larger than 2048 px with its metadata
+ * checked), decoded (base64) or read from an owned upload, re-encoded as a JPEG no larger than 2048 px with its metadata
  * (GPS, camera) stripped, and stored in R2 under an unguessable key. The returned https URL goes
  * into a place's `photos` or an `Image`/`Gallery` view, and keeps working when the original page
  * moves or blocks hotlinking.
@@ -26,7 +27,9 @@ export const uploadTripImageSchema = z.object({
   url: z.string().trim().url().max(4096).nullish(),
   /** The image itself, base64 (a `data:` URL works too). */
   data: z.string().trim().max(Math.ceil((TRIP_IMAGE_MAX_BYTES * 4) / 3) + 100).nullish(),
-}).refine((input) => Boolean(input.url) !== Boolean(input.data), "give either url or data");
+  /** The key from create_upload, after PUT completes. */
+  uploadKey: z.string().trim().min(1).max(300).nullish(),
+}).refine((input) => [input.url, input.data, input.uploadKey].filter(Boolean).length === 1, "give exactly one of url, data or uploadKey");
 export type UploadTripImageInput = z.infer<typeof uploadTripImageSchema>;
 
 export interface UploadedTripImage {
@@ -71,7 +74,7 @@ async function sourceBytes(input: UploadTripImageInput): Promise<Uint8Array> {
   return bytes;
 }
 
-/** Copies or decodes an image for one of the owner's trips and returns its stored URL. */
+/** Copies, decodes or consumes an uploaded image for an owned trip and returns its stored URL. */
 export async function uploadTripImage(
   db: Database,
   ownerId: string,
@@ -80,7 +83,16 @@ export async function uploadTripImage(
   deps: { store?: ObjectStore; now?: () => Date } = {},
 ): Promise<UploadedTripImage> {
   const { summary } = await getOwnedTrip(db, tripId, ownerId);
-  const bytes = await sourceBytes(input);
+  const store = deps.store ?? getObjectStore();
+  let bytes: Uint8Array;
+  if (input.uploadKey) {
+    const { mimeType } = await getCompletedUpload(db, ownerId, input.uploadKey, store, TRIP_IMAGE_MAX_BYTES);
+    if (!mimeType.startsWith("image/") && mimeType !== "application/octet-stream") throw invalidImage("The uploaded file is not an image.");
+    bytes = (await store.get(input.uploadKey)).bytes;
+    if (bytes.byteLength > TRIP_IMAGE_MAX_BYTES) throw new ApiError(413, "IMAGE_TOO_LARGE", "The image is larger than 15 MB.");
+  } else {
+    bytes = await sourceBytes(input);
+  }
   let encoded: { data: Buffer; info: OutputInfo };
   try {
     encoded = await sharp(bytes, { limitInputPixels: 8192 * 8192, failOn: "error" })
@@ -93,7 +105,6 @@ export async function uploadTripImage(
     throw invalidImage();
   }
   const key = tripImageKey(summary.id, (deps.now?.() ?? new Date()).getTime());
-  await (deps.store ?? getObjectStore()).put(key, { bytes: new Uint8Array(encoded.data), contentType: "image/jpeg", cacheControl: TRIP_IMAGE_CACHE_CONTROL });
+  await store.put(key, { bytes: new Uint8Array(encoded.data), contentType: "image/jpeg", cacheControl: TRIP_IMAGE_CACHE_CONTROL });
   return { url: tripImageUrl(key), width: encoded.info.width, height: encoded.info.height, byteSize: encoded.info.size };
 }
-

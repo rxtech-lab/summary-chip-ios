@@ -196,7 +196,7 @@ export const summaryTranslations = sqliteTable("summary_translations", {
 
 export type SummaryTranslationRow = typeof summaryTranslations.$inferSelect;
 
-/** Presigned PDF uploads. Rows never attached to a summary are swept by the cleanup cron. */
+/** Presigned file uploads. Rows never attached to a summary are swept by the cleanup cron. */
 export const uploads = sqliteTable("uploads", {
   key: text("key").primaryKey(),
   ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -250,6 +250,34 @@ export const tripNotificationDeliveries = sqliteTable("trip_notification_deliver
   installationId: text("installation_id").notNull(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 }, (table) => [primaryKey({ columns: [table.batchId, table.installationId, table.userId] })]);
+
+/** The current reminder run. Its lease covers durable sleep; edits replace the runner to fence it. */
+export const tripReminderSchedules = sqliteTable("trip_reminder_schedules", {
+  tripId: text("trip_id").primaryKey().references(() => trips.summaryId, { onDelete: "cascade" }),
+  runnerId: text("runner_id").notNull(),
+  /** Null when there are no remaining reminders. */
+  nextAt: integer("next_at", { mode: "timestamp_ms" }),
+  leaseUntil: integer("lease_until", { mode: "timestamp_ms" }),
+}, (table) => [index("trip_reminders_due_idx").on(table.nextAt)]);
+
+/** Stable event keys prevent already accepted reminders repeating after retries or itinerary edits. */
+export const tripReminderDeliveries = sqliteTable("trip_reminder_deliveries", {
+  tripId: text("trip_id").notNull().references(() => trips.summaryId, { onDelete: "cascade" }),
+  eventKey: text("event_key").notNull(),
+  installationId: text("installation_id").notNull(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => [primaryKey({ columns: [table.tripId, table.eventKey, table.installationId, table.userId] })]);
+
+/** One bounded agent briefing per selected itinerary/forecast, reused across installations and retries. */
+export const tripReminderBriefings = sqliteTable("trip_reminder_briefings", {
+  tripId: text("trip_id").notNull().references(() => trips.summaryId, { onDelete: "cascade" }),
+  inputHash: text("input_hash").notNull(),
+  body: text("body").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.tripId, table.inputHash] }),
+  index("trip_briefings_expiry_idx").on(table.expiresAt),
+]);
 
 /**
  * A trip's texts translated into one of `TRANSLATION_LANGUAGES`, as a dictionary from each original
@@ -388,7 +416,7 @@ export interface TripWeatherData {
 
 /** What the weather alerts already said, so checks only alert on news. */
 export interface WeatherAlertState {
-  /** Trip dates whose tomorrow's-weather alert was sent. */
+  /** Legacy standalone tomorrow's-weather receipts; evening weather now travels with the itinerary. */
   dayAhead: string[];
   nowcast: NowcastAlertState | null;
 }

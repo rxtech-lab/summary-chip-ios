@@ -28,6 +28,7 @@ import { embedSummary, indexSummary } from "./embeddings";
 import { syncTripFlights } from "./flights";
 import { syncTripWeather } from "./weather";
 import { queueTripChangesStatement, startTripNotification } from "./trip-notifications";
+import { syncTripReminders } from "./trip-reminders";
 import { shareUrlFor } from "./serialize";
 import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSummary, insertSummary, resolveDeps, type ServiceDeps } from "./summaries";
 import { canViewerRead } from "./share-access";
@@ -256,7 +257,7 @@ export async function readSavedTripDocument(
   id: string,
   viewerId: string,
   accepted: TranslationLanguage | null,
-): Promise<{ document: TripDocument; language: TranslationLanguage | null; planSelections: PlanSelections }> {
+): Promise<{ document: TripDocument; language: TranslationLanguage | null; planSelections: PlanSelections; originalLanguage: string }> {
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
   const language = readingLanguage(found.summary, viewerId, accepted);
@@ -264,7 +265,8 @@ export async function readSavedTripDocument(
     language ? savedTripDocument(db, found.trip, language) : null,
     findPlanSelections(db, found.trip, viewerId),
   ]);
-  return translated ? { document: translated, language, planSelections } : { document: found.trip.document, language: null, planSelections };
+  const originalLanguage = found.summary.language;
+  return translated ? { document: translated, language, planSelections, originalLanguage } : { document: found.trip.document, language: null, planSelections, originalLanguage };
 }
 
 /** `{ originalLanguage, items }`: the languages the trip is already translated into. */
@@ -355,6 +357,7 @@ export async function createTrip(db: Database, principal: ApiPrincipal, input: C
   }, embedding, () => [db.insert(trips).values(tripRow)]);
   runAfter(() => syncTripFlights(db, id, principal.sub, document));
   runAfter(() => syncTripWeather(db, id, document));
+  runAfter(() => syncTripReminders(db, id));
   return toTripJson(row, tripRow, principal.sub);
 }
 
@@ -435,6 +438,7 @@ async function saveDocument(
   runAfter(() => syncTripFlights(db, summary.id, summary.ownerId, document));
   // So do the trip's weather forecasts (new places, new dates).
   runAfter(() => syncTripWeather(db, summary.id, document));
+  runAfter(() => syncTripReminders(db, summary.id));
   return toTripJson(updated, { ...trip, document, revision, startDate: document.startDate, endDate: document.endDate, updatedAt }, summary.ownerId);
 }
 

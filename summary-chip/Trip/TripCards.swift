@@ -307,6 +307,7 @@ struct TripDayCard: View, Equatable {
     let onEdit: () -> Void
     let onOpenTransport: (TripTransport) -> Void
     let onOpenDetails: () -> Void
+    let onPlayTour: () -> Void
 
     /// Moments shown before "+N more".
     private static let momentLimit = 4
@@ -334,9 +335,21 @@ struct TripDayCard: View, Equatable {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(accent)
                         .lineLimit(1)
-                    Text(day.title)
-                        .font(.title3.weight(.semibold))
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(day.title)
+                            .font(.title3.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(action: onPlayTour) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.tint)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(Text("Play day \(number) tour"))
+                        .accessibilityLabel(Text("Play day \(number) tour"))
+                        .accessibilityIdentifier("trip-day-play-tour-\(day.id)")
+                    }
                     if let short = day.short ?? day.route?.summary {
                         Text(short)
                             .font(.subheadline)
@@ -518,6 +531,8 @@ struct TripDayDetailSheet: View {
     let onEdit: () -> Void
     let onOpenTransport: (TripTransport) -> Void
     let onEditView: (TripView) -> Void
+    /// Plays the day's part of the tour.
+    var onPlayTour: (() -> Void)?
     /// The plans deciding this day's date, switchable from the toolbar.
     var planSelections: [String: String] = [:]
     var onSelectPlanOption: (TripPlan, TripPlanOption) -> Void = { _, _ in }
@@ -613,6 +628,15 @@ struct TripDayDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                }
+                if let onPlayTour {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: onPlayTour) {
+                            Label("Play Tour", systemImage: "play.circle")
+                        }
+                        .help("Play Tour")
+                        .accessibilityIdentifier("trip-day-detail-play-tour")
+                    }
                 }
                 let plans = document.dayPlans(on: day.date)
                 if !plans.isEmpty {

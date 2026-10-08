@@ -204,6 +204,8 @@ Food, Opinion, Research, Other`.
 | `POST /api/v1/trips/:id/operations` | `{operations: TripOperation[], revision?}` | `{trip: Trip}` — applied in order, atomically; `422 TRIP_INVALID` (`details.issues`) when the result is invalid; `409` as above when `revision` is given |
 | `POST /api/v1/trips/:id/ingest` | `{source: <Create body source>, instructions?}` | `202 {status:"queued"}` — points held first (`402 TRIP_POINTS_EXHAUSTED`); the trip agent runs after the response, then a "Trip updated" push |
 | `DELETE /api/v1/trips/:id` | – | `204` (same as deleting the summary) |
+| `POST /api/v1/trips/:id/tour` | `{regenerate?: boolean}` | `{tour: TripTour}` — the trip as narrated scenes for play mode, cached in R2 per version; the first write charges points (`402 TOUR_POINTS_EXHAUSTED`); see [tours.md](tours.md) |
+| `GET /api/v1/trips/:id/tour/:key/scenes/:index/audio` | – | `audio/mpeg` — a scene's narration, read aloud once and stored in R2 |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
 | `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
 | `POST /api/v1/views` | `{slug}` (a slug or a share link token) | `Summary` — records that the signed-in user opened it from a link (and through which share link); `403 NOT_INVITED` for an invited link whose list lacks the caller's email |
@@ -468,6 +470,9 @@ TTL, revoke addresses, delete). Someone else's summary is shared with the link t
 AI_MODEL=openai/gpt-5-mini            # default text model (AI Gateway id)
 AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image  # optional, enables "illustration" style
 AI_GATEWAY_API_KEY=                   # optional on Vercel (OIDC)
+AI_TOUR_MODEL=                        # trip tour narrator (default AI_MODEL); a fast model suits it
+AI_SPEECH_MODEL=microsoft/mai-voice-2.1-flash  # reads tours aloud (required for voice; unset = subtitles only)
+AI_TOUR_VOICE=en-US-Harper
 TURSO_DATABASE_URL=libsql://… | file:local.db
 TURSO_AUTH_TOKEN=
 R2_ACCOUNT_ID= R2_ACCESS_KEY_ID= R2_SECRET_ACCESS_KEY= R2_BUCKET=

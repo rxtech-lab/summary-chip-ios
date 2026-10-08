@@ -231,6 +231,8 @@ describe("OAuth MCP permissions and token lifecycle", () => {
     expect((await rpc(issued.access_token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } })).status).toBe(200);
     const list = await (await rpc(issued.access_token, "tools/list")).json();
     expect(list.result.tools.find((t: { name: string }) => t.name === "add_summary").securitySchemes).toEqual([{ type: "oauth2", scopes: ["chippy:write"] }]);
+    expect(list.result.tools.find((t: { name: string }) => t.name === "create_upload").securitySchemes).toEqual([{ type: "oauth2", scopes: ["chippy:write"] }]);
+    expect(list.result.tools.find((t: { name: string }) => t.name === "get_upload").securitySchemes).toEqual([{ type: "oauth2", scopes: ["chippy:read"] }]);
     const profile = list.result.tools.find((t: { name: string }) => t.name === "get_profile");
     expect(profile._meta["openai/profile"]).toBe(true);
     expect(profile.securitySchemes).toEqual([{ type: "oauth2", scopes: [] }]);
@@ -246,6 +248,25 @@ describe("OAuth MCP permissions and token lifecycle", () => {
     expect(result.result._meta["mcp/www_authenticate"][0]).toContain('error="insufficient_scope"');
     const list = await (await rpc(issued.access_token, "tools/call", { name: "list_summaries", arguments: {} })).json();
     expect(list.result.structuredContent.items).toHaveLength(0);
+  });
+
+  it("issues upload URLs only with write permission and reads them only with read permission", async () => {
+    const readOnly = await tokens(await register("Reader"), "chippy:read");
+    const args = { filename: "notes.txt", mimeType: "text/plain", byteSize: 5 };
+    const denied = await (await rpc(readOnly.access_token, "tools/call", { name: "create_upload", arguments: args })).json();
+    expect(denied.result.isError).toBe(true);
+    expect(denied.result._meta["mcp/www_authenticate"][0]).toContain('error="insufficient_scope"');
+    const writeOnly = await tokens(await register("Writer"), "chippy:write");
+    const prepared = await (await rpc(writeOnly.access_token, "tools/call", { name: "create_upload", arguments: args })).json();
+    expect(prepared.result.isError).toBeFalsy();
+    const key = prepared.result.structuredContent.key;
+    await env.store.put(key, { bytes: new TextEncoder().encode("notes"), contentType: "text/plain" });
+    const writeDenied = await (await rpc(writeOnly.access_token, "tools/call", { name: "get_upload", arguments: { key } })).json();
+    expect(writeDenied.result.isError).toBe(true);
+    expect(writeDenied.result._meta["mcp/www_authenticate"][0]).toContain('error="insufficient_scope"');
+    const downloaded = await (await rpc(readOnly.access_token, "tools/call", { name: "get_upload", arguments: { key } })).json();
+    expect(downloaded.result.isError).toBeFalsy();
+    expect(downloaded.result.structuredContent).toMatchObject({ key, filename: "notes.txt", byteSize: 5, downloadUrl: expect.any(String) });
   });
 
   it("saves as the consenting account and isolates private chips from other accounts", async () => {

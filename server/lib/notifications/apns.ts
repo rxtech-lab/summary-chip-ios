@@ -18,6 +18,8 @@ export interface PushOptions {
   type?: "alert" | "liveactivity";
   priority?: 5 | 10;
   collapseId?: string;
+  /** Unix seconds; time-sensitive itinerary alerts should not be queued for a full day. */
+  expiration?: number;
 }
 
 export function apnsConfigured(): boolean {
@@ -67,7 +69,7 @@ export async function sendPush(target: PushTarget, payload: PushPayload | Record
       // Live Activity pushes go to the app's `.push-type.liveactivity` topic.
       "apns-topic": type === "liveactivity" ? `${bundleId()}.push-type.liveactivity` : bundleId(),
       "apns-push-type": type, "apns-priority": String(options.priority ?? 10),
-      "apns-expiration": String(Math.floor(Date.now() / 1000) + 86_400),
+      "apns-expiration": String(options.expiration ?? Math.floor(Date.now() / 1000) + 86_400),
       ...(collapseId ? { "apns-collapse-id": collapseId.slice(0, 64) } : {}),
     });
     let status = 0;

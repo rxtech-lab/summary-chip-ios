@@ -220,3 +220,24 @@ export function reserveTripAgentPoints(userId: string, tripId: string, runId: st
     },
   });
 }
+
+/**
+ * Holds points for writing and voicing a trip tour; an empty balance is `402 TOUR_POINTS_EXHAUSTED`.
+ * `key` names the tour version (one hold per attempt to write it).
+ */
+export function reserveTourPoints(userId: string, tripId: string, key: string, model: string, environment?: BillingEnvironment): Promise<ChatCharge | null> {
+  return holdPoints({
+    userId,
+    key: `tour:${tripId}:${key}:${crypto.randomUUID()}`,
+    description: `Trip tour (${model})`,
+    metadata: { tripId, tourKey: key, model },
+    environment,
+    codes: {
+      exhausted: "TOUR_POINTS_EXHAUSTED",
+      exhaustedMessage: "Making a trip tour uses points and your balance is empty. Top up to play the tour.",
+      notConfigured: "TOUR_BILLING_NOT_CONFIGURED",
+      unavailable: "TOUR_BILLING_UNAVAILABLE",
+      unavailableMessage: "Your points balance could not be checked. Please try again.",
+    },
+  });
+}

@@ -5,8 +5,9 @@ import * as tripsRoute from "@/app/api/v1/trips/route";
 import * as tripRoute from "@/app/api/v1/trips/[id]/route";
 import * as tripWeatherRoute from "@/app/api/v1/trips/[id]/weather/route";
 import { tripDocumentSchema } from "@/lib/contracts/trip";
-import { tripWeather } from "@/lib/db/schema";
-import { refreshTripWeather, resumeWeatherTracking, syncTripWeather, tripWeatherForViewer } from "@/lib/services/weather";
+import { tripReminderSchedules, tripWeather } from "@/lib/db/schema";
+import { refreshTripReminders } from "@/lib/services/trip-reminders";
+import { refreshTripWeather, resumeWeatherTracking, syncTripWeather, tripBriefingWeather, tripWeatherForViewer } from "@/lib/services/weather";
 import type { TripJson } from "@/lib/services/trips";
 import { setWeatherProviderForTests, WeatherProviderError, type LocationForecast, type WeatherPoint, type WeatherProvider } from "@/lib/weather/provider";
 import { HOUR, MINUTE } from "@/lib/weather/schedule";
@@ -131,40 +132,50 @@ describe("trip weather", () => {
     expect((await tripWeatherRoute.GET(apiRequest("GET", `/api/v1/trips/${trip.id}/weather`), params({ id: trip.id }))).status).toBe(401);
   });
 
-  it("sends tomorrow's weather at 20:00 the evening before, once", async () => {
+  it("includes tomorrow's weather in the single evening itinerary briefing", async () => {
     await registerDevice();
     const trip = await createTrip();
     await waitForTracking(trip.id);
     expect(await refresh(trip.id, tokyo("2030-03-31T18:00"))).toMatchObject({ nextAt: tokyo("2030-03-31T20:00") });
     expect(sendPush).not.toHaveBeenCalled();
     await refresh(trip.id, tokyo("2030-03-31T20:00"));
-    expect(alerts()).toEqual([{
-      title: "Tomorrow in Kyoto: Rain",
-      body: "Kyoto: Rain, 9–18°C, 70% chance of rain. Bring an umbrella.",
-      kind: "weather", tripId: trip.id, collapseId: `weather:${trip.id}:2030-04-01`,
-    }]);
+    expect(sendPush).not.toHaveBeenCalled();
+    const [schedule] = await env.handle.db.select().from(tripReminderSchedules).where(eq(tripReminderSchedules.tripId, trip.id));
+    await refreshTripReminders(env.handle.db, trip.id, schedule.runnerId, new Date(tokyo("2030-03-31T20:00")));
+    expect(alerts()).toMatchObject([{ title: "Tomorrow's trip", body: "Kansai: Tomorrow: Kyoto. Kyoto: rain, 9–18°C.", tripId: trip.id }]);
+    expect(env.ai.calls.briefTripDay[0].weather).toMatchObject([{ place: "Kyoto", condition: "rain", low: 9, high: 18, precipitationChance: 70 }]);
     await refresh(trip.id, tokyo("2030-03-31T23:00"));
     expect(sendPush).toHaveBeenCalledTimes(1);
     // Too late for the 2nd's alert on the morning of the 2nd.
     await refresh(trip.id, tokyo("2030-04-02T07:00"));
-    expect(alerts().map((alert) => alert.collapseId)).toEqual([`weather:${trip.id}:2030-04-01`]);
+    expect(sendPush).toHaveBeenCalledTimes(1);
   });
 
-  it("sends the first day's forecast at 20:00 where the owner's device is, later ones where they are", async () => {
+  it("keeps forecast checks zone-aware without sending a second evening weather notification", async () => {
     // At home in Los Angeles before a trip whose places are in Tokyo.
     await registerDevice("America/Los_Angeles");
     const trip = await createTrip();
     await waitForTracking(trip.id);
-    // 20:00 in Tokyo is 04:00 in Los Angeles: too early.
+    // Both evening checks store forecasts; the trip reminder owns evening notification delivery.
     await refresh(trip.id, tokyo("2030-03-31T20:00"));
     expect(sendPush).not.toHaveBeenCalled();
     await refresh(trip.id, Date.parse("2030-03-31T20:00:00-07:00"));
-    expect(alerts().map((alert) => alert.collapseId)).toEqual([`weather:${trip.id}:2030-04-01`]);
+    expect(sendPush).not.toHaveBeenCalled();
     // From then on, 20:00 in Tokyo, where the evenings are spent.
     await refresh(trip.id, tokyo("2030-04-01T19:45"));
-    expect(sendPush).toHaveBeenCalledTimes(1);
+    expect(sendPush).not.toHaveBeenCalled();
     await refresh(trip.id, tokyo("2030-04-01T20:00"));
-    expect(alerts().map((alert) => alert.collapseId)).toEqual([`weather:${trip.id}:2030-04-01`, `weather:${trip.id}:2030-04-02`]);
+    expect(sendPush).not.toHaveBeenCalled();
+  });
+
+  it("omits stale or unavailable forecasts from the combined briefing", async () => {
+    const trip = await createTrip();
+    await waitForTracking(trip.id);
+    const now = tokyo("2030-03-31T18:00");
+    await refresh(trip.id, now);
+    expect(await tripBriefingWeather(env.handle.db, trip.id, trip.document, "2030-04-01", now + 2 * HOUR)).toMatchObject([{ place: "Kyoto", forecast: { code: 61 } }]);
+    expect(await tripBriefingWeather(env.handle.db, trip.id, trip.document, "2030-04-01", now + 6 * HOUR + 1)).toEqual([]);
+    expect(await tripBriefingWeather(env.handle.db, trip.id, trip.document, "2030-04-04", now)).toEqual([]);
   });
 
   it("rejects a device time zone it doesn't know", async () => {

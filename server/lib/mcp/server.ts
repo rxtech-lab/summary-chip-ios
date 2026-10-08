@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { ALLOWED_TTL_DAYS } from "@/lib/config";
-import { CATEGORIES, LIBRARY_SCOPES, importSummarySchema, patchSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
+import { CATEGORIES, createFileUploadSchema, LIBRARY_SCOPES, importSummarySchema, patchSummarySchema, type ListQuery, type TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { PLAN_GUIDE, VIEW_GUIDE } from "@/lib/ai/trip-agent";
 import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
@@ -14,6 +14,7 @@ import { authChallenge, securitySchemes, toolScope } from "./oauth-config";
 import { getOwnedSummary, importSummary, listSummaries, patchSummary } from "@/lib/services/summaries";
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
+import { createUpload, getUpload } from "@/lib/services/uploads";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 
@@ -28,6 +29,8 @@ export const TOOL_NAMES = {
   updateTrip: "update_trip",
   updatePlace: "update_place",
   uploadTripImage: "upload_trip_image",
+  createUpload: "create_upload",
+  getUpload: "get_upload",
   addToTripFromSource: "add_to_trip_from_source",
   choosePlanOption: "choose_plan_option",
   getProfile: "get_profile",
@@ -44,7 +47,10 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "entity-level operations (upsert or delete records by id; free), choose_plan_option records which alternative the user "
   + "picked, update_place changes a place's details (description, "
   + "photos, hours, prices, website, phone…) without resending it, upload_trip_image stores a photo for a place or view and "
-  + "returns its URL, and add_to_trip_from_source lets Chippy's trip agent "
+  + "returns its URL. For local images or files, create_upload returns a presigned S3 PUT URL: send the file bytes "
+  + "directly to that URL with the returned headers before expiresAt, then get_upload returns a temporary download URL "
+  + "or upload_trip_image consumes the uploadKey to make a lasting trip photo. Unattached raw uploads are cleaned up "
+  + "after 24 hours. add_to_trip_from_source lets Chippy's trip agent "
   + "add a web page or text (a booking, a timetable) to a trip, which costs points.";
 
 export interface McpContext {
@@ -435,22 +441,64 @@ export function createMcpServer(context: McpContext): McpServer {
     return { result: success({ place, revision: trip.revision }, `Updated "${place?.name ?? args.placeId}" (revision ${trip.revision}).`) };
   }));
 
+  server.registerTool(TOOL_NAMES.createUpload, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.createUpload) },
+    title: "Create Upload",
+    description: "Request a presigned S3-compatible URL to upload an image or any file up to 25 MB directly to storage, "
+      + "without sending base64 through MCP. Returns key, uploadUrl, method (PUT), headers and expiresAt (10 minutes). "
+      + "PUT the raw file bytes to uploadUrl with the returned headers and exact byteSize; do not send MCP credentials "
+      + "or multipart form data. This call only prepares the upload. After PUT succeeds, call get_upload with key for "
+      + "a temporary download URL, or upload_trip_image with uploadKey for a lasting trip photo. Raw uploads not "
+      + "attached to a summary are cleaned up after 24 hours. Free.",
+    inputSchema: {
+      filename: createFileUploadSchema.shape.filename.describe("The file's name, at most 300 characters."),
+      mimeType: createFileUploadSchema.shape.mimeType.describe("MIME type without parameters, e.g. image/png, application/pdf, text/plain or application/octet-stream."),
+      byteSize: createFileUploadSchema.shape.byteSize.describe("Exact size of the file in bytes, from 1 to 26,214,400 (25 MB)."),
+    },
+    outputSchema: {
+      key: z.string(), uploadUrl: z.string().url(), method: z.literal("PUT"),
+      headers: z.record(z.string(), z.string()), expiresAt: z.string(),
+    },
+    annotations: { title: "Create Upload", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.createUpload, async () => ({
+    result: success(await createUpload(db, principal.sub, args)),
+  })));
+
+  server.registerTool(TOOL_NAMES.getUpload, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getUpload) },
+    title: "Get Upload",
+    description: "Verify an owned file has finished uploading and return its filename, MIME type, byte size and a "
+      + "presigned downloadUrl (valid for 5 minutes). Takes the key from create_upload. Raw uploads not attached to "
+      + "a summary are cleaned up after 24 hours; downloadUrl is temporary and must not be used as a trip photo URL "
+      + "(use upload_trip_image with uploadKey). Free.",
+    inputSchema: { key: z.string().trim().min(1).max(300).describe("The key returned by create_upload.") },
+    outputSchema: {
+      key: z.string(), filename: z.string(), mimeType: z.string(), byteSize: z.number().int(),
+      downloadUrl: z.string().url(), expiresAt: z.string(),
+    },
+    annotations: { title: "Get Upload", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.getUpload, async () => ({
+    result: success(await getUpload(db, principal.sub, args.key)),
+  })));
+
   server.registerTool(TOOL_NAMES.uploadTripImage, {
     _meta: { securitySchemes: securitySchemes(TOOL_NAMES.uploadTripImage) },
     title: "Upload Trip Image",
     description: "Store a photo for one of the user's trips and get a lasting https URL for a place's photos (update_place "
       + "addPhotos) or an Image / Gallery view. Give either url (a public image, copied so it keeps working when the page "
-      + "changes or blocks hotlinking) or data (the image as base64). JPEG, PNG, WebP, GIF, AVIF or HEIC up to 15 MB; it's "
+      + "changes or blocks hotlinking), data (the image as base64), or uploadKey (from create_upload after PUT succeeds). "
+      + "Give exactly one of these. JPEG, PNG, WebP, GIF, AVIF or HEIC up to 15 MB; it's "
       + "re-encoded as a JPEG of at most 2048 px with location and camera metadata removed. Only upload images you may use "
       + "(e.g. the place's own site, Wikimedia Commons) and credit them. Free.",
     inputSchema: {
       tripId: z.string().trim().min(1).max(100).describe("The trip's id."),
       url: z.string().trim().url().max(4096).optional().describe("A public image URL to copy."),
       data: z.string().trim().optional().describe("The image as base64 (or a data: URL)."),
+      uploadKey: z.string().trim().min(1).max(300).optional().describe("The key from create_upload, after uploading the image with PUT."),
     },
     annotations: { title: "Upload Trip Image", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, (args) => run(TOOL_NAMES.uploadTripImage, async () => {
-    const input = uploadTripImageSchema.parse({ url: args.url, data: args.data });
+    const input = uploadTripImageSchema.parse({ url: args.url, data: args.data, uploadKey: args.uploadKey });
     const image = await uploadTripImage(db, principal.sub, args.tripId, input);
     return { result: success({ image }, `Uploaded a ${image.width}×${image.height} image.\n${image.url}`) };
   }));

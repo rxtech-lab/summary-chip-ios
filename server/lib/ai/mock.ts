@@ -4,6 +4,9 @@ import type { TranslationLanguage } from "@/lib/contracts/api";
 import type { AiProvider, CoverInput, DesignInput, LanguageInput, MarkdownInput, MarkdownOptions, ModelPricing, SummarizeInput, TranslateInput, TranslateOptions, TripAgentCallOptions } from "./provider";
 import type { TripAgentInput, TripAgentResult } from "./trip-agent";
 import type { TripChangeInput } from "./trip-change-agent";
+import type { TripBriefingInput } from "./trip-briefing-agent";
+import type { TourNarrationInput, TourNarrationOptions } from "./tour-agent";
+import type { TourNarration } from "@/lib/contracts/tour";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import type { LlmSummary, LlmTranslation } from "./summary-schema";
 
@@ -23,9 +26,12 @@ export class MockAiProvider implements AiProvider {
     findDuplicate: DuplicateInput[];
     updateTrip: TripAgentInput[];
     summarizeTripChanges: TripChangeInput[];
+    briefTripDay: TripBriefingInput[];
     designCover: CoverInput[];
     designSvg: DesignInput[];
     illustrate: DesignInput[];
+    narrateTour: TourNarrationInput[];
+    speak: string[];
   } = {
     isSharedLink: [],
     summarize: [],
@@ -37,9 +43,12 @@ export class MockAiProvider implements AiProvider {
     findDuplicate: [],
     updateTrip: [],
     summarizeTripChanges: [],
+    briefTripDay: [],
     designCover: [],
     designSvg: [],
     illustrate: [],
+    narrateTour: [],
+    speak: [],
   };
 
   /** A share snippet is a URL with under 200 characters of accompanying text. */
@@ -162,6 +171,13 @@ export class MockAiProvider implements AiProvider {
     return `Updated ${[...new Set(input.changes.map((change) => change.section))].join(", ")}.`;
   }
 
+  async briefTripDay(input: TripBriefingInput): Promise<string> {
+    this.calls.briefTripDay.push(input);
+    const departure = input.transports[0]?.departure?.slice(11);
+    const forecast = input.weather[0];
+    return [...`Tomorrow: ${input.days[0]?.title ?? input.transports[0]?.label ?? "Trip"}${departure ? `, depart ${departure}` : ""}${forecast ? `. ${forecast.place}: ${forecast.condition}, ${forecast.low}–${forecast.high}°C` : ""}.`].slice(0, 140).join("");
+  }
+
   async designSvg(input: DesignInput): Promise<string | null> {
     this.calls.designSvg.push(input);
     const [a, b, c] = input.colors;
@@ -186,6 +202,38 @@ export class MockAiProvider implements AiProvider {
 
   async chatPricing(): Promise<ModelPricing | null> {
     return this.pricing;
+  }
+
+  async narrateTour(input: TourNarrationInput, options: TourNarrationOptions = {}): Promise<TourNarration[]> {
+    this.calls.narrateTour.push(input);
+    options.onUsage?.(MOCK_STEP_USAGE);
+    return input.scenes.map((scene, index) => ({
+      title: `${scene.kind} ${index + 1}`,
+      narration: `Scene ${index + 1}: ${String(scene.facts.name ?? scene.facts.title ?? input.trip.title ?? scene.kind)}.`,
+      visuals: [],
+    }));
+  }
+
+  tourModelId(): string {
+    return "mock/tour";
+  }
+
+  async tourPricing(): Promise<ModelPricing | null> {
+    return this.pricing;
+  }
+
+  speechModelId(): string | null {
+    return "mock/speech";
+  }
+
+  /** $0.01 per character, so a mock narration's cost is easy to read in points. */
+  speechUsdPerCharacter(): number {
+    return 0.01;
+  }
+
+  async speak(text: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+    this.calls.speak.push(text);
+    return { bytes: new TextEncoder().encode(`ID3 mock audio: ${text}`), mediaType: "audio/mpeg" };
   }
 
   embeddingModelId(): string | null {

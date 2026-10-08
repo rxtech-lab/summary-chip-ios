@@ -2,23 +2,25 @@
 
 The backend keeps a weather forecast for every trip that isn't over yet. The apps never call a
 weather provider: they read what the backend stored. A durable Vercel Workflow per trip fetches the
-forecasts, stores them, and sends the trip owner two kinds of alerts:
+forecasts, stores them, and supports two kinds of alerts:
 
-- **Tomorrow's weather**: at 20:00 on the evening before each day of the trip, where you spend that
-  evening.
+- **Tomorrow's briefing**: one agent-written itinerary and weather notification at 20:00 the previous
+  evening in the trip's `timeZone`. It follows each reader's selected plan and includes the most
+  useful preparation advice. See [notifications.md](notifications.md#trip-itinerary-reminders).
 - **The next 30 minutes**: during the trip, from 07:00 to 22:00 where you are. You get an alert when the
   weather where you are turns bad, gets worse, changes to a different kind of bad weather, or clears up.
 
 ```
 trip saved ──► syncTripWeather ──► trip_weather row ──► trackTripWeather workflow (one per trip)
-trackTripWeather ──► provider ──► trip_weather.data ──► alert pushes
+trackTripWeather ──► provider ──► trip_weather.data ──► nowcast alert pushes
+trip_weather.data + selected itinerary ──► remindTrip agent briefing ──► one evening push
 app ── GET /api/v1/trips/:id/weather ──► backend (database only)
 ```
 
 ## Time zones
 
-Alert times follow the traveller's local time, not the server's clock or one fixed zone for the
-whole trip:
+Nowcast alerts and forecast checks follow the traveller's local time. The combined evening
+briefing uses the trip's `timeZone`, as do itinerary departure reminders:
 
 - **Each place's zone.** Open-Meteo returns each place's IANA zone (`timezone=auto`). On each trip
   date, the **morning zone** is the zone of the day's first place. The **night zone** is the zone of
@@ -29,12 +31,13 @@ whole trip:
 - **Fallback.** The trip's `timeZone` applies until a place has been fetched, and for owners whose
   app hasn't sent a zone.
 
-Which zone each alert and check uses:
+Which zone each alert and check uses (evening forecast checks do not send a separate push):
 
 | What | When, local time |
 |---|---|
-| Tomorrow's weather, first day | 20:00 on the evening before, in the device's zone (else the first day's morning zone) |
-| Tomorrow's weather, later days | 20:00 on the previous day, in that day's night zone |
+| Combined itinerary/weather briefing | 20:00 on the previous day, in the trip's `timeZone` |
+| Evening forecast check, first day | 20:00 on the evening before, in the device's zone (else the first day's morning zone) |
+| Evening forecast check, later days | 20:00 on the previous day, in that day's night zone |
 | Next-30-minutes checks | 07:00 in the day's morning zone until 22:00 in its night zone |
 | A moment's `time` | The wall clock at the moment's place |
 | End of tracking | Midnight after the last day, in its night zone |
@@ -42,7 +45,7 @@ Which zone each alert and check uses:
 For example, take a trip that flies from Tokyo to London on day 2:
 
 - Day 2 is watched from 07:00 in Tokyo until 22:00 in London.
-- Day 3's forecast arrives at 20:00 London time.
+- Day 3's forecast is included in the combined briefing at 20:00 in the trip's configured zone.
 
 ## Where the weather is about
 
@@ -130,7 +133,7 @@ Severity:
 
 ## Alerts
 
-Alerts go to every device of the trip owner (`apns-push-type: alert`), in the trip's language
+Nowcast alerts go to every device of the trip owner (`apns-push-type: alert`), in the trip's language
 (en, zh-Hans or zh-Hant):
 
 ```json
@@ -139,17 +142,15 @@ Alerts go to every device of the trip owner (`apns-push-type: alert`), in the tr
   "summaryId": "<tripId>", "tripId": "<tripId>", "userId": "<ownerId>", "kind": "weather" }
 ```
 
-### Tomorrow's weather
+### Tomorrow's combined briefing
 
-Collapse ID: `weather:<tripId>:<date>`.
-
-The alert lists the day's first 2 places with their condition, temperature range and chance of
-rain. It may add tips: an umbrella, strong gusts, heat, or high UV. Example: "Tomorrow in Kyoto:
-Rain" / "Kyoto: Rain, 14–21°C, 80% chance of rain · Nara: Cloudy, 15–22°C. Bring an umbrella."
-
-Each date's alert is sent once. It can go out any time on the evening before the day, from 20:00
-until midnight in the zone that evening is spent in. If the forecast is missing at that time, the
-backend tries again at the next check that evening.
+The trip reminder workflow includes the day's fresh stored forecasts in a single itinerary
+briefing, rather than sending a separate weather notification. The agent sees the reader's
+selected route, up to three distinct forecast places, their conditions, temperature ranges,
+rain chances, wind and UV. It prioritizes useful itinerary details and weather preparation within
+140 characters, plus a trip-title prefix. Missing or stale forecasts are omitted; it never invents
+weather. Each device receives the day's briefing once, with durable retry receipts. See
+[notifications.md](notifications.md#trip-itinerary-reminders) for delivery and fallback behavior.
 
 ### The next 30 minutes
 

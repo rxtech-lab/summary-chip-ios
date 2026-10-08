@@ -55,13 +55,18 @@ class R2ObjectStore implements ObjectStore {
       region: "auto",
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: { accessKeyId, secretAccessKey },
+      // A presigned PUT has no body yet: do not sign a checksum of an empty payload.
+      requestChecksumCalculation: "WHEN_REQUIRED",
     });
   }
 
   async signedPut(key: string, contentType: string, byteSize: number) {
     const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType, ContentLength: byteSize });
     return {
-      url: await getSignedUrl(this.client, command, { expiresIn: UPLOAD_URL_TTL_SECONDS }),
+      url: await getSignedUrl(this.client, command, {
+        expiresIn: UPLOAD_URL_TTL_SECONDS,
+        signableHeaders: new Set(["content-type"]),
+      }),
       expiresAt: new Date(Date.now() + UPLOAD_URL_TTL_SECONDS * 1000),
       headers: { "content-type": contentType },
     };
@@ -174,11 +179,15 @@ export function ownerKeyPrefix(ownerId: string): string {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 24);
 }
 
-export function uploadKey(ownerId: string, uploadId: string): string {
-  return `uploads/${ownerKeyPrefix(ownerId)}/${uploadId}.pdf`;
+export function uploadKey(ownerId: string, uploadId: string, mimeType = "application/pdf"): string {
+  const extension = ({
+    "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+    "image/gif": "gif", "image/avif": "avif", "image/heic": "heic", "text/plain": "txt",
+  } as Record<string, string>)[mimeType] ?? "bin";
+  return `uploads/${ownerKeyPrefix(ownerId)}/${uploadId}.${extension}`;
 }
 
-const UPLOAD_KEY_PATTERN = /^uploads\/([0-9a-f]{24})\/([0-9a-f-]{36})\.pdf$/;
+const UPLOAD_KEY_PATTERN = /^uploads\/([0-9a-f]{24})\/([0-9a-f-]{36})\.(?:pdf|jpg|png|webp|gif|avif|heic|txt|bin)$/;
 
 export function isOwnedUploadKey(ownerId: string, key: string): boolean {
   const match = UPLOAD_KEY_PATTERN.exec(key);

@@ -177,6 +177,12 @@ export const createUploadSchema = z.object({
   byteSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
 });
 
+/** MCP uploads can stage any file; the app's upload route remains PDF-only. */
+export const createFileUploadSchema = createUploadSchema.extend({
+  mimeType: z.string().trim().min(1).max(200).toLowerCase()
+    .regex(/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/, "must be a MIME type without parameters"),
+});
+
 export const recordViewSchema = z.object({ slug: z.string().trim().min(1).max(64) });
 
 const limitSchema = z.coerce.number().int().min(1).max(50).default(20);

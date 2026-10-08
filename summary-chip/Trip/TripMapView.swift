@@ -57,6 +57,14 @@ final class TripMapCamera {
         move(to: rect, animated: true)
     }
 
+    /// Glides to `coordinates` over `duration` seconds, whatever the camera was doing (the tour).
+    func fly(to coordinates: [TripCoordinate], minimumMeters: Double, duration: Double) {
+        guard let rect = Self.rect(around: coordinates, minimumMeters: minimumMeters) else { return }
+        overview = false
+        lastKey = nil
+        withAnimation(.easeInOut(duration: duration)) { position = .rect(fitted(rect)) }
+    }
+
     /// A map gesture took over.
     func userMoved() {
         following = false
@@ -230,14 +238,19 @@ struct TripMapView: View {
             ForEach(dayLines) { line in
                 MapPolyline(coordinates: line.coordinates)
                     .stroke(TripStyle.color(for: line.kind).opacity(line.opacity), style: TripStyle.stroke(for: line.kind))
+                    .mapOverlayLevel(level: .aboveRoads)
             }
             if let active {
+                // The growing line is re-added every frame; its own level keeps it above the
+                // translucent day lines it overlaps, so their blended color doesn't flicker.
                 if !active.trail.isEmpty {
                     MapPolyline(coordinates: active.trail)
                         .stroke(TripStyle.color(for: active.kind).opacity(0.38), style: TripStyle.stroke(for: active.kind, width: 6))
+                        .mapOverlayLevel(level: .aboveRoads)
                 }
                 MapPolyline(coordinates: active.line)
                     .stroke(TripStyle.color(for: active.kind), style: TripStyle.stroke(for: active.kind, width: 6, returning: active.returning))
+                    .mapOverlayLevel(level: .aboveLabels)
             }
             ForEach(document.places) { place in
                 let selected = selectedPlaceID == place.id
@@ -305,24 +318,27 @@ struct TripMapView: View {
         .simultaneousGesture(SpatialTapGesture().onEnded { tap in
             dismissSelection(at: tap.location, proxy: proxy)
         })
-        .overlay(alignment: .topLeading) {
-            if usesInlinePlaceCallout,
-               let place = document.places.first(where: { $0.id == popoverPlaceID }),
-               let frame = inlineCalloutFrame {
-                TripMapPlacePopover(place: place) {
-                    popoverPlaceID = nil
-                    onOpenPlace(place)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { inlineCalloutSize = $0 }
-                .offset(x: frame.minX, y: frame.minY)
-                .accessibilityIdentifier("trip-map-place-callout")
-            }
-        }
+        .overlay(alignment: .topLeading) { inlinePlaceCallout }
         .sensoryFeedback(.selection, trigger: popoverPlaceID)
         .accessibilityIdentifier("trip-map")
+    }
+
+    @ViewBuilder
+    private var inlinePlaceCallout: some View {
+        if usesInlinePlaceCallout,
+           let place = document.places.first(where: { $0.id == popoverPlaceID }),
+           let frame = inlineCalloutFrame {
+            TripMapPlacePopover(place: place) {
+                popoverPlaceID = nil
+                onOpenPlace(place)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { inlineCalloutSize = $0 }
+            .offset(x: frame.minX, y: frame.minY)
+            .accessibilityIdentifier("trip-map-place-callout")
+        }
     }
 
     private var inlineCalloutFrame: CGRect? {
@@ -475,7 +491,7 @@ private nonisolated struct PlacePinShape: Shape {
     }
 }
 
-private struct PlaceDot: View {
+struct PlaceDot: View {
     let major: Bool
     let active: Bool
     let visited: Bool
@@ -494,7 +510,7 @@ private struct PlaceDot: View {
     }
 }
 
-private struct TravelerDot: View {
+struct TravelerDot: View {
     var body: some View {
         Circle()
             .fill(TripStyle.traveler)
