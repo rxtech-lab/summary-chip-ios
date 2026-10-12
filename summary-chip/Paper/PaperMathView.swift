@@ -109,8 +109,8 @@ private struct MathNodeView: View {
                 Rectangle().fill(line ? Color.primary : Color.clear)
                 MathListView(nodes: denominator, size: partSize, display: false, level: level)
             }
-        case .scripts(let base, let superscript, let subscript):
-            scripts(base: base, superscript: superscript, subscript: subscript)
+        case .scripts(let base, let upper, let lower):
+            scripts(base: base, upper: upper, lower: lower)
         case .radical(let inner, let index):
             MathRadicalLayout(size: size, hasIndex: index != nil) {
                 MathListView(nodes: inner, size: size, display: display, level: level)
@@ -134,18 +134,18 @@ private struct MathNodeView: View {
     }
 
     @ViewBuilder
-    private func scripts(base: [MathNode], superscript: [MathNode]?, subscript: [MathNode]?) -> some View {
+    private func scripts(base: [MathNode], upper: [MathNode]?, lower: [MathNode]?) -> some View {
         if display, base.count == 1, case .largeOperator(_, true) = base[0] {
-            MathLimitsLayout(size: size, hasAbove: superscript != nil, hasBelow: subscript != nil) {
+            MathLimitsLayout(size: size, hasAbove: upper != nil, hasBelow: lower != nil) {
                 MathListView(nodes: base, size: size, display: display, level: level)
-                if let superscript { MathListView(nodes: superscript, size: scriptSize, display: false, level: level + 1) }
-                if let subscript { MathListView(nodes: subscript, size: scriptSize, display: false, level: level + 1) }
+                if let upper { MathListView(nodes: upper, size: scriptSize, display: false, level: level + 1) }
+                if let lower { MathListView(nodes: lower, size: scriptSize, display: false, level: level + 1) }
             }
         } else {
-            MathScriptsLayout(size: size, hasSuperscript: superscript != nil, hasSubscript: subscript != nil) {
+            MathScriptsLayout(size: size, hasSuperscript: upper != nil, hasSubscript: lower != nil) {
                 MathListView(nodes: base, size: size, display: display, level: level)
-                if let superscript { MathListView(nodes: superscript, size: scriptSize, display: false, level: level + 1) }
-                if let subscript { MathListView(nodes: subscript, size: scriptSize, display: false, level: level + 1) }
+                if let upper { MathListView(nodes: upper, size: scriptSize, display: false, level: level + 1) }
+                if let lower { MathListView(nodes: lower, size: scriptSize, display: false, level: level + 1) }
             }
         }
     }
