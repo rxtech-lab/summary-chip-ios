@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F33B1586E769B3ACC3385E5B /* SnapshotMatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = F834EA6F5BCE58ECDC39C90C /* SnapshotMatching.swift */; };
+		53655AE3B099EC6901167349 /* PaperReaderUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E59588041829F9308434E0D2 /* PaperReaderUITests.swift */; };
+		ADED9654C8261A01ABD2F717 /* PaperReaderPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F233BF21D331D348E7233A5B /* PaperReaderPreviewHost.swift */; };
+		5023DEDD51C6686AD2599B6C /* PaperReaderFigure.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C8829C284DE4387BAF4AA7 /* PaperReaderFigure.swift */; };
+		1E813BF04141E7EE75159289 /* PaperReaderBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C470A400A071866CE8F778 /* PaperReaderBlocks.swift */; };
+		A0EA3CC855D706222EABD36C /* PaperReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C9DA367FB49786887823043 /* PaperReaderView.swift */; };
+		CC0BD264040FFA91478123CB /* PaperMathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D6E7C024DDDBD8F65ACC9DA /* PaperMathView.swift */; };
 		01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */; };
 		0311AC9C6C371D5C0E1F4029 /* TripWeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */; };
 		0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
@@ -276,6 +283,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F834EA6F5BCE58ECDC39C90C /* SnapshotMatching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotMatching.swift; sourceTree = "<group>"; };
+		E59588041829F9308434E0D2 /* PaperReaderUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderUITests.swift; sourceTree = "<group>"; };
+		F233BF21D331D348E7233A5B /* PaperReaderPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderPreviewHost.swift; sourceTree = "<group>"; };
+		B3C8829C284DE4387BAF4AA7 /* PaperReaderFigure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderFigure.swift; sourceTree = "<group>"; };
+		31C470A400A071866CE8F778 /* PaperReaderBlocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderBlocks.swift; sourceTree = "<group>"; };
+		0C9DA367FB49786887823043 /* PaperReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderView.swift; sourceTree = "<group>"; };
+		8D6E7C024DDDBD8F65ACC9DA /* PaperMathView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperMathView.swift; sourceTree = "<group>"; };
 		03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMarkdownSheet.swift; sourceTree = "<group>"; };
 		05A43C52A80A84D95466F332 /* ChippyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChippyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		05AB13FBC7E7504A0E9D7186 /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
@@ -882,6 +896,11 @@
 				BCC1C56554DEBF6BD0E077C7 /* PaperSourceEditor+iOS.swift */,
 				3B77DD7AA9A382B7368F26EA /* PaperSourceEditor+Mac.swift */,
 				338B777141C2E170E5487E57 /* PaperSplitView.swift */,
+				F233BF21D331D348E7233A5B /* PaperReaderPreviewHost.swift */,
+				B3C8829C284DE4387BAF4AA7 /* PaperReaderFigure.swift */,
+				31C470A400A071866CE8F778 /* PaperReaderBlocks.swift */,
+				0C9DA367FB49786887823043 /* PaperReaderView.swift */,
+				8D6E7C024DDDBD8F65ACC9DA /* PaperMathView.swift */,
 			);
 			path = Paper;
 			sourceTree = "<group>";
@@ -929,6 +948,8 @@
 				096D0651F5DA73277D63FC4B /* OnboardingUITests.swift */,
 				1D08C0CD350C91CAE437AA2A /* PaperEditorUITests.swift */,
 				17A09A8EF15597BF62F35D16 /* PaperExportUITests.swift */,
+				F834EA6F5BCE58ECDC39C90C /* SnapshotMatching.swift */,
+				E59588041829F9308434E0D2 /* PaperReaderUITests.swift */,
 				05AB13FBC7E7504A0E9D7186 /* ScreenshotTests.swift */,
 				D481FE38CAEEAC46D1A97805 /* VersionsUITests.swift */,
 			);
@@ -1387,6 +1408,11 @@
 				8121A86C201732DBE5CEDFFF /* PaperSourceEditor+iOS.swift in Sources */,
 				67F1B9E2E742DD1CA354DBF9 /* PaperSourceEditor.swift in Sources */,
 				7F129D40E695560FE5DA42F8 /* PaperSplitView.swift in Sources */,
+				ADED9654C8261A01ABD2F717 /* PaperReaderPreviewHost.swift in Sources */,
+				5023DEDD51C6686AD2599B6C /* PaperReaderFigure.swift in Sources */,
+				1E813BF04141E7EE75159289 /* PaperReaderBlocks.swift in Sources */,
+				A0EA3CC855D706222EABD36C /* PaperReaderView.swift in Sources */,
+				CC0BD264040FFA91478123CB /* PaperMathView.swift in Sources */,
 				679A30C564951D5B3EB7EBE9 /* PlaceEditorSheet.swift in Sources */,
 				8339BCDA11DB423CA2C45A73 /* PointsTopUpView.swift in Sources */,
 				49FA770B05DEA661674BDA9B /* PointsUsageView.swift in Sources */,
@@ -1444,6 +1470,8 @@
 				AC2DE7F7EDCB47315AD79606 /* OnboardingUITests.swift in Sources */,
 				42380D8C69A7F350BEE7173D /* PaperEditorUITests.swift in Sources */,
 				D1F34C9B6E46036FA96E4466 /* PaperExportUITests.swift in Sources */,
+				F33B1586E769B3ACC3385E5B /* SnapshotMatching.swift in Sources */,
+				53655AE3B099EC6901167349 /* PaperReaderUITests.swift in Sources */,
 				C1109D45C7E2374DD9E3D56A /* ScreenshotTests.swift in Sources */,
 				DFDD1D622BE1BC36CC16462D /* VersionsUITests.swift in Sources */,
 			);

@@ -121,6 +121,8 @@ struct SummaryChipApp: App {
             PaperEditorPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-paper-export") {
             PaperExportPreviewHost()
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-paper-reader") {
+            PaperReaderPreviewHost()
         } else {
             #if os(macOS)
             if ProcessInfo.processInfo.arguments.contains("--preview-mac") {

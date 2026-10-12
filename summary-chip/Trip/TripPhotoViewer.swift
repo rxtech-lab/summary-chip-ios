@@ -38,7 +38,13 @@ struct TripPhotoViewer: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(photos.indices, id: \.self) { index in
-                    ZoomablePhoto(photo: photos[index], zoomed: page == index ? $zoomed : .constant(false))
+                    ZoomableContent(label: photos[index].caption ?? String(localized: "Photo"), zoomed: page == index ? $zoomed : .constant(false)) {
+                        // Fitted, not cropped, so the whole photo shows before zooming in.
+                        SummaryRemoteImage(url: photos[index].imageURL) {
+                            Image(systemName: "photo").font(.largeTitle).foregroundStyle(.secondary)
+                        }
+                        .scaledToFit()
+                    }
                         .containerRelativeFrame([.horizontal, .vertical])
                         .id(index)
                 }
@@ -99,20 +105,21 @@ struct TripPhotoViewer: View {
     }
 }
 
-/// One photo fitted to the screen, zoomable from 1× to 5×.
-private struct ZoomablePhoto: View {
-    let photo: TripPhoto
+/// A photo or figure fitted to the screen, zoomable from 1× to 5×.
+struct ZoomableContent<Content: View>: View {
+    let label: String
     @Binding var zoomed: Bool
+    @ViewBuilder let content: Content
     @State private var scale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @GestureState private var pinch: CGFloat = 1
     @GestureState private var drag: CGSize = .zero
 
-    private static let maxScale: CGFloat = 5
+    private static var maxScale: CGFloat { 5 }
 
     var body: some View {
         GeometryReader { proxy in
-            image
+            content
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .scaleEffect(scale * pinch)
                 .offset(x: offset.width + drag.width, y: offset.height + drag.height)
@@ -130,18 +137,10 @@ private struct ZoomablePhoto: View {
         .onChange(of: zoomed) { _, isZoomed in
             if !isZoomed, scale != 1 { withAnimation(.snappy) { reset() } }
         }
-        .accessibilityLabel(photo.caption ?? String(localized: "Photo"))
+        .accessibilityLabel(label)
         .accessibilityZoomAction { action in
             withAnimation(.snappy) { setScale(action.direction == .zoomIn ? scale * 2 : scale / 2) }
         }
-    }
-
-    private var image: some View {
-        // Fitted, not cropped, so the whole photo shows before zooming in.
-        SummaryRemoteImage(url: photo.imageURL) {
-            Image(systemName: "photo").font(.largeTitle).foregroundStyle(.secondary)
-        }
-        .scaledToFit()
     }
 
     private var magnify: some Gesture {
