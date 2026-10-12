@@ -68,13 +68,13 @@ enum PaperReaderFixture: String {
         let image = PaperFile(path: "figures/chart.png", asset: PaperAsset(key: "chart", mimeType: "image/png", byteSize: 1))
         let bib = PaperFile(path: "refs.bib", content: Self.bibliography)
         switch self {
-        case .text: return PaperSource(title: "Reader: Text", files: [PaperFile(path: "main.tex", content: Self.text), bib], mainFile: "main.tex")
-        case .math: return PaperSource(title: "Reader: Math", files: [PaperFile(path: "main.tex", content: Self.math)], mainFile: "main.tex")
-        case .figures: return PaperSource(title: "Reader: Figures", files: [PaperFile(path: "main.tex", content: Self.figures), image], mainFile: "main.tex")
+        case .text: return PaperSource(title: "Reader: Text", files: [PaperFile(path: "main.tex", content: Self.textLaTeX), bib], mainFile: "main.tex")
+        case .math: return PaperSource(title: "Reader: Math", files: [PaperFile(path: "main.tex", content: Self.mathLaTeX)], mainFile: "main.tex")
+        case .figures: return PaperSource(title: "Reader: Figures", files: [PaperFile(path: "main.tex", content: Self.figuresLaTeX), image], mainFile: "main.tex")
         }
     }
 
-    private static let text = #"""
+    private static let textLaTeX = #"""
         \documentclass{article}
         \title{Reading Papers \emph{Natively}}
         \author{Ada Lovelace \and Alan Turing}
@@ -103,7 +103,7 @@ enum PaperReaderFixture: String {
         \end{document}
         """#
 
-    private static let math = #"""
+    private static let mathLaTeX = #"""
         \documentclass{article}
         \begin{document}
         \section{Formulas}
@@ -125,7 +125,7 @@ enum PaperReaderFixture: String {
         \end{document}
         """#
 
-    private static let figures = #"""
+    private static let figuresLaTeX = #"""
         \documentclass{article}
         \begin{document}
         \section{Results}
