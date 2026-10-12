@@ -5,20 +5,33 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The native paper reader on fixed LaTeX, for UI tests that compare its screenshots with
-/// reference images: launch with `--preview-paper-reader` and `--reader-fixture text|math|figures`.
-/// The text size starts at its default on every launch so the screenshots don't depend on the
-/// last run.
+/// reference images: launch with `--preview-paper-reader` and `--reader-fixture text|math|figures|reviews`.
+/// The `reviews` fixture has canned reviews (one waiting, one finished by an agent) kept in
+/// memory; `--reader-open compose|reviews|diff` opens that sheet at once. The text size starts at
+/// its default on every launch so the screenshots don't depend on the last run.
 struct PaperReaderPreviewHost: View {
+    private enum Opening: String { case compose, reviews, diff }
+
     private let fixture: PaperReaderFixture
     private let image: Data
+    private let opening: Opening?
+    @State private var reviews: PaperReviewModel?
+    @State private var showsReviews = false
+    @State private var composeQuote: PaperReviewQuote?
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
-        let name = arguments.firstIndex(of: "--reader-fixture").flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
-        fixture = name.flatMap(PaperReaderFixture.init(rawValue:)) ?? .text
+        func value(_ flag: String) -> String? {
+            arguments.firstIndex(of: flag).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+        }
+        fixture = value("--reader-fixture").flatMap(PaperReaderFixture.init(rawValue:)) ?? .text
+        opening = value("--reader-open").flatMap(Opening.init(rawValue:))
         UserDefaults.standard.removeObject(forKey: PaperReaderSettings.fontSizeKey)
         UserDefaults.standard.removeObject(forKey: PaperReaderSettings.serifKey)
         image = Self.chartPNG()
+        if fixture == .reviews {
+            _reviews = State(initialValue: PaperReviewModel(backend: FixturePaperReviewBackend(source: fixture.source)))
+        }
     }
 
     var body: some View {
@@ -28,7 +41,10 @@ struct PaperReaderPreviewHost: View {
                 source: fixture.source,
                 loadImage: { _ in image },
                 imageScope: "preview-\(fixture.rawValue)",
-                onShowPDF: {}
+                onShowPDF: {},
+                // Drawings come back from the server as PDFs; here the chart stands in for them.
+                renderDrawing: { _ in image },
+                reviews: reviews
             )
             .navigationTitle(fixture.source.title)
             .summaryInlineNavigationTitle()
@@ -36,11 +52,34 @@ struct PaperReaderPreviewHost: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 HStack {
                     Spacer()
+                    if reviews != nil {
+                        Button { showsReviews = true } label: { Label("Reviews", systemImage: "bubble.left.and.text.bubble.right") }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("paper-reviews-button")
+                    }
                     PaperReaderTextControls()
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(.bar)
+            }
+        }
+        .sheet(isPresented: $showsReviews) {
+            if let reviews {
+                PaperReviewsSheet(reviews: reviews, initialReview: opening == .diff ? FixturePaperReviewBackend.addressed : nil)
+            }
+        }
+        .sheet(item: $composeQuote) { quote in
+            if let reviews { PaperReviewComposeSheet(quote: quote.text, reviews: reviews, source: fixture.source) }
+        }
+        .task {
+            guard reviews != nil else { return }
+            await reviews?.load()
+            switch opening {
+            case .compose?: composeQuote = PaperReviewQuote(text: "No three positive integers satisfy")
+            case .reviews?, .diff?: showsReviews = true
+            case nil: break
             }
         }
     }
@@ -70,12 +109,14 @@ enum PaperReaderFixture: String {
     case text
     case math
     case figures
+    /// The text paper with reviews on two of its passages.
+    case reviews
 
     var source: PaperSource {
         let image = PaperFile(path: "figures/chart.png", asset: PaperAsset(key: "chart", mimeType: "image/png", byteSize: 1))
         let bib = PaperFile(path: "refs.bib", content: Self.bibliography)
         switch self {
-        case .text: return PaperSource(title: "Reader: Text", files: [PaperFile(path: "main.tex", content: Self.textLaTeX), bib], mainFile: "main.tex")
+        case .text, .reviews: return PaperSource(title: self == .text ? "Reader: Text" : "Reader: Reviews", files: [PaperFile(path: "main.tex", content: Self.textLaTeX), bib], mainFile: "main.tex")
         case .math: return PaperSource(title: "Reader: Math", files: [PaperFile(path: "main.tex", content: Self.mathLaTeX)], mainFile: "main.tex")
         case .figures: return PaperSource(title: "Reader: Figures", files: [PaperFile(path: "main.tex", content: Self.figuresLaTeX), image], mainFile: "main.tex")
         }
@@ -164,7 +205,7 @@ enum PaperReaderFixture: String {
         \end{document}
         """#
 
-    private static let bibliography = #"""
+    static let bibliography = #"""
         @article{knuth84,
           author = {Knuth, Donald E.},
           title = {Literate Programming},
@@ -173,5 +214,63 @@ enum PaperReaderFixture: String {
           year = 1984,
         }
         """#
+}
+
+/// Reviews kept in memory for the `reviews` fixture: one waiting for the agent and one it
+/// finished, whose change (version 2 → 3) adds a definition of literate programming.
+actor FixturePaperReviewBackend: PaperReviewBackend {
+    static let waiting = PaperReview(
+        id: "fixture-waiting", paperId: "fixture", file: "main.tex", quote: "Text that reflows",
+        comment: "Give an example of text that reflows on a small screen.", status: .open, version: 2,
+        createdAt: Date(timeIntervalSince1970: 1_791_540_000), updatedAt: Date(timeIntervalSince1970: 1_791_540_000)
+    )
+    static let addressed = PaperReview(
+        id: "fixture-addressed", paperId: "fixture", file: "main.tex", quote: "treats a program as literature",
+        comment: "Say what literate programming means before using the term.", status: .addressed, version: 2, addressedVersion: 3,
+        agentNote: "Added Knuth's definition and a sentence on why it matters.",
+        createdAt: Date(timeIntervalSince1970: 1_791_536_400), updatedAt: Date(timeIntervalSince1970: 1_791_538_200),
+        addressedAt: Date(timeIntervalSince1970: 1_791_538_200)
+    )
+
+    private var reviews: [PaperReview]
+    private let versions: [Int: PaperSource]
+
+    init(source: PaperSource) {
+        reviews = [Self.addressed, Self.waiting]
+        var edited = source
+        if let main = source.file(source.mainFile) {
+            edited.write(source.mainFile, content: main.content.replacingOccurrences(
+                of: #"Literate programming~\cite{knuth84} treats a program as \textbf{literature}."#,
+                with: #"""
+                Literate programming~\cite{knuth84} treats a program as \textbf{literature}: an essay written for people,
+                from which the compiler's input is extracted. Reading it first as prose makes its design visible.
+                """#
+            ))
+        }
+        versions = [2: source, 3: edited]
+    }
+
+    func list() async throws -> [PaperReview] { reviews }
+
+    func create(_ draft: PaperReviewDraft) async throws -> PaperReview {
+        let review = PaperReview(id: UUID().uuidString, paperId: "fixture", file: draft.file, quote: draft.quote, comment: draft.comment, version: 3)
+        reviews.append(review)
+        return review
+    }
+
+    func update(id: String, status: PaperReviewStatus?, comment: String?) async throws -> PaperReview {
+        guard let index = reviews.firstIndex(where: { $0.id == id }) else { throw PaperProjectError("No such review.") }
+        if let status { reviews[index].status = status }
+        if let comment { reviews[index].comment = comment }
+        if status == .resolved { reviews[index].resolvedAt = .now }
+        return reviews[index]
+    }
+
+    func delete(id: String) async throws { reviews.removeAll { $0.id == id } }
+
+    func source(version: Int) async throws -> PaperSource {
+        guard let source = versions[version] else { throw PaperProjectError("No version \(version).") }
+        return source
+    }
 }
 #endif

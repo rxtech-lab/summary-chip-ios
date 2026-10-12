@@ -11,12 +11,17 @@ struct PaperReaderView: View {
     /// Images are cached per paper and version.
     let imageScope: String
     var onShowPDF: (() -> Void)?
+    /// Draws a TikZ or pgfplots environment through LaTeX (a PDF); nil leaves a note in its place.
+    var renderDrawing: (@Sendable (String) async throws -> Data)?
+    /// The paper's reviews: selecting text offers **Add Review**, and reviewed passages are marked.
+    var reviews: PaperReviewModel?
     @AppStorage(PaperReaderSettings.fontSizeKey) private var fontSize = PaperReaderSettings.defaultFontSize
     @AppStorage(PaperReaderSettings.serifKey) private var serif = true
     @State private var document: PaperReaderDocument?
     @State private var note: PaperReaderNote?
     @State private var figure: PaperFigureViewerItem?
     @State private var pinchStart: Double?
+    @State private var reviewQuote: PaperReviewQuote?
 
     var body: some View {
         Group {
@@ -32,7 +37,13 @@ struct PaperReaderView: View {
             if let document { PaperReaderNoteSheet(note: note, context: readerContext(document)) }
         }
         .paperFigureViewer(item: $figure)
+        .sheet(item: $reviewQuote) { quote in
+            if let reviews {
+                PaperReviewComposeSheet(quote: quote.text, reviews: reviews, source: source)
+            }
+        }
         .sensoryFeedback(.selection, trigger: fontSize)
+        .sensoryFeedback(.success, trigger: reviews?.changeCount ?? 0)
     }
 
     private func readerContext(_ document: PaperReaderDocument) -> PaperReaderContext {
@@ -44,7 +55,10 @@ struct PaperReaderView: View {
             assetKeys: Dictionary((source?.files ?? []).compactMap { file in file.asset.map { (file.path, $0.key) } }, uniquingKeysWith: { first, _ in first }),
             loadImage: loadImage,
             openFigure: { figure = $0 },
-            showPDF: onShowPDF
+            showPDF: onShowPDF,
+            renderDrawing: renderDrawing,
+            addReview: reviews == nil ? nil : { quote in reviewQuote = PaperReviewQuote(text: quote) },
+            reviewHighlights: (reviews?.unresolved ?? []).map { PaperReviewHighlight(quote: $0.quote, status: $0.status) }
         )
     }
 
@@ -193,6 +207,12 @@ struct PaperReaderContext {
     let loadImage: @Sendable (String) async throws -> Data
     let openFigure: (PaperFigureViewerItem) -> Void
     let showPDF: (() -> Void)?
+    /// Compiles a drawing's LaTeX to a PDF; nil when the reader can't ask the server.
+    var renderDrawing: (@Sendable (String) async throws -> Data)?
+    /// Called with the selected passage when the reader chooses **Add Review**; nil hides it.
+    var addReview: ((String) -> Void)?
+    /// Passages with an unresolved review, marked in the text.
+    var reviewHighlights: [PaperReviewHighlight] = []
     /// Theorem bodies are italic.
     var baseStyle: PaperTextStyle = []
 
@@ -294,6 +314,12 @@ nonisolated enum PaperReaderLink: Equatable {
         default: return nil
         }
     }
+}
+
+/// A passage selected for a review, waiting for its comment.
+struct PaperReviewQuote: Identifiable, Hashable {
+    let id = UUID()
+    let text: String
 }
 
 nonisolated enum PaperReaderNote: Identifiable, Hashable {

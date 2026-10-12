@@ -167,6 +167,30 @@ the text around a citation isn't a reference change. A check that fails to finis
 `{ key, file, line, title, url, status: unchecked | checking | verified | error, issue, message, checkedAt }`.
 The editor refreshes it while checks run.
 
+## Reviews
+
+The owner reviews a paper in the app's native reader: selecting text and choosing **Add Review**
+in the selection menu opens a half sheet for a comment on that passage. A review is kept in
+`paper_reviews` as `{ id, file, quote, comment, status, version, addressedVersion, agentNote }`:
+
+| `status` | Meaning |
+|---|---|
+| `open` | Waiting for an agent. Creating one first saves the working copy's unversioned edits as an `owner` version, so `version` is the exact source the comment was made on. |
+| `addressed` | An agent edited the paper (`update_paper`) and called `finish_paper_review`: `addressedVersion` is the paper's latest version, `agentNote` what it changed. The app shows the change as a line diff from `version` to `addressedVersion` with **Mark as Finished**. |
+| `resolved` | The owner accepted the change. Reopening (`status: "open"`) asks the agent again. |
+
+Reviews are the owner's only (a paper holds at most 200). Deleting the paper deletes them.
+
+## Figures in the reader
+
+The reader draws `\includegraphics` images itself and asks the server for the figures only LaTeX
+can draw: `POST /api/v1/papers/:id/figures` with `{ source, version? }` (a `tikzpicture`, `axis`,
+`tikzcd`, `circuitikz` or `forest` environment as written in the paper) compiles it as a
+`standalone` document with the paper's preamble (packages, TikZ libraries, pgfplots settings,
+macros and colours; layout packages such as `geometry` are left out) and answers with the
+cropped PDF, which the app shows as an image. Figures are compiled once per source
+(`papers/<id>/figures/<hash>.pdf`); a figure that doesn't compile is `422 LATEX_COMPILE_FAILED`.
+
 ## API
 
 | Method & path | Body | Response |
@@ -185,6 +209,11 @@ The editor refreshes it while checks run.
 | `POST /api/v1/papers/:id/translations` | `{ language: en\|zh-Hans\|zh-Hant\|ja\|ko\|es\|fr\|de\|null }` | `{ paper: Paper }`; owner only, `null` selects original |
 | `GET /api/v1/papers/:id/assets?path=images/result.png&version=` | – | Image bytes for an authorized viewer; saved versions are owner-only |
 | `POST /api/v1/papers/:id/check` | – | `{ ok, revision, errors?, log?, byteSize? }` |
+| `POST /api/v1/papers/:id/figures` | `{ source, version? }` | `application/pdf`: one TikZ/pgfplots figure drawn on its own, or `422 LATEX_COMPILE_FAILED` |
+| `GET /api/v1/papers/:id/reviews?status=` | – | `{ reviews: [PaperReview] }`, oldest first (`open`, `addressed`, `resolved`, `unresolved`) |
+| `POST /api/v1/papers/:id/reviews` | `{ quote, comment, file? }` | `201 { review }`; saves pending edits as a version first |
+| `PATCH /api/v1/papers/:id/reviews/:reviewId` | `{ comment?, status?: open \| resolved }` | `{ review }` |
+| `DELETE /api/v1/papers/:id/reviews/:reviewId` | – | `204` |
 | `GET /s/:key/paper.pdf` | – | The PDF for whoever the share link lets in |
 
 Versions are listed, read and restored under `/api/v1/summaries/:id/versions` (restore answers
@@ -211,6 +240,8 @@ Versions are listed, read and restored under `/api/v1/summaries/:id/versions` (r
 | `create_paper` | A new paper from files, or a template. |
 | `update_paper` | Operations in order, as one version: `write_file`, `edit_file` (exact find-and-replace; `find` must occur once unless `all`), `delete_file`, `rename_file`, `set_main_file`, `set_compiler`, `set_title`. An operation that can't apply is `PAPER_EDIT_FAILED` naming it; nothing is saved. New or changed references are checked before it answers; reference errors come back as a `warning` (the edit is saved). |
 | `compile_paper` | The strict check, so the agent can fix errors by file and line. |
+| `get_paper_reviews` | The owner's review comments (unresolved by default): what to change and where. |
+| `finish_paper_review` | Marks reviews addressed at the paper's latest version, with a note, after the `update_paper` calls for them. |
 
 ## Apps
 
@@ -260,6 +291,16 @@ The paper opens from the library (`kind == .paper`) in `PaperDetailView`:
 * Edits autosave about a second after typing stops. Leaving the paper saves them as one version.
   While it is open, the editor checks for agent edits every few seconds and on returning to the
   app, and reloads them when nothing is waiting to be saved.
+* **Reader**: the preview's **Reader** mode sets the LaTeX as native text (`PaperReaderView`,
+  built from `PaperReader` in SummaryKit): text that reflows and grows with the reader's font size,
+  formulas set natively, `\includegraphics` images that open to zoom, and TikZ/pgfplots figures
+  drawn by the server (`POST …/figures`) and shown as images. On iOS each paragraph is a text view:
+  selecting a passage offers **Add Review** in the selection menu, which opens a half sheet for a
+  comment; passages with an open review are marked yellow, ones an agent finished green. The
+  **Reviews** button in the mode bar (and **More → Reviews…**) lists them: a finished review opens
+  the agent's change as a line diff between the two versions, with **Mark as Finished**; swiping
+  deletes a review or asks the agent again. `--reader-fixture reviews` and `--reader-open
+  compose|reviews|diff` (Debug) drive `PaperReaderUITests` and the PR screenshots.
 * **References**: the preview highlights each reference with an error in the PDF's bibliography
   (found by its title's opening words); hovering one on Mac or with an iPad pointer, or tapping it,
   shows a popover with the issue and what to fix. A capsule under the preview counts the errors

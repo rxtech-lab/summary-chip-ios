@@ -218,11 +218,12 @@ struct PaperPreviewSheet: View {
     let model: PaperEditorModel
     let onShowIssues: () -> Void
     var onShowReferences: () -> Void = {}
+    var onShowReviews: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            PaperPreviewPane(model: model, onShowIssues: onShowIssues, onShowReferences: onShowReferences)
+            PaperPreviewPane(model: model, onShowIssues: onShowIssues, onShowReferences: onShowReferences, onShowReviews: onShowReviews)
                 .navigationTitle(model.shownSource?.title ?? String(localized: "Preview"))
                 .summaryInlineNavigationTitle()
                 .toolbar {
@@ -248,6 +249,7 @@ struct PaperPreviewPane: View {
     let model: PaperEditorModel
     let onShowIssues: () -> Void
     var onShowReferences: () -> Void = {}
+    var onShowReviews: () -> Void = {}
     @AppStorage("paperPreviewMode") private var mode = PaperPreviewMode.pdf
 
     var body: some View {
@@ -282,11 +284,37 @@ struct PaperPreviewPane: View {
             .fixedSize()
             .accessibilityIdentifier("paper-preview-mode")
             Spacer(minLength: 0)
-            if mode == .reader { PaperReaderTextControls() }
+            if mode == .reader {
+                if model.isOwner { reviewsButton }
+                PaperReaderTextControls()
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(.bar)
+    }
+
+    /// Opens the paper's reviews; the badge counts the ones an agent finished and awaiting approval.
+    private var reviewsButton: some View {
+        Button(action: onShowReviews) {
+            Label("Reviews", systemImage: model.reviews.ready.isEmpty ? "bubble.left.and.text.bubble.right" : "checkmark.bubble.fill")
+                .labelStyle(.iconOnly)
+                .overlay(alignment: .topTrailing) {
+                    if !model.reviews.ready.isEmpty {
+                        Text(model.reviews.ready.count, format: .number)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.green, in: Capsule())
+                            .offset(x: 10, y: -8)
+                    }
+                }
+        }
+        .buttonStyle(.borderless)
+        .help("Reviews")
+        .accessibilityLabel(model.reviews.ready.isEmpty ? String(localized: "Reviews") : String(localized: "Reviews, \(model.reviews.ready.count) ready"))
+        .accessibilityIdentifier("paper-reviews-button")
     }
 
     private var reader: some View {
@@ -297,7 +325,10 @@ struct PaperPreviewPane: View {
             source: model.shownSource,
             loadImage: { path in try await api.paperImage(id: id, path: path, version: version) },
             imageScope: "\(id):\(version.map(String.init) ?? "work")",
-            onShowPDF: { mode = .pdf }
+            onShowPDF: { mode = .pdf },
+            renderDrawing: { source in try await api.paperFigure(id: id, source: source, version: version) },
+            // Reviews belong to the working copy: a past version is read-only.
+            reviews: model.isOwner && version == nil ? model.reviews : nil
         )
     }
 

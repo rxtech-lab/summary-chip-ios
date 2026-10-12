@@ -189,7 +189,7 @@ struct PaperDetailView: View {
             PaperSplitView {
                 editor(source)
             } preview: {
-                PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references })
+                PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references }, onShowReviews: { activeSheet = .reviews })
             }
         }
     }
@@ -346,6 +346,13 @@ struct PaperDetailView: View {
             if !model.shownIssues.isEmpty {
                 Button { activeSheet = .issues } label: { Label("Show LaTeX Errors", systemImage: "exclamationmark.triangle") }
             }
+            if model.isOwner {
+                Button { activeSheet = .reviews } label: {
+                    Label("Reviews…", systemImage: "bubble.left.and.text.bubble.right")
+                }
+                .badge(model.reviews.ready.count)
+                .accessibilityIdentifier("paper-reviews-menu")
+            }
             if model.isOwner, !model.references.isEmpty {
                 Button { activeSheet = .references } label: {
                     Label(model.referenceErrors.isEmpty ? String(localized: "References…") : String(localized: "References (\(model.referenceErrors.count) errors)…"),
@@ -407,6 +414,7 @@ enum PaperSheet: Identifiable, Hashable {
     case preview
     case issues
     case references
+    case reviews
     case newFile
     case figure(PaperFigureKind)
     case droppedImage(PaperImageImport)
@@ -425,6 +433,7 @@ enum PaperSheet: Identifiable, Hashable {
         case .preview: "preview"
         case .issues: "issues"
         case .references: "references"
+        case .reviews: "reviews"
         case .newFile: "new-file"
         case .figure(let kind): "figure:\(kind.rawValue)"
         case .droppedImage(let image): "dropped-image:\(image.id)"

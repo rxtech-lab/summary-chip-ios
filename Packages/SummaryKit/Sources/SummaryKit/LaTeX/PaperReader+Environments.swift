@@ -31,8 +31,8 @@ extension PaperReaderParser {
         case "tabular", "tabularx", "longtable", "tabulary", "xltabular", "supertabular", "tblr":
             return tableBlocks(readEnvironment(name), environment: name)
         case "tikzpicture", "pgfpicture", "circuitikz", "forest", "tikzcd":
-            _ = readEnvironment(name)
-            return [PaperBlock(id: newID(), kind: .figure(PaperFigure(images: [], drawings: 1, caption: nil, number: nil, name: "Figure")))]
+            let source = "\\begin{\(name)}" + readEnvironment(name) + "\\end{\(name)}"
+            return [PaperBlock(id: newID(), kind: .figure(PaperFigure(images: [], drawings: 1, caption: nil, number: nil, name: "Figure", drawingSources: [source])))]
         case "quote", "quotation", "verse", "displayquote":
             return [PaperBlock(id: newID(), kind: .quote(nested(readEnvironment(name), alignment: .leading)))]
         case "verbatim", "Verbatim", "lstlisting", "minted", "alltt", "BVerbatim", "LVerbatim":

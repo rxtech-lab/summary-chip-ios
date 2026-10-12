@@ -121,12 +121,15 @@ public struct PaperFigure: Sendable, Hashable {
     }
 
     public var images: [Image]
-    /// TikZ pictures and pgfplots charts, which only the PDF draws.
+    /// TikZ pictures and pgfplots charts, which LaTeX draws (`drawingSources`, one each).
     public var drawings: Int
     public var caption: [PaperSpan]?
     /// `Figure 3`, `Table 2`; nil without a caption.
     public var number: String?
     public var name: String
+    /// Each drawing's environment as written (`\begin{tikzpicture}…\end{tikzpicture}`), for
+    /// the server to draw on its own.
+    public var drawingSources: [String] = []
 }
 
 public struct PaperTable: Sendable, Hashable {

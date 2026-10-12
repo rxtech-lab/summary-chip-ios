@@ -19,6 +19,8 @@ import { createUpload, getUpload } from "@/lib/services/uploads";
 import { getVersion, listVersions, restoreVersion } from "@/lib/services/versions";
 import { describeReferenceIssue } from "@/lib/services/paper-references";
 import { applyPaperEdits, checkPaper, createPaper, getPaper, listPapers, type PaperJson } from "@/lib/services/papers";
+import { finishPaperReviews, listPaperReviews } from "@/lib/services/paper-reviews";
+import { finishPaperReviewsSchema } from "@/lib/contracts/paper-review";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 
@@ -45,6 +47,8 @@ export const TOOL_NAMES = {
   createPaper: "create_paper",
   updatePaper: "update_paper",
   compilePaper: "compile_paper",
+  getPaperReviews: "get_paper_reviews",
+  finishPaperReview: "finish_paper_review",
   getProfile: "get_profile",
 } as const;
 export const MAX_SEARCH_RESULTS = 50;
@@ -69,7 +73,10 @@ export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"ch
   + "PDF preview: list_papers and get_paper read them, create_paper starts one, update_paper edits its files (each call is "
   + "one version), and compile_paper compiles it and returns LaTeX errors with file and line so you can fix them (free). "
   + "Each new or changed bibliography entry is fact-checked when you save it; create_paper and update_paper return a "
-  + "warning for references that don't hold up, so rewrite those with update_paper. Keep the bibliography in one place: "
+  + "warning for references that don't hold up, so rewrite those with update_paper. The user reviews papers in the app: "
+  + "get_paper_reviews lists the passages they commented on (quote, comment, file); edit the paper for each with "
+  + "update_paper, then call finish_paper_review with the review ids and a note, so the app shows them the change as a "
+  + "diff to approve. Keep the bibliography in one place: "
   + "a single .bib file (cited with \\bibliography or \\addbibresource) or a thebibliography environment, never both, "
   + "and don't add files the paper doesn't compile (copies, notes or reference-only files).";
 
@@ -626,6 +633,49 @@ export function createMcpServer(context: McpContext): McpServer {
     if (result.ok) return { result: success({ ...result }, `The paper compiles (revision ${result.revision}, ${Math.round(result.byteSize / 1024)} KB PDF).`) };
     const listed = result.errors.map((issue) => `${issue.file ?? "?"}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`).join("\n");
     return { result: success({ ...result }, `LaTeX errors (revision ${result.revision}):\n${listed}`) };
+  }));
+
+  server.registerTool(TOOL_NAMES.getPaperReviews, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.getPaperReviews) },
+    title: "Get Paper Reviews",
+    description: "The user's review comments on a paper, left on passages they selected while reading it in the app: "
+      + "each has an id, the quoted passage, their comment, the file it is in when known, and a status (open: waiting "
+      + "for you; addressed: you finished it and the user hasn't reviewed the change yet; resolved: accepted). Find each "
+      + "open review's quote in the paper with get_paper, edit the paper with update_paper, then call finish_paper_review "
+      + "with the ids you handled. Defaults to unresolved reviews; pass status to narrow or widen.",
+    inputSchema: {
+      paperId: z.string().trim().min(1).max(100).describe("The paper's id, from list_papers."),
+      status: z.enum(["open", "addressed", "resolved", "unresolved", "all"]).optional().describe("Which reviews: open, addressed, resolved, unresolved (open and addressed; default) or all."),
+    },
+    annotations: { title: "Get Paper Reviews", readOnlyHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.getPaperReviews, async () => {
+    const status = args.status === "all" ? undefined : args.status ?? "unresolved";
+    const reviews = await listPaperReviews(db, principal.sub, args.paperId, status);
+    const open = reviews.filter((review) => review.status === "open").length;
+    const text = reviews.length
+      ? `${reviews.length} review(s), ${open} open:\n${reviews.map((review) => `- [${review.status}] ${review.id}${review.file ? ` (${review.file})` : ""}: "${review.quote}" — ${review.comment}`).join("\n")}`
+      : "No reviews to address.";
+    return { result: success({ count: reviews.length, open, reviews }, text) };
+  }));
+
+  server.registerTool(TOOL_NAMES.finishPaperReview, {
+    _meta: { securitySchemes: securitySchemes(TOOL_NAMES.finishPaperReview) },
+    title: "Finish Paper Review",
+    description: "Mark reviews as addressed after editing the paper for them with update_paper: records the paper's "
+      + "latest version as holding your edits, so the app shows the user what changed since they commented, as a "
+      + "diff, and they can resolve the review. Pass a short note saying what you changed. Call it once per batch of "
+      + "edits, after the update_paper calls. Reviews the user already resolved are left as they are. Free.",
+    inputSchema: {
+      paperId: z.string().trim().min(1).max(100).describe("The paper's id."),
+      reviewIds: z.array(z.string().trim().min(1).max(100)).min(1).max(200).describe("The ids of the reviews you addressed, from get_paper_reviews."),
+      note: z.string().trim().max(4000).optional().describe("What you changed for them, in a sentence or two."),
+    },
+    annotations: { title: "Finish Paper Review", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, (args) => run(TOOL_NAMES.finishPaperReview, async () => {
+    const input = finishPaperReviewsSchema.parse({ reviewIds: args.reviewIds, note: args.note });
+    const { reviews, version } = await finishPaperReviews(db, principal.sub, args.paperId, input);
+    const addressed = reviews.filter((review) => review.status === "addressed" && review.addressedVersion === version).length;
+    return { result: success({ version, addressed, reviews }, `Marked ${addressed} review(s) as addressed at version ${version}; the user can now review the change in the app.`) };
   }));
 
   server.registerTool(TOOL_NAMES.updatePlace, {

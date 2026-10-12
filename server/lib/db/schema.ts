@@ -384,6 +384,38 @@ export const tripTranslations = sqliteTable("trip_translations", {
 
 export type TripTranslationRow = typeof tripTranslations.$inferSelect;
 
+export const PAPER_REVIEW_STATUSES = ["open", "addressed", "resolved"] as const;
+export type PaperReviewStatus = (typeof PAPER_REVIEW_STATUSES)[number];
+
+/**
+ * A review comment the owner left on a passage of their paper in the app's reader
+ * (`docs/papers.md` → Reviews). `version` is the paper's version the comment was made on; an agent
+ * that addresses it records the version holding its edits, so the app can show the two as a diff.
+ */
+export const paperReviews = sqliteTable("paper_reviews", {
+  id: text("id").primaryKey(),
+  summaryId: text("summary_id").notNull().references(() => papers.summaryId, { onDelete: "cascade" }),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  /** The paper file the passage is in, when the reader knows it. */
+  file: text("file"),
+  /** The selected passage, as the reader showed it. */
+  quote: text("quote").notNull(),
+  comment: text("comment").notNull(),
+  status: text("status", { enum: PAPER_REVIEW_STATUSES }).notNull().default("open"),
+  version: integer("version").notNull(),
+  addressedVersion: integer("addressed_version"),
+  /** What the agent said it changed. */
+  agentNote: text("agent_note"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+  addressedAt: integer("addressed_at", { mode: "timestamp_ms" }),
+  resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+}, (table) => [
+  index("paper_reviews_paper_idx").on(table.summaryId, table.createdAt),
+]);
+
+export type PaperReviewRow = typeof paperReviews.$inferSelect;
+
 /** A paper's prose translations. Revision marks which original working copy they cover. */
 export const paperTranslations = sqliteTable("paper_translations", {
   summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
