@@ -76,6 +76,8 @@ struct PaperReaderPreviewHost: View {
         .task {
             guard reviews != nil else { return }
             await reviews?.load()
+            // Presenting during the first appearance can be dropped: let the reader settle first.
+            try? await Task.sleep(for: .milliseconds(400))
             switch opening {
             case .compose?: composeQuote = PaperReviewQuote(text: "No three positive integers satisfy")
             case .reviews?, .diff?: showsReviews = true

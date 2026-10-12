@@ -271,7 +271,7 @@ nonisolated final class ScreenshotTests: XCTestCase {
         settle(2)
         capture(app, "12-paper-reader-figures")
         // The LaTeX-drawn figure sits below the table; the reader builds it once it scrolls into view.
-        let drawing = app.buttons["paper-reader-drawing"].firstMatch
+        let drawing = app.descendants(matching: .any)["paper-reader-drawing"].firstMatch
         for _ in 0..<8 where !drawing.exists {
             app.scrollViews["paper-reader"].swipeUp(velocity: .slow)
         }
@@ -308,7 +308,8 @@ nonisolated final class ScreenshotTests: XCTestCase {
 
     @MainActor func test16PaperReviewDiff() {
         let app = launchReader(fixture: "reviews", open: "diff")
-        XCTAssertTrue(app.buttons["paper-review-finish"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Review Changes"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["paper-review-finish"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "an essay written for people")).firstMatch.waitForExistence(timeout: 10))
         settle()
         capture(app, "16-paper-review-diff")
