@@ -69,8 +69,8 @@ nonisolated final class PaperReaderUITests: XCTestCase {
     @MainActor func testDrawingsAreDrawnNatively() {
         let app = launch("figures")
         XCTAssertTrue(app.buttons["Growth over five years."].waitForExistence(timeout: 10))
-        // SwiftUI reports an image-only button by its label; the identifier matches whatever type it reports.
-        let drawing = app.descendants(matching: .any)["paper-reader-drawing"].firstMatch
+        // SwiftUI exposes the figure buttons by their caption, not their identifier.
+        let drawing = app.buttons["A diagram."].firstMatch
         scroll(app, to: drawing)
         XCTAssertTrue(drawing.waitForExistence(timeout: 10))
         XCTAssertFalse(text(app, containing: "This diagram is drawn by LaTeX.").exists)
@@ -104,7 +104,7 @@ nonisolated final class PaperReaderUITests: XCTestCase {
     @MainActor func testFinishedReviewShowsTheDiffAndMarksItFinished() {
         let app = launch("reviews", open: "diff")
         XCTAssertTrue(app.navigationBars["Review Changes"].waitForExistence(timeout: 10))
-        let finish = app.descendants(matching: .any)["paper-review-finish"].firstMatch
+        let finish = app.buttons["Mark as Finished"].firstMatch
         XCTAssertTrue(finish.waitForExistence(timeout: 10))
         XCTAssertTrue(text(app, containing: "an essay written for people").waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["paper-review-agent-note"].firstMatch.exists)
