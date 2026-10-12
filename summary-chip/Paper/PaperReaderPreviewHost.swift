@@ -32,8 +32,15 @@ struct PaperReaderPreviewHost: View {
             )
             .navigationTitle(fixture.source.title)
             .summaryInlineNavigationTitle()
-            .toolbar {
-                ToolbarItem(placement: .summaryTrailing) { PaperReaderTextControls() }
+            // In a bar above the reader, as the preview pane shows them.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack {
+                    Spacer()
+                    PaperReaderTextControls()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.bar)
             }
         }
     }
