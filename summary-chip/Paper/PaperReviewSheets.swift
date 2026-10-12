@@ -98,11 +98,15 @@ struct PaperReviewComposeSheet: View {
 /// mark it finished), then the ones still waiting, then the finished ones.
 struct PaperReviewsSheet: View {
     let reviews: PaperReviewModel
-    /// Opens the diff of this review right away (deep links and tests).
-    var initialReview: PaperReview?
-    @State private var path: [PaperReview] = []
+    @State private var path: [PaperReview]
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
+
+    /// `initialReview` opens that review's diff right away (deep links and tests).
+    init(reviews: PaperReviewModel, initialReview: PaperReview? = nil) {
+        self.reviews = reviews
+        _path = State(initialValue: initialReview.map { [$0] } ?? [])
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -131,10 +135,7 @@ struct PaperReviewsSheet: View {
             }
             .refreshable { await reviews.load() }
         }
-        .task {
-            await reviews.load()
-            if let initialReview { path = [initialReview] }
-        }
+        .task { await reviews.load() }
         .statusAlert("Something Went Wrong", message: errorMessage) { errorMessage = nil }
         .summarySheetSize()
         .accessibilityIdentifier("paper-reviews")

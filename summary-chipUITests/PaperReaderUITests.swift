@@ -68,7 +68,9 @@ nonisolated final class PaperReaderUITests: XCTestCase {
 
     @MainActor func testDrawingsAreDrawnNatively() {
         let app = launch("figures")
+        XCTAssertTrue(app.buttons["Growth over five years."].waitForExistence(timeout: 10))
         let drawing = app.buttons["paper-reader-drawing"].firstMatch
+        scroll(app, to: drawing)
         XCTAssertTrue(drawing.waitForExistence(timeout: 10))
         XCTAssertFalse(text(app, containing: "This diagram is drawn by LaTeX.").exists)
         drawing.tap()
@@ -119,8 +121,20 @@ nonisolated final class PaperReaderUITests: XCTestCase {
         return app
     }
 
+    /// A text or paragraph (a text view on iOS, whose text is its value) containing `value`.
     @MainActor private func text(_ app: XCUIApplication, containing value: String) -> XCUIElement {
-        app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", value)).firstMatch
+        let predicate = NSPredicate { element, _ in
+            guard let element = element as? XCUIElementAttributes else { return false }
+            return element.label.contains(value) || (element.value as? String)?.contains(value) == true
+        }
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    /// Swipes the reader up until `element` is on screen; blocks below the fold aren't built yet.
+    @MainActor private func scroll(_ app: XCUIApplication, to element: XCUIElement) {
+        for _ in 0..<8 where !element.exists {
+            app.scrollViews["paper-reader"].swipeUp(velocity: .slow)
+        }
     }
 
     /// The reader alone (no status bar clock), once images have loaded and the scroll indicator

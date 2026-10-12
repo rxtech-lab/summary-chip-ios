@@ -268,9 +268,16 @@ nonisolated final class ScreenshotTests: XCTestCase {
     @MainActor func test12PaperReaderFigures() {
         let app = launchReader(fixture: "figures")
         XCTAssertTrue(app.buttons["Growth over five years."].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["paper-reader-drawing"].firstMatch.waitForExistence(timeout: 10))
         settle(2)
         capture(app, "12-paper-reader-figures")
+        // The LaTeX-drawn figure sits below the table; the reader builds it once it scrolls into view.
+        let drawing = app.buttons["paper-reader-drawing"].firstMatch
+        for _ in 0..<8 where !drawing.exists {
+            app.scrollViews["paper-reader"].swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(drawing.waitForExistence(timeout: 10))
+        settle(2)
+        capture(app, "12b-paper-reader-drawing")
     }
 
     @MainActor func test13PaperReaderReviews() {
