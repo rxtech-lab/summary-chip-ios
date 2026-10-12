@@ -235,14 +235,73 @@ struct PaperPreviewSheet: View {
     }
 }
 
+/// How the preview shows the paper: the compiled PDF, or the native reader.
+nonisolated enum PaperPreviewMode: String, CaseIterable {
+    case pdf
+    case reader
+}
+
 /// The compiled PDF with its compile status: what's compiling, and the errors when it failed.
-/// References that failed their check are highlighted in it, with their count below.
+/// References that failed their check are highlighted in it, with their count below. The
+/// reader mode shows the paper as native text instead, sized to the reader's liking.
 struct PaperPreviewPane: View {
     let model: PaperEditorModel
     let onShowIssues: () -> Void
     var onShowReferences: () -> Void = {}
+    @AppStorage("paperPreviewMode") private var mode = PaperPreviewMode.pdf
 
     var body: some View {
+        Group {
+            switch mode {
+            case .pdf: pdf
+            case .reader: reader
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) { modeBar }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 8) {
+                PaperReferenceStatusButton(model: model, action: onShowReferences)
+                if !model.shownIssues.isEmpty {
+                    latexIssuesButton
+                }
+            }
+            .padding(.bottom, 12)
+        }
+        .animation(.easeInOut(duration: 0.2), value: model.referenceErrors.count)
+        .sensoryFeedback(.selection, trigger: mode)
+    }
+
+    private var modeBar: some View {
+        HStack(spacing: 12) {
+            Picker("Preview", selection: $mode) {
+                Label("PDF", systemImage: "doc.richtext").tag(PaperPreviewMode.pdf)
+                Label("Reader", systemImage: "text.book.closed").tag(PaperPreviewMode.reader)
+            }
+            .pickerStyle(.segmented)
+            .labelStyle(.titleOnly)
+            .fixedSize()
+            .accessibilityIdentifier("paper-preview-mode")
+            Spacer(minLength: 0)
+            if mode == .reader { PaperReaderTextControls() }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
+    }
+
+    private var reader: some View {
+        let api = model.api
+        let id = model.id
+        let version = model.previewVersion
+        return PaperReaderView(
+            source: model.shownSource,
+            loadImage: { path in try await api.paperImage(id: id, path: path, version: version) },
+            imageScope: "\(id):\(version.map(String.init) ?? "work")",
+            onShowPDF: { mode = .pdf }
+        )
+    }
+
+    private var pdf: some View {
         ZStack {
             if let data = model.shownPDF {
                 PaperPDFView(data: data, flaggedReferences: model.referenceErrors)
@@ -269,17 +328,7 @@ struct PaperPreviewPane: View {
                     .accessibilityIdentifier("paper-compiling")
             }
         }
-        .overlay(alignment: .bottom) {
-            VStack(spacing: 8) {
-                PaperReferenceStatusButton(model: model, action: onShowReferences)
-                if !model.shownIssues.isEmpty {
-                    latexIssuesButton
-                }
-            }
-            .padding(.bottom, 12)
-        }
         .animation(.easeInOut(duration: 0.2), value: model.isShownCompiling)
-        .animation(.easeInOut(duration: 0.2), value: model.referenceErrors.count)
     }
 
     private var latexIssuesButton: some View {
