@@ -1,8 +1,9 @@
 import SummaryKit
 import SwiftUI
 
-/// A passage of the reader with a review on it, marked in the text.
+/// A passage of the reader with a review on it, marked in the text; tapping it opens the review.
 struct PaperReviewHighlight: Hashable {
+    let reviewID: String
     let quote: String
     let status: PaperReviewStatus
 }
@@ -39,6 +40,7 @@ struct PaperReviewableText: View {
             lineSpacing: context.fontSize * scale * lineSpacing,
             highlights: context.reviewHighlights,
             onReview: context.addReview,
+            onOpenReview: context.openReview,
             identifier: identifier
         )
         .frame(maxWidth: .infinity, alignment: alignment.frame)
@@ -160,6 +162,7 @@ struct PaperSelectableText: UIViewRepresentable {
     let lineSpacing: CGFloat
     let highlights: [PaperReviewHighlight]
     let onReview: ((String) -> Void)?
+    var onOpenReview: ((String) -> Void)?
     var identifier = "paper-reader-paragraph"
     @Environment(\.openURL) private var openURL
 
@@ -178,12 +181,14 @@ struct PaperSelectableText: UIViewRepresentable {
         view.delegate = context.coordinator
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.setContentHuggingPriority(.required, for: .vertical)
+        view.addReviewTap()
         return view
     }
 
     func updateUIView(_ view: PaperReviewTextView, context: Context) {
         context.coordinator.openURL = openURL
         view.onReview = onReview
+        view.onOpenReview = onOpenReview
         view.accessibilityIdentifier = identifier
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = alignment
@@ -192,18 +197,29 @@ struct PaperSelectableText: UIViewRepresentable {
         let whole = NSRange(location: 0, length: styled.length)
         styled.addAttribute(.paragraphStyle, value: paragraph, range: whole)
         let plain = styled.string as NSString
+        var reviewed: [(range: NSRange, reviewID: String)] = []
         for highlight in highlights {
             var search = whole
             while search.length > 0 {
                 let found = plain.range(of: highlight.quote, options: [], range: search)
                 guard found.location != NSNotFound else { break }
                 styled.addAttribute(.backgroundColor, value: Self.color(for: highlight.status), range: found)
+                reviewed.append((range: found, reviewID: highlight.reviewID))
                 let next = found.location + max(found.length, 1)
                 search = NSRange(location: next, length: whole.length - next)
             }
         }
         if view.attributedText?.isEqual(to: styled) != true {
             view.attributedText = styled
+        }
+        view.reviewed = onOpenReview == nil ? [] : reviewed
+        // VoiceOver can't tap a passage, so each reviewed one is an action on the paragraph.
+        view.accessibilityCustomActions = view.reviewed.map { passage in
+            let quote = plain.substring(with: passage.range)
+            return UIAccessibilityCustomAction(name: String(localized: "Open Review of “\(quote)”")) { [weak view] _ in
+                view?.onOpenReview?(passage.reviewID)
+                return true
+            }
         }
     }
 
@@ -238,9 +254,41 @@ struct PaperSelectableText: UIViewRepresentable {
     }
 }
 
-/// A text view whose selection menu starts with **Add Review** when the reader takes reviews.
+/// A text view whose selection menu starts with **Add Review** when the reader takes reviews,
+/// and where tapping a reviewed passage opens its review.
 final class PaperReviewTextView: UITextView {
     var onReview: ((String) -> Void)?
+    var onOpenReview: ((String) -> Void)?
+    /// The marked passages and the review each belongs to.
+    var reviewed: [(range: NSRange, reviewID: String)] = []
+    /// Its own object: the text view is already the delegate of its scrolling recognizers.
+    private let reviewTapDelegate = ReviewTapDelegate()
+
+    func addReviewTap() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tappedReview(_:)))
+        reviewTapDelegate.textView = self
+        tap.delegate = reviewTapDelegate
+        addGestureRecognizer(tap)
+    }
+
+    @objc private func tappedReview(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended, let onOpenReview, let id = review(at: recognizer.location(in: self)) else { return }
+        selectedTextRange = nil
+        onOpenReview(id)
+    }
+
+    /// The review whose passage is drawn under `point`, if any.
+    fileprivate func review(at point: CGPoint) -> String? {
+        for passage in reviewed {
+            guard let start = position(from: beginningOfDocument, offset: passage.range.location),
+                  let end = position(from: start, offset: passage.range.length),
+                  let range = textRange(from: start, to: end) else { continue }
+            if selectionRects(for: range).contains(where: { $0.rect.insetBy(dx: -2, dy: -2).contains(point) }) {
+                return passage.reviewID
+            }
+        }
+        return nil
+    }
 
     override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
         guard let onReview, let selected = text(in: textRange)?.trimmingCharacters(in: .whitespacesAndNewlines), !selected.isEmpty else {
@@ -253,6 +301,24 @@ final class PaperReviewTextView: UITextView {
         var children: [UIMenuElement] = [review]
         children += suggestedActions
         return UIMenu(children: children)
+    }
+}
+/// Lets the review tap begin only on a reviewed passage, alongside the text view's own taps.
+private final class ReviewTapDelegate: NSObject, UIGestureRecognizerDelegate {
+    weak var textView: PaperReviewTextView?
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let textView, textView.onOpenReview != nil else { return false }
+        return textView.review(at: gestureRecognizer.location(in: textView)) != nil
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
+    }
+
+    /// A double tap still selects a word in a reviewed passage instead of opening its review.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
+        (other as? UITapGestureRecognizer)?.numberOfTapsRequired == 2 && other.view === textView
     }
 }
 #endif

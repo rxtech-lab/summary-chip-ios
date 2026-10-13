@@ -18,7 +18,7 @@ extension PaperDetailView {
                 }
             }
         case .preview:
-            PaperPreviewSheet(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references }, onShowReviews: { activeSheet = .reviews })
+            PaperPreviewSheet(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references })
         case .reviews:
             PaperReviewsSheet(reviews: model.reviews)
         case .references:

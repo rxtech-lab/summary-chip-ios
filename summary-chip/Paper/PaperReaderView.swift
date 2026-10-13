@@ -22,6 +22,8 @@ struct PaperReaderView: View {
     @State private var figure: PaperFigureViewerItem?
     @State private var pinchStart: Double?
     @State private var reviewQuote: PaperReviewQuote?
+    /// The review whose marked passage was tapped.
+    @State private var openedReview: PaperReview?
 
     var body: some View {
         Group {
@@ -42,6 +44,11 @@ struct PaperReaderView: View {
                 PaperReviewComposeSheet(quote: quote.text, reviews: reviews, source: source)
             }
         }
+        .sheet(item: $openedReview) { review in
+            if let reviews {
+                PaperReviewDetailSheet(review: review, reviews: reviews)
+            }
+        }
         .sensoryFeedback(.selection, trigger: fontSize)
         .sensoryFeedback(.success, trigger: reviews?.changeCount ?? 0)
     }
@@ -58,7 +65,8 @@ struct PaperReaderView: View {
             showPDF: onShowPDF,
             renderDrawing: renderDrawing,
             addReview: reviews == nil ? nil : { quote in reviewQuote = PaperReviewQuote(text: quote) },
-            reviewHighlights: (reviews?.unresolved ?? []).map { PaperReviewHighlight(quote: $0.quote, status: $0.status) }
+            openReview: reviews == nil ? nil : { id in openedReview = reviews?.reviews.first { $0.id == id } },
+            reviewHighlights: (reviews?.unresolved ?? []).map { PaperReviewHighlight(reviewID: $0.id, quote: $0.quote, status: $0.status) }
         )
     }
 
@@ -146,14 +154,15 @@ nonisolated enum PaperReaderSettings {
     static func clamped(_ size: Double) -> Double { min(max(size, fontSizes.lowerBound), fontSizes.upperBound) }
 }
 
-/// Smaller and larger text, and the typeface, as toolbar items: the preview sheet's bar on
-/// iPhone, the paper's bar on iPad and Mac, grouped in one capsule.
+/// Smaller and larger text, and the typeface, as toolbar items: the preview sheet's bottom bar
+/// on iPhone, the paper's bar on iPad and Mac, grouped in one capsule.
 struct PaperReaderTextToolbar: ToolbarContent {
+    var placement: ToolbarItemPlacement = .summaryTrailing
     @AppStorage(PaperReaderSettings.fontSizeKey) private var fontSize = PaperReaderSettings.defaultFontSize
     @AppStorage(PaperReaderSettings.serifKey) private var serif = true
 
     var body: some ToolbarContent {
-        ToolbarItemGroup(placement: .summaryTrailing) {
+        ToolbarItemGroup(placement: placement) {
             Button { fontSize = PaperReaderSettings.clamped(fontSize - 1) } label: {
                 Label("Smaller Text", systemImage: "textformat.size.smaller")
             }
@@ -212,6 +221,8 @@ struct PaperReaderContext {
     var renderDrawing: (@Sendable (String) async throws -> Data)?
     /// Called with the selected passage when the reader chooses **Add Review**; nil hides it.
     var addReview: ((String) -> Void)?
+    /// Called with a review's id when its marked passage is tapped; nil leaves the marks inert.
+    var openReview: ((String) -> Void)?
     /// Passages with an unresolved review, marked in the text.
     var reviewHighlights: [PaperReviewHighlight] = []
     /// Theorem bodies are italic.

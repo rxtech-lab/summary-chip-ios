@@ -3,7 +3,9 @@ import SwiftUI
 import AppKit
 #endif
 
-/// A draggable split that keeps the editor and PDF alive while their widths change.
+/// A draggable split that keeps the editor and PDF alive while their widths change. While the
+/// divider is dragged only a guide follows the finger; the panes take their new widths once, on
+/// release, so the editor and preview don't relayout on every frame of the drag.
 struct PaperSplitView<Editor: View, Preview: View>: View {
     @AppStorage("paperEditorWidthFraction") private var editorFraction = 0.5
     @GestureState private var dragTranslation: CGFloat?
@@ -29,7 +31,7 @@ struct PaperSplitView<Editor: View, Preview: View>: View {
     var body: some View {
         GeometryReader { geometry in
             let availableWidth = max(0, geometry.size.width - dividerWidth)
-            let editorWidth = width(in: availableWidth, translation: dragTranslation ?? 0)
+            let editorWidth = width(in: availableWidth)
             HStack(spacing: 0) {
                 editor
                     .frame(width: editorWidth, height: geometry.size.height)
@@ -39,9 +41,31 @@ struct PaperSplitView<Editor: View, Preview: View>: View {
                     .frame(width: availableWidth - editorWidth, height: geometry.size.height)
                     .clipped()
             }
+            .overlay(alignment: .leading) {
+                if let dragTranslation {
+                    resizeGuide
+                        .padding(.leading, width(in: availableWidth, translation: dragTranslation))
+                }
+            }
         }
         .sensoryFeedback(.selection, trigger: dragTranslation != nil) { _, dragging in dragging }
         .sensoryFeedback(.selection, trigger: adjustments)
+    }
+
+    /// Where the divider lands when the drag ends.
+    private var resizeGuide: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color.accentColor)
+                .frame(width: 2)
+            Capsule()
+                .fill(Color.accentColor)
+                .frame(width: 6, height: 40)
+        }
+        .frame(width: dividerWidth)
+        .frame(maxHeight: .infinity)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func divider(availableWidth: CGFloat, editorWidth: CGFloat) -> some View {

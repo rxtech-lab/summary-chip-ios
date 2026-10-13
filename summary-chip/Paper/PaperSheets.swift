@@ -213,28 +213,44 @@ struct PaperIssuesSheet: View {
     }
 }
 
-/// iPhone: the compiled PDF in a sheet over the editor.
+/// iPhone: the compiled PDF in a sheet over the editor. In reader mode the text size and the
+/// paper's reviews sit in the bottom toolbar; the reviews open in a sheet over this one.
 struct PaperPreviewSheet: View {
     let model: PaperEditorModel
     let onShowIssues: () -> Void
     var onShowReferences: () -> Void = {}
-    var onShowReviews: () -> Void = {}
     @AppStorage("paperPreviewMode") private var mode = PaperPreviewMode.pdf
+    @State private var showsReviews = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            PaperPreviewPane(model: model, onShowIssues: onShowIssues, onShowReferences: onShowReferences, onShowReviews: onShowReviews)
+            PaperPreviewPane(model: model, showsModeBar: true, onShowIssues: onShowIssues, onShowReferences: onShowReferences)
                 .navigationTitle(model.shownSource?.title ?? String(localized: "Preview"))
                 .summaryInlineNavigationTitle()
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") { dismiss() }
                     }
-                    if mode == .reader { PaperReaderTextToolbar() }
+                    if mode == .reader {
+                        #if os(iOS)
+                        PaperReaderTextToolbar(placement: .bottomBar)
+                        if model.isOwner {
+                            ToolbarSpacer(.flexible, placement: .bottomBar)
+                            ToolbarItem(placement: .bottomBar) {
+                                PaperReviewsButton(model: model) { showsReviews = true }
+                            }
+                        }
+                        #else
+                        PaperReaderTextToolbar()
+                        #endif
+                    }
                 }
         }
         .presentationDragIndicator(.visible)
+        .sheet(isPresented: $showsReviews) {
+            PaperReviewsSheet(reviews: model.reviews)
+        }
     }
 }
 
@@ -249,9 +265,11 @@ nonisolated enum PaperPreviewMode: String, CaseIterable {
 /// reader mode shows the paper as native text instead, sized to the reader's liking.
 struct PaperPreviewPane: View {
     let model: PaperEditorModel
+    /// The PDF/Reader picker in a bar above the preview: the iPhone sheet. Beside the editor the
+    /// picker is in the paper's toolbar instead, so both panes share one bar.
+    var showsModeBar = false
     let onShowIssues: () -> Void
     var onShowReferences: () -> Void = {}
-    var onShowReviews: () -> Void = {}
     @AppStorage("paperPreviewMode") private var mode = PaperPreviewMode.pdf
 
     var body: some View {
@@ -261,7 +279,15 @@ struct PaperPreviewPane: View {
             case .reader: reader
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { modeBar }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if showsModeBar {
+                PaperPreviewModePicker()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.bar)
+            }
+        }
         .overlay(alignment: .bottom) {
             VStack(spacing: 8) {
                 PaperReferenceStatusButton(model: model, action: onShowReferences)
@@ -273,47 +299,6 @@ struct PaperPreviewPane: View {
         }
         .animation(.easeInOut(duration: 0.2), value: model.referenceErrors.count)
         .sensoryFeedback(.selection, trigger: mode)
-    }
-
-    private var modeBar: some View {
-        HStack(spacing: 12) {
-            Picker("Preview", selection: $mode) {
-                Label("PDF", systemImage: "doc.richtext").tag(PaperPreviewMode.pdf)
-                Label("Reader", systemImage: "text.book.closed").tag(PaperPreviewMode.reader)
-            }
-            .pickerStyle(.segmented)
-            .labelStyle(.titleOnly)
-            .fixedSize()
-            .accessibilityIdentifier("paper-preview-mode")
-            Spacer(minLength: 0)
-            if mode == .reader, model.isOwner { reviewsButton }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.bar)
-    }
-
-    /// Opens the paper's reviews; the badge counts the ones an agent finished and awaiting approval.
-    private var reviewsButton: some View {
-        Button(action: onShowReviews) {
-            Label("Reviews", systemImage: model.reviews.ready.isEmpty ? "bubble.left.and.text.bubble.right" : "checkmark.bubble.fill")
-                .labelStyle(.iconOnly)
-                .overlay(alignment: .topTrailing) {
-                    if !model.reviews.ready.isEmpty {
-                        Text(model.reviews.ready.count, format: .number)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(Color.green, in: Capsule())
-                            .offset(x: 10, y: -8)
-                    }
-                }
-        }
-        .buttonStyle(.borderless)
-        .help("Reviews")
-        .accessibilityLabel(model.reviews.ready.isEmpty ? String(localized: "Reviews") : String(localized: "Reviews, \(model.reviews.ready.count) ready"))
-        .accessibilityIdentifier("paper-reviews-button")
     }
 
     private var reader: some View {
@@ -373,5 +358,50 @@ struct PaperPreviewPane: View {
         .foregroundStyle(.orange)
         .glassEffect(.regular.interactive(), in: Capsule())
         .accessibilityIdentifier("paper-issues-button")
+    }
+}
+
+/// PDF or Reader, for the preview pane.
+struct PaperPreviewModePicker: View {
+    @AppStorage("paperPreviewMode") private var mode = PaperPreviewMode.pdf
+
+    var body: some View {
+        Picker("Preview", selection: $mode) {
+            Label("PDF", systemImage: "doc.richtext").tag(PaperPreviewMode.pdf)
+            Label("Reader", systemImage: "text.book.closed").tag(PaperPreviewMode.reader)
+        }
+        .pickerStyle(.segmented)
+        .labelStyle(.titleOnly)
+        .fixedSize()
+        .help("Preview")
+        .accessibilityIdentifier("paper-preview-mode")
+    }
+}
+
+/// Opens the paper's reviews; the badge counts the ones an agent finished and awaiting approval.
+struct PaperReviewsButton: View {
+    let model: PaperEditorModel
+    let action: () -> Void
+
+    var body: some View {
+        let ready = model.reviews.ready.count
+        Button(action: action) {
+            Label("Reviews", systemImage: ready == 0 ? "bubble.left.and.text.bubble.right" : "checkmark.bubble.fill")
+                .labelStyle(.iconOnly)
+                .overlay(alignment: .topTrailing) {
+                    if ready > 0 {
+                        Text(ready, format: .number)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.green, in: Capsule())
+                            .offset(x: 10, y: -8)
+                    }
+                }
+        }
+        .help("Reviews")
+        .accessibilityLabel(ready == 0 ? String(localized: "Reviews") : String(localized: "Reviews, \(ready) ready"))
+        .accessibilityIdentifier("paper-reviews-button")
     }
 }

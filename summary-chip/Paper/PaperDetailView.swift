@@ -191,7 +191,7 @@ struct PaperDetailView: View {
             PaperSplitView {
                 editor(source)
             } preview: {
-                PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references }, onShowReviews: { activeSheet = .reviews })
+                PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references })
             }
         }
     }
@@ -288,7 +288,19 @@ struct PaperDetailView: View {
                     .accessibilityIdentifier("paper-show-pdf")
                 }
             } else {
-                if previewMode == .reader { PaperReaderTextToolbar() }
+                // The preview pane's controls join the paper's bar, so the editor and preview
+                // share one bar instead of the preview carrying a second one.
+                ToolbarItem(placement: .summaryTrailing) {
+                    PaperPreviewModePicker()
+                }
+                if previewMode == .reader {
+                    PaperReaderTextToolbar()
+                    if model.isOwner {
+                        ToolbarItem(placement: .summaryTrailing) {
+                            PaperReviewsButton(model: model) { activeSheet = .reviews }
+                        }
+                    }
+                }
                 if model.isOwner {
                     ToolbarItem(placement: .summaryTrailing) {
                         VersionToolbarMenu(model: versions)
