@@ -2,7 +2,9 @@ name: Screenshots
 
 # Captures the app's main screens (library, chat with a rendered view, a trip with trains, a flight,
 # days and a json-render view, Likes, the MCP server and deep links) on iPhone and iPad for
-# every PR, uploads them as workflow artifacts, and keeps one PR comment listing them for review. A new push flips the
+# every PR, uploads them as workflow artifacts, keeps one PR comment listing them for review, and
+# sends them to Telegram (when the TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID secrets are set) for
+# review on a phone. A new push flips the
 # comment back to "capturing" before the devices start, so the images on the PR are never mistaken
 # for the latest commit's.
 on:
@@ -146,6 +148,11 @@ jobs:
       actions: read
       pull-requests: write
     steps:
+      - name: Checkout scripts
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/ci
+
       - name: Download screenshots
         uses: actions/download-artifact@v8
         with:
@@ -153,6 +160,7 @@ jobs:
           path: screenshots
 
       - name: Update PR comment
+        id: comment
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -206,10 +214,13 @@ jobs:
             echo
             if [ -z "$screens" ]; then
               echo "❌ No screenshots were captured for \`${SHA:0:7}\` — [view run]($RUN_URL)."
+              status="❌ No screenshots were captured"
             elif [ "$missing" -gt 0 ] || [ "$CAPTURE_RESULT" != "success" ]; then
               echo "⚠️ Captured for \`${SHA:0:7}\`, but $missing screen(s) are missing (shown as —) — [view run]($RUN_URL)."
+              status="⚠️ $missing screen(s) missing"
             else
               echo "✅ Captured for \`${SHA:0:7}\` — [view run]($RUN_URL). Check each layout before merging."
+              status="✅ All screens captured"
             fi
             if [ -n "$links" ]; then
               echo
@@ -226,3 +237,27 @@ jobs:
           else
             gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@body.md > /dev/null
           fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Send to Telegram
+        # Optional: skipped without the secrets, and a Telegram outage must not fail the PR check.
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STATUS: ${{ steps.comment.outputs.status }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set; skipping."
+            exit 0
+          fi
+          ./scripts/ci/send-telegram-screenshots.sh screenshots
