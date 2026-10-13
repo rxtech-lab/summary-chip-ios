@@ -56,11 +56,10 @@ struct PaperBlockView: View {
 
     private func titleView(_ title: PaperTitle) -> some View {
         VStack(spacing: size * 0.6) {
-            Text(context.text(title.title, scale: 1.65, style: .bold))
-                .multilineTextAlignment(.center)
+            PaperReviewableText(spans: title.title, scale: 1.65, style: .bold, alignment: .center, lineSpacing: 0, identifier: "paper-reader-title", context: context)
+                .accessibilityAddTraits(.isHeader)
             if !title.authors.isEmpty {
-                Text(context.text(Array(title.authors.map { $0 + [PaperSpan.text("\u{2003}")] }.joined().dropLast()), scale: 1.05))
-                    .multilineTextAlignment(.center)
+                PaperReviewableText(spans: Array(title.authors.map { $0 + [PaperSpan.text("\u{2003}")] }.joined().dropLast()), scale: 1.05, alignment: .center, lineSpacing: 0, identifier: "paper-reader-authors", context: context)
             }
             if let date = title.date {
                 Text(context.text(date, scale: 0.95)).foregroundStyle(.secondary)
@@ -73,8 +72,7 @@ struct PaperBlockView: View {
     private func headingView(_ heading: PaperHeading) -> some View {
         let scale: CGFloat = [1.4, 1.22, 1.08, 1][min(max(heading.level, 1), 4) - 1]
         let prefix: [PaperSpan] = heading.number.map { [PaperSpan.text($0 + "\u{2003}")] } ?? []
-        return Text(context.text(prefix + heading.title, scale: scale, style: .bold))
-            .frame(maxWidth: .infinity, alignment: .leading)
+        return PaperReviewableText(spans: prefix + heading.title, scale: scale, style: .bold, lineSpacing: 0, identifier: "paper-reader-heading", context: context)
             .padding(.top, size * (heading.level <= 2 ? 0.8 : 0.3))
             .accessibilityAddTraits(.isHeader)
     }
@@ -265,9 +263,7 @@ struct PaperCaption: View {
 
     var body: some View {
         let label: [PaperSpan] = number.map { [PaperSpan.text("\(name) \($0): ", style: .bold)] } ?? []
-        Text(context.text(label + caption, scale: 0.9))
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
+        PaperReviewableText(spans: label + caption, scale: 0.9, alignment: .center, lineSpacing: 0, identifier: "paper-reader-caption", context: context)
             .padding(.horizontal, context.fontSize)
     }
 }

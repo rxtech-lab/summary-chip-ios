@@ -79,6 +79,23 @@ export function figurePreamble(main: string): string {
   return commands.join("\n");
 }
 
+/**
+ * `main` with the files its preamble `\input`s or `\include`s written in place, so a preamble
+ * kept in its own file (`\input{preamble}`) still brings its packages, libraries and macros.
+ */
+export function inlinePreambleInputs(main: string, files: PaperFile[], depth = 0): string {
+  const start = main.indexOf("\\begin{document}");
+  const preamble = (start >= 0 ? main.slice(0, start) : main).replace(/(^|[^\\])%.*$/gm, "$1");
+  const rest = start >= 0 ? main.slice(start) : "";
+  const inlined = preamble.replace(/(^|[^\\])\\(?:input|include)\s*\{([^}]*)\}/gm, (match, before: string, target: string) => {
+    if (depth >= 8) return before;
+    const name = target.trim().replace(/^(\.\/)+/, "");
+    const file = [name, `${name}.tex`].map((path) => files.find((candidate) => candidate.path === path && !candidate.asset)).find(Boolean);
+    return file ? `${before}\n${inlinePreambleInputs(file.content, files, depth + 1)}\n` : match;
+  });
+  return inlined + rest;
+}
+
 /** The standalone document that draws `source` with `main`'s preamble. */
 export function figureDocument(source: string, main: string): string {
   const preamble = figurePreamble(main);
@@ -119,7 +136,7 @@ export async function renderPaperFigure(db: Database, id: string, viewerId: stri
     if (!row) throw new ApiError(404, "VERSION_NOT_FOUND", "The paper version does not exist");
     document = row.content as unknown as PaperDocument;
   }
-  const main = document.files.find((file) => file.path === document.mainFile)?.content ?? "";
+  const main = inlinePreambleInputs(document.files.find((file) => file.path === document.mainFile)?.content ?? "", document.files);
   const standalone = figureDocument(input.source, main);
   const files: PaperFile[] = [
     { path: MAIN, content: standalone },
