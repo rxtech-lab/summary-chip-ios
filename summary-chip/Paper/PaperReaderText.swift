@@ -15,18 +15,36 @@ struct PaperParagraphView: View {
     let context: PaperReaderContext
 
     var body: some View {
+        PaperReviewableText(spans: spans, alignment: alignment, context: context)
+    }
+}
+
+/// Reader text that takes reviews: paragraphs, the title, headings and captions. On iOS it is a
+/// text view whose selection menu offers **Add Review** and that marks reviewed passages.
+struct PaperReviewableText: View {
+    let spans: [PaperSpan]
+    var scale: CGFloat = 1
+    var style: PaperTextStyle = []
+    var alignment: PaperAlignment = .leading
+    /// Space between lines as a share of the font size: paragraphs breathe, titles stay tight.
+    var lineSpacing: CGFloat = 0.3
+    var identifier = "paper-reader-paragraph"
+    let context: PaperReaderContext
+
+    var body: some View {
         #if canImport(UIKit)
         PaperSelectableText(
-            text: context.nsText(spans),
+            text: context.nsText(spans, scale: scale, style: style),
             alignment: alignment.nsText,
-            lineSpacing: context.fontSize * 0.3,
+            lineSpacing: context.fontSize * scale * lineSpacing,
             highlights: context.reviewHighlights,
-            onReview: context.addReview
+            onReview: context.addReview,
+            identifier: identifier
         )
         .frame(maxWidth: .infinity, alignment: alignment.frame)
         #else
-        Text(context.text(spans))
-            .lineSpacing(context.fontSize * 0.3)
+        Text(context.text(spans, scale: scale, style: style))
+            .lineSpacing(context.fontSize * scale * lineSpacing)
             .multilineTextAlignment(alignment.text)
             .frame(maxWidth: .infinity, alignment: alignment.frame)
             .fixedSize(horizontal: false, vertical: true)
@@ -142,6 +160,7 @@ struct PaperSelectableText: UIViewRepresentable {
     let lineSpacing: CGFloat
     let highlights: [PaperReviewHighlight]
     let onReview: ((String) -> Void)?
+    var identifier = "paper-reader-paragraph"
     @Environment(\.openURL) private var openURL
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -159,13 +178,13 @@ struct PaperSelectableText: UIViewRepresentable {
         view.delegate = context.coordinator
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.setContentHuggingPriority(.required, for: .vertical)
-        view.accessibilityIdentifier = "paper-reader-paragraph"
         return view
     }
 
     func updateUIView(_ view: PaperReviewTextView, context: Context) {
         context.coordinator.openURL = openURL
         view.onReview = onReview
+        view.accessibilityIdentifier = identifier
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = alignment
         paragraph.lineSpacing = lineSpacing

@@ -10,7 +10,7 @@ import * as versionsRoute from "@/app/api/v1/summaries/[id]/versions/route";
 import type { PaperFile } from "@/lib/contracts/paper";
 import type { PaperJson } from "@/lib/services/papers";
 import type { PaperReviewJson } from "@/lib/services/paper-reviews";
-import { figureDocument, figurePreamble } from "@/lib/services/paper-figures";
+import { figureDocument, figurePreamble, inlinePreambleInputs } from "@/lib/services/paper-figures";
 import type { VersionJson } from "@/lib/services/versions";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -158,6 +158,16 @@ describe("paper figures", () => {
     expect(document).toContain("\\pgfplotsset{\n  compat=1.18,\n}");
     expect(document).toContain("\\usepackage{pgfplots}");
     expect(document).toContain("\\begin{document}\n\\begin{axis}\\addplot {x};\\end{axis}\n\\end{document}");
+  });
+
+  it("brings in a preamble kept in its own file", () => {
+    const files = [
+      { path: "preamble.tex", content: "\\usepackage{tikz}\n\\input{macros}\n" },
+      { path: "macros.tex", content: "\\usetikzlibrary{positioning}\n\\newcommand{\\R}{\\mathbb{R}}\n" },
+    ];
+    const main = inlinePreambleInputs("\\documentclass{article}\n\\input{preamble}\n% \\input{unused}\n\\begin{document}\n\\input{body}\n\\end{document}", files);
+    expect(figurePreamble(main)).toBe("\\usepackage{tikz}\n\\usetikzlibrary{positioning}\n\\newcommand{\\R}{\\mathbb{R}}");
+    expect(main).toContain("\\begin{document}\n\\input{body}");
   });
 
   it("compiles a figure once per source and reports LaTeX errors", async () => {
