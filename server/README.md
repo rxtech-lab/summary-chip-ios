@@ -229,7 +229,7 @@ the env var is unset or the call fails, the graphic style uses the same assigned
 | Command | What it does |
 |---|---|
 | `bun run dev` | Next dev server. `SUMMARY_MOCK_SERVICES=true` uses the mock AI + in-memory store (non-production only). |
-| `bun run build` | Production build (no env vars needed at build time; clients are created lazily). |
+| `bun run build` | Applies migrations (`db:migrate`, needs `TURSO_DATABASE_URL`), then the production Next.js build. |
 | `bun run lint` / `bun run typecheck` | ESLint / `tsc --noEmit`. |
 | `bun run test` | Vitest: in-memory libsql migrated with the real migrations, mock AI, memory R2. |
 | `bun run test:e2e` | Playwright API and Chromium consent-form tests (`tests/e2e`) against a real `next dev` on :3100 with mock services, a fresh `.e2e/e2e.db`, and bearer tokens from a local mock issuer on :3101 (`tests/e2e/mock-issuer.ts`). Run `bunx playwright install chromium` once locally; CI installs Chromium and its OS dependencies. CI: `.github/workflows/server-tests.yaml`. |
@@ -242,8 +242,7 @@ the env var is unset or the call fails, the graphic style uses the same assigned
 1. Create a Vercel project with root directory `server/`, framework Next.js, install command `bun install`.
 2. Add every variable from `.env.example` (production + preview). Generate `CRON_SECRET` with
    `openssl rand -hex 32`.
-3. Run `bun run db:migrate` against the production database before (or right after) the first deploy,
-   then `bun run db:backfill-embeddings` once so existing summaries are found by semantic search.
+3. Migrations run automatically on every build (`bun run build` runs `db:migrate` first). After the first deploy, run `bun run db:backfill-embeddings` once so existing summaries are found by semantic search.
 4. Point `summary.rxlab.app` at the project and set `NEXT_PUBLIC_SITE_URL` accordingly.
 
 `vercel.json` schedules `GET /api/cron/cleanup` daily at 03:00 UTC (Hobby-plan safe). Summaries are
