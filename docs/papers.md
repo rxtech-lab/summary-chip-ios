@@ -292,7 +292,8 @@ The paper opens from the library (`kind == .paper`) in `PaperDetailView`:
   While it is open, the editor checks for agent edits every few seconds and on returning to the
   app, and reloads them when nothing is waiting to be saved.
 * **Reader**: the preview's **Reader** mode sets the LaTeX as native text (`PaperReaderView`,
-  built from `PaperReader` in SummaryKit): text that reflows and grows with the reader's font size,
+  built from `PaperReader` in SummaryKit): text that reflows and grows with the reader's font size
+  (smaller/larger/typeface buttons in the toolbar, ⌘+/⌘−, or pinch),
   formulas set natively, `\includegraphics` images that open to zoom, and TikZ/pgfplots figures
   drawn by the server (`POST …/figures`) and shown as images. On iOS each paragraph is a text view:
   selecting a passage offers **Add Review** in the selection menu, which opens a half sheet for a

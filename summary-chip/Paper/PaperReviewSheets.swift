@@ -246,23 +246,25 @@ struct PaperReviewDiffView: View {
             }
             .padding(16)
         }
+        // Room under the last lines for the floating button.
+        .contentMargins(.bottom, review.status == .addressed ? 84 : 0, for: .scrollContent)
         .background(Color.paperReaderBackground)
         .navigationTitle("Review Changes")
         .summaryInlineNavigationTitle()
-        .safeAreaInset(edge: .bottom) {
+        .overlay(alignment: .bottom) {
             if review.status == .addressed {
                 Button {
                     Task { await finish() }
                 } label: {
                     Label(isSaving ? String(localized: "Finishing…") : String(localized: "Mark as Finished"), systemImage: "checkmark.circle.fill")
                         .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
                 .disabled(isSaving)
-                .padding(16)
-                .background(.bar)
+                .padding(.bottom, 16)
                 .accessibilityIdentifier("paper-review-finish")
             }
         }

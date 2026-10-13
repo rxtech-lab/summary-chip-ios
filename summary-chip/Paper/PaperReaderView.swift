@@ -2,7 +2,7 @@ import SummaryKit
 import SwiftUI
 
 /// The paper read as a native document instead of the PDF: text that reflows and grows with
-/// the reader's font size (buttons, ⌘+/⌘−, or pinch), formulas set natively, and figures that
+/// the reader's font size (toolbar buttons, ⌘+/⌘−, or pinch), formulas set natively, and figures that
 /// open full screen to zoom. It reads the LaTeX source, so it follows edits without compiling.
 struct PaperReaderView: View {
     let source: PaperSource?
@@ -146,24 +146,27 @@ nonisolated enum PaperReaderSettings {
     static func clamped(_ size: Double) -> Double { min(max(size, fontSizes.lowerBound), fontSizes.upperBound) }
 }
 
-/// Smaller and larger text, and the typeface, for the reader's toolbar.
-struct PaperReaderTextControls: View {
+/// Smaller and larger text, and the typeface, as toolbar items: the preview sheet's bar on
+/// iPhone, the paper's bar on iPad and Mac, grouped in one capsule.
+struct PaperReaderTextToolbar: ToolbarContent {
     @AppStorage(PaperReaderSettings.fontSizeKey) private var fontSize = PaperReaderSettings.defaultFontSize
     @AppStorage(PaperReaderSettings.serifKey) private var serif = true
 
-    var body: some View {
-        HStack(spacing: 2) {
+    var body: some ToolbarContent {
+        ToolbarItemGroup(placement: .summaryTrailing) {
             Button { fontSize = PaperReaderSettings.clamped(fontSize - 1) } label: {
                 Label("Smaller Text", systemImage: "textformat.size.smaller")
             }
             .keyboardShortcut("-", modifiers: .command)
             .disabled(fontSize <= PaperReaderSettings.fontSizes.lowerBound)
+            .help("Smaller Text")
             .accessibilityIdentifier("paper-reader-smaller")
             Button { fontSize = PaperReaderSettings.clamped(fontSize + 1) } label: {
                 Label("Larger Text", systemImage: "textformat.size.larger")
             }
             .keyboardShortcut("=", modifiers: .command)
             .disabled(fontSize >= PaperReaderSettings.fontSizes.upperBound)
+            .help("Larger Text")
             .accessibilityIdentifier("paper-reader-larger")
             Menu {
                 Picker("Typeface", selection: $serif) {
@@ -177,11 +180,9 @@ struct PaperReaderTextControls: View {
                 Label("Text Options", systemImage: "textformat")
             }
             .menuIndicator(.hidden)
+            .help("Text Options")
             .accessibilityIdentifier("paper-reader-text-options")
         }
-        .labelStyle(.iconOnly)
-        .buttonStyle(.borderless)
-        .accessibilityValue(Text("\(Int(fontSize)) points"))
     }
 }
 

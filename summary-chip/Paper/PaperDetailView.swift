@@ -11,6 +11,8 @@ struct PaperDetailView: View {
     @State var model: PaperEditorModel
     /// The paper's saved versions; picking a past one shows its source and PDF read-only.
     @State var versions: DocumentVersionsModel
+    /// The preview pane's mode: the reader's text controls join the toolbar while it shows.
+    @AppStorage("paperPreviewMode") private var previewMode = PaperPreviewMode.pdf
     @State var activeSheet: PaperSheet?
     @State var jump: PaperLineJump?
     /// Which of the open file's error lines the error button last went to; nil before the first tap.
@@ -285,9 +287,12 @@ struct PaperDetailView: View {
                     .help("Show PDF")
                     .accessibilityIdentifier("paper-show-pdf")
                 }
-            } else if model.isOwner {
-                ToolbarItem(placement: .summaryTrailing) {
-                    VersionToolbarMenu(model: versions)
+            } else {
+                if previewMode == .reader { PaperReaderTextToolbar() }
+                if model.isOwner {
+                    ToolbarItem(placement: .summaryTrailing) {
+                        VersionToolbarMenu(model: versions)
+                    }
                 }
             }
             ToolbarItem(placement: .summaryTrailing) {

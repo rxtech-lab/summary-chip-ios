@@ -219,6 +219,7 @@ struct PaperPreviewSheet: View {
     let onShowIssues: () -> Void
     var onShowReferences: () -> Void = {}
     var onShowReviews: () -> Void = {}
+    @AppStorage("paperPreviewMode") private var mode = PaperPreviewMode.pdf
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -230,6 +231,7 @@ struct PaperPreviewSheet: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") { dismiss() }
                     }
+                    if mode == .reader { PaperReaderTextToolbar() }
                 }
         }
         .presentationDragIndicator(.visible)
@@ -284,10 +286,7 @@ struct PaperPreviewPane: View {
             .fixedSize()
             .accessibilityIdentifier("paper-preview-mode")
             Spacer(minLength: 0)
-            if mode == .reader {
-                if model.isOwner { reviewsButton }
-                PaperReaderTextControls()
-            }
+            if mode == .reader, model.isOwner { reviewsButton }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
