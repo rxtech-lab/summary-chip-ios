@@ -18,7 +18,9 @@ extension PaperDetailView {
                 }
             }
         case .preview:
-            PaperPreviewSheet(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references })
+            PaperPreviewSheet(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references }, onShowReviews: { activeSheet = .reviews })
+        case .reviews:
+            PaperReviewsSheet(reviews: model.reviews)
         case .references:
             PaperReferencesSheet(model: model) { reference in open(reference.file, line: reference.line) }
         case .issues:

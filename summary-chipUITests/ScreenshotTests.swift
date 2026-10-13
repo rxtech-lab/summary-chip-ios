@@ -263,9 +263,70 @@ nonisolated final class ScreenshotTests: XCTestCase {
         capture(app, "11-deep-link-trip")
     }
 
+    // MARK: Paper reader
+
+    @MainActor func test12PaperReaderFigures() {
+        let app = launchReader(fixture: "figures")
+        XCTAssertTrue(app.buttons["Growth over five years."].waitForExistence(timeout: 10))
+        settle(2)
+        capture(app, "12-paper-reader-figures")
+        // The LaTeX-drawn figure sits below the table; the reader builds it once it scrolls into view.
+        let drawing = app.buttons["A diagram."].firstMatch
+        for _ in 0..<8 where !drawing.exists {
+            app.scrollViews["paper-reader"].swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(drawing.waitForExistence(timeout: 10))
+        settle(2)
+        capture(app, "12b-paper-reader-drawing")
+    }
+
+    @MainActor func test13PaperReaderReviews() {
+        let app = launchReader(fixture: "reviews")
+        XCTAssertTrue(app.textViews["paper-reader-paragraph"].firstMatch.waitForExistence(timeout: 10))
+        settle(2)
+        capture(app, "13-paper-reader-reviewed-text")
+    }
+
+    @MainActor func test14PaperReviewCompose() {
+        let app = launchReader(fixture: "reviews", open: "compose")
+        XCTAssertTrue(app.navigationBars["Add Review"].waitForExistence(timeout: 10))
+        let comment = app.textFields["paper-review-comment"].exists ? app.textFields["paper-review-comment"] : app.textViews["paper-review-comment"]
+        XCTAssertTrue(comment.waitForExistence(timeout: 5))
+        comment.tap()
+        comment.typeText("Add Fermat's own note on the margin here.")
+        settle()
+        capture(app, "14-paper-review-compose")
+    }
+
+    @MainActor func test15PaperReviewsList() {
+        let app = launchReader(fixture: "reviews", open: "reviews")
+        XCTAssertTrue(app.navigationBars["Reviews"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Ready to Review"].waitForExistence(timeout: 5))
+        settle()
+        capture(app, "15-paper-reviews")
+    }
+
+    @MainActor func test16PaperReviewDiff() {
+        let app = launchReader(fixture: "reviews", open: "diff")
+        XCTAssertTrue(app.navigationBars["Review Changes"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Mark as Finished"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "an essay written for people")).firstMatch.waitForExistence(timeout: 10))
+        settle()
+        capture(app, "16-paper-review-diff")
+    }
+
     // MARK: Helpers
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+    /// The native reader on a fixture (`PaperReaderPreviewHost`), optionally with a review sheet open.
+    @MainActor private func launchReader(fixture: String, open: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-paper-reader", "--reader-fixture", fixture] + (open.map { ["--reader-open", $0] } ?? [])
+        XCUIDevice.shared.orientation = .portrait
+        app.launch()
+        return app
+    }
 
     @MainActor private func launch(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()

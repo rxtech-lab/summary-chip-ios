@@ -46,6 +46,8 @@ final class PaperEditorModel {
 
     let api: SummaryAPIClient
     let id: String
+    /// The owner's review comments, which agents address over MCP.
+    let reviews: PaperReviewModel
     /// The paper as the server last returned it.
     private(set) var paper: Paper?
     /// The working copy as edited here; ahead of `paper.source` until the autosave lands.
@@ -84,6 +86,7 @@ final class PaperEditorModel {
     init(api: SummaryAPIClient, id: String) {
         self.api = api
         self.id = id
+        self.reviews = PaperReviewModel(backend: APIPaperReviewBackend(api: api, paperID: id))
     }
 
     var isOwner: Bool { paper?.isOwner ?? false }
@@ -108,6 +111,7 @@ final class PaperEditorModel {
             let fresh = try await api.paper(id: id)
             adopt(fresh)
             loadError = nil
+            if fresh.isOwner { Task { await reviews.load() } }
             await compile()
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {
@@ -158,6 +162,8 @@ final class PaperEditorModel {
         while !Task.isCancelled {
             do { try await Task.sleep(for: Self.pollInterval) } catch { return }
             await refresh()
+            // An agent finishing a review shows up with its edits.
+            if isOwner { await reviews.load() }
         }
     }
 

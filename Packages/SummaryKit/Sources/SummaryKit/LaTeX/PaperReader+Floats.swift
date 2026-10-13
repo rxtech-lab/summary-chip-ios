@@ -12,6 +12,7 @@ extension PaperReaderParser {
         let id = newID()
         var images: [PaperFigure.Image] = []
         var drawings = 0
+        var drawingSources: [String] = []
         var caption: String?
         var labels: [String] = []
         var tabulars: [(environment: String, body: String)] = []
@@ -35,10 +36,12 @@ extension PaperReaderParser {
                     let subcaption = command == "subfloat" ? readOptional() : readGroup()
                     let before = images.count
                     let inner = float(readGroup() ?? "", environment: "subfloat")
-                    images += inner.compactMap { block -> [PaperFigure.Image]? in
-                        if case .figure(let figure) = block.kind { return figure.images }
-                        return nil
-                    }.flatMap { $0 }
+                    for block in inner {
+                        guard case .figure(let figure) = block.kind else { continue }
+                        images += figure.images
+                        drawings += figure.drawings
+                        drawingSources += figure.drawingSources
+                    }
                     if let subcaption, images.count > before { images[images.count - 1].caption = Self.trimmed(parseInline(subcaption)) }
                 case "label":
                     if subfigureDepth == 0, let key = readGroup() { labels.append(key.trimmingCharacters(in: .whitespaces)) }
@@ -47,7 +50,7 @@ extension PaperReaderParser {
                     if Self.tabularEnvironments.contains(name) {
                         tabulars.append((name, readEnvironment(name)))
                     } else if Self.drawingEnvironments.contains(name) {
-                        _ = readEnvironment(name)
+                        drawingSources.append("\\begin{\(name)}" + readEnvironment(name) + "\\end{\(name)}")
                         drawings += 1
                     } else if name == "subfigure" || name == "subtable" {
                         _ = readOptional()
@@ -74,7 +77,7 @@ extension PaperReaderParser {
         labelTarget = target
         for key in labels where number != nil { document.labels[key] = target }
         let captionSpans = caption.map { Self.trimmed(parseInline($0)) }
-        let figure = PaperFigure(images: images, drawings: drawings, caption: captionSpans, number: number, name: name)
+        let figure = PaperFigure(images: images, drawings: drawings, caption: captionSpans, number: number, name: name, drawingSources: drawingSources)
         guard let first = tabulars.first else {
             return [PaperBlock(id: id, kind: .figure(figure))]
         }
@@ -82,7 +85,7 @@ extension PaperReaderParser {
         table.caption = captionSpans
         table.number = number
         table.name = name
-        table.figure = images.isEmpty && drawings == 0 ? nil : PaperFigure(images: images, drawings: drawings, caption: nil, number: nil, name: name)
+        table.figure = images.isEmpty && drawings == 0 ? nil : PaperFigure(images: images, drawings: drawings, caption: nil, number: nil, name: name, drawingSources: drawingSources)
         return [PaperBlock(id: id, kind: .table(table))] + tabulars.dropFirst().map {
             PaperBlock(id: newID(), kind: .table(self.table($0.body, environment: $0.environment)))
         }

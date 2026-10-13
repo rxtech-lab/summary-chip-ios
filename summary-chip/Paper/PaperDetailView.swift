@@ -11,6 +11,8 @@ struct PaperDetailView: View {
     @State var model: PaperEditorModel
     /// The paper's saved versions; picking a past one shows its source and PDF read-only.
     @State var versions: DocumentVersionsModel
+    /// The preview pane's mode: the reader's text controls join the toolbar while it shows.
+    @AppStorage("paperPreviewMode") private var previewMode = PaperPreviewMode.pdf
     @State var activeSheet: PaperSheet?
     @State var jump: PaperLineJump?
     /// Which of the open file's error lines the error button last went to; nil before the first tap.
@@ -189,7 +191,7 @@ struct PaperDetailView: View {
             PaperSplitView {
                 editor(source)
             } preview: {
-                PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references })
+                PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references }, onShowReviews: { activeSheet = .reviews })
             }
         }
     }
@@ -285,9 +287,12 @@ struct PaperDetailView: View {
                     .help("Show PDF")
                     .accessibilityIdentifier("paper-show-pdf")
                 }
-            } else if model.isOwner {
-                ToolbarItem(placement: .summaryTrailing) {
-                    VersionToolbarMenu(model: versions)
+            } else {
+                if previewMode == .reader { PaperReaderTextToolbar() }
+                if model.isOwner {
+                    ToolbarItem(placement: .summaryTrailing) {
+                        VersionToolbarMenu(model: versions)
+                    }
                 }
             }
             ToolbarItem(placement: .summaryTrailing) {
@@ -345,6 +350,13 @@ struct PaperDetailView: View {
                 .accessibilityIdentifier("paper-check")
             if !model.shownIssues.isEmpty {
                 Button { activeSheet = .issues } label: { Label("Show LaTeX Errors", systemImage: "exclamationmark.triangle") }
+            }
+            if model.isOwner {
+                Button { activeSheet = .reviews } label: {
+                    Label("Reviews…", systemImage: "bubble.left.and.text.bubble.right")
+                }
+                .badge(model.reviews.ready.count)
+                .accessibilityIdentifier("paper-reviews-menu")
             }
             if model.isOwner, !model.references.isEmpty {
                 Button { activeSheet = .references } label: {
@@ -407,6 +419,7 @@ enum PaperSheet: Identifiable, Hashable {
     case preview
     case issues
     case references
+    case reviews
     case newFile
     case figure(PaperFigureKind)
     case droppedImage(PaperImageImport)
@@ -425,6 +438,7 @@ enum PaperSheet: Identifiable, Hashable {
         case .preview: "preview"
         case .issues: "issues"
         case .references: "references"
+        case .reviews: "reviews"
         case .newFile: "new-file"
         case .figure(let kind): "figure:\(kind.rawValue)"
         case .droppedImage(let image): "dropped-image:\(image.id)"

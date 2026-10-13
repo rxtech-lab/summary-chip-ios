@@ -15,11 +15,7 @@ struct PaperBlockView: View {
         case .heading(let heading):
             headingView(heading)
         case .paragraph(let spans, let alignment):
-            Text(context.text(spans))
-                .lineSpacing(size * 0.3)
-                .multilineTextAlignment(alignment.text)
-                .frame(maxWidth: .infinity, alignment: alignment.frame)
-                .fixedSize(horizontal: false, vertical: true)
+            PaperParagraphView(spans: spans, alignment: alignment, context: context)
         case .equation(let equation):
             PaperEquationView(equation: equation, size: size)
         case .figure(let figure):
@@ -273,23 +269,5 @@ struct PaperCaption: View {
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, context.fontSize)
-    }
-}
-
-private extension PaperAlignment {
-    var text: TextAlignment {
-        switch self {
-        case .leading: .leading
-        case .center: .center
-        case .trailing: .trailing
-        }
-    }
-
-    var frame: Alignment {
-        switch self {
-        case .leading: .leading
-        case .center: .center
-        case .trailing: .trailing
-        }
     }
 }

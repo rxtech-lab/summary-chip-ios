@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D010127C15772AD342A8E293 /* PaperReviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEA291094CA4DE291C827A6 /* PaperReviewModel.swift */; };
+		13BD1F5AD5FF62C220A5748F /* PaperReaderText.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8047D0E07315046D5F06957 /* PaperReaderText.swift */; };
+		D8BE4A03606DE5ADEEAC1A43 /* PaperReviewSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57E03C2C63270524EBF1B60 /* PaperReviewSheets.swift */; };
 		F33B1586E769B3ACC3385E5B /* SnapshotMatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = F834EA6F5BCE58ECDC39C90C /* SnapshotMatching.swift */; };
 		53655AE3B099EC6901167349 /* PaperReaderUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E59588041829F9308434E0D2 /* PaperReaderUITests.swift */; };
 		ADED9654C8261A01ABD2F717 /* PaperReaderPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F233BF21D331D348E7233A5B /* PaperReaderPreviewHost.swift */; };
@@ -283,6 +286,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2CEA291094CA4DE291C827A6 /* PaperReviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReviewModel.swift; sourceTree = "<group>"; };
+		E8047D0E07315046D5F06957 /* PaperReaderText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderText.swift; sourceTree = "<group>"; };
+		D57E03C2C63270524EBF1B60 /* PaperReviewSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReviewSheets.swift; sourceTree = "<group>"; };
 		F834EA6F5BCE58ECDC39C90C /* SnapshotMatching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotMatching.swift; sourceTree = "<group>"; };
 		E59588041829F9308434E0D2 /* PaperReaderUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderUITests.swift; sourceTree = "<group>"; };
 		F233BF21D331D348E7233A5B /* PaperReaderPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderPreviewHost.swift; sourceTree = "<group>"; };
@@ -901,6 +907,9 @@
 				31C470A400A071866CE8F778 /* PaperReaderBlocks.swift */,
 				0C9DA367FB49786887823043 /* PaperReaderView.swift */,
 				8D6E7C024DDDBD8F65ACC9DA /* PaperMathView.swift */,
+				2CEA291094CA4DE291C827A6 /* PaperReviewModel.swift */,
+				E8047D0E07315046D5F06957 /* PaperReaderText.swift */,
+				D57E03C2C63270524EBF1B60 /* PaperReviewSheets.swift */,
 			);
 			path = Paper;
 			sourceTree = "<group>";
@@ -1413,6 +1422,9 @@
 				1E813BF04141E7EE75159289 /* PaperReaderBlocks.swift in Sources */,
 				A0EA3CC855D706222EABD36C /* PaperReaderView.swift in Sources */,
 				CC0BD264040FFA91478123CB /* PaperMathView.swift in Sources */,
+				D010127C15772AD342A8E293 /* PaperReviewModel.swift in Sources */,
+				13BD1F5AD5FF62C220A5748F /* PaperReaderText.swift in Sources */,
+				D8BE4A03606DE5ADEEAC1A43 /* PaperReviewSheets.swift in Sources */,
 				679A30C564951D5B3EB7EBE9 /* PlaceEditorSheet.swift in Sources */,
 				8339BCDA11DB423CA2C45A73 /* PointsTopUpView.swift in Sources */,
 				49FA770B05DEA661674BDA9B /* PointsUsageView.swift in Sources */,

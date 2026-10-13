@@ -34,7 +34,15 @@ struct PaperFigureView: View {
                     }
                 }
             }
-            if figure.drawings > 0 { drawingNote }
+            if figure.drawings > 0 {
+                if context.renderDrawing != nil, !figure.drawingSources.isEmpty {
+                    ForEach(Array(figure.drawingSources.enumerated()), id: \.offset) { _, source in
+                        PaperDrawingView(source: source, context: context, caption: figure.caption)
+                    }
+                } else {
+                    drawingNote
+                }
+            }
             if let caption = figure.caption {
                 PaperCaption(name: figure.name, number: figure.number, caption: caption, context: context)
             }
@@ -139,6 +147,93 @@ private struct PaperFigureImageView: View {
             let data = try await context.loadImage(path)
             let isPDF = path.lowercased().hasSuffix(".pdf")
             let decoded = await Task.detached(priority: .userInitiated) { PaperFigureImageCache.decode(data, isPDF: isPDF) }.value?.image
+            guard let decoded else { failed = true; return }
+            PaperFigureImageCache.shared.store(decoded, for: cacheKey)
+            loaded = decoded
+        } catch is CancellationError {
+        } catch {
+            failed = true
+        }
+    }
+}
+
+/// A TikZ or pgfplots drawing, compiled by LaTeX on its own (`POST …/figures`) and shown as an
+/// image that opens to zoom. When it doesn't compile, the PDF note takes its place.
+private struct PaperDrawingView: View {
+    let source: String
+    let context: PaperReaderContext
+    let caption: [PaperSpan]?
+    @State private var loaded: PaperPlatformImage?
+    @State private var failed = false
+
+    private var cacheKey: String { "\(context.imageScope):drawing:\(source.hashValue)" }
+
+    var body: some View {
+        Group {
+            if let loaded {
+                Button {
+                    context.openFigure(PaperFigureViewerItem(id: cacheKey, image: loaded, caption: caption?.plainText ?? String(localized: "Figure")))
+                } label: {
+                    platformImage(loaded)
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: min(context.fontSize * 42, max(loaded.size.width, context.fontSize * 8)))
+                .accessibilityLabel(caption?.plainText ?? String(localized: "Figure"))
+                .accessibilityHint("Opens the figure to zoom.")
+                .accessibilityIdentifier("paper-reader-drawing")
+            } else if failed {
+                VStack(spacing: context.fontSize * 0.5) {
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .font(.system(size: context.fontSize * 1.6))
+                        .foregroundStyle(.secondary)
+                    Text("This diagram couldn't be drawn here.")
+                        .font(context.font(0.85))
+                        .foregroundStyle(.secondary)
+                    if let showPDF = context.showPDF {
+                        Button("Show in PDF", systemImage: "doc.richtext", action: showPDF)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(context.fontSize)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Drawing figure…").font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: context.fontSize * 8)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .task(id: cacheKey) { await load() }
+    }
+
+    private func platformImage(_ image: PaperPlatformImage) -> Image {
+        #if os(macOS)
+        Image(nsImage: image)
+        #else
+        Image(uiImage: image)
+        #endif
+    }
+
+    private func load() async {
+        if let cached = PaperFigureImageCache.shared.image(for: cacheKey) {
+            loaded = cached
+            return
+        }
+        guard let render = context.renderDrawing else { failed = true; return }
+        failed = false
+        do {
+            let data = try await render(source)
+            // The server answers with a PDF; previews hand over PNGs, which decode by their bytes.
+            let decoded = await Task.detached(priority: .userInitiated) { PaperFigureImageCache.decode(data, isPDF: false) }.value?.image
             guard let decoded else { failed = true; return }
             PaperFigureImageCache.shared.store(decoded, for: cacheKey)
             loaded = decoded
