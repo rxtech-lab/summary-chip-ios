@@ -321,8 +321,9 @@ private struct PaperFigureViewer: View {
                 .scaledToFit()
                 .padding(8)
                 .background(.white)
+                // Inside the zoomed content, so the layout doesn't shift as a pinch begins.
+                .padding(16)
         }
-        .padding(zoomed ? 0 : 16)
         .background(.black)
         .overlay(alignment: .topTrailing) {
             Button { dismiss() } label: {
