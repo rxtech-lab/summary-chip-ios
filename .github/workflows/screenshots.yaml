@@ -1,7 +1,8 @@
 name: Screenshots
 
 # Captures the app's main screens (library, chat with a rendered view, a trip with trains, a flight,
-# days and a json-render view, Likes, the MCP server and deep links) on iPhone and iPad for
+# days and a json-render view, Likes, a LaTeX paper with its reader and reviews, the MCP server and
+# deep links), each reached in the app itself, on iPhone (portrait) and iPad (landscape) for
 # every PR, uploads them as workflow artifacts, keeps one PR comment listing them for review, and
 # sends them to Telegram (when the TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID secrets are set) for
 # review on a phone. A new push flips the
