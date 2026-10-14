@@ -215,6 +215,118 @@ struct PaperReviewsSheet: View {
     }
 }
 
+// MARK: - Detail
+
+/// One review, opened by tapping its marked passage in the reader: what was asked, and either
+/// the agent's change to read and accept or where the review stands.
+struct PaperReviewDetailSheet: View {
+    let review: PaperReview
+    let reviews: PaperReviewModel
+    @State private var isWorking = false
+    @State private var errorMessage: String?
+    @Environment(\.dismiss) private var dismiss
+
+    /// The review as last loaded, so a poll that finds the agent's edit shows it.
+    private var current: PaperReview { reviews.reviews.first { $0.id == review.id } ?? review }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if current.hasChanges {
+                    PaperReviewDiffView(review: current, reviews: reviews) { dismiss() }
+                } else {
+                    summary
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .statusAlert("Something Went Wrong", message: errorMessage) { errorMessage = nil }
+        .summarySheetSize()
+        .accessibilityIdentifier("paper-review-detail")
+    }
+
+    private var summary: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    Capsule().fill(Color.yellow).frame(width: 4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("“\(current.quote)”")
+                            .font(.callout)
+                            .italic()
+                            .foregroundStyle(.secondary)
+                            .lineLimit(6)
+                        Text(current.comment)
+                            .font(.body.weight(.medium))
+                            .accessibilityIdentifier("paper-review-detail-comment")
+                    }
+                }
+                if let note = current.agentNote, !note.isEmpty {
+                    Label {
+                        Text(note)
+                    } icon: {
+                        Image(systemName: "sparkles").foregroundStyle(.purple)
+                    }
+                    .font(.subheadline)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                Label(status, systemImage: current.status.systemImage)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(current.status == .addressed ? Color.green : Color.accentColor)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Button(role: .destructive) {
+                    Task { await delete() }
+                } label: {
+                    Label("Delete Review", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isWorking)
+                .accessibilityIdentifier("paper-review-delete")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+        }
+        .navigationTitle("Review")
+        .summaryInlineNavigationTitle()
+    }
+
+    private var status: String {
+        switch current.status {
+        case .open: String(localized: "Waiting for your agent")
+        case .addressed: String(localized: "Your agent finished this review")
+        case .resolved: String(localized: "Finished")
+        }
+    }
+
+    private var detail: String {
+        var parts = [current.createdAt.formatted(date: .abbreviated, time: .shortened)]
+        if let file = current.file { parts.append(file) }
+        parts.append(String(localized: "Version \(current.version)"))
+        return parts.joined(separator: " · ")
+    }
+
+    private func delete() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await reviews.delete(current)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
 // MARK: - Diff
 
 /// What the agent changed for a review, file by file: removed lines in red, added lines in

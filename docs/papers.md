@@ -248,10 +248,15 @@ Versions are listed, read and restored under `/api/v1/summaries/:id/versions` (r
 The paper opens from the library (`kind == .paper`) in `PaperDetailView`:
 
 * **iPad (regular width) and Mac**: the editor and the PDF preview side by side. Drag the divider
-  to resize either area; the app remembers the split and keeps both panes visible in narrow
-  windows. The divider also supports accessibility adjustments. The preview recompiles after
+  to resize either area: a guide follows the drag and the panes take their new widths on release,
+  so neither relayouts mid-drag. The app remembers the split and keeps both panes visible in narrow
+  windows. The divider also supports accessibility adjustments. Both panes share the paper's one
+  toolbar, which holds the preview's PDF/Reader picker (and, in Reader mode, the text size and
+  **Reviews** buttons). The preview recompiles after
   each autosave and continues fitting its pane unless the reader has zoomed manually.
-* **iPhone**: the editor fills the screen; the toolbar's **PDF** button shows the preview in a sheet.
+* **iPhone**: the editor fills the screen; the toolbar's **PDF** button shows the preview in a sheet,
+  with the PDF/Reader picker in a bar above it. In Reader mode the text size buttons and **Reviews**
+  sit in the sheet's bottom toolbar; **Reviews** opens over the preview sheet.
 * Files are picked from a menu, added and renamed in sheets; **More** also has **Check LaTeX**
   (lists errors by file and line), **Versions** (the shared history sheet: view and restore), and
   **Export** (PDF/Word and language options).
@@ -293,12 +298,14 @@ The paper opens from the library (`kind == .paper`) in `PaperDetailView`:
   app, and reloads them when nothing is waiting to be saved.
 * **Reader**: the preview's **Reader** mode sets the LaTeX as native text (`PaperReaderView`,
   built from `PaperReader` in SummaryKit): text that reflows and grows with the reader's font size
-  (smaller/larger/typeface buttons in the toolbar, ⌘+/⌘−, or pinch),
+  (smaller/larger/typeface buttons in the toolbar — the bottom one on iPhone — ⌘+/⌘−, or pinch),
   formulas set natively, `\includegraphics` images that open to zoom, and TikZ/pgfplots figures
   drawn by the server (`POST …/figures`) and shown as images. On iOS each paragraph is a text view:
   selecting a passage offers **Add Review** in the selection menu, which opens a half sheet for a
-  comment; passages with an open review are marked yellow, ones an agent finished green. The
-  **Reviews** button in the mode bar (and **More → Reviews…**) lists them: a finished review opens
+  comment; passages with an open review are marked yellow, ones an agent finished green. Tapping a
+  marked passage opens that review in a sheet (its change to accept once the agent finished it, or
+  its status and **Delete Review**; VoiceOver offers it as an action). The **Reviews** button (and
+  **More → Reviews…**) lists them: a finished review opens
   the agent's change as a line diff between the two versions, with **Mark as Finished**; swiping
   deletes a review or asks the agent again. `--reader-fixture reviews` and `--reader-open
   compose|reviews|diff` (Debug) drive `PaperReaderUITests` and the PR screenshots.
