@@ -48,21 +48,21 @@ struct PaperReaderPreviewHost: View {
             )
             .navigationTitle(fixture.source.title)
             .summaryInlineNavigationTitle()
-            .toolbar { PaperReaderTextToolbar() }
-            // In a bar above the reader, as the preview pane shows it.
-            .safeAreaInset(edge: .top, spacing: 0) {
+            // In the bottom toolbar, as the iPhone preview sheet shows them.
+            .toolbar {
+                #if os(iOS)
+                PaperReaderTextToolbar(placement: .bottomBar)
                 if reviews != nil {
-                    HStack {
-                        Spacer()
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                    ToolbarItem(placement: .bottomBar) {
                         Button { showsReviews = true } label: { Label("Reviews", systemImage: "bubble.left.and.text.bubble.right") }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
+                            .help("Reviews")
                             .accessibilityIdentifier("paper-reviews-button")
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.bar)
                 }
+                #else
+                PaperReaderTextToolbar()
+                #endif
             }
         }
         .sheet(isPresented: $showsReviews) {
