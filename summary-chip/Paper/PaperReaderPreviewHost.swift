@@ -87,7 +87,7 @@ struct PaperReaderPreviewHost: View {
     }
 
     /// A bar chart drawn the same way every time, standing in for the paper's images.
-    private static func chartPNG() -> Data {
+    static func chartPNG() -> Data {
         let chart = HStack(alignment: .bottom, spacing: 14) {
             ForEach([0.35, 0.6, 0.45, 0.9, 0.7], id: \.self) { value in
                 RoundedRectangle(cornerRadius: 4).fill(Color(red: 0.2, green: 0.45, blue: 0.85)).frame(width: 36, height: 180 * value)

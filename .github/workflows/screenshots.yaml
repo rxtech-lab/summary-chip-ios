@@ -1,10 +1,11 @@
 name: Screenshots
 
 # Captures the app's main screens (library, chat with a rendered view, a trip with trains, a flight,
-# days and a json-render view, Likes, the MCP server and deep links) on iPhone and iPad for
-# every PR, uploads them as workflow artifacts, keeps one PR comment listing them for review, and
-# sends them to Telegram (when the TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID secrets are set) for
-# review on a phone. A new push flips the
+# days and a json-render view, Likes, a LaTeX paper with its reader and reviews, the MCP server and
+# deep links), each reached in the app itself, on iPhone (portrait) and iPad (landscape) for
+# every PR, records each device's screen while it runs, uploads both as workflow artifacts, keeps
+# one PR comment listing the screenshots for review, and sends the screenshots and recordings to
+# Telegram (when the TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID secrets are set) for review on a phone. A new push flips the
 # comment back to "capturing" before the devices start, so the images on the PR are never mistaken
 # for the latest commit's.
 on:
@@ -105,6 +106,8 @@ jobs:
         # A screen that fails to load is reported in the comment, not by failing the job, so the
         # screens that did load still get posted.
         continue-on-error: true
+        env:
+          RECORD_VIDEO: ${{ runner.temp }}/recording-${{ matrix.device }}.mov
         run: |
           ./scripts/ci/ui-test.sh ${{ matrix.platform }} "$RUNNER_TEMP/screenshots-${{ matrix.device }}.xcresult" \
             -only-testing:${{ matrix.tests }}
@@ -122,6 +125,23 @@ jobs:
           path: ${{ runner.temp }}/screenshots/${{ matrix.device }}
           retention-days: 7
           if-no-files-found: warn
+
+      - name: Compress screen recording
+        if: always()
+        continue-on-error: true
+        run: |
+          ./scripts/ci/compress-video.sh \
+            "$RUNNER_TEMP/recording-${{ matrix.device }}.mov" \
+            "$RUNNER_TEMP/recording/${{ matrix.device }}/${{ matrix.device }}.mp4"
+
+      - name: Upload screen recording
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screen-recording-${{ matrix.device }}
+          path: ${{ runner.temp }}/recording/${{ matrix.device }}
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Upload test results
         if: always()
@@ -158,6 +178,12 @@ jobs:
         with:
           pattern: screenshots-*
           path: screenshots
+
+      - name: Download screen recordings
+        uses: actions/download-artifact@v8
+        with:
+          pattern: screen-recording-*
+          path: recordings
 
       - name: Update PR comment
         id: comment
@@ -260,4 +286,4 @@ jobs:
             echo "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set; skipping."
             exit 0
           fi
-          ./scripts/ci/send-telegram-screenshots.sh screenshots
+          ./scripts/ci/send-telegram-screenshots.sh screenshots recordings

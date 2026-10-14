@@ -1,17 +1,19 @@
 #if DEBUG
 import Foundation
 import SummaryKit
+import SwiftUI
 
 /// `--preview-likes`: the signed-in app against canned API responses, for reviewing the library,
-/// chat (with a rendered view), trips with flights, link sheets, Likes, expired likes and MCP keys
-/// without a server or an account. Stars made while it runs stay in memory; the CI screenshot tests
-/// run against it. Open `summarychip://s/NightTrn01` (a shared summary) or
+/// chat (with a rendered view), trips with flights, a LaTeX paper with reviews, link sheets, Likes,
+/// expired likes and MCP keys without a server or an account. Stars made while it runs stay in
+/// memory; the CI screenshot tests run against it. Open `summarychip://s/NightTrn01` (a shared summary) or
 /// `summarychip://s/N0rthB0und` (a shared trip).
 enum LikesPreviewFixture {
     static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("--preview-likes") }
 
     static func environment() -> AppEnvironment {
         TripTourPreviewPhotos.registerIfEnabled()
+        LikesPreviewStore.shared.setPaperMedia(image: PaperReaderPreviewHost.chartPNG(), pdf: paperPDF())
         let defaults = UserDefaults.standard
         defaults.set(true, forKey: SummaryOnboardingStore.welcomeKey)
         defaults.set(EducationPage.features.map(\.id), forKey: SummaryOnboardingStore.readIDsKey)
@@ -29,6 +31,43 @@ enum LikesPreviewFixture {
         // Every run starts from the empty chat, not the previous run's transcript.
         environment.chatStore.remove(key: ChatTranscriptStore.libraryKey)
         return environment
+    }
+
+    /// The paper's first page, standing in for the server's LaTeX compile.
+    private static func paperPDF() -> Data {
+        let serif = { (size: CGFloat) in Font.system(size: size, design: .serif) }
+        let page = VStack(spacing: 14) {
+            Text(verbatim: "Reading Papers Natively").font(serif(22).weight(.semibold))
+            Text(verbatim: "Ada Lovelace        Alan Turing").font(serif(12))
+            Text(verbatim: "1 May 2025").font(serif(11))
+            VStack(spacing: 6) {
+                Text(verbatim: "Abstract").font(serif(11).weight(.bold))
+                Text(verbatim: "We set a paper's LaTeX as native text, so it reflows and grows with the reader.").font(serif(10))
+            }
+            .padding(.horizontal, 48)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(verbatim: "1   Introduction").font(serif(14).weight(.bold))
+                Text(verbatim: "Literate programming [1] treats a program as literature: an essay written for people, from which the compiler's input is extracted. Reading it first as prose makes its design visible.").font(serif(10))
+                Text(verbatim: "Theorem 1 (Fermat). No three positive integers satisfy aⁿ + bⁿ = cⁿ for n > 2.").font(serif(10))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(64)
+        .frame(width: 612, height: 792, alignment: .top)
+        .foregroundStyle(.black)
+        .background(.white)
+        .environment(\.colorScheme, .light)
+        let data = NSMutableData()
+        ImageRenderer(content: page).render { size, draw in
+            var box = CGRect(origin: .zero, size: size)
+            guard let consumer = CGDataConsumer(data: data as CFMutableData),
+                  let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { return }
+            context.beginPDFPage(nil)
+            draw(context)
+            context.endPDFPage()
+            context.closePDF()
+        }
+        return data as Data
     }
 }
 
@@ -80,6 +119,9 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     private var planSelections: [String: String] = [:]
     /// Each owned summary's versions as made so far (oldest first), created on first use.
     private var versionHistory: [String: [[String: Any]]] = [:]
+    /// The paper's figure (also drawn TikZ figures) and its compiled PDF, made on the main actor.
+    private var paperImage = Data()
+    private var paperPDF = Data()
     private let items: [Item]
 
     private init() {
@@ -120,12 +162,24 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
                  summary: "", category: "Science", tags: ["energy", "germany"], sourceUrl: "https://example.com/balcony-solar", siteName: "Clean Energy Wire",
                  colors: ["#F57F17", "#FFCA28"], emoji: "☀️", accent: "#ffb300",
                  expiresAt: now.addingTimeInterval(-1 * day), isExpired: true, createdAt: now.addingTimeInterval(-9 * day)),
+            Item(id: "paper-01", slug: "PaperRdr01", kind: "paper", title: "Reading Papers Natively",
+                 summary: "A paper's LaTeX set as native text that reflows and grows with the reader.",
+                 category: "Research", tags: ["latex", "reading"], source: "text",
+                 colors: ["#263238", "#78909C"], emoji: "📄", accent: "#90a4ae", isOwner: true,
+                 expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-5 * 3600)),
         ]
         likes = ["s-solar": now.addingTimeInterval(-5 * day), "s-coffee": now.addingTimeInterval(-2 * 3600)]
     }
 
     func respond(to request: URLRequest) -> (Int, Data) {
         lock.withLock { route(request) }
+    }
+
+    func setPaperMedia(image: Data, pdf: Data) {
+        lock.withLock {
+            paperImage = image
+            paperPDF = pdf
+        }
     }
 
     private func route(_ request: URLRequest) -> (Int, Data) {
@@ -162,6 +216,8 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             return json(summary(items[index]))
         case (_, "trips", _):
             return routeTrip(request, id: id, path: path, method: method)
+        case (_, "papers", _):
+            return routePaper(id: id, path: path, method: method)
         case ("GET", "summaries", 3) where path[2] == "versions":
             return summaryVersions(id)
         case ("GET", "summaries", 4) where path[2] == "versions":
@@ -215,6 +271,53 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         default:
             return notFound
         }
+    }
+
+    /// The paper is at version 3, where the owner's agent addressed one of its two reviews.
+    private func routePaper(id: String, path: [String], method: String) -> (Int, Data) {
+        guard let item = items.first(where: { $0.id == id && $0.kind == "paper" }) else { return notFound }
+        switch (method, path.count > 2 ? path[2] : "") {
+        case ("GET", ""):
+            let paper = Paper(
+                id: item.id, slug: item.slug, revision: 7, isOwner: true, createdAt: item.createdAt, updatedAt: item.createdAt,
+                shareUrl: URL(string: "https://summary.rxlab.app/s/\(item.slug)")!, title: item.title,
+                files: LikesPreviewPaper.source(edited: true).files, mainFile: "main.tex", version: 3
+            )
+            return encoded("paper", paper)
+        case ("GET", "reviews"):
+            return encoded("reviews", paperReviews(item))
+        case ("GET", "pdf"):
+            return (200, paperPDF)
+        case ("GET", "assets"), ("POST", "figures"):
+            // Drawings come back from the server as PDFs; here the chart stands in for them.
+            return (200, paperImage)
+        default:
+            return notFound
+        }
+    }
+
+    /// One review waiting for the agent and one it finished, whose change (version 2 → 3) adds a
+    /// definition of literate programming.
+    private func paperReviews(_ item: Item) -> [PaperReview] {
+        let made = item.createdAt.addingTimeInterval(1_800)
+        let addressed = made.addingTimeInterval(2_400)
+        return [
+            PaperReview(
+                id: "paper-addressed", paperId: item.id, file: "main.tex", quote: "treats a program as literature",
+                comment: "Say what literate programming means before using the term.", status: .addressed, version: 2, addressedVersion: 3,
+                agentNote: "Added Knuth's definition and a sentence on why it matters.",
+                createdAt: made, updatedAt: addressed, addressedAt: addressed
+            ),
+            PaperReview(
+                id: "paper-waiting", paperId: item.id, file: "main.tex", quote: "Text that reflows",
+                comment: "Give an example of text that reflows on a small screen.", version: 3,
+                createdAt: addressed.addingTimeInterval(600), updatedAt: addressed.addingTimeInterval(600)
+            ),
+        ]
+    }
+
+    private func encoded(_ key: String, _ value: some Encodable) -> (Int, Data) {
+        (200, try! SummaryJSON.encoder().encode([key: value]))
     }
 
     private var apiKeysResponse: (Int, Data) {
@@ -282,6 +385,15 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     /// Three versions for the preview: written by the owner, retitled by their agent, then today's text.
     private func versions(of item: Item) -> [[String: Any]] {
         if let history = versionHistory[item.id] { return history }
+        if item.kind == "paper" {
+            let history = (1...3).map { number -> [String: Any] in
+                let source = (try? JSONSerialization.jsonObject(with: SummaryJSON.encoder().encode(LikesPreviewPaper.source(edited: number == 3)))) ?? [String: Any]()
+                return ["version": number, "kind": "paper", "actor": number == 3 ? "agent" : "owner", "restoredFrom": NSNull(),
+                        "createdAt": iso(item.createdAt.addingTimeInterval(Double(number - 1) * 2_400)), "content": source]
+            }
+            versionHistory[item.id] = history
+            return history
+        }
         func content(_ title: String, _ summary: String, _ highlights: [String]) -> [String: Any] {
             ["title": title, "summary": summary, "highlights": highlights, "category": item.category, "tags": item.tags, "keywords": []]
         }
@@ -355,5 +467,86 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 {"type":"text-end","id":"text-1"}
 {"type":"finish"}
 """#
+}
+
+/// The fixture paper's LaTeX: text, math, a theorem, a figure, a table and a TikZ drawing.
+nonisolated enum LikesPreviewPaper {
+    /// `edited` is version 3, with the agent's change for the finished review.
+    static func source(edited: Bool) -> PaperSource {
+        let main = edited ? mainLaTeX.replacingOccurrences(of: introduction, with: editedIntroduction) : mainLaTeX
+        return PaperSource(title: "Reading Papers Natively", files: [
+            PaperFile(path: "main.tex", content: main),
+            PaperFile(path: "refs.bib", content: bibliography),
+            PaperFile(path: "figures/chart.png", asset: PaperAsset(key: "chart", mimeType: "image/png", byteSize: 1)),
+        ], mainFile: "main.tex")
+    }
+
+    private static let introduction = #"Literate programming~\cite{knuth84} treats a program as \textbf{literature}."#
+
+    private static let editedIntroduction = #"""
+        Literate programming~\cite{knuth84} treats a program as \textbf{literature}: an essay written for people,
+        from which the compiler's input is extracted. Reading it first as prose makes its design visible.
+        """#
+
+    private static let mainLaTeX = #"""
+        \documentclass{article}
+        \title{Reading Papers \emph{Natively}}
+        \author{Ada Lovelace \and Alan Turing}
+        \date{1 May 2025}
+        \begin{document}
+        \maketitle
+        \begin{abstract}
+        We set a paper's LaTeX as native text, so it reflows and grows with the reader.
+        \end{abstract}
+        \section{Introduction}\label{sec:intro}
+        Literate programming~\cite{knuth84} treats a program as \textbf{literature}.
+        For $x \in \mathbb{R}$ we have $e^{i\pi} + 1 = 0$, see Section~\ref{sec:intro}.\footnote{A footnote.}
+        \begin{itemize}
+          \item Text that \textit{reflows}
+          \item Formulas like $\frac{a}{b}$
+        \end{itemize}
+        \begin{theorem}[Fermat]
+        No three positive integers satisfy $a^n + b^n = c^n$ for $n > 2$.
+        \end{theorem}
+        \section{Results}
+        The roots of $ax^2 + bx + c = 0$ are
+        \begin{equation}\label{eq:roots}
+          x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+        \end{equation}
+        \begin{figure}[h]
+          \centering
+          \includegraphics[width=0.7\linewidth]{figures/chart}
+          \caption{Growth over five years.}\label{fig:chart}
+        \end{figure}
+        \begin{table}[h]
+          \centering
+          \caption{Scores by model.}
+          \begin{tabular}{lcr}
+            \toprule
+            Model & \multicolumn{2}{c}{Score} \\
+            \midrule
+            Base & 71.2 & \textbf{3.1} \\
+            Ours & 84.5 & 2.4 \\
+            \bottomrule
+          \end{tabular}
+        \end{table}
+        \begin{figure}[h]
+          \begin{tikzpicture}\draw (0,0) -- (1,1);\end{tikzpicture}
+          \caption{A diagram.}
+        \end{figure}
+        \bibliographystyle{plain}
+        \bibliography{refs}
+        \end{document}
+        """#
+
+    private static let bibliography = #"""
+        @article{knuth84,
+          author = {Knuth, Donald E.},
+          title = {Literate Programming},
+          journal = {The Computer Journal},
+          volume = {27}, number = {2}, pages = {97--111},
+          year = 1984,
+        }
+        """#
 }
 #endif

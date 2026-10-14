@@ -2,8 +2,9 @@ import XCTest
 
 /// Captures the main screens on iPhone and iPad for the PR screenshot comment
 /// (.github/workflows/screenshots.yaml). Each screen is its own test so one that fails to load does
-/// not cost the others their screenshots. Runs against the `--preview-likes` fixture; attachments
-/// named `screenshot__<name>` are exported by scripts/ci/export-screenshots.sh.
+/// not cost the others their screenshots. Every screen is reached in the app itself, running against
+/// the `--preview-likes` fixture (iPhone in portrait, iPad in landscape); attachments named
+/// `screenshot__<name>` are exported by scripts/ci/export-screenshots.sh.
 nonisolated final class ScreenshotTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -263,33 +264,49 @@ nonisolated final class ScreenshotTests: XCTestCase {
         capture(app, "11-deep-link-trip")
     }
 
-    // MARK: Paper reader
+    // MARK: Paper
 
-    @MainActor func test12PaperReaderFigures() {
-        let app = launchReader(fixture: "figures")
-        XCTAssertTrue(app.buttons["Growth over five years."].waitForExistence(timeout: 10))
+    /// The paper from the library: the editor (beside its PDF on iPad), then the native reader with
+    /// its reviewed passages, figures and a TikZ drawing.
+    @MainActor func test12Paper() {
+        let app = launch()
+        openPaper(app)
+        if isPad {
+            selectPreviewMode(app, "PDF")
+            XCTAssertTrue(app.descendants(matching: .any)["paper-save-status"].firstMatch.waitForExistence(timeout: 10))
+            settle(3)
+        } else {
+            settle(2)
+        }
+        capture(app, "12-paper-editor")
+
+        showReader(app)
         settle(2)
-        capture(app, "12-paper-reader-figures")
+        capture(app, "12b-paper-reader")
         // The LaTeX-drawn figure sits below the table; the reader builds it once it scrolls into view.
         let drawing = app.buttons["A diagram."].firstMatch
-        for _ in 0..<8 where !drawing.exists {
+        for _ in 0..<10 where !drawing.exists {
             app.scrollViews["paper-reader"].swipeUp(velocity: .slow)
         }
         XCTAssertTrue(drawing.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Growth over five years."].exists)
         settle(2)
-        capture(app, "12b-paper-reader-drawing")
+        capture(app, "12c-paper-reader-figures")
     }
 
-    @MainActor func test13PaperReaderReviews() {
-        let app = launchReader(fixture: "reviews")
-        XCTAssertTrue(app.textViews["paper-reader-paragraph"].firstMatch.waitForExistence(timeout: 10))
-        settle(2)
-        capture(app, "13-paper-reader-reviewed-text")
-    }
-
+    /// Select text in the reader → Add Review → a comment for the agent.
     @MainActor func test14PaperReviewCompose() {
-        let app = launchReader(fixture: "reviews", open: "compose")
-        XCTAssertTrue(app.navigationBars["Add Review"].waitForExistence(timeout: 10))
+        let app = launch()
+        openPaper(app)
+        showReader(app)
+        let paragraph = app.textViews["paper-reader-paragraph"].firstMatch
+        XCTAssertTrue(paragraph.waitForExistence(timeout: 10))
+        // Double-tapping a word selects it and opens the selection menu, which starts with Add Review.
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).doubleTap()
+        let addReview = app.menuItems["Add Review"]
+        XCTAssertTrue(addReview.waitForExistence(timeout: 5))
+        addReview.tap()
+        XCTAssertTrue(app.navigationBars["Add Review"].waitForExistence(timeout: 5))
         let comment = app.textFields["paper-review-comment"].exists ? app.textFields["paper-review-comment"] : app.textViews["paper-review-comment"]
         XCTAssertTrue(comment.waitForExistence(timeout: 5))
         comment.tap()
@@ -298,16 +315,21 @@ nonisolated final class ScreenshotTests: XCTestCase {
         capture(app, "14-paper-review-compose")
     }
 
-    @MainActor func test15PaperReviewsList() {
-        let app = launchReader(fixture: "reviews", open: "reviews")
+    /// The paper's reviews, then the change the agent made for the finished one.
+    @MainActor func test15PaperReviews() {
+        let app = launch()
+        openPaper(app)
+        showReader(app)
+        let button = app.buttons["paper-reviews-button"].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        button.tap()
         XCTAssertTrue(app.navigationBars["Reviews"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Ready to Review"].waitForExistence(timeout: 5))
         settle()
         capture(app, "15-paper-reviews")
-    }
 
-    @MainActor func test16PaperReviewDiff() {
-        let app = launchReader(fixture: "reviews", open: "diff")
+        let row = app.buttons["paper-review-paper-addressed"].firstMatch
+        (row.exists ? row : app.staticTexts["Say what literate programming means before using the term."].firstMatch).tap()
         XCTAssertTrue(app.navigationBars["Review Changes"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Mark as Finished"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "an essay written for people")).firstMatch.waitForExistence(timeout: 10))
@@ -319,21 +341,11 @@ nonisolated final class ScreenshotTests: XCTestCase {
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
-    /// The native reader on a fixture (`PaperReaderPreviewHost`), optionally with a review sheet open.
-    @MainActor private func launchReader(fixture: String, open: String? = nil) -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["--preview-paper-reader", "--reader-fixture", fixture] + (open.map { ["--reader-open", $0] } ?? [])
-        XCUIDevice.shared.orientation = .portrait
-        app.launch()
-        return app
-    }
-
     @MainActor private func launch(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-likes"] + extraArguments
-        // Portrait on iPad too: landscape screenshots come back sideways and cropped. The 13-inch
-        // iPad is regular width either way, so it still shows the sidebar layout.
-        XCUIDevice.shared.orientation = .portrait
+        // iPad is captured in landscape, as it is mostly used; `capture` turns the image upright.
+        XCUIDevice.shared.orientation = isPad ? .landscapeLeft : .portrait
         app.launch()
         XCTAssertTrue(app.staticTexts["Why specialty roasters are buying their own farms"].waitForExistence(timeout: 15))
         return app
@@ -344,6 +356,34 @@ nonisolated final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         card.tap()
         XCTAssertTrue(app.descendants(matching: .any)["trip-pane-picker"].firstMatch.waitForExistence(timeout: 10))
+    }
+
+    /// Opens the fixture's paper from the library.
+    @MainActor private func openPaper(_ app: XCUIApplication) {
+        let card = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Reading Papers Natively")).firstMatch
+        for _ in 0..<6 where !(card.exists && card.isHittable) {
+            app.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(app.buttons["paper-file-menu"].firstMatch.waitForExistence(timeout: 10))
+    }
+
+    /// The paper's preview in the native reader: beside the editor on iPad, in the PDF sheet on iPhone.
+    @MainActor private func showReader(_ app: XCUIApplication) {
+        if !isPad {
+            app.buttons["paper-show-pdf"].firstMatch.tap()
+        }
+        selectPreviewMode(app, "Reader")
+        XCTAssertTrue(app.scrollViews["paper-reader"].waitForExistence(timeout: 10))
+    }
+
+    /// The preview mode is remembered between launches, so each test picks the one it needs.
+    @MainActor private func selectPreviewMode(_ app: XCUIApplication, _ title: String) {
+        let picker = app.segmentedControls["paper-preview-mode"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        let button = picker.buttons[title].exists ? picker.buttons[title] : app.buttons[title].firstMatch
+        button.tap()
     }
 
     /// The pane picker shows icons on iPhone and titles on iPad; both are labelled with the title.
@@ -377,9 +417,32 @@ nonisolated final class ScreenshotTests: XCTestCase {
     }
 
     @MainActor private func capture(_ app: XCUIApplication, _ name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment: XCTAttachment
+        if isPad, XCUIDevice.shared.orientation.isLandscape, let png = landscape(XCUIScreen.main.screenshot().image).pngData() {
+            attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        } else {
+            attachment = XCTAttachment(screenshot: app.screenshot())
+        }
         attachment.name = "screenshot__\(name)"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// The simulator can hand the screen back in its portrait orientation while the app is in
+    /// landscape (the picture sideways); this turns it upright and bakes the orientation into the
+    /// pixels, which PNG data doesn't carry.
+    @MainActor private func landscape(_ image: UIImage) -> UIImage {
+        var upright = image
+        if image.size.height > image.size.width, let cgImage = image.cgImage {
+            // Landscape left has the home edge on the right, so the interface's top runs along the
+            // portrait screen's right edge.
+            let orientation: UIImage.Orientation = XCUIDevice.shared.orientation == .landscapeRight ? .right : .left
+            upright = UIImage(cgImage: cgImage, scale: image.scale, orientation: orientation)
+        }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = upright.scale
+        return UIGraphicsImageRenderer(size: upright.size, format: format).image { _ in
+            upright.draw(in: CGRect(origin: .zero, size: upright.size))
+        }
     }
 }
