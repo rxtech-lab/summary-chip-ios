@@ -73,7 +73,10 @@ export function figurePreamble(main: string): string {
       if (named) { const bodyEnd = balanced(preamble, match.index + named[0].length); commands.push(preamble.slice(match.index, bodyEnd).trim()); pattern.lastIndex = bodyEnd; continue; }
     }
     if (command.startsWith("\\usepackage") && /\{\s*(?:geometry|fullpage|fancyhdr|titlesec|titling|abstract|authblk|standalone|float|caption|subcaption|setspace|hyperref|cleveref|biblatex|natbib|lineno)\s*\}/.test(command)) continue;
-    commands.push(command);
+    // Lengths and commands of the packages left out (`\headrulewidth`, `\bibsep`) are undefined
+    // here, so these only run when what they change exists.
+    const target = /^\\(?:setlength|renewcommand)\*?\s*\{?\s*(\\[A-Za-z@]+)/.exec(command)?.[1];
+    commands.push(target ? `\\ifdefined${target}${command}\\fi` : command);
     pattern.lastIndex = end;
   }
   return commands.join("\n");

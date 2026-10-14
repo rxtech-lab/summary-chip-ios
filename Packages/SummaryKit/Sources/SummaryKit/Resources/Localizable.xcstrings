@@ -1762,6 +1762,9 @@
         }
       }
     },
+    "Finished" : {
+      "comment" : "Paper review status"
+    },
     "Finishing up" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3314,6 +3317,9 @@
         }
       }
     },
+    "Ready to review" : {
+      "comment" : "Paper review status"
+    },
     "Ready to share" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4846,6 +4852,9 @@
         }
       }
     },
+    "Waiting for your agent" : {
+      "comment" : "Paper review status"
+    },
     "Web" : {
       "comment" : "Summary source kind: a web page",
       "localizations" : {
@@ -4907,6 +4916,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "誰可以開啟連結"
+          }
+        }
+      }
+    },
+    "Word (.docx)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word（.docx）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word（.docx）"
           }
         }
       }
@@ -4990,22 +5015,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摘要已建立，但無法連結本機檔案。%@"
-          }
-        }
-      }
-    },
-    "Word (.docx)" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Word（.docx）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Word（.docx）"
           }
         }
       }
