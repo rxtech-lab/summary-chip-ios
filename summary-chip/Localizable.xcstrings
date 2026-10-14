@@ -1,8 +1,14 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
     "· %@" : {
       "shouldTranslate" : false
+    },
+    "“%@”" : {
+
     },
     "“%@” can't be opened anymore. Its share link expired, or its owner made it private." : {
       "localizations" : {
@@ -36,6 +42,9 @@
         }
       }
     },
+    "“%@” isn't in the paper's bibliography." : {
+
+    },
     "“%@” lists a child “%@” that isn't one of the elements." : {
       "localizations" : {
         "en" : {
@@ -45,6 +54,12 @@
           }
         }
       }
+    },
+    "(%@)" : {
+
+    },
+    "[%lld]" : {
+
     },
     "%@" : {
       "shouldTranslate" : false
@@ -535,6 +550,9 @@
     "•" : {
       "shouldTranslate" : false
     },
+    "→" : {
+
+    },
     "+%lld" : {
       "shouldTranslate" : false
     },
@@ -782,6 +800,9 @@
           }
         }
       }
+    },
+    "Abstract" : {
+
     },
     "Account" : {
       "localizations" : {
@@ -1137,6 +1158,9 @@
         }
       }
     },
+    "Add Review" : {
+
+    },
     "Add Stop" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1251,6 +1275,9 @@
           }
         }
       }
+    },
+    "Added" : {
+
     },
     "Added to Likes" : {
       "localizations" : {
@@ -1759,6 +1786,23 @@
         }
       }
     },
+    "Applies to the PDF preview and PDF / Word exports in every language. Your source stays unchanged. Text stays editable; pagination may differ between formats." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于所有语言的 PDF 预览及 PDF / Word 导出。源文件保持不变。文字可编辑；不同格式的分页可能不同。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於所有語言的 PDF 預覽及 PDF / Word 匯出。原始檔保持不變。文字可編輯；不同格式的分頁可能不同。"
+          }
+        }
+      }
+    },
     "Apply" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1890,6 +1934,9 @@
           }
         }
       }
+    },
+    "Ask Again" : {
+
     },
     "Ask anything — answers come from the original content." : {
       "localizations" : {
@@ -2908,6 +2955,9 @@
     "Compare two options side by side." : {
 
     },
+    "Comparing versions…" : {
+
+    },
     "Compiling…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3072,6 +3122,9 @@
         }
       }
     },
+    "Contents" : {
+
+    },
     "Contents Depth" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3191,6 +3244,9 @@
         }
       }
     },
+    "Couldn't Add Review" : {
+
+    },
     "Couldn't Change Language" : {
 
     },
@@ -3258,6 +3314,9 @@
         }
       }
     },
+    "Couldn't Finish Review" : {
+
+    },
     "Couldn't Generate Cover" : {
 
     },
@@ -3279,6 +3338,9 @@
           }
         }
       }
+    },
+    "Couldn't Load the Change" : {
+
     },
     "Couldn't load your library" : {
       "localizations" : {
@@ -3807,6 +3869,9 @@
         }
       }
     },
+    "Default Size" : {
+
+    },
     "Delete" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3998,6 +4063,9 @@
           }
         }
       }
+    },
+    "Delete Review" : {
+
     },
     "Delete Summary" : {
       "localizations" : {
@@ -4411,6 +4479,9 @@
       }
     },
     "Drag to resize the editor and preview." : {
+
+    },
+    "Drawing figure…" : {
 
     },
     "Drop to Add Image" : {
@@ -5067,6 +5138,9 @@
         }
       }
     },
+    "Figure" : {
+
+    },
     "Figure file" : {
 
     },
@@ -5268,6 +5342,12 @@
           }
         }
       }
+    },
+    "Finished" : {
+
+    },
+    "Finishing…" : {
+
     },
     "First" : {
       "localizations" : {
@@ -5547,6 +5627,9 @@
           }
         }
       }
+    },
+    "Footnote %lld" : {
+
     },
     "For" : {
       "localizations" : {
@@ -6091,6 +6174,9 @@
     "Hide Details" : {
 
     },
+    "Hide Editor" : {
+
+    },
     "Highlight" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6531,6 +6617,9 @@
           }
         }
       }
+    },
+    "Larger Text" : {
+
     },
     "Later" : {
       "localizations" : {
@@ -7231,6 +7320,9 @@
         }
       }
     },
+    "Make this clearer, add a citation, shorten it…" : {
+
+    },
     "Manage Translations…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7279,6 +7371,9 @@
           }
         }
       }
+    },
+    "Mark as Finished" : {
+
     },
     "MCP Server" : {
       "localizations" : {
@@ -7895,6 +7990,9 @@
         }
       }
     },
+    "No image named “%@”" : {
+
+    },
     "No LaTeX errors" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8062,6 +8160,9 @@
 
     },
     "No References" : {
+
+    },
+    "No Reviews" : {
 
     },
     "No route" : {
@@ -8360,6 +8461,9 @@
           }
         }
       }
+    },
+    "Nothing Changed" : {
+
     },
     "Nothing specific" : {
       "localizations" : {
@@ -8719,6 +8823,9 @@
     "Open Link" : {
 
     },
+    "Open Review of “%@”" : {
+
+    },
     "Open Summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8881,6 +8988,12 @@
           }
         }
       }
+    },
+    "Opens the figure to zoom." : {
+
+    },
+    "Opens the image to zoom." : {
+
     },
     "Operator" : {
       "localizations" : {
@@ -9957,6 +10070,12 @@
         }
       }
     },
+    "Reader" : {
+
+    },
+    "Reading paper…" : {
+
+    },
     "Reading stopped" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10024,6 +10143,9 @@
         }
       }
     },
+    "Ready to Review" : {
+
+    },
     "Receive notifications for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10055,6 +10177,9 @@
           }
         }
       }
+    },
+    "Reference" : {
+
     },
     "Reference error" : {
 
@@ -10270,6 +10395,9 @@
       }
     },
     "Remove this trip from your calendar?" : {
+
+    },
+    "Removed" : {
 
     },
     "Removed from calendar" : {
@@ -10632,6 +10760,21 @@
           }
         }
       }
+    },
+    "Review" : {
+
+    },
+    "Review Changes" : {
+
+    },
+    "Reviews" : {
+
+    },
+    "Reviews, %lld ready" : {
+
+    },
+    "Reviews…" : {
+
     },
     "Revoke" : {
       "localizations" : {
@@ -11311,6 +11454,9 @@
         }
       }
     },
+    "Select text in the reader and choose Add Review to ask your agent for a change." : {
+
+    },
     "Send" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11572,7 +11718,13 @@
     "Show Details" : {
 
     },
+    "Show Editor" : {
+
+    },
     "Show In" : {
+
+    },
+    "Show in PDF" : {
 
     },
     "Show LaTeX Errors" : {
@@ -11790,6 +11942,9 @@
           }
         }
       }
+    },
+    "Smaller Text" : {
+
     },
     "Software Update" : {
       "localizations" : {
@@ -12606,6 +12761,9 @@
         }
       }
     },
+    "Text Options" : {
+
+    },
     "The day and its moments are removed from the diary." : {
       "localizations" : {
         "zh-Hans" : {
@@ -12652,6 +12810,15 @@
           }
         }
       }
+    },
+    "The image was added." : {
+
+    },
+    "The image was removed." : {
+
+    },
+    "The image was replaced." : {
+
     },
     "The link and preview stop working and the paper is removed permanently. To only stop sharing, make it private instead." : {
       "localizations" : {
@@ -12752,6 +12919,9 @@
           }
         }
       }
+    },
+    "The paper's source is the same in both versions." : {
+
     },
     "The place is removed from routes, moments and hotels that use it." : {
       "localizations" : {
@@ -12894,6 +13064,9 @@
         }
       }
     },
+    "These diagrams are drawn by LaTeX." : {
+
+    },
     "These references didn't hold up. Correct them, replace them with a reliable source, or remove them. Saving the paper checks changed entries again." : {
 
     },
@@ -12928,6 +13101,12 @@
           }
         }
       }
+    },
+    "This diagram couldn't be drawn here." : {
+
+    },
+    "This diagram is drawn by LaTeX." : {
+
     },
     "This image can't be replaced." : {
 
@@ -13615,6 +13794,9 @@
         }
       }
     },
+    "Typeface" : {
+
+    },
     "Typography" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -14071,6 +14253,16 @@
         }
       }
     },
+    "v%lld → v%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "v%1$lld → v%2$lld"
+          }
+        }
+      }
+    },
     "Verified" : {
 
     },
@@ -14107,6 +14299,19 @@
       }
     },
     "Version %lld" : {
+
+    },
+    "Version %lld → %lld · +%lld −%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$lld → %2$lld · +%3$lld −%4$lld"
+          }
+        }
+      }
+    },
+    "Version %lld isn't a paper." : {
 
     },
     "Version History…" : {
@@ -14218,6 +14423,12 @@
           }
         }
       }
+    },
+    "Waiting for your agent" : {
+
+    },
+    "Waiting for Your Agent" : {
+
     },
     "Walk" : {
       "localizations" : {
@@ -14417,6 +14628,9 @@
           }
         }
       }
+    },
+    "What should change?" : {
+
     },
     "What should I book next?" : {
 
@@ -14731,6 +14945,9 @@
         }
       }
     },
+    "Your agent edited the paper for these. Read the change and mark the review as finished." : {
+
+    },
     "Your agent edited too — changes merged" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14746,6 +14963,15 @@
           }
         }
       }
+    },
+    "Your agent finished this review" : {
+
+    },
+    "Your agent hasn't finished this review yet." : {
+
+    },
+    "Your agent reads reviews with get_paper_reviews, edits the paper and marks them finished; you then approve the change here." : {
+
     },
     "Your API Key" : {
       "localizations" : {
@@ -14890,23 +15116,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "縮小"
-          }
-        }
-      }
-    },
-    "Applies to the PDF preview and PDF / Word exports in every language. Your source stays unchanged. Text stays editable; pagination may differ between formats." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "适用于所有语言的 PDF 预览及 PDF / Word 导出。源文件保持不变。文字可编辑；不同格式的分页可能不同。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "適用於所有語言的 PDF 預覽及 PDF / Word 匯出。原始檔保持不變。文字可編輯；不同格式的分頁可能不同。"
           }
         }
       }

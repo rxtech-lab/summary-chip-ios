@@ -8,8 +8,8 @@ struct PaperReviewHighlight: Hashable {
     let status: PaperReviewStatus
 }
 
-/// A paragraph of the reader. On iOS it is a text view, so the reader can select a passage and
-/// choose **Add Review** in the selection menu; on the Mac the text is selectable as a whole.
+/// A paragraph of the reader: a text view, so the reader can select a passage and choose
+/// **Add Review** in the selection menu (iOS) or the context menu (Mac).
 struct PaperParagraphView: View {
     let spans: [PaperSpan]
     let alignment: PaperAlignment
@@ -20,8 +20,8 @@ struct PaperParagraphView: View {
     }
 }
 
-/// Reader text that takes reviews: paragraphs, the title, headings and captions. On iOS it is a
-/// text view whose selection menu offers **Add Review** and that marks reviewed passages.
+/// Reader text that takes reviews: paragraphs, the title, headings and captions. It is a text view
+/// whose selection menu (iOS) or context menu (Mac) offers **Add Review** and that marks reviewed passages.
 struct PaperReviewableText: View {
     let spans: [PaperSpan]
     var scale: CGFloat = 1
@@ -33,7 +33,6 @@ struct PaperReviewableText: View {
     let context: PaperReaderContext
 
     var body: some View {
-        #if canImport(UIKit)
         PaperSelectableText(
             text: context.nsText(spans, scale: scale, style: style),
             alignment: alignment.nsText,
@@ -44,12 +43,18 @@ struct PaperReviewableText: View {
             identifier: identifier
         )
         .frame(maxWidth: .infinity, alignment: alignment.frame)
+        .paperNotePopover(context)
+    }
+}
+
+extension View {
+    /// Mac: citations and footnotes in this text open in a popover by the link instead of a sheet.
+    @ViewBuilder
+    func paperNotePopover(_ context: PaperReaderContext) -> some View {
+        #if os(macOS)
+        modifier(PaperNotePopover(context: context))
         #else
-        Text(context.text(spans, scale: scale, style: style))
-            .lineSpacing(context.fontSize * scale * lineSpacing)
-            .multilineTextAlignment(alignment.text)
-            .frame(maxWidth: .infinity, alignment: alignment.frame)
-            .fixedSize(horizontal: false, vertical: true)
+        self
         #endif
     }
 }
@@ -75,6 +80,21 @@ extension PaperAlignment {
 #if canImport(UIKit)
 import UIKit
 
+typealias PaperPlatformColor = UIColor
+
+extension UIColor {
+    static var paperText: UIColor { .label }
+}
+#else
+import AppKit
+
+typealias PaperPlatformColor = NSColor
+
+extension NSColor {
+    static var paperText: NSColor { .labelColor }
+}
+#endif
+
 extension PaperAlignment {
     var nsText: NSTextAlignment {
         switch self {
@@ -86,8 +106,87 @@ extension PaperAlignment {
 }
 
 extension PaperReaderContext {
+    /// `text(_:)` for a text view: the same runs, with UIKit or AppKit fonts and the reader's links.
+    func nsText(_ spans: [PaperSpan], scale: CGFloat = 1, style extra: PaperTextStyle = []) -> NSAttributedString {
+        let size = fontSize * scale
+        let result = NSMutableAttributedString()
+        for span in spans {
+            let style = span.style.union(baseStyle).union(extra)
+            switch span.kind {
+            case .text(let text):
+                result.append(styled(text, style, scale: scale))
+            case .math(let nodes, _):
+                for run in PaperMath.runs(nodes) {
+                    let font: MathFont = style.contains(.bold) ? (run.font == .italic ? .boldItalic : .bold) : run.font
+                    var attributes: [NSAttributedString.Key: Any] = [.font: platformMathFont(font, size: size * run.scale), .foregroundColor: PaperPlatformColor.paperText]
+                    if run.baseline != 0 { attributes[.baselineOffset] = run.baseline * size }
+                    result.append(NSAttributedString(string: run.text, attributes: attributes))
+                }
+            case .link(let label, let url):
+                result.append(styled(label, style, scale: scale, link: URL(string: url)))
+            case .citation(let keys, let form, let note):
+                result.append(styled(document.citationText(keys, form: form, note: note), style, scale: scale, link: PaperReaderLink.citation(keys).url))
+            case .reference(let key, let form):
+                result.append(styled(document.referenceText(key, form: form), style, scale: scale, link: PaperReaderLink.reference(key).url))
+            case .footnote(let number):
+                var attributes: [NSAttributedString.Key: Any] = [.font: platformFont(scale * 0.65), .baselineOffset: size * 0.35, .foregroundColor: PaperPlatformColor.paperText]
+                if let url = PaperReaderLink.footnote(number).url { attributes[.link] = url }
+                result.append(NSAttributedString(string: "\(number)", attributes: attributes))
+            case .lineBreak:
+                result.append(NSAttributedString(string: "\n", attributes: [.font: platformFont(scale)]))
+            }
+        }
+        return result
+    }
+
+    private func styled(_ text: String, _ style: PaperTextStyle, scale: CGFloat, link: URL? = nil) -> NSAttributedString {
+        var attributes: [NSAttributedString.Key: Any] = [.font: platformFont(scale, style: style), .foregroundColor: PaperPlatformColor.paperText]
+        if style.contains(.underline) { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+        if style.contains(.strikethrough) { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+        if let link { attributes[.link] = link }
+        return NSAttributedString(string: text, attributes: attributes)
+    }
+}
+
+extension PaperReviewHighlight {
+    /// `text` laid out as a paragraph, with every passage that has a review marked by its status,
+    /// and where each marked passage is.
+    static func mark(_ highlights: [Self], in text: NSAttributedString, alignment: NSTextAlignment, lineSpacing: CGFloat) -> (NSAttributedString, [(range: NSRange, reviewID: String)]) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = alignment
+        paragraph.lineSpacing = lineSpacing
+        let styled = NSMutableAttributedString(attributedString: text)
+        let whole = NSRange(location: 0, length: styled.length)
+        styled.addAttribute(.paragraphStyle, value: paragraph, range: whole)
+        let plain = styled.string as NSString
+        var reviewed: [(range: NSRange, reviewID: String)] = []
+        for highlight in highlights {
+            var search = whole
+            while search.length > 0 {
+                let found = plain.range(of: highlight.quote, options: [], range: search)
+                guard found.location != NSNotFound else { break }
+                styled.addAttribute(.backgroundColor, value: color(for: highlight.status), range: found)
+                reviewed.append((range: found, reviewID: highlight.reviewID))
+                let next = found.location + max(found.length, 1)
+                search = NSRange(location: next, length: whole.length - next)
+            }
+        }
+        return (styled, reviewed)
+    }
+
+    private static func color(for status: PaperReviewStatus) -> PaperPlatformColor {
+        switch status {
+        case .open: PaperPlatformColor.systemYellow.withAlphaComponent(0.35)
+        case .addressed: PaperPlatformColor.systemGreen.withAlphaComponent(0.3)
+        case .resolved: PaperPlatformColor.clear
+        }
+    }
+}
+
+#if canImport(UIKit)
+extension PaperReaderContext {
     /// The reader's font as UIKit sees it, for text views.
-    func uiFont(_ scale: CGFloat = 1, style: PaperTextStyle = []) -> UIFont {
+    func platformFont(_ scale: CGFloat = 1, style: PaperTextStyle = []) -> UIFont {
         let size = fontSize * scale
         let design: UIFontDescriptor.SystemDesign = style.contains(.monospace) ? .monospaced : style.contains(.sansSerif) || !serif ? .default : .serif
         var descriptor = UIFont.systemFont(ofSize: size, weight: style.contains(.bold) ? .bold : .regular).fontDescriptor
@@ -103,7 +202,7 @@ extension PaperReaderContext {
         return UIFont(descriptor: descriptor, size: size)
     }
 
-    private func uiMathFont(_ font: MathFont, size: CGFloat) -> UIFont {
+    func platformMathFont(_ font: MathFont, size: CGFloat) -> UIFont {
         var descriptor = UIFont.systemFont(ofSize: size, weight: font == .bold || font == .boldItalic ? .bold : .regular).fontDescriptor
         descriptor = descriptor.withDesign(.serif) ?? descriptor
         var traits = descriptor.symbolicTraits
@@ -111,47 +210,6 @@ extension PaperReaderContext {
         if font == .bold || font == .boldItalic { traits.insert(.traitBold) }
         descriptor = descriptor.withSymbolicTraits(traits) ?? descriptor
         return UIFont(descriptor: descriptor, size: size)
-    }
-
-    /// `text(_:)` for a text view: the same runs, with UIKit fonts and the reader's links.
-    func nsText(_ spans: [PaperSpan], scale: CGFloat = 1, style extra: PaperTextStyle = []) -> NSAttributedString {
-        let size = fontSize * scale
-        let result = NSMutableAttributedString()
-        for span in spans {
-            let style = span.style.union(baseStyle).union(extra)
-            switch span.kind {
-            case .text(let text):
-                result.append(styled(text, style, scale: scale))
-            case .math(let nodes, _):
-                for run in PaperMath.runs(nodes) {
-                    let font: MathFont = style.contains(.bold) ? (run.font == .italic ? .boldItalic : .bold) : run.font
-                    var attributes: [NSAttributedString.Key: Any] = [.font: uiMathFont(font, size: size * run.scale), .foregroundColor: UIColor.label]
-                    if run.baseline != 0 { attributes[.baselineOffset] = run.baseline * size }
-                    result.append(NSAttributedString(string: run.text, attributes: attributes))
-                }
-            case .link(let label, let url):
-                result.append(styled(label, style, scale: scale, link: URL(string: url)))
-            case .citation(let keys, let form, let note):
-                result.append(styled(document.citationText(keys, form: form, note: note), style, scale: scale, link: PaperReaderLink.citation(keys).url))
-            case .reference(let key, let form):
-                result.append(styled(document.referenceText(key, form: form), style, scale: scale, link: PaperReaderLink.reference(key).url))
-            case .footnote(let number):
-                var attributes: [NSAttributedString.Key: Any] = [.font: uiFont(scale * 0.65), .baselineOffset: size * 0.35, .foregroundColor: UIColor.label]
-                if let url = PaperReaderLink.footnote(number).url { attributes[.link] = url }
-                result.append(NSAttributedString(string: "\(number)", attributes: attributes))
-            case .lineBreak:
-                result.append(NSAttributedString(string: "\n", attributes: [.font: uiFont(scale)]))
-            }
-        }
-        return result
-    }
-
-    private func styled(_ text: String, _ style: PaperTextStyle, scale: CGFloat, link: URL? = nil) -> NSAttributedString {
-        var attributes: [NSAttributedString.Key: Any] = [.font: uiFont(scale, style: style), .foregroundColor: UIColor.label]
-        if style.contains(.underline) { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
-        if style.contains(.strikethrough) { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
-        if let link { attributes[.link] = link }
-        return NSAttributedString(string: text, attributes: attributes)
     }
 }
 
@@ -190,25 +248,8 @@ struct PaperSelectableText: UIViewRepresentable {
         view.onReview = onReview
         view.onOpenReview = onOpenReview
         view.accessibilityIdentifier = identifier
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = alignment
-        paragraph.lineSpacing = lineSpacing
-        let styled = NSMutableAttributedString(attributedString: text)
-        let whole = NSRange(location: 0, length: styled.length)
-        styled.addAttribute(.paragraphStyle, value: paragraph, range: whole)
+        let (styled, reviewed) = PaperReviewHighlight.mark(highlights, in: text, alignment: alignment, lineSpacing: lineSpacing)
         let plain = styled.string as NSString
-        var reviewed: [(range: NSRange, reviewID: String)] = []
-        for highlight in highlights {
-            var search = whole
-            while search.length > 0 {
-                let found = plain.range(of: highlight.quote, options: [], range: search)
-                guard found.location != NSNotFound else { break }
-                styled.addAttribute(.backgroundColor, value: Self.color(for: highlight.status), range: found)
-                reviewed.append((range: found, reviewID: highlight.reviewID))
-                let next = found.location + max(found.length, 1)
-                search = NSRange(location: next, length: whole.length - next)
-            }
-        }
         if view.attributedText?.isEqual(to: styled) != true {
             view.attributedText = styled
         }
@@ -227,14 +268,6 @@ struct PaperSelectableText: UIViewRepresentable {
         let width = proposal.width.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? 10_000
         let fitted = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? ceil(fitted.width), height: ceil(fitted.height))
-    }
-
-    private static func color(for status: PaperReviewStatus) -> UIColor {
-        switch status {
-        case .open: UIColor.systemYellow.withAlphaComponent(0.35)
-        case .addressed: UIColor.systemGreen.withAlphaComponent(0.3)
-        case .resolved: UIColor.clear
-        }
     }
 
     /// Links go to the reader (citations, references, footnotes), not the system.

@@ -13,6 +13,8 @@ struct PaperDetailView: View {
     @State var versions: DocumentVersionsModel
     /// The preview pane's mode: the reader's text controls join the toolbar while it shows.
     @AppStorage("paperPreviewMode") private var previewMode = PaperPreviewMode.pdf
+    /// iPad and Mac can hide the editor to read the preview across the whole page.
+    @AppStorage("paperShowsEditor") private var showsEditor = true
     @State var activeSheet: PaperSheet?
     @State var jump: PaperLineJump?
     /// Which of the open file's error lines the error button last went to; nil before the first tap.
@@ -81,6 +83,11 @@ struct PaperDetailView: View {
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar { toolbar }
+        #if os(iOS)
+        // The reader's text controls float in the bottom bar without a backing behind them.
+        .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
+        .scrollEdgeEffectHidden(true, for: .bottom)
+        #endif
         .overlay(alignment: .top) {
             if let notice = model.notice {
                 Label(notice.message, systemImage: notice.systemImage)
@@ -188,11 +195,20 @@ struct PaperDetailView: View {
         if isCompact {
             editor(source)
         } else {
-            PaperSplitView {
+            PaperSplitView(showsEditor: showsEditor) {
                 editor(source)
             } preview: {
                 PaperPreviewPane(model: model, onShowIssues: { activeSheet = .issues }, onShowReferences: { activeSheet = .references })
+                    #if os(iOS)
+                    // Lets the reader's last lines scroll clear of the floating text controls.
+                    .contentMargins(.bottom, previewMode == .reader ? 64 : 0, for: .scrollContent)
+                    #endif
             }
+            #if os(iOS)
+            // The paper runs under the bottom bar, so the text controls float over it instead
+            // of taking a strip of their own.
+            .ignoresSafeArea(.container, edges: .bottom)
+            #endif
         }
     }
 
@@ -288,13 +304,34 @@ struct PaperDetailView: View {
                     .accessibilityIdentifier("paper-show-pdf")
                 }
             } else {
+                ToolbarItem(placement: .summaryLeading) {
+                    Button {
+                        withAnimation(.spring(duration: 0.35)) { showsEditor.toggle() }
+                    } label: {
+                        Label(showsEditor ? "Hide Editor" : "Show Editor",
+                              systemImage: showsEditor ? "rectangle.leadinghalf.inset.filled" : "rectangle")
+                    }
+                    .help(showsEditor ? "Hide Editor" : "Show Editor")
+                    .sensoryFeedback(.selection, trigger: showsEditor)
+                    .accessibilityIdentifier("paper-toggle-editor")
+                }
                 // The preview pane's controls join the paper's bar, so the editor and preview
                 // share one bar instead of the preview carrying a second one.
+                // The segmented control draws its own capsule, so it stands apart from the
+                // buttons' glass group instead of nesting a second bar inside it.
                 ToolbarItem(placement: .summaryTrailing) {
                     PaperPreviewModePicker()
                 }
+                .sharedBackgroundVisibility(.hidden)
+                ToolbarSpacer(.fixed, placement: .summaryTrailing)
                 if previewMode == .reader {
+                    #if os(iOS)
+                    // Under the reader, in the bottom bar, as in the iPhone preview sheet.
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                    PaperReaderTextToolbar(placement: .bottomBar)
+                    #else
                     PaperReaderTextToolbar()
+                    #endif
                     if model.isOwner {
                         ToolbarItem(placement: .summaryTrailing) {
                             PaperReviewsButton(model: model) { activeSheet = .reviews }

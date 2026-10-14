@@ -160,6 +160,11 @@ describe("paper figures", () => {
     expect(document).toContain("\\begin{document}\n\\begin{axis}\\addplot {x};\\end{axis}\n\\end{document}");
   });
 
+  it("only sets lengths and commands the figure's packages define", () => {
+    const preamble = figurePreamble("\\documentclass{article}\n\\usepackage{fancyhdr}\n\\usepackage{natbib}\n\\usepackage{tikz}\n\\renewcommand{\\headrulewidth}{0pt}\n\\setlength{\\bibsep}{0pt}\n\\newcommand{\\R}{\\mathbb{R}}\n\\begin{document}");
+    expect(preamble).toBe("\\usepackage{tikz}\n\\ifdefined\\headrulewidth\\renewcommand{\\headrulewidth}{0pt}\\fi\n\\ifdefined\\bibsep\\setlength{\\bibsep}{0pt}\\fi\n\\newcommand{\\R}{\\mathbb{R}}");
+  });
+
   it("brings in a preamble kept in its own file", () => {
     const files = [
       { path: "preamble.tex", content: "\\usepackage{tikz}\n\\input{macros}\n" },

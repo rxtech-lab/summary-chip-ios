@@ -12,10 +12,14 @@ struct PaperSplitView<Editor: View, Preview: View>: View {
     @State private var isHovering = false
     @State private var adjustments = 0
     @Environment(\.layoutDirection) private var layoutDirection
+    private let showsEditor: Bool
     private let editor: Editor
     private let preview: Preview
 
-    init(@ViewBuilder editor: () -> Editor, @ViewBuilder preview: () -> Preview) {
+    /// With `showsEditor` off the preview takes the whole width; it stays the same view, so the
+    /// PDF and reader keep their place.
+    init(showsEditor: Bool = true, @ViewBuilder editor: () -> Editor, @ViewBuilder preview: () -> Preview) {
+        self.showsEditor = showsEditor
         self.editor = editor()
         self.preview = preview()
     }
@@ -30,13 +34,16 @@ struct PaperSplitView<Editor: View, Preview: View>: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let availableWidth = max(0, geometry.size.width - dividerWidth)
-            let editorWidth = width(in: availableWidth)
+            let availableWidth = max(0, geometry.size.width - (showsEditor ? dividerWidth : 0))
+            let editorWidth = showsEditor ? width(in: availableWidth) : 0
             HStack(spacing: 0) {
-                editor
-                    .frame(width: editorWidth, height: geometry.size.height)
-                    .clipped()
-                divider(availableWidth: availableWidth, editorWidth: editorWidth)
+                if showsEditor {
+                    editor
+                        .frame(width: editorWidth, height: geometry.size.height)
+                        .clipped()
+                        .transition(.move(edge: .leading))
+                    divider(availableWidth: availableWidth, editorWidth: editorWidth)
+                }
                 preview
                     .frame(width: availableWidth - editorWidth, height: geometry.size.height)
                     .clipped()
@@ -79,7 +86,9 @@ struct PaperSplitView<Editor: View, Preview: View>: View {
         }
         .frame(width: dividerWidth)
         .frame(maxHeight: .infinity)
-        .background(.bar)
+        // Kept out of the safe area so the divider stops at the nav bar, which then spans the
+        // editor and preview as one bar.
+        .background(.bar, ignoresSafeAreaEdges: [])
         .contentShape(Rectangle())
         .gesture(resizeGesture(availableWidth: availableWidth))
         .onHover { hover($0) }

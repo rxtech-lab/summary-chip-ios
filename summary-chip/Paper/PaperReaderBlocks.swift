@@ -230,6 +230,7 @@ private struct PaperTableView: View {
                             ForEach(Array(row.enumerated()), id: \.offset) { column, cell in
                                 Text(context.text(cell.content, scale: 0.92, style: index < table.headerRows ? .bold : []))
                                     .fixedSize()
+                                    .paperNotePopover(context)
                                     .gridCellColumns(cell.columns)
                                     .gridColumnAlignment(alignment(column))
                             }

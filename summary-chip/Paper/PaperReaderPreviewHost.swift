@@ -62,6 +62,13 @@ struct PaperReaderPreviewHost: View {
                 }
                 #else
                 PaperReaderTextToolbar()
+                if reviews != nil {
+                    ToolbarItem(placement: .summaryTrailing) {
+                        Button { showsReviews = true } label: { Label("Reviews", systemImage: "bubble.left.and.text.bubble.right") }
+                            .help("Reviews")
+                            .accessibilityIdentifier("paper-reviews-button")
+                    }
+                }
                 #endif
             }
         }

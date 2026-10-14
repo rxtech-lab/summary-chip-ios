@@ -1,4 +1,3 @@
-import PDFKit
 import SummaryKit
 import SwiftUI
 
@@ -29,6 +28,7 @@ struct PaperFigureView: View {
                             if let caption = image.caption {
                                 Text(context.text([PaperSpan.text("(\(Self.letter(index))) ")] + caption, scale: 0.85))
                                     .multilineTextAlignment(.center)
+                                    .paperNotePopover(context)
                             }
                         }
                     }
@@ -174,10 +174,12 @@ private struct PaperDrawingView: View {
                 Button {
                     context.openFigure(PaperFigureViewerItem(id: cacheKey, image: loaded, caption: caption?.plainText ?? String(localized: "Figure")))
                 } label: {
+                    // LaTeX draws on white: a margin of it keeps the drawing off the card's edges.
                     platformImage(loaded)
                         .resizable()
                         .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .padding(context.fontSize * 0.9)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: min(context.fontSize * 42, max(loaded.size.width, context.fontSize * 8)))
@@ -261,11 +263,30 @@ final class PaperFigureImageCache {
     /// A PNG or JPEG, or a PDF's first page drawn sharp enough to zoom into.
     nonisolated static func decode(_ data: Data, isPDF: Bool) -> Decoded? {
         guard isPDF || data.starts(with: Data("%PDF-".utf8)) else { return PaperPlatformImage(data: data).map(Decoded.init) }
-        guard let page = PDFDocument(data: data)?.page(at: 0) else { return nil }
-        let bounds = page.bounds(for: .cropBox)
-        guard bounds.width > 0, bounds.height > 0 else { return nil }
-        let scale = min(2000 / max(bounds.width, bounds.height), 6)
-        return Decoded(image: page.thumbnail(of: CGSize(width: bounds.width * scale, height: bounds.height * scale), for: .cropBox))
+        // The page is drawn here rather than with `PDFPage.thumbnail`, which on iOS can place it
+        // off its box and cut off the bottom of a figure.
+        guard let provider = CGDataProvider(data: data as CFData), let page = CGPDFDocument(provider)?.page(at: 1) else { return nil }
+        let box = page.getBoxRect(.cropBox)
+        guard box.width > 0, box.height > 0 else { return nil }
+        let scale = min(2000 / max(box.width, box.height), 6)
+        let width = Int((box.width * scale).rounded(.up)), height = Int((box.height * scale).rounded(.up))
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else { return nil }
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.interpolationQuality = .high
+        context.scaleBy(x: scale, y: scale)
+        context.translateBy(x: -box.minX, y: -box.minY)
+        context.clip(to: box)
+        context.drawPDFPage(page)
+        guard let image = context.makeImage() else { return nil }
+        #if os(macOS)
+        return Decoded(image: NSImage(cgImage: image, size: CGSize(width: width, height: height)))
+        #else
+        return Decoded(image: UIImage(cgImage: image))
+        #endif
     }
 }
 

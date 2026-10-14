@@ -346,29 +346,18 @@ nonisolated enum PaperReaderNote: Identifiable, Hashable {
     }
 }
 
-/// A tapped citation's bibliography entries, or a footnote.
+/// A tapped citation's bibliography entries, or a footnote, in a sheet.
 private struct PaperReaderNoteSheet: View {
     let note: PaperReaderNote
     let context: PaperReaderContext
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch note {
-                    case .citation(let keys):
-                        ForEach(keys, id: \.self) { key in entry(key) }
-                    case .footnote(let number):
-                        let spans = context.document.footnotes.indices.contains(number - 1) ? context.document.footnotes[number - 1] : []
-                        Text(context.text(spans))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(20)
+                PaperReaderNoteView(note: note, context: context)
             }
-            .navigationTitle(title)
+            .navigationTitle(note.title)
             .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -379,12 +368,26 @@ private struct PaperReaderNoteSheet: View {
         .presentationDetents([.medium, .large])
         .accessibilityIdentifier("paper-reader-note")
     }
+}
 
-    private var title: String {
-        switch note {
-        case .citation(let keys): keys.count == 1 ? String(localized: "Reference") : String(localized: "References")
-        case .footnote(let number): String(localized: "Footnote \(number)")
+/// A citation's bibliography entries, or a footnote: the sheet's content on iOS, the popover's on the Mac.
+struct PaperReaderNoteView: View {
+    let note: PaperReaderNote
+    let context: PaperReaderContext
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            switch note {
+            case .citation(let keys):
+                ForEach(keys, id: \.self) { key in entry(key) }
+            case .footnote(let number):
+                let spans = context.document.footnotes.indices.contains(number - 1) ? context.document.footnotes[number - 1] : []
+                Text(context.text(spans))
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
     }
 
     @ViewBuilder
@@ -401,6 +404,26 @@ private struct PaperReaderNoteSheet: View {
         } else {
             Label("“\(key)” isn't in the paper's bibliography.", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+extension PaperReaderNote {
+    var title: String {
+        switch self {
+        case .citation(let keys): keys.count == 1 ? String(localized: "Reference") : String(localized: "References")
+        case .footnote(let number): String(localized: "Footnote \(number)")
+        }
+    }
+}
+
+extension PaperReaderLink {
+    /// The note a citation or footnote link opens; nil for links that scroll the reader.
+    var note: PaperReaderNote? {
+        switch self {
+        case .citation(let keys): .citation(keys)
+        case .footnote(let number): .footnote(number)
+        case .reference, .block: nil
         }
     }
 }
