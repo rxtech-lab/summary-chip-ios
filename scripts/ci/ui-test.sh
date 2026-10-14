@@ -6,6 +6,8 @@
 #
 # e.g. ui-test.sh ios out.xcresult -only-testing:summary-chipUITests/ScreenshotTests
 #
+# On iOS, RECORD_VIDEO=<file.mov> also records the simulator's screen while the tests run.
+#
 # CI has no Apple ID for automatic signing. The simulator runs unsigned builds, and the Mac build
 # is signed ad hoc without the entitlements that need a provisioning profile (app group, keychain
 # group, associated domains). The UI tests run against the in-memory `--preview-*` fixtures, so
@@ -53,14 +55,32 @@ case "$PLATFORM" in
 esac
 
 rm -rf "$RESULT_BUNDLE"
-xcodebuild \
-  -project "$ROOT/summary-chip.xcodeproj" \
-  "${ARGS[@]}" \
-  -derivedDataPath "$DERIVED_DATA" \
-  -resultBundlePath "$RESULT_BUNDLE" \
-  -parallel-testing-enabled NO \
-  -collect-test-diagnostics never \
-  -retry-tests-on-failure \
-  -test-iterations "${TEST_ITERATIONS:-2}" \
-  "$@" \
-  test
+BUILD=(-project "$ROOT/summary-chip.xcodeproj" "${ARGS[@]}" -derivedDataPath "$DERIVED_DATA")
+TEST=(
+  -resultBundlePath "$RESULT_BUNDLE"
+  -parallel-testing-enabled NO
+  -collect-test-diagnostics never
+  -retry-tests-on-failure
+  -test-iterations "${TEST_ITERATIONS:-2}"
+  "$@"
+)
+
+if [ "$PLATFORM" != ios ] || [ -z "${RECORD_VIDEO:-}" ]; then
+  xcodebuild "${BUILD[@]}" "${TEST[@]}" test
+  exit
+fi
+
+# RECORD_VIDEO=<file.mov>: records the simulator while the tests run. Building first keeps the
+# minutes of compiling (an idle home screen) out of the video.
+xcodebuild "${BUILD[@]}" build-for-testing
+mkdir -p "$(dirname "$RECORD_VIDEO")"
+xcrun simctl io "$SIMULATOR_ID" recordVideo --codec=h264 --force "$RECORD_VIDEO" > /dev/null 2>&1 &
+recorder=$!
+stop_recording() {
+  # SIGINT lets simctl finish writing the file.
+  kill -INT "$recorder" 2> /dev/null || true
+  wait "$recorder" 2> /dev/null || true
+}
+trap stop_recording EXIT
+sleep 2
+xcodebuild "${BUILD[@]}" "${TEST[@]}" test-without-building

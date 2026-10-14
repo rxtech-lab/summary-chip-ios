@@ -1,16 +1,19 @@
 #!/bin/bash
 # Sends a PR's screenshots to a Telegram chat so they can be reviewed on a phone: one message with
 # the repo, PR and run links, then each device's screens as photo albums (Telegram caps an album
-# at 10 photos).
+# at 10 photos) followed by its screen recording.
 #
-#   send-telegram-screenshots.sh <screenshots-dir>
+#   send-telegram-screenshots.sh <screenshots-dir> [<recordings-dir>]
 #
-# <screenshots-dir> holds one `screenshots-<device>` folder per device, as download-artifact lays
-# them out. Reads TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REPO, PR, PR_TITLE, PR_URL, PR_AUTHOR,
+# <screenshots-dir> holds one `screenshots-<device>` folder per device, and <recordings-dir> one
+# `screen-recording-<device>` folder with `<device>.mp4`, as download-artifact lays them out. Reads TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REPO, PR, PR_TITLE, PR_URL, PR_AUTHOR,
 # HEAD_REF, BASE_REF, SHA, RUN_URL and STATUS from the environment.
 set -euo pipefail
 
 SCREENSHOTS_DIR=$1
+RECORDINGS_DIR=${2:-}
+# Bots can upload files up to 50 MB.
+MAX_VIDEO_BYTES=$((50 * 1024 * 1024))
 API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
 
 html_escape() {
@@ -42,17 +45,38 @@ telegram sendMessage \
   --data-urlencode "parse_mode=HTML" \
   --data-urlencode "disable_web_page_preview=true"
 
-for device_dir in "$SCREENSHOTS_DIR"/screenshots-*/; do
-  [ -d "$device_dir" ] || continue
-  device=$(basename "$device_dir")
-  case ${device#screenshots-} in
-    iphone) device="iPhone" ;;
-    ipad) device="iPad" ;;
-    *) device=${device#screenshots-} ;;
+device_label() {
+  case $1 in
+    iphone) echo "iPhone" ;;
+    ipad) echo "iPad" ;;
+    *) echo "$1" ;;
   esac
-  mapfile -t files < <(find "$device_dir" -maxdepth 1 -name '*.png' | sort)
+}
+
+# A device's recording; one that fails to send must not cost the other devices theirs.
+send_recording() {
+  local id=$1 video="$RECORDINGS_DIR/screen-recording-$1/$1.mp4"
+  [ -n "$RECORDINGS_DIR" ] && [ -s "$video" ] || return 0
+  local caption
+  caption="$(device_label "$id") · screen recording · #${PR}"
+  if [ "$(wc -c < "$video")" -gt "$MAX_VIDEO_BYTES" ]; then
+    telegram sendMessage \
+      --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+      --data-urlencode "text=🎬 ${caption} is over 50 MB; download it from the run: ${RUN_URL}" \
+      --data-urlencode "disable_web_page_preview=true" || true
+    return 0
+  fi
+  telegram sendVideo -F "chat_id=${TELEGRAM_CHAT_ID}" -F "video=@${video}" \
+    -F "supports_streaming=true" --form-string "caption=${caption}" \
+    || echo "Could not send the $(device_label "$id") recording." >&2
+}
+
+for id in iphone ipad; do
+  device_dir="$SCREENSHOTS_DIR/screenshots-$id"
+  device=$(device_label "$id")
+  files=()
+  [ -d "$device_dir" ] && mapfile -t files < <(find "$device_dir" -maxdepth 1 -name '*.png' | sort)
   total=${#files[@]}
-  [ "$total" -gt 0 ] || continue
   for ((start = 0; start < total; start += 10)); do
     args=()
     media="[]"
@@ -71,4 +95,5 @@ for device_dir in "$SCREENSHOTS_DIR"/screenshots-*/; do
       telegram sendMediaGroup -F "chat_id=${TELEGRAM_CHAT_ID}" --form-string "media=${media}" "${args[@]}"
     fi
   done
+  send_recording "$id"
 done
