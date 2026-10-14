@@ -1,13 +1,16 @@
 #!/bin/bash
-# Shrinks a simulator screen recording for sending to Telegram (bots can upload up to 50 MB): the
-# longer side down to 1280 px, H.264 in an MP4. Uses ffmpeg when the runner has it, else macOS's
-# avconvert, else keeps the recording as it is.
+# Shrinks a simulator screen recording until Telegram accepts it (bots can upload up to 50 MB): an
+# H.264 MP4 whose bitrate fits the video's length into a 45 MB budget (compress-video.swift, with
+# AVFoundation, so the runner needs nothing installed). Should the encoder overshoot, it tries again
+# with a smaller budget; if every try fails the recording is kept as it is, and Telegram gets a link
+# to the run instead.
 #
 #   compress-video.sh <recording.mov> <output.mp4>
 set -euo pipefail
 
 INPUT=$1
 OUTPUT=$2
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compress-video.swift"
 
 if [ ! -s "$INPUT" ]; then
   echo "No recording at $INPUT" >&2
@@ -15,12 +18,10 @@ if [ ! -s "$INPUT" ]; then
 fi
 mkdir -p "$(dirname "$OUTPUT")"
 
-if command -v ffmpeg > /dev/null; then
-  ffmpeg -y -loglevel error -i "$INPUT" \
-    -vf "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))'" \
-    -c:v libx264 -preset veryfast -crf 30 -pix_fmt yuv420p -an -movflags +faststart "$OUTPUT"
-elif ! avconvert --preset Preset1280x720 --source "$INPUT" --output "$OUTPUT" --replace > /dev/null; then
-  echo "Could not compress the recording; keeping it as recorded." >&2
-  cp "$INPUT" "$OUTPUT"
-fi
-ls -lh "$OUTPUT"
+for budget in 47185920 36700160 26214400; do
+  if xcrun swift "$SCRIPT" "$INPUT" "$OUTPUT" "$budget"; then
+    exit 0
+  fi
+done
+echo "Could not fit the recording under 50 MB; keeping it as recorded." >&2
+cp "$INPUT" "$OUTPUT"
