@@ -43,7 +43,7 @@ export function grantTokenSql(viewerId: string | AnySQLiteColumn, now = new Date
 
 /** Summaries `viewerId` may open without owning them: a live public link, or a share link that still lets them in. */
 export function readableByViewer(viewerId: string | AnySQLiteColumn, now = new Date()): SQL {
-  return or(isPublicAndLive(now), sql`${grantTokenSql(viewerId, now)} IS NOT NULL`)!;
+  return or(isPublicAndLive(now), sql`${grantTokenSql(viewerId, now)} IS NOT NULL`, sql`(summaries.kind = 'mini_app' AND EXISTS (SELECT 1 FROM mini_app_members m JOIN users u ON lower(u.email) = m.email WHERE m.app_id = summaries.id AND u.id = ${viewerId}))`)!;
 }
 
 export async function findGrantToken(db: Database, summaryId: string, viewerId: string, now = new Date()): Promise<string | null> {
@@ -54,6 +54,10 @@ export async function findGrantToken(db: Database, summaryId: string, viewerId: 
 /** The owner always; anyone else while the public link is live or a share link still lets them in. */
 export async function canViewerRead(db: Database, row: SummaryRow, viewerId: string | null, now = new Date()): Promise<boolean> {
   if (row.ownerId === viewerId || isLinkLive(row, now)) return true;
+  if (row.kind === "mini_app" && viewerId) {
+    const result = await db.get<{ n: number }>(sql`SELECT count(*) AS n FROM mini_app_members m JOIN users u ON lower(u.email) = m.email WHERE m.app_id = ${row.id} AND u.id = ${viewerId}`);
+    if (result?.n) return true;
+  }
   return viewerId !== null && await findGrantToken(db, row.id, viewerId, now) !== null;
 }
 

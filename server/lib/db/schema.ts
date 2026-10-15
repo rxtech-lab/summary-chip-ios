@@ -17,7 +17,7 @@ export const VISIBILITIES = ["public", "private"] as const;
  * What a library item is: a summary card, a trip diary (its structured document lives in `trips`)
  * or a LaTeX paper (its source files live in `papers`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -641,3 +641,55 @@ export const mcpOAuthTokens = sqliteTable("mcp_oauth_tokens", {
   usedAt: integer("used_at", { mode: "timestamp_ms" }),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 }, (table) => [index("mcp_oauth_tokens_grant_idx").on(table.grantId), index("mcp_oauth_tokens_expiry_idx").on(table.expiresAt)]);
+
+// App definitions are versioned; records and encrypted credentials are never in versions.
+export const miniApps = sqliteTable("mini_apps", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  document: text("document", { mode: "json" }).$type<import("@/lib/contracts/mini-app").MiniAppDocument>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+export const miniAppMembers = sqliteTable("mini_app_members", {
+  appId: text("app_id").notNull().references(() => miniApps.summaryId, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  permissions: text("permissions", { mode: "json" }).$type<Record<string, "read" | "write">>().notNull(),
+}, t => [primaryKey({ columns: [t.appId, t.email] })]);
+export const miniAppRecords = sqliteTable("mini_app_records", {
+  id: text("id").primaryKey(),
+  appId: text("app_id").notNull().references(() => miniApps.summaryId, { onDelete: "cascade" }),
+  collection: text("collection").notNull(), partition: text("partition").notNull(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  data: text("data", { mode: "json" }).$type<Record<string, import("@/lib/contracts/mini-app").Json>>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, t => [index("mini_records_partition_idx").on(t.appId, t.collection, t.partition, t.id)]);
+export const miniAppConnections = sqliteTable("mini_app_connections", {
+  id: text("id").primaryKey(),
+  appId: text("app_id").notNull().references(() => miniApps.summaryId, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  connector: text("connector").notNull(), shared: integer("shared", { mode: "boolean" }).notNull().default(false),
+  fingerprint: text("fingerprint").notNull(), secret: text("secret").notNull(),
+  status: text("status").notNull().default("connected"), revision: integer("revision").notNull().default(0),
+  refreshLease: integer("refresh_lease").notNull().default(0),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, t => [uniqueIndex("mini_connection_user_idx").on(t.appId, t.userId, t.connector, t.shared)]);
+export const miniAppConnectionGrants = sqliteTable("mini_app_connection_grants", {
+  connectionId: text("connection_id").notNull().references(() => miniAppConnections.id, { onDelete: "cascade" }),
+  email: text("email").notNull(), operations: text("operations", { mode: "json" }).$type<string[]>().notNull(),
+}, t => [primaryKey({ columns: [t.connectionId, t.email] })]);
+export const miniAppOAuth = sqliteTable("mini_app_oauth", {
+  stateHash: text("state_hash").primaryKey(),
+  appId: text("app_id").notNull().references(() => miniApps.summaryId, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  connector: text("connector").notNull(), shared: integer("shared", { mode: "boolean" }).notNull(),
+  fingerprint: text("fingerprint").notNull(), secret: text("secret").notNull(), expiresAt: integer("expires_at").notNull(),
+}, t => [index("mini_oauth_expiry_idx").on(t.expiresAt)]);
+export const miniAppRuns = sqliteTable("mini_app_runs", {
+  id: text("id").primaryKey(),
+  appId: text("app_id").notNull().references(() => miniApps.summaryId, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  key: text("key").notNull(), fingerprint: text("fingerprint").notNull(), status: text("status").notNull(),
+  result: text("result", { mode: "json" }).$type<import("@/lib/contracts/mini-app").Json>(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, t => [uniqueIndex("mini_run_key_idx").on(t.appId, t.userId, t.key), index("mini_run_time_idx").on(t.createdAt)]);

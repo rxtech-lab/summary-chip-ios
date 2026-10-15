@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "title": "Bitcoin Price",
+  "description": "The latest Bitcoin price in US dollars with its 24-hour change, from CoinGecko's free public API. No account needed.",
+  "ui": {
+    "root": "root",
+    "elements": {
+      "root": {
+        "type": "Navigation",
+        "props": {
+          "title": "Bitcoin"
+        },
+        "children": [
+          "price",
+          "change",
+          "updated",
+          "refresh"
+        ],
+        "events": {
+          "load": "load",
+          "refresh": "load"
+        }
+      },
+      "price": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "state.quote.price"
+          }
+        },
+        "children": [],
+        "events": {}
+      },
+      "change": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "state.quote.change"
+          }
+        },
+        "children": [],
+        "events": {}
+      },
+      "updated": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "state.quote.updated"
+          }
+        },
+        "children": [],
+        "events": {}
+      },
+      "refresh": {
+        "type": "Button",
+        "props": {
+          "title": "Refresh",
+          "icon": "arrow.clockwise"
+        },
+        "children": [],
+        "events": {
+          "press": "load"
+        }
+      }
+    }
+  },
+  "initialState": {
+    "raw": null,
+    "quote": {
+      "price": "Loading…",
+      "change": "",
+      "updated": ""
+    }
+  },
+  "tables": {},
+  "queries": {},
+  "actions": {
+    "load": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "request",
+          "connector": "coingecko",
+          "operation": "price",
+          "input": {
+            "ids": "bitcoin",
+            "vs_currencies": "usd",
+            "include_24hr_change": "true",
+            "include_last_updated_at": "true"
+          },
+          "into": "raw"
+        },
+        {
+          "type": "script",
+          "script": "format",
+          "input": {
+            "get": "state.raw"
+          },
+          "into": "quote"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "format": "const btc = input && input.bitcoin; if (!btc || typeof btc.usd !== 'number') return { price: 'Price unavailable', change: '', updated: '' }; const [whole, cents] = btc.usd.toFixed(2).split('.'); const price = '$' + whole.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + '.' + cents; const pct = typeof btc.usd_24h_change === 'number' ? btc.usd_24h_change : null; const change = pct === null ? '' : (pct >= 0 ? '▲ +' : '▼ ') + pct.toFixed(2) + '% (24h)'; const updated = typeof btc.last_updated_at === 'number' ? 'Updated ' + new Date(btc.last_updated_at * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : ''; return { price, change, updated };"
+  },
+  "connectors": {
+    "coingecko": {
+      "title": "CoinGecko",
+      "origin": "https://api.coingecko.com",
+      "auth": {
+        "type": "none"
+      },
+      "operations": {
+        "price": {
+          "method": "GET",
+          "path": "/api/v3/simple/price",
+          "input": {
+            "ids": {
+              "type": "string",
+              "required": true
+            },
+            "vs_currencies": {
+              "type": "string",
+              "required": true
+            },
+            "include_24hr_change": {
+              "type": "string"
+            },
+            "include_last_updated_at": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "fixtures": {
+    "records": {},
+    "responses": {
+      "coingecko_price": {
+        "bitcoin": {
+          "usd": 67234.5,
+          "usd_24h_change": 1.234,
+          "last_updated_at": 1760500000
+        }
+      }
+    },
+    "tests": [
+      {
+        "action": "load",
+        "input": {},
+        "state": {},
+        "expectState": {
+          "quote": {
+            "price": "$67,234.50",
+            "change": "▲ +1.23% (24h)",
+            "updated": "Updated 2025-10-15 03:46 UTC"
+          }
+        }
+      }
+    ]
+  }
+}

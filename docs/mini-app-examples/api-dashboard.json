@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "title": "API Dashboard",
+  "description": "A mocked dashboard until its HTTPS API is connected.",
+  "ui": {
+    "root": "root",
+    "elements": {
+      "root": {
+        "type": "Navigation",
+        "props": {
+          "title": "API Dashboard"
+        },
+        "children": [
+          "summary",
+          "refresh"
+        ],
+        "events": {
+          "load": "load",
+          "refresh": "load"
+        }
+      },
+      "summary": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "state.summary"
+          }
+        },
+        "children": [],
+        "events": {}
+      },
+      "refresh": {
+        "type": "Button",
+        "props": {
+          "title": "Refresh",
+          "icon": "arrow.clockwise"
+        },
+        "children": [],
+        "events": {
+          "press": "load"
+        }
+      }
+    }
+  },
+  "initialState": {
+    "summary": "Refresh to load",
+    "raw": null
+  },
+  "tables": {},
+  "queries": {},
+  "actions": {
+    "load": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "request",
+          "connector": "metrics",
+          "operation": "read",
+          "input": {},
+          "into": "raw"
+        },
+        {
+          "type": "script",
+          "script": "summarize",
+          "input": {
+            "get": "state.raw"
+          },
+          "into": "summary"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "summarize": "const total = input.values.reduce((sum, value) => sum + value, 0); return `Total: ${total}`;"
+  },
+  "connectors": {
+    "metrics": {
+      "title": "Metrics API",
+      "origin": "https://api.example.com",
+      "auth": {
+        "type": "apiKey",
+        "header": "Authorization",
+        "prefix": "Bearer "
+      },
+      "operations": {
+        "read": {
+          "method": "GET",
+          "path": "/metrics",
+          "input": {}
+        }
+      }
+    }
+  },
+  "fixtures": {
+    "records": {},
+    "responses": {
+      "metrics_read": {
+        "values": [
+          2,
+          4,
+          6
+        ]
+      }
+    },
+    "tests": [
+      {
+        "action": "load",
+        "input": {},
+        "state": {},
+        "expectState": {
+          "summary": "Total: 12"
+        }
+      }
+    ]
+  }
+}

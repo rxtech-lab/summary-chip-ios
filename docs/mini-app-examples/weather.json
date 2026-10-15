@@ -1,0 +1,692 @@
+{
+  "schemaVersion": 1,
+  "title": "Weather",
+  "description": "Current conditions where you are, or in any city you search for, on a map: temperature, feels-like, today's high and low, humidity, wind and chance of rain. Uses Open-Meteo's free public API, so no account is needed.",
+  "ui": {
+    "root": "root",
+    "elements": {
+      "root": {
+        "type": "Tabs",
+        "props": {
+          "searchable": true,
+          "binding": "tab"
+        },
+        "children": [
+          "toolbar",
+          "nowTab",
+          "mapTab"
+        ],
+        "events": {
+          "load": "refresh",
+          "submit": "searchCity"
+        }
+      },
+      "empty": {
+        "type": "Empty",
+        "props": {
+          "title": "No Location Yet",
+          "icon": "cloud.sun",
+          "message": {
+            "get": "state.message"
+          }
+        },
+        "children": [],
+        "events": {},
+        "visible": {
+          "op": "not",
+          "args": [
+            {
+              "get": "state.weather"
+            }
+          ]
+        }
+      },
+      "now": {
+        "type": "Card",
+        "props": {
+          "title": {
+            "get": "state.weather.place"
+          },
+          "subtitle": {
+            "get": "state.weather.summary"
+          }
+        },
+        "children": [
+          "temperature"
+        ],
+        "events": {},
+        "visible": {
+          "get": "state.weather"
+        }
+      },
+      "temperature": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "state.weather.temperature"
+          },
+          "size": "large",
+          "weight": "bold"
+        },
+        "children": [],
+        "events": {}
+      },
+      "map": {
+        "type": "Map",
+        "props": {
+          "latitude": {
+            "get": "state.coords.latitude"
+          },
+          "longitude": {
+            "get": "state.coords.longitude"
+          },
+          "span": 30000,
+          "height": 420,
+          "binding": "pin",
+          "markers": [
+            {
+              "id": "here",
+              "latitude": {
+                "get": "state.coords.latitude"
+              },
+              "longitude": {
+                "get": "state.coords.longitude"
+              },
+              "title": {
+                "get": "state.weather.place"
+              },
+              "icon": "cloud.sun.fill",
+              "tone": "accent"
+            }
+          ]
+        },
+        "children": [],
+        "events": {
+          "change": "openDetails"
+        },
+        "visible": {
+          "get": "state.weather"
+        }
+      },
+      "detailsSheet": {
+        "type": "Sheet",
+        "props": {
+          "title": {
+            "get": "state.weather.place"
+          },
+          "height": "half"
+        },
+        "children": [
+          "details",
+          "updated"
+        ],
+        "events": {}
+      },
+      "details": {
+        "type": "KeyValue",
+        "props": {
+          "items": {
+            "get": "state.weather.details"
+          }
+        },
+        "children": [],
+        "events": {},
+        "visible": {
+          "get": "state.weather"
+        }
+      },
+      "updated": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "state.weather.updated"
+          },
+          "size": "small",
+          "tone": "muted"
+        },
+        "children": [],
+        "events": {},
+        "visible": {
+          "get": "state.weather"
+        }
+      },
+      "locate": {
+        "type": "Location",
+        "props": {
+          "title": "Current Location",
+          "icon": "location.fill",
+          "binding": "coords",
+          "auto": true
+        },
+        "children": [],
+        "events": {
+          "change": "here"
+        }
+      },
+      "toolbar": {
+        "type": "Toolbar",
+        "props": {},
+        "children": [
+          "locate"
+        ],
+        "events": {}
+      },
+      "nowTab": {
+        "type": "Tab",
+        "props": {
+          "title": "Now",
+          "icon": "cloud.sun.fill"
+        },
+        "children": [
+          "empty",
+          "now",
+          "detailsCard",
+          "updated"
+        ],
+        "events": {
+          "refresh": "refresh"
+        }
+      },
+      "mapTab": {
+        "type": "Tab",
+        "props": {
+          "title": "Map",
+          "icon": "map"
+        },
+        "children": [
+          "empty",
+          "map"
+        ],
+        "events": {
+          "refresh": "refresh"
+        }
+      },
+      "detailsCard": {
+        "type": "Card",
+        "props": {
+          "title": "Details"
+        },
+        "children": [
+          "details"
+        ],
+        "events": {},
+        "visible": {
+          "get": "state.weather"
+        }
+      }
+    }
+  },
+  "initialState": {
+    "coords": null,
+    "pin": null,
+    "place": "",
+    "raw": null,
+    "geo": null,
+    "match": null,
+    "weather": null,
+    "message": "Use your current location or search for a city to see the weather.",
+    "tab": "nowTab"
+  },
+  "tables": {},
+  "queries": {},
+  "actions": {
+    "openDetails": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "present",
+          "target": "detailsSheet"
+        }
+      ]
+    },
+    "refresh": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "if",
+          "condition": {
+            "get": "state.coords"
+          },
+          "then": [
+            {
+              "type": "request",
+              "connector": "openmeteo",
+              "operation": "forecast",
+              "input": {
+                "latitude": {
+                  "get": "state.coords.latitude"
+                },
+                "longitude": {
+                  "get": "state.coords.longitude"
+                },
+                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "timezone": "auto",
+                "forecast_days": 1
+              },
+              "into": "raw"
+            },
+            {
+              "type": "script",
+              "script": "format",
+              "input": {
+                "raw": {
+                  "get": "state.raw"
+                },
+                "place": {
+                  "get": "state.place"
+                }
+              },
+              "into": "weather"
+            },
+            {
+              "type": "if",
+              "condition": {
+                "op": "not",
+                "args": [
+                  {
+                    "get": "state.weather"
+                  }
+                ]
+              },
+              "then": [
+                {
+                  "type": "set",
+                  "path": "message",
+                  "value": "Weather is unavailable right now. Pull to refresh."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "here": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "set",
+          "path": "place",
+          "value": ""
+        },
+        {
+          "type": "request",
+          "connector": "openmeteo",
+          "operation": "forecast",
+          "input": {
+            "latitude": {
+              "get": "state.coords.latitude"
+            },
+            "longitude": {
+              "get": "state.coords.longitude"
+            },
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m",
+            "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+            "timezone": "auto",
+            "forecast_days": 1
+          },
+          "into": "raw"
+        },
+        {
+          "type": "script",
+          "script": "format",
+          "input": {
+            "raw": {
+              "get": "state.raw"
+            },
+            "place": {
+              "get": "state.place"
+            }
+          },
+          "into": "weather"
+        },
+        {
+          "type": "if",
+          "condition": {
+            "op": "not",
+            "args": [
+              {
+                "get": "state.weather"
+              }
+            ]
+          },
+          "then": [
+            {
+              "type": "set",
+              "path": "message",
+              "value": "Weather is unavailable right now. Pull to refresh."
+            }
+          ]
+        }
+      ]
+    },
+    "searchCity": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "if",
+          "condition": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "length",
+                "args": [
+                  {
+                    "get": "state.search"
+                  }
+                ]
+              },
+              0
+            ]
+          },
+          "then": [
+            {
+              "type": "set",
+              "path": "message",
+              "value": "Type a city name in the search field."
+            }
+          ],
+          "else": [
+            {
+              "type": "request",
+              "connector": "geocoding",
+              "operation": "search",
+              "input": {
+                "name": {
+                  "get": "state.search"
+                },
+                "count": 1,
+                "language": "en",
+                "format": "json"
+              },
+              "into": "geo"
+            },
+            {
+              "type": "script",
+              "script": "pickPlace",
+              "input": {
+                "get": "state.geo"
+              },
+              "into": "match"
+            },
+            {
+              "type": "if",
+              "condition": {
+                "get": "state.match.found"
+              },
+              "then": [
+                {
+                  "type": "set",
+                  "path": "coords",
+                  "value": {
+                    "get": "state.match.coords"
+                  }
+                },
+                {
+                  "type": "set",
+                  "path": "place",
+                  "value": {
+                    "get": "state.match.name"
+                  }
+                },
+                {
+                  "type": "request",
+                  "connector": "openmeteo",
+                  "operation": "forecast",
+                  "input": {
+                    "latitude": {
+                      "get": "state.coords.latitude"
+                    },
+                    "longitude": {
+                      "get": "state.coords.longitude"
+                    },
+                    "current": "temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m",
+                    "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                    "timezone": "auto",
+                    "forecast_days": 1
+                  },
+                  "into": "raw"
+                },
+                {
+                  "type": "script",
+                  "script": "format",
+                  "input": {
+                    "raw": {
+                      "get": "state.raw"
+                    },
+                    "place": {
+                      "get": "state.place"
+                    }
+                  },
+                  "into": "weather"
+                },
+                {
+                  "type": "if",
+                  "condition": {
+                    "op": "not",
+                    "args": [
+                      {
+                        "get": "state.weather"
+                      }
+                    ]
+                  },
+                  "then": [
+                    {
+                      "type": "set",
+                      "path": "message",
+                      "value": "Weather is unavailable right now. Pull to refresh."
+                    }
+                  ]
+                }
+              ],
+              "else": [
+                {
+                  "type": "set",
+                  "path": "weather",
+                  "value": null
+                },
+                {
+                  "type": "set",
+                  "path": "message",
+                  "value": {
+                    "op": "concat",
+                    "args": [
+                      "No place called “",
+                      {
+                        "get": "state.search"
+                      },
+                      "” was found. Check the spelling and try again."
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "format": "const raw = input && input.raw; const c = raw && raw.current;\nif (!c || typeof c.temperature_2m !== 'number') return null;\nconst codes = {0:['☀️','Clear sky'],1:['🌤️','Mainly clear'],2:['⛅️','Partly cloudy'],3:['☁️','Overcast'],45:['🌫️','Fog'],48:['🌫️','Rime fog'],51:['🌦️','Light drizzle'],53:['🌦️','Drizzle'],55:['🌧️','Heavy drizzle'],56:['🌧️','Freezing drizzle'],57:['🌧️','Freezing drizzle'],61:['🌦️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],66:['🌧️','Freezing rain'],67:['🌧️','Freezing rain'],71:['🌨️','Light snow'],73:['🌨️','Snow'],75:['❄️','Heavy snow'],77:['🌨️','Snow grains'],80:['🌦️','Rain showers'],81:['🌧️','Rain showers'],82:['⛈️','Violent showers'],85:['🌨️','Snow showers'],86:['❄️','Heavy snow showers'],95:['⛈️','Thunderstorm'],96:['⛈️','Thunderstorm with hail'],99:['⛈️','Thunderstorm with hail']};\nlet [icon, text] = codes[c.weather_code] || ['🌡️', 'Unknown conditions'];\nif (c.is_day === 0 && c.weather_code <= 1) icon = '🌙';\nconst u = raw.current_units || {}; const t = u.temperature_2m || '°C';\nconst r = v => Math.round(v);\nconst d = raw.daily || {};\nconst hi = d.temperature_2m_max && d.temperature_2m_max[0]; const lo = d.temperature_2m_min && d.temperature_2m_min[0];\nconst rain = d.precipitation_probability_max && d.precipitation_probability_max[0];\nconst dirs = ['N','NE','E','SE','S','SW','W','NW'];\nconst wind = typeof c.wind_speed_10m === 'number' ? r(c.wind_speed_10m) + ' ' + (u.wind_speed_10m || 'km/h') + (typeof c.wind_direction_10m === 'number' ? ' ' + dirs[Math.round(c.wind_direction_10m / 45) % 8] : '') : '—';\nconst details = [\n  { label: 'Feels like', value: typeof c.apparent_temperature === 'number' ? r(c.apparent_temperature) + t : '—' },\n  { label: 'High / Low', value: typeof hi === 'number' && typeof lo === 'number' ? r(hi) + '° / ' + r(lo) + '°' : '—' },\n  { label: 'Humidity', value: typeof c.relative_humidity_2m === 'number' ? r(c.relative_humidity_2m) + '%' : '—' },\n  { label: 'Wind', value: wind },\n  { label: 'Chance of rain', value: typeof rain === 'number' ? rain + '%' : '—' },\n];\nconst zone = (raw.timezone || '').split('/').pop().replace(/_/g, ' ');\nreturn {\n  place: input.place || zone || 'Current Location',\n  summary: icon + '  ' + text,\n  temperature: r(c.temperature_2m) + t,\n  details,\n  updated: 'Updated ' + (c.time || '').replace('T', ' ') + ' local time (' + (raw.timezone_abbreviation || raw.timezone || '') + ')',\n};",
+    "pickPlace": "const p = input && Array.isArray(input.results) ? input.results[0] : null;\nif (!p || typeof p.latitude !== 'number') return { found: false };\nconst name = [p.name, p.admin1, p.country].filter((v, i, all) => v && all.indexOf(v) === i).join(', ');\nreturn { found: true, name, coords: { latitude: p.latitude, longitude: p.longitude } };"
+  },
+  "connectors": {
+    "openmeteo": {
+      "title": "Open-Meteo Forecast",
+      "origin": "https://api.open-meteo.com",
+      "auth": {
+        "type": "none"
+      },
+      "operations": {
+        "forecast": {
+          "method": "GET",
+          "path": "/v1/forecast",
+          "input": {
+            "latitude": {
+              "type": "number",
+              "required": true
+            },
+            "longitude": {
+              "type": "number",
+              "required": true
+            },
+            "current": {
+              "type": "string",
+              "required": true
+            },
+            "daily": {
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            },
+            "forecast_days": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "geocoding": {
+      "title": "Open-Meteo Geocoding",
+      "origin": "https://geocoding-api.open-meteo.com",
+      "auth": {
+        "type": "none"
+      },
+      "operations": {
+        "search": {
+          "method": "GET",
+          "path": "/v1/search",
+          "input": {
+            "name": {
+              "type": "string",
+              "required": true
+            },
+            "count": {
+              "type": "number"
+            },
+            "language": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "fixtures": {
+    "records": {},
+    "responses": {
+      "openmeteo_forecast": {
+        "timezone": "Asia/Hong_Kong",
+        "timezone_abbreviation": "HKT",
+        "current_units": {
+          "temperature_2m": "°C",
+          "wind_speed_10m": "km/h"
+        },
+        "current": {
+          "time": "2026-10-15T14:00",
+          "temperature_2m": 27.4,
+          "apparent_temperature": 30.1,
+          "relative_humidity_2m": 74,
+          "is_day": 1,
+          "weather_code": 2,
+          "wind_speed_10m": 12.3,
+          "wind_direction_10m": 90
+        },
+        "daily": {
+          "temperature_2m_max": [
+            29.1
+          ],
+          "temperature_2m_min": [
+            23.6
+          ],
+          "precipitation_probability_max": [
+            20
+          ]
+        }
+      },
+      "geocoding_search": {
+        "results": [
+          {
+            "name": "Hong Kong",
+            "latitude": 22.27832,
+            "longitude": 114.17469,
+            "country": "Hong Kong",
+            "admin1": "Hong Kong"
+          }
+        ]
+      }
+    },
+    "tests": [
+      {
+        "action": "here",
+        "input": {},
+        "state": {
+          "coords": {
+            "latitude": 22.3,
+            "longitude": 114.2
+          }
+        },
+        "expectState": {
+          "weather": {
+            "place": "Hong Kong",
+            "summary": "⛅️  Partly cloudy",
+            "temperature": "27°C",
+            "details": [
+              {
+                "label": "Feels like",
+                "value": "30°C"
+              },
+              {
+                "label": "High / Low",
+                "value": "29° / 24°"
+              },
+              {
+                "label": "Humidity",
+                "value": "74%"
+              },
+              {
+                "label": "Wind",
+                "value": "12 km/h E"
+              },
+              {
+                "label": "Chance of rain",
+                "value": "20%"
+              }
+            ],
+            "updated": "Updated 2026-10-15 14:00 local time (HKT)"
+          }
+        }
+      },
+      {
+        "action": "searchCity",
+        "input": {},
+        "state": {
+          "search": "hong kong"
+        },
+        "expectState": {
+          "place": "Hong Kong",
+          "coords": {
+            "latitude": 22.27832,
+            "longitude": 114.17469
+          }
+        }
+      },
+      {
+        "action": "refresh",
+        "input": {},
+        "state": {},
+        "expectState": {
+          "weather": null
+        }
+      }
+    ]
+  }
+}

@@ -4,11 +4,16 @@ import SwiftUI
 /// JSON views and web research each have a dedicated sheet instead of expanding the transcript.
 struct ChatToolDetailSheet: View {
     let tool: ChatToolActivity
+    let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var feedback = 0
 
     var body: some View {
+        if let document = tool.miniAppDraft { MiniAppPreviewView(environment: environment, document: document) }
+        else { detail }
+    }
+    private var detail: some View {
         NavigationStack {
             Group {
                 if let ui = tool.renderedUI {

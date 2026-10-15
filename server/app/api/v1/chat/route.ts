@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       summaryId: body.summaryId,
       localContent: body.localContent,
       tripId: body.tripId,
+      miniAppId: body.miniAppId,
       billingEnvironment: await billingEnvironment(request, principal),
       abortSignal: request.signal,
     });

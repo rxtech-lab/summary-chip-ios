@@ -32,11 +32,13 @@ public struct ChatRequestBody: Codable, Sendable {
     public var localContent: String?
     /// Chats with the trip agent about one of the user's trips; the agent can edit it.
     public var tripId: String?
-    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil) {
+    public var miniAppId: String?
+    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil, miniAppId: String? = nil) {
         self.messages = messages
         self.summaryId = summaryId
         self.localContent = localContent
         self.tripId = tripId
+        self.miniAppId = miniAppId
     }
 }
 
@@ -107,12 +109,12 @@ public final class ChatStreamClient: Sendable {
 
     public init(api: SummaryAPIClient) { self.api = api }
 
-    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
+    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil, miniAppID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
         let api = self.api
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
         let task = Task {
             do {
-                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID))
+                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID, miniAppId: miniAppID))
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 300
                 let bytes = try await Self.openStream(api: api, request: request)

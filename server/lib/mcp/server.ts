@@ -1,3 +1,4 @@
+import { registerMiniAppTools } from "@/lib/mini-app/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -56,8 +57,9 @@ export const MAX_LIST_RESULTS = 10;
 
 export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"chips\"). Use search_summaries to find chips by meaning "
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
-  + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding "
-  + "is free; update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
+  + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
+  + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover. Never include credentials in their JSON. "
+  + "update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
   + "flights, hotels, expenses, custom views such as a fare comparison table, and alternative plans such as route 1 / route 2 "
   + "for a day or the whole trip): list_trips and get_trip read them, create_trip saves a new TripDocument, update_trip applies "
   + "entity-level operations (upsert or delete records by id; free), choose_plan_option records which alternative the user "
@@ -194,6 +196,8 @@ function describe(error: unknown): string {
       const listed = (details?.errors ?? []).map((issue) => `${issue.file ?? "?"}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`).join("\n");
       return `LaTeX could not compile the paper (${error.code}).${listed ? `\n${listed}` : ""}`;
     }
+    if (error.code === "MINI_APP_INVALID") return `${error.message}: ${JSON.stringify(error.details)}. Use validate_mini_app to repair the definition.`;
+    if (error.code === "MINI_REVISION_CONFLICT") return `${error.message} Call get_mini_app, then update_mini_app with its revision.`;
     if (error.code === "TRIP_REVISION_CONFLICT") return `${error.message} Call get_trip for the latest document, then update_trip again. (${error.code})`;
     return `${error.message} (${error.code})`;
   }
@@ -213,7 +217,7 @@ const filters = {
   category: z.enum(CATEGORIES).optional().describe("Only chips in this category."),
   tag: z.string().trim().max(40).optional().describe("Only chips with this tag."),
   visibility: z.enum(VISIBILITIES).optional().describe("Only public or only private chips."),
-  kind: z.enum(SUMMARY_KINDS).optional().describe("summary: only summary cards. trip: only trip diaries (open them with get_trip). paper: only LaTeX papers (open them with get_paper)."),
+  kind: z.enum(SUMMARY_KINDS).optional().describe("summary: only summary cards. trip: only trip diaries (open them with get_trip). paper: only LaTeX papers (open them with get_paper). mini_app: native interactive apps (open them with get_mini_app)."),
 };
 
 type Filters = { [K in keyof typeof filters]?: z.infer<(typeof filters)[K]> };
@@ -255,6 +259,8 @@ export function createMcpServer(context: McpContext): McpServer {
     if (principal.apiKeyId) await recordApiKeyUsage(db, principal.apiKeyId, { summaryAdded }).catch((error) => console.error("[mcp] usage not recorded", error));
     return result;
   }
+
+  registerMiniAppTools(server, db, principal.sub, run);
 
   server.registerTool(TOOL_NAMES.getProfile, {
     title: "Chippy Account", description: "Return the Chippy account authenticated by this connection.", inputSchema: {},
@@ -352,6 +358,7 @@ export function createMcpServer(context: McpContext): McpServer {
     if (Object.values(patch).every((value) => value === undefined)) return { result: failure("Nothing to change: pass at least one field.") };
     const existing = await getOwnedSummary(db, args.summaryId, principal.sub);
     if (existing.kind === "trip") return { result: failure("This is a trip: edit it with update_trip.") };
+    if (existing.kind === "mini_app") return { result: failure("This is a Mini App: use update_mini_app.") };
     if (existing.kind === "paper") return { result: failure("This is a paper: edit it with update_paper.") };
     const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true, actor: "agent" });
     return { result: success({ summary: chipPayload(summary) }, `Updated "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`) };

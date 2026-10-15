@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "title": "Personal Tracker",
+  "description": "A private list with a native creation sheet.",
+  "ui": {
+    "root": "root",
+    "elements": {
+      "root": {
+        "type": "Navigation",
+        "props": {
+          "title": "Personal Tracker",
+          "searchable": true
+        },
+        "children": [
+          "add",
+          "rows"
+        ],
+        "events": {
+          "load": "load",
+          "refresh": "load",
+          "search": "load"
+        }
+      },
+      "add": {
+        "type": "Button",
+        "props": {
+          "title": "Add Task",
+          "icon": "plus"
+        },
+        "children": [],
+        "events": {
+          "press": "open"
+        }
+      },
+      "rows": {
+        "type": "Text",
+        "props": {
+          "text": {
+            "get": "item.data.title"
+          }
+        },
+        "children": [],
+        "repeat": {
+          "items": {
+            "get": "state.records.items"
+          }
+        },
+        "events": {}
+      },
+      "editor": {
+        "type": "Sheet",
+        "props": {
+          "title": "Add Task"
+        },
+        "children": [
+          "field",
+          "save"
+        ],
+        "events": {}
+      },
+      "field": {
+        "type": "TextField",
+        "props": {
+          "title": "Title",
+          "binding": "title",
+          "required": true
+        },
+        "children": [],
+        "events": {}
+      },
+      "save": {
+        "type": "Button",
+        "props": {
+          "title": "Save",
+          "icon": "checkmark"
+        },
+        "children": [],
+        "events": {
+          "press": "save"
+        }
+      }
+    }
+  },
+  "initialState": {
+    "title": "",
+    "search": "",
+    "records": []
+  },
+  "tables": {
+    "tasks": {
+      "scope": "personal",
+      "fields": {
+        "title": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  "queries": {
+    "tasks": {
+      "table": "tasks",
+      "filters": [
+        {
+          "field": "title",
+          "op": "contains",
+          "value": {
+            "op": "coalesce",
+            "args": [
+              {
+                "get": "state.search"
+              },
+              ""
+            ]
+          }
+        }
+      ],
+      "limit": 50
+    }
+  },
+  "actions": {
+    "load": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "query",
+          "query": "tasks",
+          "into": "records"
+        }
+      ]
+    },
+    "open": {
+      "trigger": "read",
+      "input": {},
+      "steps": [
+        {
+          "type": "present",
+          "target": "editor"
+        }
+      ]
+    },
+    "save": {
+      "trigger": "interaction",
+      "input": {},
+      "steps": [
+        {
+          "type": "mutate",
+          "table": "tasks",
+          "operation": "create",
+          "value": {
+            "title": {
+              "get": "state.title"
+            }
+          }
+        },
+        {
+          "type": "query",
+          "query": "tasks",
+          "into": "records"
+        },
+        {
+          "type": "set",
+          "path": "title",
+          "value": ""
+        },
+        {
+          "type": "dismiss"
+        }
+      ]
+    }
+  },
+  "scripts": {},
+  "connectors": {},
+  "fixtures": {
+    "records": {},
+    "responses": {},
+    "tests": [
+      {
+        "action": "save",
+        "input": {},
+        "state": {
+          "title": "First task",
+          "search": ""
+        },
+        "expectState": {
+          "title": ""
+        }
+      }
+    ]
+  }
+}
