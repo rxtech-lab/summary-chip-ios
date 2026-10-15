@@ -12,11 +12,12 @@ struct LikesView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openSummarySearch) private var openSearch
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
+    @Environment(\.openMiniApp) private var openMiniApp
 
     private var model: LikesModel { environment.likes }
 
     var body: some View {
-        NavigationStack(path: path ?? $localPath) {
+        NavigationStack(path: (path ?? $localPath).presentingMiniApps(with: openMiniApp)) {
             content
                 .navigationTitle("Likes")
                 .navigationDestination(for: Summary.self) { summary in

@@ -11,6 +11,7 @@ struct MiniAppNodeView: View {
     var expandedRepeat = false
     @State private var confirmsAction = false
     @State private var selectedTab: String?
+    @Environment(\.miniGridCell) private var inGridCell
 
     var body: some View {
         if depth < 24, let node = model.document.ui.elements[id], node.visible == nil || model.value(node.visible, item: item).miniTruth {
@@ -37,8 +38,11 @@ struct MiniAppNodeView: View {
         case "Stack":
             if string(node, "direction") == "horizontal" { HStack(alignment: .top, spacing: 12) { children(node) } }
             else { VStack(alignment: .leading, spacing: 12) { children(node) } }
-        case "Grid": LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: min(4, max(1, props(node)["columns"]?.intValue ?? 2)))) { children(node) }
-        case "Card": VStack(alignment: .leading, spacing: 12) { if !string(node, "title").isEmpty { Text(string(node, "title")).font(.headline) }; children(node) }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 16))
+        case "Grid": LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: min(4, max(1, props(node)["columns"]?.intValue ?? 2)))) { children(node).environment(\.miniGridCell, true) }
+        // In a Grid, cards fill the row so neighbours share the tallest card's height.
+        case "Card": VStack(alignment: .leading, spacing: 12) { if !string(node, "title").isEmpty { Text(string(node, "title")).font(.headline) }; children(node) }.padding()
+            .frame(maxWidth: inGridCell ? .infinity : nil, maxHeight: inGridCell ? .infinity : nil, alignment: .topLeading)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 16))
         case "Disclosure": DisclosureGroup(string(node, "title")) { children(node) }
         case "Form": Form { children(node) }.formStyle(.grouped)
         case "Section": Section(string(node, "title")) { children(node) }
@@ -49,6 +53,7 @@ struct MiniAppNodeView: View {
         case "Toggle": Toggle(string(node, "title"), isOn: boolBinding(node))
         case "Picker": picker(node)
         case "DatePicker": DatePicker(string(node, "title"), selection: dateBinding(node), displayedComponents: [.date])
+        case "FilePicker": MiniFilePicker(model: model, node: node, item: item, title: string(node, "title", fallback: String(localized: "Add File")), icon: string(node, "icon", fallback: "paperclip"))
         case "Location": MiniLocationButton(model: model, node: node, item: item, title: string(node, "title", fallback: String(localized: "Use Current Location")), icon: string(node, "icon", fallback: "location.fill"))
         case "Map": MiniMapView(model: model, node: node, props: props(node), item: item)
         case "Progress": ProgressView(string(node, "title", fallback: "Loading…"))
@@ -363,4 +368,9 @@ private struct MiniIdentityModifier: ViewModifier {
     func body(content: Content) -> some View {
         if let id { content.accessibilityIdentifier(id) } else { content }
     }
+}
+
+extension EnvironmentValues {
+    /// True for a Mini App Grid's cells, so cards stretch to the height of their row.
+    @Entry var miniGridCell = false
 }

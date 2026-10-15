@@ -30,6 +30,24 @@ extension SummaryAPIClient {
         let result: Result = try await send(json("/api/v1/mini-apps/\(id.urlPathEscaped)/scripts", method: "POST", body: Body(revision: revision, script: script, input: input)))
         return result.value ?? .null
     }
+    /// Uploads a file picked in a saved Clip: presigned PUT (no app credentials), then stored by the
+    /// server. Returns the file reference `{id, url, name, contentType, size, width?, height?}`.
+    public func uploadMiniAppFile(id: String, data: Data, filename: String, mimeType: String) async throws -> JSONValue {
+        guard data.count <= Self.maxUploadBytes else { throw SummaryAPIError.fileTooLarge(maxBytes: Self.maxUploadBytes) }
+        let path = "/api/v1/mini-apps/\(id.urlPathEscaped)"
+        let ticket: UploadTicket = try await send(json("\(path)/uploads", method: "POST", body: CreateUploadRequest(filename: filename, mimeType: mimeType, byteSize: data.count)))
+        var put = URLRequest(url: ticket.uploadUrl)
+        put.httpMethod = "PUT"
+        put.timeoutInterval = Self.createTimeout
+        for (name, value) in ticket.headers { put.setValue(value, forHTTPHeaderField: name) }
+        let (_, response) = try await session.upload(for: put, from: data)
+        guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else { throw SummaryAPIError.uploadFailed(status: http.statusCode) }
+        struct Body: Encodable { let uploadKey: String; let name: String }
+        struct Result: Decodable { let file: JSONValue }
+        let result: Result = try await send(json("\(path)/files", method: "POST", body: Body(uploadKey: ticket.key, name: String(filename.prefix(200)))))
+        return result.file
+    }
     public func miniAppRecords(id: String, table: String, cursor: String? = nil) async throws -> MiniAppRecordPage {
         var query = [URLQueryItem(name: "table", value: table)]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }

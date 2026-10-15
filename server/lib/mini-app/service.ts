@@ -140,6 +140,19 @@ export async function mutateMiniRecord(db: Database, appId: string, userId: stri
   return { id: input.id, revision: input.revision! + 1, data };
 }
 
+export const MINI_SEED_MAX_RECORDS = 100;
+
+/** Initial data for a Clip's table: every record is validated before the first is written. Personal tables fill the caller's own partition. */
+export async function addMiniRecords(db: Database, appId: string, userId: string, table: string, records: unknown[]) {
+  if (records.length > MINI_SEED_MAX_RECORDS) throw new ApiError(422, "MINI_RECORD_INVALID", `Add at most ${MINI_SEED_MAX_RECORDS} records at a time`);
+  const access = await tableAccess(db, appId, userId, table, true);
+  const invalid = records.flatMap((record, index) => { try { validateFields(record, access.table.fields); return []; } catch { return [index]; } });
+  if (invalid.length) throw new ApiError(422, "MINI_RECORD_INVALID", `Records ${invalid.slice(0, 10).join(", ")} do not match table ${table}'s fields`, { fields: access.table.fields });
+  const created = [];
+  for (const data of records) created.push(await mutateMiniRecord(db, appId, userId, table, "create", { data }));
+  return { table, scope: access.table.scope, count: created.length, records: created };
+}
+
 /** At-most-once management writes, including a lost response or a server restart. */
 export async function mutateMiniRecordOnce(db: Database, appId: string, userId: string, input: { key: string; table: string; operation: "create" | "update" | "delete"; id?: string; revision?: number; data?: unknown }) {
   await tableAccess(db, appId, userId, input.table, true);

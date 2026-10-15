@@ -92,6 +92,7 @@
 		69129D6F98D7EFAFA399042B /* TripDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFE1BB4A566A4B2EC3CE4FEC /* TripDetailView.swift */; };
 		6A0DF233284A48CE3BE2FDC9 /* PaperEditorDecorations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3200922A6B7FC3123D1FBB92 /* PaperEditorDecorations.swift */; };
 		6A66E3320D11D2662E303ADB /* PaperFigureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9CFBAC98B5B1C68004CD3B /* PaperFigureSheet.swift */; };
+		6B589AB736510F62AB9BA16D /* MiniAppFilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9D849B61DE400F702A6352C /* MiniAppFilePicker.swift */; };
 		6D261F0E31550608C2D7E2AF /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */; };
 		6DC4FB5B68F8F16C4946EC96 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
 		6F5A720E6BA585EAA34222B2 /* DocumentVersionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61884AE245EEDF49D4020E7 /* DocumentVersionViews.swift */; };
@@ -145,6 +146,7 @@
 		B2B532514F1DE0B25025608B /* PaperCompletionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF3C5B193BBAB0545DF7426 /* PaperCompletionBar.swift */; };
 		B423425FC772E617ADB76556 /* TripTourFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE2BF66C079EBDEBBF186DE /* TripTourFacts.swift */; };
 		B7228302C31C36E2F2309C97 /* MiniAppPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200C2433584E3D4B1523124C /* MiniAppPreviewHost.swift */; };
+		BA0F513242EC60567C546E34 /* MiniAppPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE552EAC34453B60B9BC910 /* MiniAppPresentation.swift */; };
 		BAAAEC84F2D3164611AC1E52 /* MacSmartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 207AD4DD35A45CC6AB7F07BE /* MacSmartShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BB923035EDDB9A1B8B0331A6 /* TripViewEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A01AC90F517CEDCD4CF362D /* TripViewEditorSheet.swift */; };
 		BBD180F3C05E2FA70FB0778A /* TripDiaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C701057B10532B2E37EAD1A /* TripDiaryView.swift */; };
@@ -415,6 +417,7 @@
 		99C5A7BD4177CFC47C1133D8 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		9AC23984BF62F18E1422516D /* ExtractContent.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ExtractContent.js; sourceTree = "<group>"; };
 		9B8746A260F194E5005878F2 /* PaperRenderingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperRenderingSheet.swift; sourceTree = "<group>"; };
+		9BE552EAC34453B60B9BC910 /* MiniAppPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppPresentation.swift; sourceTree = "<group>"; };
 		9BF3C5B193BBAB0545DF7426 /* PaperCompletionBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperCompletionBar.swift; sourceTree = "<group>"; };
 		9EC082039EF2E2203D74004F /* TripPlacePreviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlacePreviewCard.swift; sourceTree = "<group>"; };
 		A0EE92E3D91BF8D316B87E40 /* ChatStreamingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStreamingUITests.swift; sourceTree = "<group>"; };
@@ -427,6 +430,7 @@
 		A64F94276100D35635F2FD6D /* DeleteSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteSummarySheet.swift; sourceTree = "<group>"; };
 		A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripWeatherViews.swift; sourceTree = "<group>"; };
 		A9147248712D5998AF2A4787 /* TransportEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportEditorSheet.swift; sourceTree = "<group>"; };
+		A9D849B61DE400F702A6352C /* MiniAppFilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppFilePicker.swift; sourceTree = "<group>"; };
 		AB6D008DA55CA83DC9BC51D7 /* MessagesState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesState.swift; sourceTree = "<group>"; };
 		AC2F1BD213CDACD722D20A3B /* PaperReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderView.swift; sourceTree = "<group>"; };
 		AD3F719D42564B011442D1ED /* SummaryMessages.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SummaryMessages.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -627,8 +631,10 @@
 			children = (
 				AF6A4D83041F62CEE34E1B0F /* MiniAppConnections.swift */,
 				DC856AC9EE5BBBED33B83759 /* MiniAppDetailView.swift */,
+				A9D849B61DE400F702A6352C /* MiniAppFilePicker.swift */,
 				6806877BB2A707182A2EC0D2 /* MiniAppManagement.swift */,
 				5A386A5087F84852057C81DE /* MiniAppNodeView.swift */,
+				9BE552EAC34453B60B9BC910 /* MiniAppPresentation.swift */,
 				200C2433584E3D4B1523124C /* MiniAppPreviewHost.swift */,
 				6A1FCB7B171D0CBF734E6795 /* MiniAppRuntime.swift */,
 			);
@@ -1432,8 +1438,10 @@
 				54652453BAE43998A68A0E0C /* MCPSettingsSheet.swift in Sources */,
 				5C5C20572D3485E1246EDF7D /* MiniAppConnections.swift in Sources */,
 				4E8212E5C791274BEA06F5FE /* MiniAppDetailView.swift in Sources */,
+				6B589AB736510F62AB9BA16D /* MiniAppFilePicker.swift in Sources */,
 				E3BB22A41AD9FAAD837C3309 /* MiniAppManagement.swift in Sources */,
 				93DBF253E7774B742CBFF3BC /* MiniAppNodeView.swift in Sources */,
+				BA0F513242EC60567C546E34 /* MiniAppPresentation.swift in Sources */,
 				B7228302C31C36E2F2309C97 /* MiniAppPreviewHost.swift in Sources */,
 				7B19FC8161E06FB51C08D0AB /* MiniAppRuntime.swift in Sources */,
 				09C2FBBB2E256DC3F02926E6 /* NewSummarySheet.swift in Sources */,
