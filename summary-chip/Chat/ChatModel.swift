@@ -99,7 +99,7 @@ final class ChatModel {
         String(localized: "Explain this in simpler terms"),
         String(localized: "What details did the summary leave out?"),
         String(localized: "What are the strongest arguments here?"),
-        String(localized: "Find related summaries in my library"),
+        String(localized: "Find related summaries in my Feed"),
     ]
 
     static let tripSuggestions = [

@@ -165,7 +165,7 @@ struct MiniAppRuntimeView: View {
     var body: some View {
         Group {
             if model.document.schemaVersion != 1 {
-                ContentUnavailableView("Update Chippy", systemImage: "arrow.down.app", description: Text("This Mini App needs a newer renderer."))
+                ContentUnavailableView("Update Chippy", systemImage: "arrow.down.app", description: Text("This Clip needs a newer renderer."))
             } else {
                 MiniAppNodeView(model: model, id: model.document.ui.root)
             }
@@ -189,11 +189,11 @@ struct MiniAppRuntimeView: View {
         .alert(dialogTitle(model.alert), isPresented: Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })) {
             presentationButtons(model.alert)
         } message: { Text(dialogMessage(model.alert)) }
-        .statusAlert("Mini App", message: model.error) { model.error = nil }
+        .statusAlert("Clip", message: model.error) { model.error = nil }
         .sensoryFeedback(.selection, trigger: model.feedback)
         .sensoryFeedback(.error, trigger: model.error)
     }
-    private func dialogTitle(_ target: MiniPresentation?) -> String { target.flatMap { model.document.ui.elements[$0.id]?.props["title"]?.miniText } ?? "Mini App" }
+    private func dialogTitle(_ target: MiniPresentation?) -> String { target.flatMap { model.document.ui.elements[$0.id]?.props["title"]?.miniText } ?? "Clip" }
     private func dialogMessage(_ target: MiniPresentation?) -> String { target.flatMap { model.document.ui.elements[$0.id]?.props["message"]?.miniText } ?? "" }
     @ViewBuilder private func presentationButtons(_ target: MiniPresentation?) -> some View {
         if let target, let node = model.document.ui.elements[target.id] {

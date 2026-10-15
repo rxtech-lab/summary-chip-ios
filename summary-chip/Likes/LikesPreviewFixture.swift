@@ -128,6 +128,11 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         let now = Date.now
         let day: TimeInterval = 86_400
         items = [
+            Item(id: "clip-01", slug: "P0cketClip", kind: "mini_app", title: "Pocket Checklist",
+                 summary: "A small interactive checklist for everyday tasks.",
+                 category: "Lifestyle", tags: ["checklist"], source: "text",
+                 colors: ["#004D40", "#26A69A"], emoji: "✅", accent: "#4db6ac", isOwner: true,
+                 createdAt: now.addingTimeInterval(-2 * 3600)),
             Item(id: "s-coffee", slug: "C0ffeeRst1", title: "Why specialty roasters are buying their own farms",
                  summary: "Small coffee roasters are investing directly in growers to secure quality beans as climate swings make harvests less predictable.",
                  highlights: ["Direct trade keeps more of the price with growers.", "Owning land gives roasters steadier supply."],
@@ -193,14 +198,22 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         switch (method, path.first ?? "", path.count) {
         case ("GET", "summaries", 1):
             let liked = query.first { $0.name == "scope" }?.value == "liked"
+            let kind = query.first { $0.name == "kind" }?.value
+            let excludedKind = query.first { $0.name == "excludeKind" }?.value
             let listed = items.filter { item in
-                liked ? likes[item.id] != nil : !item.isExpired && (item.isOwner || viewed.contains(item.id))
+                (kind == nil || item.kind == kind) && item.kind != excludedKind &&
+                (liked ? likes[item.id] != nil : !item.isExpired && (item.isOwner || viewed.contains(item.id)))
             }
             .sorted { sortDate($0, liked: liked) > sortDate($1, liked: liked) }
             return json(["items": listed.map(summary), "nextCursor": NSNull()])
         case ("GET", "summaries", 2):
             guard let item = items.first(where: { $0.id == id }), !item.isExpired else { return notFound }
             return json(summary(item))
+        case ("GET", "mini-apps", 2) where id == "clip-01":
+            let document = MiniAppDocument.blank(title: "Pocket Checklist")
+            let encoded = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(document))) ?? [:]
+            return json(["app": ["id": id, "document": encoded, "revision": 0, "isOwner": true,
+                                  "shareUrl": "https://summary.rxlab.app/s/P0cketClip", "permissions": [:]]])
         case ("PUT", "summaries", 3) where path[2] == "like":
             guard let item = items.first(where: { $0.id == id }), !item.isExpired else { return notFound }
             if likes[id] == nil { likes[id] = .now }

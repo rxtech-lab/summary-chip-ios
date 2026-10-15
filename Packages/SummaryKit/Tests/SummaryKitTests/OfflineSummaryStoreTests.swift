@@ -71,6 +71,24 @@ struct OfflineSummaryStoreTests {
         #expect(store.summary(id: "plain")?.isLiked == false)
     }
 
+    @Test func feedExcludesClipsWithoutRemovingTheirOfflineCopies() {
+        let store = OfflineSummaryStore(fileURL: nil)
+        let card = summary("card", daysAgo: 2)
+        var clip = summary("clip", daysAgo: 1)
+        clip.kind = .miniApp
+        store.upsert([clip, card])
+
+        let feed = SummaryListQuery(excludeKind: .miniApp)
+        #expect(feed.queryItems.contains(URLQueryItem(name: "excludeKind", value: "mini_app")))
+        #expect(store.summaries(matching: feed).map(\.id) == ["card"])
+        #expect(store.summaries(matching: .init(kind: .miniApp)).map(\.id) == ["clip"])
+
+        store.replaceFirstPage([card], isComplete: true, excludingKind: .miniApp)
+        #expect(store.summary(id: "clip")?.kind == .miniApp)
+        store.replaceFirstPage([], isComplete: true, excludingKind: .miniApp)
+        #expect(store.summaries.map(\.id) == ["clip"])
+    }
+
     @Test func removeAndClear() async throws {
         let url = makeURL()
         let store = OfflineSummaryStore(fileURL: url)

@@ -139,7 +139,7 @@ struct SearchView: View {
             ContentUnavailableView(
                 "Search Summaries",
                 systemImage: "text.magnifyingglass",
-                description: Text("Find any summary in your library by its title, text or tag.")
+                description: Text("Find any summary in your Feed by its title, text or tag.")
             )
         } else if model.loadedQuery.isEmpty {
             // Query typed, debounce/fetch in flight — the overlay covers this.

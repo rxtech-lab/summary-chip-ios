@@ -164,13 +164,13 @@ public struct TranslationBadge: View {
     }
 }
 
-/// Marks a library item that opens as a trip diary or a paper rather than a summary.
+/// Marks a library item that opens as a trip diary, paper, or Clip.
 public struct KindBadge: View {
     let kind: SummaryKind
 
     /// Nil for kinds that open as a plain summary and carry no badge.
     public init?(kind: SummaryKind) {
-        guard kind == .trip || kind == .paper else { return nil }
+        guard kind == .trip || kind == .paper || kind == .miniApp else { return nil }
         self.kind = kind
     }
 
@@ -178,7 +178,7 @@ public struct KindBadge: View {
         Label {
             title
         } icon: {
-            Image(systemName: kind == .trip ? "map.fill" : "doc.richtext.fill")
+            Image(systemName: systemImage)
         }
         .labelStyle(.titleAndIcon)
         .font(.caption.weight(.semibold))
@@ -192,13 +192,27 @@ public struct KindBadge: View {
     }
 
     private var title: Text {
-        kind == .trip
-            ? Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
-            : Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
+        switch kind {
+        case .trip: Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
+        case .miniApp: Text("Clip", bundle: .module, comment: "Badge on a library tile that is a Clip")
+        default: Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
+        }
+    }
+
+    private var systemImage: String {
+        switch kind {
+        case .trip: "map.fill"
+        case .miniApp: "app.badge.fill"
+        default: "doc.richtext.fill"
+        }
     }
 
     private var tint: Color {
-        kind == .trip ? Color(red: 0.95, green: 0.5, blue: 0.35) : Color(red: 0.36, green: 0.42, blue: 0.85)
+        switch kind {
+        case .trip: Color(red: 0.95, green: 0.5, blue: 0.35)
+        case .miniApp: Color(red: 0.12, green: 0.55, blue: 0.48)
+        default: Color(red: 0.36, green: 0.42, blue: 0.85)
+        }
     }
 }
 

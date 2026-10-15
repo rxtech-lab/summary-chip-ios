@@ -14,13 +14,23 @@ struct LibraryView: View {
     @State private var deletedCount = 0
     @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
+    @State private var model: LibraryModel
     /// Lets a parent (the macOS sidebar layout) push a summary, e.g. one picked in search.
     var path: Binding<[Summary]>?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openSummarySearch) private var openSearch
+    @Environment(\.openLibraryItem) private var openLibraryItem
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
 
-    private var model: LibraryModel { environment.library }
+    init(environment: AppEnvironment, path: Binding<[Summary]>? = nil, kind: SummaryKind? = nil) {
+        self.environment = environment
+        self.path = path
+        _model = State(initialValue: kind == nil ? environment.library : LibraryModel(
+            api: environment.api, offline: environment.library.offline, kind: kind
+        ))
+    }
+
+    private var isMiniApps: Bool { model.kind == .miniApp }
 
     private var pointsTitle: String {
         environment.credits.points.map { $0.formatted() } ?? "–"
@@ -29,7 +39,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack(path: path ?? $localPath) {
             content
-                .navigationTitle("Library")
+                .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
                 .navigationDestination(for: Summary.self) { summary in
                     SummaryDestination(environment: environment, summary: summary)
                 }
@@ -39,6 +49,10 @@ struct LibraryView: View {
                     // Pick up summaries made elsewhere (share extension, web) whenever the app is reopened.
                     guard phase == .active, model.hasLoaded else { return }
                     Task { await model.reload() }
+                }
+                .onChange(of: path?.wrappedValue ?? localPath) { _, path in
+                    // Details update the shared library; refresh the dedicated tab when returning.
+                    if isMiniApps && path.isEmpty { Task { await model.reload() } }
                 }
                 .toolbar { libraryToolbar }
                 .sheet(isPresented: $showsFilters) {
@@ -62,7 +76,12 @@ struct LibraryView: View {
                         Task {
                             guard let summary = try? await environment.api.summary(id: app.id) else { return }
                             environment.library.upsert(summary)
+                            if isMiniApps { model.insert(summary) }
                             try? await Task.sleep(for: .milliseconds(350))
+                            if !isMiniApps, let openLibraryItem {
+                                openLibraryItem(summary)
+                                return
+                            }
                             if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
                         }
                     }
@@ -74,11 +93,15 @@ struct LibraryView: View {
                     SummaryCreditsSheet(environment: environment)
                 }
                 .sheet(item: $sharingSummary) { summary in
-                    ShareModeSheet(summary: summary, api: environment.api) { environment.library.upsert($0) }
+                    ShareModeSheet(summary: summary, api: environment.api) { updated in
+                        environment.library.upsert(updated)
+                        if isMiniApps { model.upsert(updated) }
+                    }
                 }
                 .sheet(item: $deletingSummary) { summary in
                     DeleteSummarySheet(api: environment.api, summary: summary) {
                         model.remove(id: summary.id)
+                        if isMiniApps { environment.library.remove(id: summary.id) }
                         environment.likes.remove(id: summary.id)
                         deletedCount += 1
                     }
@@ -108,36 +131,47 @@ struct LibraryView: View {
         }
         ToolbarItemGroup(placement: .summaryTrailing) {
             filterMenu
-            Menu {
-                Button {
-                    showsNewSummary = true
-                } label: {
-                    Label("New Summary", systemImage: "text.quote")
+            if isMiniApps {
+                Button { showsNewMiniApp = true } label: {
+                    Label("New Clip", systemImage: "plus")
                 }
-                .accessibilityIdentifier("new-summary-menu-summary")
-                Button {
-                    showsNewTrip = true
-                } label: {
-                    Label("New Trip", systemImage: "map")
-                }
-                .accessibilityIdentifier("new-trip")
-                Button {
-                    showsNewPaper = true
-                } label: {
-                    Label("New Paper", systemImage: "doc.richtext")
-                }
-                .accessibilityIdentifier("new-paper")
-                Button { showsNewMiniApp = true } label: { Label("New Mini App", systemImage: "app.badge") }
-                    .accessibilityIdentifier("new-mini-app")
-            } label: {
-                Label("New", systemImage: "plus")
+                .accessibilityIdentifier("new-mini-app")
+            } else {
+                newDocumentMenu
             }
-            .accessibilityIdentifier("new-summary")
             if let openSearch {
                 SummarySearchButton(action: openSearch)
             }
         }
         ChatPanelToolbarContent(isVisible: chatPanelVisibility)
+    }
+
+    private var newDocumentMenu: some View {
+        Menu {
+            Button {
+                showsNewSummary = true
+            } label: {
+                Label("New Summary", systemImage: "text.quote")
+            }
+            .accessibilityIdentifier("new-summary-menu-summary")
+            Button {
+                showsNewTrip = true
+            } label: {
+                Label("New Trip", systemImage: "map")
+            }
+            .accessibilityIdentifier("new-trip")
+            Button {
+                showsNewPaper = true
+            } label: {
+                Label("New Paper", systemImage: "doc.richtext")
+            }
+            .accessibilityIdentifier("new-paper")
+            Button { showsNewMiniApp = true } label: { Label("New Clip", systemImage: "app.badge") }
+                .accessibilityIdentifier("new-mini-app")
+        } label: {
+            Label("New", systemImage: "plus")
+        }
+        .accessibilityIdentifier("new-summary")
     }
 
     /// Pushes a paper made in the New Paper sheet once the sheet has closed.
@@ -160,14 +194,16 @@ struct LibraryView: View {
             }
             .pickerStyle(.inline)
 
-            Picker("Kind", selection: filterBinding(\.kind)) {
-                Text("All").tag(SummaryKind?.none)
-                ForEach(SummaryKind.known) { kind in
-                    Text(kind.title).tag(SummaryKind?.some(kind))
+            if model.kind == nil {
+                Picker("Kind", selection: filterBinding(\.kind)) {
+                    Text("All").tag(SummaryKind?.none)
+                    ForEach(model.availableKinds) { kind in
+                        Text(kind.title).tag(SummaryKind?.some(kind))
+                    }
                 }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("library-filter-kind")
             }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("library-filter-kind")
 
             if model.filter.scope != .viewed {
                 Picker("Visibility", selection: filterBinding(\.visibility)) {
@@ -234,7 +270,7 @@ struct LibraryView: View {
     @ViewBuilder
     private var content: some View {
         if !model.hasLoaded {
-            ProgressView("Loading your summaries…")
+            ProgressView(isMiniApps ? String(localized: "Loading your clips…") : String(localized: "Loading your summaries…"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.items.isEmpty {
             emptyState
@@ -243,7 +279,11 @@ struct LibraryView: View {
                 Task { await model.loadMore() }
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) {
-                    Task { likeStatus = await environment.toggleLike(summary).1 }
+                    Task {
+                        let result = await environment.toggleLike(summary)
+                        likeStatus = result.1
+                        if isMiniApps { model.upsert(result.0) }
+                    }
                 }
                 Button {
                     sharingSummary = summary
@@ -289,7 +329,7 @@ struct LibraryView: View {
             }
         } else if let error = model.errorMessage {
             ContentUnavailableView {
-                Label("Couldn't load your library", systemImage: "wifi.exclamationmark")
+                Label(isMiniApps ? String(localized: "Couldn't load your clips") : String(localized: "Couldn't load your Feed"), systemImage: "wifi.exclamationmark")
             } description: {
                 Text(error)
             } actions: {
@@ -298,10 +338,20 @@ struct LibraryView: View {
             }
         } else if model.filter.isActive {
             ContentUnavailableView(
-                "No Matching Summaries",
+                isMiniApps ? String(localized: "No Matching Clips") : String(localized: "No Matching Summaries"),
                 systemImage: "line.3.horizontal.decrease.circle",
-                description: Text("No summaries match the current filters.")
+                description: Text(isMiniApps ? String(localized: "No clips match the current filters.") : String(localized: "No summaries match the current filters."))
             )
+        } else if isMiniApps {
+            ContentUnavailableView {
+                Label("No clips yet", systemImage: "app.badge")
+            } description: {
+                Text("Create a clip or ask Chat to build one. Your saved clips appear here.")
+            } actions: {
+                Button("New Clip") { showsNewMiniApp = true }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("create-first-mini-app")
+            }
         } else {
             ContentUnavailableView {
                 Label("No summaries yet", systemImage: "text.quote")

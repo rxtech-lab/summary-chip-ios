@@ -389,12 +389,14 @@ public struct SummaryListQuery: Hashable, Sendable {
     public var tag: String?
     public var visibility: SummaryVisibility?
     public var source: SummaryOrigin?
-    /// Only summaries or only trips; nil lists both.
+    /// Restricts results to one document kind.
     public var kind: SummaryKind?
+    /// Omits one document kind, such as Clips from Feed.
+    public var excludeKind: SummaryKind?
     public var cursor: String?
     public var limit: Int?
 
-    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, kind: SummaryKind? = nil, cursor: String? = nil, limit: Int? = nil) {
+    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, kind: SummaryKind? = nil, excludeKind: SummaryKind? = nil, cursor: String? = nil, limit: Int? = nil) {
         self.scope = scope
         self.q = q
         self.category = category
@@ -402,6 +404,7 @@ public struct SummaryListQuery: Hashable, Sendable {
         self.visibility = visibility
         self.source = source
         self.kind = kind
+        self.excludeKind = excludeKind
         self.cursor = cursor
         self.limit = limit
     }
@@ -420,6 +423,7 @@ public struct SummaryListQuery: Hashable, Sendable {
         add("visibility", visibility?.rawValue)
         add("source", source?.rawValue)
         add("kind", kind?.rawValue)
+        add("excludeKind", excludeKind?.rawValue)
         add("cursor", cursor)
         add("limit", limit.map(String.init))
         return items

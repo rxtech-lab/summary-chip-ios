@@ -4,6 +4,102 @@
     "" : {
 
     },
+    "Clips" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clips"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clips"
+          }
+        }
+      }
+    },
+    "Create a clip or ask Chat to build one. Your saved clips appear here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建 Clip，或让聊天助手帮你构建。保存的 Clip 会显示在这里。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立 Clip，或請聊天助理幫你製作。儲存的 Clip 會顯示在這裡。"
+          }
+        }
+      }
+    },
+    "Loading your clips…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在载入你的 Clip…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入你的 Clip…"
+          }
+        }
+      }
+    },
+    "No clips match the current filters." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有 Clip 符合当前筛选条件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有 Clip 符合目前的篩選條件。"
+          }
+        }
+      }
+    },
+    "No clips yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有 Clip "
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有 Clip"
+          }
+        }
+      }
+    },
+    "No Matching Clips" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配的 Clip"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有符合條件的 Clip"
+          }
+        }
+      }
+    },
     "· %@" : {
       "shouldTranslate" : false
     },
@@ -690,9 +786,7 @@
     "5" : {
       "shouldTranslate" : false
     },
-    "A new illustration replaces the Mini App's current cover." : {
-
-    },
+    "A new illustration replaces the Clip's current cover." : {},
     "A new illustration replaces the trip's current cover." : {
 
     },
@@ -1211,18 +1305,18 @@
         }
       }
     },
-    "Add Summary now works with Siri and Shortcuts. Summarise a link or text, see the finished card, and find it in your Library. Use the action in your own shortcuts, too." : {
+    "Add Summary now works with Siri and Shortcuts. Summarise a link or text, see the finished card, and find it in your Feed. Use the action in your own shortcuts, too." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“添加摘要”现已支持 Siri 和快捷指令。为链接或文本生成摘要，查看完成的卡片，并在资料库中找到它。你也可以在自己的快捷指令中使用这个操作。"
+            "value" : "“添加摘要”现已支持 Siri 和快捷指令。为链接或文本生成摘要，查看完成的卡片，并在动态中找到它。你也可以在自己的快捷指令中使用这个操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「加入摘要」現已支援 Siri 和捷徑。為連結或文字產生摘要、查看完成的卡片，並在資料庫中找到它。你也可以在自己的捷徑中使用這個動作。"
+            "value" : "「加入摘要」現已支援 Siri 和捷徑。為連結或文字產生摘要、查看完成的卡片，並在動態中找到它。你也可以在自己的捷徑中使用這個動作。"
           }
         }
       }
@@ -2670,18 +2764,18 @@
         }
       }
     },
-    "Chippy now supports MCP. Let AI agents add summaries, search your Library, and list your saved chips from anywhere. Open Settings → MCP Server to create an API key and copy your agent’s connection setup. Chippy doesn’t need to be open." : {
+    "Chippy now supports MCP. Let AI agents add summaries, search your Feed, and list your saved chips from anywhere. Open Settings → MCP Server to create an API key and copy your agent’s connection setup. Chippy doesn’t need to be open." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chippy 现已支持 MCP。让 AI 智能体随时随地添加摘要、搜索资料库及列出已保存的摘要卡片。打开设置 → MCP 服务器，创建 API 密钥并复制智能体的连接配置。无需保持 Chippy 开启。"
+            "value" : "Chippy 现已支持 MCP。让 AI 智能体随时随地添加摘要、搜索动态及列出已保存的摘要卡片。打开设置 → MCP 服务器，创建 API 密钥并复制智能体的连接配置。无需保持 Chippy 开启。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chippy 現已支援 MCP。讓 AI 代理隨時隨地新增摘要、搜尋資料庫及列出已儲存的摘要卡片。開啟設定 → MCP 伺服器，建立 API 金鑰並複製代理的連線設定。無需保持 Chippy 開啟。"
+            "value" : "Chippy 現已支援 MCP。讓 AI 代理隨時隨地新增摘要、搜尋動態及列出已儲存的摘要卡片。開啟設定 → MCP 伺服器，建立 API 金鑰並複製代理的連線設定。無需保持 Chippy 開啟。"
           }
         }
       }
@@ -3389,18 +3483,24 @@
     "Couldn't Load the Change" : {
 
     },
-    "Couldn't load your library" : {
+    "Couldn't load your clips" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法载入你的 Clips" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法載入你的 Clips" } }
+      }
+    },
+    "Couldn't load your Feed" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法加载你的资料库"
+            "value" : "无法加载你的动态"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無法載入你的資料庫"
+            "value" : "無法載入你的動態"
           }
         }
       }
@@ -4065,9 +4165,7 @@
         }
       }
     },
-    "Delete Mini App" : {
-
-    },
+    "Delete Clip" : {},
     "Delete My Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5357,34 +5455,34 @@
         }
       }
     },
-    "Find any summary in your library by its title, text or tag." : {
+    "Find any summary in your Feed by its title, text or tag." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按标题、文本或标签在资料库中查找任意摘要。"
+            "value" : "按标题、文本或标签在动态中查找任意摘要。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "依標題、文字或標籤在資料庫中尋找任何摘要。"
+            "value" : "依標題、文字或標籤在動態中尋找任何摘要。"
           }
         }
       }
     },
-    "Find related summaries in my library" : {
+    "Find related summaries in my Feed" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在我的资料库中查找相关摘要"
+            "value" : "在我的动态中查找相关摘要"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在我的資料庫中尋找相關摘要"
+            "value" : "在我的動態中尋找相關摘要"
           }
         }
       }
@@ -6851,18 +6949,18 @@
         }
       }
     },
-    "Library" : {
+    "Feed" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "资料库"
+            "value" : "动态"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "資料庫"
+            "value" : "動態"
           }
         }
       }
@@ -7526,15 +7624,24 @@
         }
       }
     },
-    "Mini App" : {
-
+    "Clip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clip"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clip"
+          }
+        }
+      }
     },
-    "Mini App Builder" : {
-
-    },
-    "Mini App Unavailable" : {
-
-    },
+    "Clip Builder" : {},
+    "Clip Unavailable" : {},
     "Missing “%@”." : {
 
     },
@@ -7812,9 +7919,7 @@
         }
       }
     },
-    "New Mini App" : {
-
-    },
+    "New Clip" : {},
     "New Paper" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8934,18 +9039,18 @@
         }
       }
     },
-    "Open in Library" : {
+    "Open in Feed" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在资料库中打开"
+            "value" : "在动态中打开"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在資料庫中開啟"
+            "value" : "在動態中開啟"
           }
         }
       }
@@ -8969,9 +9074,7 @@
     "Open Link" : {
 
     },
-    "Open Mini App" : {
-
-    },
+    "Open Clip" : {},
     "Open Review of “%@”" : {
 
     },
@@ -11261,9 +11364,7 @@
         }
       }
     },
-    "Saved to your library." : {
-
-    },
+    "Saved to Clips." : {},
     "Saving changes…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11329,18 +11430,18 @@
         }
       }
     },
-    "Say “Add a summary in Chippy”, then give Siri a link or some text. Your summary is saved to your Library using your saved options." : {
+    "Say “Add a summary in Chippy”, then give Siri a link or some text. Your summary is saved to your Feed using your saved options." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "说“在 Chippy 中添加摘要”，然后把链接或文本告诉 Siri。摘要会按你保存的选项存入资料库。"
+            "value" : "说“在 Chippy 中添加摘要”，然后把链接或文本告诉 Siri。摘要会按你保存的选项存入动态。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "說「在 Chippy 中加入摘要」，然後把連結或文字交給 Siri。摘要會依你儲存的選項存入資料庫。"
+            "value" : "說「在 Chippy 中加入摘要」，然後把連結或文字交給 Siri。摘要會依你儲存的選項存入動態。"
           }
         }
       }
@@ -11464,18 +11565,18 @@
     "Searched the web" : {
 
     },
-    "Searched your library" : {
+    "Searched your Feed" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜索了你的资料库"
+            "value" : "搜索了你的动态"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜尋了你的資料庫"
+            "value" : "搜尋了你的動態"
           }
         }
       }
@@ -11499,18 +11600,18 @@
     "Searching the web…" : {
 
     },
-    "Searching your library…" : {
+    "Searching your Feed…" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在搜索你的资料库…"
+            "value" : "正在搜索你的动态…"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在搜尋你的資料庫…"
+            "value" : "正在搜尋你的動態…"
           }
         }
       }
@@ -12882,18 +12983,18 @@
         }
       }
     },
-    "Tags appear here once your library has summaries." : {
+    "Tags appear here once your Feed has summaries." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "资料库中有摘要后，标签会显示在这里。"
+            "value" : "动态中有摘要后，标签会显示在这里。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "資料庫中有摘要後，標籤會顯示在這裡。"
+            "value" : "動態中有摘要後，標籤會顯示在這裡。"
           }
         }
       }
@@ -13183,18 +13284,18 @@
         }
       }
     },
-    "The title in your library. The title printed on the paper is the \\title in your main file." : {
+    "The title in your Feed. The title printed on the paper is the \\title in your main file." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这是资料库中的标题。论文上印出的标题是主文件中的 \\title。"
+            "value" : "这是动态中的标题。论文上印出的标题是主文件中的 \\title。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "這是資料庫中的標題。論文上印出的標題是主檔案中的 \\title。"
+            "value" : "這是動態中的標題。論文上印出的標題是主檔案中的 \\title。"
           }
         }
       }
@@ -13386,9 +13487,7 @@
         }
       }
     },
-    "This Mini App needs a newer renderer." : {
-
-    },
+    "This Clip needs a newer renderer." : {},
     "This paper can't be edited." : {
 
     },
@@ -15260,18 +15359,18 @@
         }
       }
     },
-    "Your library history of opened summaries" : {
+    "Your Feed history of opened summaries" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你在资料库中打开过的摘要记录"
+            "value" : "你在动态中打开过的摘要记录"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你在資料庫中打開過的摘要記錄"
+            "value" : "你在動態中打開過的摘要記錄"
           }
         }
       }

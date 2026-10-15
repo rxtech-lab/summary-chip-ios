@@ -338,7 +338,7 @@ struct SummaryLoaderView: View {
 }
 
 /// Presented for universal links (`/s/<slug>`), `summarychip://summary/<id>` and `summarychip://trip/<id>`.
-/// "Open in Library" closes the sheet and shows the item in the main navigation via `onOpen`.
+/// "Open in Feed" closes the sheet and shows the item in the main navigation via `onOpen`.
 struct DeepLinkSheet: View {
     let environment: AppEnvironment
     let route: AppRoute
@@ -355,7 +355,7 @@ struct DeepLinkSheet: View {
                 if case .tripID(let id) = route {
                     TripDetailView(environment: environment, tripID: id, title: summary?.title ?? "")
                 } else if let summary {
-                    // Keep the copy current so "Open in Library" carries a star made here.
+                    // Keep the copy current so "Open in Feed" carries a star made here.
                     SummaryDestination(environment: environment, summary: summary, onUpdate: { self.summary = $0 })
                 } else if let expiredLike {
                     ExpiredSummaryView(environment: environment, summary: expiredLike)
@@ -379,9 +379,9 @@ struct DeepLinkSheet: View {
                             openCount += 1
                             onOpen(summary)
                         } label: {
-                            Label(summary.kind == .trip ? "Open Trip" : "Open in Library", systemImage: "arrow.up.right.square")
+                            Label(summary.kind == .trip ? "Open Trip" : summary.kind == .miniApp ? "Open Clip" : "Open in Feed", systemImage: "arrow.up.right.square")
                         }
-                        .help(summary.kind == .trip ? "Open Trip" : "Open in Library")
+                        .help(summary.kind == .trip ? "Open Trip" : summary.kind == .miniApp ? "Open Clip" : "Open in Feed")
                         .accessibilityIdentifier("deep-link-open")
                     }
                 }

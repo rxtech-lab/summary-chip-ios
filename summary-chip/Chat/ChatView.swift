@@ -41,7 +41,7 @@ struct ChatView: View {
     private var isSheet: Bool { summary != nil || trip != nil || model.miniAppID != nil }
 
     private var title: Text {
-        if model.miniAppID != nil { return Text("Mini App Builder") }
+        if model.miniAppID != nil { return Text("Clip Builder") }
         if let trip { return trip.isExpense ? Text("Add Expense with AI") : Text("Trip Agent") }
         return summary == nil ? Text("Chat") : Text("Ask About This")
     }
@@ -460,7 +460,7 @@ private struct ChatToolCallCard: View, Equatable {
             if let draft = tool.miniAppDraft {
                 Button { openTool(tool) } label: { Label("Preview \(draft.title)", systemImage: "app.badge") }
             } else if let appID = tool.miniAppID {
-                Button { openSummary(appID) } label: { Label("Open Mini App", systemImage: "app.badge") }
+                Button { openSummary(appID) } label: { Label("Open Clip", systemImage: "app.badge") }
             } else if let ui = tool.renderedUI {
                 Button {
                     openTool(tool)
@@ -573,8 +573,8 @@ private struct ChatToolCallCard: View, Equatable {
             if tool.errorText != nil { return String(localized: "View needs correction") }
             return tool.renderedUI != nil ? String(localized: "View ready") : String(localized: "View stopped")
         case "searchSummaries":
-            if tool.isRunning { return String(localized: "Searching your library…") }
-            return tool.finished == true ? String(localized: "Searched your library") : String(localized: "Search stopped")
+            if tool.isRunning { return String(localized: "Searching your Feed…") }
+            return tool.finished == true ? String(localized: "Searched your Feed") : String(localized: "Search stopped")
         case "getSummary":
             if tool.isRunning { return String(localized: "Reading summary…") }
             return tool.finished == true ? String(localized: "Read summary") : String(localized: "Reading stopped")

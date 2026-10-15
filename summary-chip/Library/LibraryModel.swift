@@ -9,7 +9,7 @@ struct LibraryFilter: Hashable {
     var tag: String?
     var visibility: SummaryVisibility?
     var source: SummaryOrigin?
-    /// Only summaries or only trips.
+    /// Restricts the library to one document kind.
     var kind: SummaryKind?
 
     var isActive: Bool { activeCount > 0 }
@@ -23,6 +23,10 @@ struct LibraryFilter: Hashable {
 final class LibraryModel {
     let api: SummaryAPIClient
     let offline: OfflineSummaryStore
+    /// A dedicated document tab keeps its kind separate from user-selected filters.
+    let kind: SummaryKind?
+    var excludedKind: SummaryKind? { kind == nil ? .miniApp : nil }
+    var availableKinds: [SummaryKind] { SummaryKind.known.filter { $0 != excludedKind } }
     static let pageSize = 20
 
     private(set) var items: [Summary] = []
@@ -39,11 +43,12 @@ final class LibraryModel {
     /// Reloads made to pick up translations the server was still writing; bounded so a failing one can't loop.
     private var translationReloads = 0
 
-    init(api: SummaryAPIClient, offline: OfflineSummaryStore) {
+    init(api: SummaryAPIClient, offline: OfflineSummaryStore, kind: SummaryKind? = nil) {
         self.api = api
         self.offline = offline
+        self.kind = kind
         // Show saved summaries immediately; `reload()` replaces them once the server answers.
-        items = offline.summaries
+        items = offline.summaries(matching: SummaryListQuery(kind: kind, excludeKind: kind == nil ? .miniApp : nil))
         hasLoaded = !items.isEmpty
     }
 
@@ -56,7 +61,8 @@ final class LibraryModel {
             tag: filter.tag,
             visibility: filter.visibility,
             source: filter.source,
-            kind: filter.kind,
+            kind: kind ?? filter.kind,
+            excludeKind: excludedKind,
             cursor: cursor,
             limit: Self.pageSize
         )
@@ -76,9 +82,9 @@ final class LibraryModel {
             isOffline = false
             hasLoaded = true
             scheduleTranslationReload(for: page.items)
-            if !filter.isActive {
+            if kind == nil && !filter.isActive {
                 RecentSummariesCache.save(page.items)
-                offline.replaceFirstPage(page.items, isComplete: page.nextCursor == nil)
+                offline.replaceFirstPage(page.items, isComplete: page.nextCursor == nil, excludingKind: excludedKind)
             } else {
                 offline.upsert(page.items)
             }
@@ -129,10 +135,11 @@ final class LibraryModel {
     }
 
     func insert(_ summary: Summary) {
+        offline.upsert(summary)
+        guard summary.kind != excludedKind, kind == nil || summary.kind == kind else { return }
         items.removeAll { $0.id == summary.id }
         items.insert(summary, at: 0)
-        RecentSummariesCache.save(items)
-        offline.upsert(summary)
+        if kind == nil && !filter.isActive { RecentSummariesCache.save(items) }
     }
 
     /// Saves a summary fetched elsewhere (detail refresh, deep link) and updates it in the feed.

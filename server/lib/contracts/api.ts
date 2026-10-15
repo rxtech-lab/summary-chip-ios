@@ -199,8 +199,10 @@ export const listQuerySchema = z.object({
   visibility: z.enum(VISIBILITIES).optional(),
   /** What the summary was made from: a web page, PDF, text, or a post/video/repo on a platform. */
   source: z.enum(SUMMARY_SOURCES).optional(),
-  /** `summary` cards or `trip` diaries; both when absent. */
+  /** Restrict results to one document kind; all kinds when absent. */
   kind: z.enum(SUMMARY_KINDS).optional(),
+  /** Exclude a document kind before pagination, such as Clips from Feed. */
+  excludeKind: z.enum(SUMMARY_KINDS).optional(),
   cursor: optionalString(200),
   limit: limitSchema,
 });

@@ -22,7 +22,7 @@ public struct MiniAppDocument: Codable, Sendable, Hashable {
     public var connectors: [String: JSONValue]
     public var fixtures: JSONValue
 
-    public static func blank(title: String = "My Mini App") -> Self {
+    public static func blank(title: String = "My Clip") -> Self {
         Self(schemaVersion: 1, title: title, description: "", ui: MiniAppUI(root: "root", elements: [
             "root": MiniAppNode(type: "Navigation", props: ["title": .string(title)], children: ["text"]),
             "text": MiniAppNode(type: "Text", props: ["text": .string("Use Edit with AI to build your app.")])

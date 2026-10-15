@@ -47,7 +47,7 @@ struct DeleteSummarySheet: View {
         switch summary.kind {
         case .trip: "Delete Trip"
         case .paper: "Delete Paper"
-        case .miniApp: "Delete Mini App"
+        case .miniApp: "Delete Clip"
         case .summary, .other: "Delete Summary"
         }
     }
