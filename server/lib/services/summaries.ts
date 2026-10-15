@@ -626,6 +626,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   if (query.visibility) conditions.push(eq(summaries.visibility, query.visibility));
   if (query.source) conditions.push(eq(summaries.source, query.source));
   if (query.kind) conditions.push(eq(summaries.kind, query.kind));
+  if (query.excludeKind) conditions.push(ne(summaries.kind, query.excludeKind));
   if (query.tag) {
     conditions.push(inArray(summaries.id, db.select({ id: summaryTags.summaryId }).from(summaryTags).where(eq(summaryTags.tag, query.tag))));
   }

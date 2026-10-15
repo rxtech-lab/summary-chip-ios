@@ -25,13 +25,13 @@ struct MiniAppDetailView: View {
                 if case .miniApp(let document) = versions.preview?.content {
                     MiniAppVersionPreview(api: environment.api, document: document).id(versions.preview?.id)
                 } else { MiniAppRuntimeView(model: runtime) }
-            } else if let error { ContentUnavailableView("Mini App Unavailable", systemImage: "exclamationmark.triangle", description: Text(error)) }
+            } else if let error { ContentUnavailableView("Clip Unavailable", systemImage: "exclamationmark.triangle", description: Text(error)) }
             else { ProgressView() }
         }
-        .navigationTitle(runtime?.document.title ?? "Mini App")
+        .navigationTitle(runtime?.document.title ?? "Clip")
         .task { await reload() }
         .toolbar {
-            // One More menu, so the Mini App's own toolbar items keep the bar.
+            // One More menu, so the Clip's own toolbar items keep the bar.
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     if runtime?.app?.isOwner == true {
@@ -78,7 +78,7 @@ struct MiniAppDetailView: View {
             Button("Generate Cover") { Task { await generateCover() } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("A new illustration replaces the Mini App's current cover.")
+            Text("A new illustration replaces the Clip's current cover.")
         }
         .statusAlert("Couldn't Generate Cover", message: coverError) { coverError = nil }
         .documentVersions(versions) { _ in Task { await reload() } }
@@ -135,7 +135,7 @@ private struct MiniAppVersionPreview: View {
 struct NewMiniAppSheet: View {
     let environment: AppEnvironment
     let onCreated: (MiniApp) -> Void
-    @State private var title = "My Mini App"
+    @State private var title = "My Clip"
     @State private var template = "blank"
     @State private var busy = false
     @State private var error: String?
@@ -151,13 +151,13 @@ struct NewMiniAppSheet: View {
                 Text("Create your app, then describe what you want with Edit with AI. You can also build one directly in Chat.").foregroundStyle(.secondary)
             }
             .formStyle(.grouped)
-            .navigationTitle("New Mini App")
+            .navigationTitle("New Clip")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Create") { Task { await create() } }.disabled(busy || title.trimmingCharacters(in: .whitespaces).isEmpty) }
             }
             .overlay { if busy { ProgressView() } }
-            .statusAlert("Mini App", message: error) { error = nil }
+            .statusAlert("Clip", message: error) { error = nil }
         }.summarySheetSize()
     }
     private func create() async {
@@ -189,7 +189,7 @@ struct MiniAppPreviewView: View {
         NavigationStack {
             MiniAppRuntimeView(model: runtime)
                 .safeAreaInset(edge: .bottom) {
-                    Text(saved == nil ? "Preview uses sample data and simulated API responses." : "Saved to your library.")
+                    Text(saved == nil ? "Preview uses sample data and simulated API responses." : "Saved to Clips.")
                         .font(.footnote).foregroundStyle(.secondary).padding().frame(maxWidth: .infinity).background(.regularMaterial)
                 }
                 .toolbar {
@@ -199,7 +199,7 @@ struct MiniAppPreviewView: View {
                         else { Button("Save App", systemImage: "square.and.arrow.down") { Task { await save() } }.disabled(busy) }
                     }
                 }
-                .statusAlert("Mini App", message: error) { error = nil }
+                .statusAlert("Clip", message: error) { error = nil }
         }.summarySheetSize()
     }
     private func save() async {

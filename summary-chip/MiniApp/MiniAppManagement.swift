@@ -156,13 +156,13 @@ private struct MiniMembers: View {
     private func load() async {
         do {
             members = try await api.miniAppRequest(id: app.id, resource: "members")["items"]?.miniArray ?? []
-            previewLink = try await api.shareLinks(summaryID: app.id).first { $0.label == "Mini App Preview" && !$0.isExpired }
+            previewLink = try await api.shareLinks(summaryID: app.id).first { ($0.label == "Clip Preview" || $0.label == "Mini App Preview") && !$0.isExpired }
         }
         catch { self.error = error.localizedDescription }
     }
     private func createLink() async {
         linkBusy = true; defer { linkBusy = false }
-        do { previewLink = try await api.createShareLink(summaryID: app.id, changes: ShareLinkChanges(label: "Mini App Preview", access: .anyone)) }
+        do { previewLink = try await api.createShareLink(summaryID: app.id, changes: ShareLinkChanges(label: "Clip Preview", access: .anyone)) }
         catch { self.error = error.localizedDescription }
     }
     private func removeLink() async {

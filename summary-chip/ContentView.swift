@@ -7,7 +7,7 @@ struct ContentView: View {
     @Bindable var environment: AppEnvironment
     @State private var onboarding = SummaryOnboardingStore()
     @State private var presentation: RootPresentation?
-    /// Chosen with "Open in Library" in a link sheet; shown in the main navigation once the sheet is gone.
+    /// Chosen with "Open in Feed" in a link sheet; shown in the main navigation once the sheet is gone.
     @State private var itemToOpen: Summary?
     @State private var checkedLaunchEducation = false
     @State private var isDropTargeted = false
@@ -171,6 +171,7 @@ private struct NewSummaryRequest {
 
 enum MainTab: Hashable {
     case library
+    case miniApps
     case likes
     case chat
     case settings
@@ -181,12 +182,16 @@ struct MainTabView: View {
     @Bindable var environment: AppEnvironment
     @State private var selection: MainTab = .library
     @State private var libraryPath: [Summary] = []
+    @State private var miniAppsPath: [Summary] = []
     @State private var likesPath: [Summary] = []
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab("Library", systemImage: "square.stack", value: MainTab.library) {
+            Tab("Feed", systemImage: "square.stack", value: MainTab.library) {
                 LibraryView(environment: environment, path: $libraryPath)
+            }
+            Tab("Clips", systemImage: "app.badge", value: MainTab.miniApps) {
+                LibraryView(environment: environment, path: $miniAppsPath, kind: .miniApp)
             }
             Tab("Likes", systemImage: "star", value: MainTab.likes) {
                 LikesView(environment: environment, path: $likesPath)
@@ -198,19 +203,22 @@ struct MainTabView: View {
                 ChatView(environment: environment)
             }
         }
-        .summarySearchPresentation(environment: environment) { summary in
-            selection = .library
-            libraryPath = [summary]
-        }
-        .environment(\.openLibraryItem, { summary in
-            selection = .library
-            libraryPath = [summary]
-        })
+        .summarySearchPresentation(environment: environment, onOpenSummary: openItem)
+        .environment(\.openLibraryItem, openItem)
         .onChange(of: environment.pendingLibraryItem) { _, item in
             guard let item else { return }
             environment.pendingLibraryItem = nil
+            openItem(item)
+        }
+    }
+
+    private func openItem(_ summary: Summary) {
+        if summary.kind == .miniApp {
+            selection = .miniApps
+            miniAppsPath = [summary]
+        } else {
             selection = .library
-            libraryPath = [item]
+            libraryPath = [summary]
         }
     }
 

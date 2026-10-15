@@ -50,6 +50,7 @@ public final class OfflineSummaryStore {
             if let visibility = query.visibility, summary.visibility != visibility { return false }
             if let source = query.source, summary.source != source { return false }
             if let kind = query.kind, summary.kind != kind { return false }
+            if let kind = query.excludeKind, summary.kind == kind { return false }
             guard !terms.isEmpty else { return true }
             let haystack = ([summary.title, summary.summary, summary.sourceLabel] + summary.highlights + summary.tags + summary.keywords)
             return haystack.contains { $0.localizedStandardContains(terms) }
@@ -59,10 +60,13 @@ public final class OfflineSummaryStore {
     /// Stores the unfiltered first library page. Saved summaries in the time range the page covers
     /// but missing from it were deleted (or unshared) elsewhere, so they are dropped; older ones
     /// are kept unless the page is the whole library.
-    public func replaceFirstPage(_ page: [Summary], isComplete: Bool) {
+    public func replaceFirstPage(_ page: [Summary], isComplete: Bool, excludingKind: SummaryKind? = nil) {
         let ids = Set(page.map(\.id))
         let oldest = page.map(\.activityDate).min()
-        let older = isComplete ? [] : summaries.filter { saved in
+        let older = summaries.filter { saved in
+            // A complete Feed page says nothing about the separately loaded Clips.
+            if let excludingKind, saved.kind == excludingKind { return true }
+            guard !isComplete else { return false }
             guard !ids.contains(saved.id) else { return false }
             guard let oldest else { return true }
             return saved.activityDate < oldest

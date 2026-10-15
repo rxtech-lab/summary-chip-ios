@@ -31,7 +31,7 @@ struct DeleteAccountSheet: View {
                 Section("What gets deleted") {
                     Label("Every summary you created, including shared links", systemImage: "text.quote")
                     Label("Uploaded PDFs and generated images", systemImage: "photo.on.rectangle")
-                    Label("Your library history of opened summaries", systemImage: "clock.arrow.circlepath")
+                    Label("Your Feed history of opened summaries", systemImage: "clock.arrow.circlepath")
                     Label("Your RxLab sign-in account", systemImage: "person.crop.circle")
                 }
 

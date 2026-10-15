@@ -958,6 +958,39 @@
         }
       }
     },
+    "Clip" : {
+      "comment" : "Badge on a library tile that is a Clip",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clip"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clip"
+          }
+        }
+      }
+    },
+    "Clips" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clips"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clips"
+          }
+        }
+      }
+    },
     "Cloudy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2437,9 +2470,6 @@
           }
         }
       }
-    },
-    "Mini Apps" : {
-
     },
     "Misreferenced" : {
       "comment" : "Paper reference error"
@@ -4027,18 +4057,18 @@
         }
       }
     },
-    "The link stops working %@ from now. The summary stays in your library, and you can extend the link at any time." : {
+    "The link stops working %@ from now. The summary stays in your Feed, and you can extend the link at any time." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "链接将在 %@后失效。摘要会保留在你的资料库中，你随时可以延长链接有效期。"
+            "value" : "链接将在 %@后失效。摘要会保留在你的动态中，你随时可以延长链接有效期。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "連結將在 %@後失效。摘要會保留在你的資料庫中，你隨時可以延長連結有效期限。"
+            "value" : "連結將在 %@後失效。摘要會保留在你的動態中，你隨時可以延長連結有效期限。"
           }
         }
       }

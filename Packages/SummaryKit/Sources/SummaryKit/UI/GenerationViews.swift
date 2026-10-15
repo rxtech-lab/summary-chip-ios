@@ -116,7 +116,7 @@ public struct SharingOptionsSections: View {
             } footer: {
                 Text(ttl == .never
                     ? String(localized: "The link stays open until you make the summary private.", bundle: .module)
-                    : String(localized: "The link stops working \(ttl.title) from now. The summary stays in your library, and you can extend the link at any time.", bundle: .module))
+                    : String(localized: "The link stops working \(ttl.title) from now. The summary stays in your Feed, and you can extend the link at any time.", bundle: .module))
             }
         }
     }

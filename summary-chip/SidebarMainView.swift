@@ -17,12 +17,16 @@ struct SidebarMainView: View {
     @State private var showsNewPaper = false
     @State private var showsNewMiniApp = false
     @State private var libraryPath: [Summary] = []
+    @State private var miniAppsPath: [Summary] = []
     @State private var likesPath: [Summary] = []
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Label("Library", systemImage: "square.stack").tag(MainTab.library)
+                Label("Feed", systemImage: "square.stack").tag(MainTab.library)
+                Label("Clips", systemImage: "app.badge")
+                    .tag(MainTab.miniApps)
+                    .accessibilityIdentifier("sidebar-mini-apps")
                 Label("Likes", systemImage: "star")
                     .tag(MainTab.likes)
                     .accessibilityIdentifier("sidebar-likes")
@@ -38,6 +42,7 @@ struct SidebarMainView: View {
             Group {
                 switch selection ?? .library {
                 case .library, .chat: LibraryView(environment: environment, path: $libraryPath)
+                case .miniApps: LibraryView(environment: environment, path: $miniAppsPath, kind: .miniApp)
                 case .likes: LikesView(environment: environment, path: $likesPath)
                 case .settings: SettingsView(environment: environment)
                 }
@@ -77,12 +82,12 @@ struct SidebarMainView: View {
                 Task {
                     guard let summary = try? await environment.api.summary(id: app.id) else { return }
                     environment.library.upsert(summary)
-                    selection = .library
-                    libraryPath = [summary]
+                    selection = .miniApps
+                    miniAppsPath = [summary]
                 }
             }
         }
-        // "Open in Library" from a link sheet.
+        // "Open in Feed" from a link sheet.
         .onChange(of: environment.pendingLibraryItem) { _, item in
             guard let item else { return }
             environment.pendingLibraryItem = nil
@@ -95,10 +100,15 @@ struct SidebarMainView: View {
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
     }
 
-    /// A search result opens as the Library's detail page.
+    /// Opens a search result in its document's tab.
     private func openFromSearch(_ summary: Summary) {
-        selection = .library
-        libraryPath = [summary]
+        if summary.kind == .miniApp {
+            selection = .miniApps
+            miniAppsPath = [summary]
+        } else {
+            selection = .library
+            libraryPath = [summary]
+        }
     }
 }
 
@@ -175,7 +185,7 @@ struct SummaryMacCommands: Commands {
             Button("New Paper", systemImage: "doc.richtext") { newPaper?() }
                 .keyboardShortcut("n", modifiers: [.command, .option])
                 .disabled(newPaper == nil)
-            Button("New Mini App", systemImage: "app.badge") { newMiniApp?() }
+            Button("New Clip", systemImage: "app.badge") { newMiniApp?() }
                 .disabled(newMiniApp == nil)
         }
         CommandGroup(after: .sidebar) {

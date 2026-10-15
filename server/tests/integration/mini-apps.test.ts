@@ -12,6 +12,7 @@ import { runMiniScript } from "@/lib/mini-app/scripts";
 import { validateMiniApp } from "@/lib/mini-app/validation";
 import { listVersions, restoreVersion } from "@/lib/services/versions";
 import * as miniRoute from "@/app/api/v1/mini-apps/route";
+import * as summariesRoute from "@/app/api/v1/summaries/route";
 import * as membersRoute from "@/app/api/v1/mini-apps/[id]/members/route";
 import * as keysRoute from "@/app/api/v1/api-keys/route";
 import * as mcpRoute from "@/app/api/mcp/route";
@@ -26,6 +27,31 @@ beforeEach(async () => {
   vi.stubEnv("MINI_APP_ACTIVE_SECRET_KEY", "v1"); vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://chippy.example.com");
 });
 afterEach(() => { setMiniTransportForTests(); env?.teardown(); vi.unstubAllEnvs(); });
+it("excludes Clips before Feed pagination while keeping the Clips list available", async () => {
+  const clip = await createMiniApp(env.handle.db, "user-alice", example(), "agent");
+  const [template] = await env.handle.db.select().from(summaries).where(eq(summaries.id, clip.id));
+  const oldest = new Date("2026-01-01T00:00:00Z");
+  for (const [id, kind] of [["feed-card", "summary"], ["feed-trip", "trip"], ["feed-paper", "paper"]] as const) {
+    await env.handle.db.insert(summaries).values({
+      ...template, id, slug: id, kind, title: id, createdAt: oldest, updatedAt: oldest,
+    });
+  }
+  const list = async (query: string) => {
+    const response = await summariesRoute.GET(apiRequest("GET", `/api/v1/summaries?${query}`, { token: env.tokens.alice }));
+    expect(response.status).toBe(200);
+    return response.json();
+  };
+  const first = await list("excludeKind=mini_app&limit=2");
+  expect(first.items).toHaveLength(2);
+  expect(first.items.every((item: { kind: string }) => item.kind !== "mini_app")).toBe(true);
+  expect(first.nextCursor).toEqual(expect.any(String));
+  const second = await list(`excludeKind=mini_app&limit=2&cursor=${encodeURIComponent(first.nextCursor)}`);
+  expect(second.items).toHaveLength(1);
+  expect(second.nextCursor).toBeNull();
+  expect(new Set([...first.items, ...second.items].map((item: { kind: string }) => item.kind))).toEqual(new Set(["summary", "trip", "paper"]));
+  const clips = await list("kind=mini_app");
+  expect(clips.items.map((item: { id: string }) => item.id)).toEqual([clip.id]);
+});
 it("validates the catalog, versions, cycles and automatic writes", async () => {
   expect(miniAppCatalog().components).toContain("Sheet");
   expect((await validateMiniApp(example())).ok).toBe(true);

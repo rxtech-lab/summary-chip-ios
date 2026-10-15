@@ -6,7 +6,7 @@ import SwiftUI
 struct MiniAppPreviewHost: View {
     @State private var model: MiniAppRuntime
     init() {
-        var document = MiniAppDocument.blank(title: "Mini App Controls")
+        var document = MiniAppDocument.blank(title: "Clip Controls")
         document.initialState = ["name": .string(""), "saved": .string("No entry"), "enabled": .bool(true), "choice": .string("A"), "date": .string("2026-10-15T00:00:00Z")]
         func action(_ source: String) -> JSONValue { try! JSONDecoder().decode(JSONValue.self, from: Data(source.utf8)) }
         document.actions = [

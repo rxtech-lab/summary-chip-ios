@@ -146,7 +146,7 @@ struct PaperSettingsSheet: View {
             Section {
                 TextField("Title", text: $title)
             } footer: {
-                Text("The title in your library. The title printed on the paper is the \\title in your main file.")
+                Text("The title in your Feed. The title printed on the paper is the \\title in your main file.")
             }
             Section("Engine") {
                 Picker("Engine", selection: $compiler) {

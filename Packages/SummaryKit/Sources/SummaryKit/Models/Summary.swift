@@ -173,7 +173,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .summary: String(localized: "Summaries", bundle: .module, comment: "Library kind filter: summary cards")
         case .trip: String(localized: "Trips", bundle: .module, comment: "Library kind filter: trip diaries")
         case .paper: String(localized: "Papers", bundle: .module, comment: "Library kind filter: LaTeX papers")
-        case .miniApp: String(localized: "Mini Apps", bundle: .module)
+        case .miniApp: String(localized: "Clips", bundle: .module)
         case .other(let raw): raw.capitalized
         }
     }

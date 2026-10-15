@@ -44,7 +44,7 @@ struct LibraryFilterSheet: View {
                     FacetComboBox(
                         String(localized: "Tag"),
                         anyTitle: String(localized: "Any tag"),
-                        emptyMessage: String(localized: "Tags appear here once your library has summaries."),
+                        emptyMessage: String(localized: "Tags appear here once your Feed has summaries."),
                         kind: .tag,
                         api: model.api,
                         selection: $draft.tag,
@@ -90,14 +90,16 @@ struct LibraryFilterSheet: View {
             }
             .pickerStyle(.menu)
 
-            Picker("Kind", selection: $draft.kind) {
-                Text("All").tag(SummaryKind?.none)
-                ForEach(SummaryKind.known) { kind in
-                    Text(kind.title).tag(SummaryKind?.some(kind))
+            if model.kind == nil {
+                Picker("Kind", selection: $draft.kind) {
+                    Text("All").tag(SummaryKind?.none)
+                    ForEach(model.availableKinds) { kind in
+                        Text(kind.title).tag(SummaryKind?.some(kind))
+                    }
                 }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("library-filter-kind")
             }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("library-filter-kind")
 
             if draft.scope != .viewed {
                 Picker("Visibility", selection: $draft.visibility) {
