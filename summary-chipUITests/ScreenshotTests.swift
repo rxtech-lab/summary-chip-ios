@@ -337,6 +337,27 @@ nonisolated final class ScreenshotTests: XCTestCase {
         capture(app, "16-paper-review-diff")
     }
 
+    // MARK: Clips
+
+    /// A Clip with its own tab bar, opened from Clips: on iPhone it replaces the app's tab bar.
+    @MainActor func test17MiniApp() {
+        let app = launch()
+        if isPad {
+            app.descendants(matching: .any)["sidebar-mini-apps"].firstMatch.tap()
+        } else {
+            app.tabBars.buttons["Clips"].tap()
+        }
+        let card = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Pocket Checklist")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+        XCTAssertTrue(app.staticTexts["Water the plants"].waitForExistence(timeout: 10))
+        settle(2)
+        capture(app, "17-mini-app")
+        if !isPad {
+            XCTAssertTrue(app.tabBars.buttons["Feed"].waitForNonExistence(timeout: 5))
+        }
+    }
+
     // MARK: Helpers
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }

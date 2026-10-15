@@ -210,7 +210,19 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             guard let item = items.first(where: { $0.id == id }), !item.isExpired else { return notFound }
             return json(summary(item))
         case ("GET", "mini-apps", 2) where id == "clip-01":
-            let document = MiniAppDocument.blank(title: "Pocket Checklist")
+            // Its own tab bar, so the screenshots show it replacing the app's on iPhone.
+            var document = MiniAppDocument.blank(title: "Pocket Checklist")
+            document.ui.elements = [
+                "root": MiniAppNode(type: "Navigation", props: ["title": .string("Pocket Checklist")], children: ["tabs"]),
+                "tabs": MiniAppNode(type: "Tabs", children: ["today", "done"]),
+                "today": MiniAppNode(type: "Tab", props: ["title": .string("Today"), "icon": .string("checklist"), "badge": .string("2")], children: ["todayCard"]),
+                "todayCard": MiniAppNode(type: "Card", props: ["title": .string("To do")], children: ["task1", "task2"]),
+                "task1": MiniAppNode(type: "Text", props: ["text": .string("Water the plants")]),
+                "task2": MiniAppNode(type: "Text", props: ["text": .string("Pack the rail pass")]),
+                "done": MiniAppNode(type: "Tab", props: ["title": .string("Done"), "icon": .string("checkmark.circle")], children: ["doneCard"]),
+                "doneCard": MiniAppNode(type: "Card", props: ["title": .string("Finished")], children: ["task3"]),
+                "task3": MiniAppNode(type: "Text", props: ["text": .string("Book the night train")])
+            ]
             let encoded = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(document))) ?? [:]
             return json(["app": ["id": id, "document": encoded, "revision": 0, "isOwner": true,
                                   "shareUrl": "https://summary.rxlab.app/s/P0cketClip", "permissions": [:]]])

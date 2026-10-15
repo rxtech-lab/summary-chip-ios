@@ -29,6 +29,11 @@ struct MiniAppDetailView: View {
             else { ProgressView() }
         }
         .navigationTitle(runtime?.document.title ?? "Clip")
+        #if os(iOS)
+        // A Clip with its own tabs takes over the bottom of the screen on iPhone: the app's tab bar
+        // hides so the Clip's tab bar is the only one.
+        .toolbar(usesOwnTabs ? .hidden : .automatic, for: .tabBar)
+        #endif
         .task { await reload() }
         .toolbar {
             // One More menu, so the Clip's own toolbar items keep the bar.
@@ -93,6 +98,9 @@ struct MiniAppDetailView: View {
         .sheet(item: $management) { section in
             if let app = runtime?.app { MiniAppManagementSheet(api: environment.api, app: app, section: section) }
         }
+    }
+    private var usesOwnTabs: Bool {
+        runtime?.document.ui.elements.values.contains { $0.type == "Tabs" } == true
     }
     /// Designs a new illustrated cover for the app's library card.
     private func generateCover() async {

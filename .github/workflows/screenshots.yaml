@@ -1,7 +1,7 @@
 name: Screenshots
 
 # Captures the app's main screens (library, chat with a rendered view, a trip with trains, a flight,
-# days and a json-render view, Likes, a LaTeX paper with its reader and reviews, the MCP server and
+# days and a json-render view, Likes, a LaTeX paper with its reader and reviews, a Clip with its own tabs, the MCP server and
 # deep links), each reached in the app itself, on iPhone (portrait) and iPad (landscape) for
 # every PR, records each device's screen while it runs, uploads both as workflow artifacts, keeps
 # one PR comment listing the screenshots for review, and sends the screenshots and recordings to
