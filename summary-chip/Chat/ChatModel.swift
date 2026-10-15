@@ -22,6 +22,8 @@ nonisolated struct ChatToolActivity: Identifiable, Hashable, Sendable, Codable {
     var status: String? = nil
     var webReferences: [ChatWebReference]? = nil
     var renderedUI: ChatRenderedUI? = nil
+    var miniAppDraft: MiniAppDocument? = nil
+    var miniAppID: String? = nil
     /// Readable values from the rendered view, included in subsequent turns.
     var renderedText: String? = nil
 }
@@ -57,6 +59,7 @@ final class ChatModel {
     private let storeKey: String
     /// Set when chatting from a summary's detail screen; the agent answers from its original text.
     let summaryID: String?
+    let miniAppID: String?
     /// Set when chatting with the trip agent from a trip's screen; the agent can edit the trip.
     let trip: TripChat?
     /// Called after the trip agent saved an edit to `trip`.
@@ -68,12 +71,13 @@ final class ChatModel {
     var draft = ""
     private var task: Task<Void, Never>?
 
-    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil) {
+    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil, miniAppID: String? = nil) {
         self.client = client
         self.store = store
         self.summaryID = trip == nil ? summaryID : nil
         self.trip = trip
-        storeKey = trip.map { ChatTranscriptStore.key(tripID: $0.id) }
+        self.miniAppID = miniAppID
+        storeKey = miniAppID.map { "mini-app:\($0)" } ?? trip.map { ChatTranscriptStore.key(tripID: $0.id) }
             ?? summaryID.map(ChatTranscriptStore.key(summaryID:))
             ?? ChatTranscriptStore.libraryKey
         entries = Self.restored(store.load([ChatEntry].self, key: storeKey) ?? [])
@@ -147,7 +151,7 @@ final class ChatModel {
         #endif
         do {
             let localContent = await Self.localContent(summaryID: summaryID)
-            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id) {
+            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id, miniAppID: miniAppID) {
                 apply(event, to: id)
             }
             finish(id)
@@ -233,6 +237,8 @@ final class ChatModel {
                 if entry.tools[index].toolName == "searchWeb" {
                     entry.tools[index].webReferences = ChatToolOutput.webReferences(from: output)
                 }
+                if let draft = output["miniAppDraft"] { entry.tools[index].miniAppDraft = try? draft.decode(MiniAppDocument.self) }
+                if let appID = output["app"]?["id"]?.stringValue { entry.tools[index].miniAppID = appID }
                 if entry.tools[index].toolName == "renderUI" {
                     entry.tools[index].renderedUI = ChatToolOutput.renderedUI(from: output)
                     entry.tools[index].renderedText = output["text"]?.stringValue
@@ -295,7 +301,7 @@ final class ChatModel {
             entry.isStreaming = false
             for index in entry.tools.indices { entry.tools[index].isRunning = false }
             if wasStreaming, entry.role == .assistant, entry.text.isEmpty, entry.errorText == nil,
-               entry.tools.allSatisfy({ $0.references.isEmpty && ($0.webReferences ?? []).isEmpty && $0.renderedUI == nil }) {
+               entry.tools.allSatisfy({ $0.references.isEmpty && ($0.webReferences ?? []).isEmpty && $0.renderedUI == nil && $0.miniAppDraft == nil && $0.miniAppID == nil }) {
                 return nil
             }
             return entry
@@ -330,6 +336,8 @@ final class ChatModel {
                     }.joined(separator: "\n")
                 }
                 for tool in entry.tools {
+                    if let app = tool.miniAppDraft { text += "\nMini App draft: \(app.title)\n" + ((try? String(data: JSONEncoder().encode(app), encoding: .utf8)) ?? "") }
+                    if let id = tool.miniAppID { text += "\nMini App id: \(id)" }
                     if let ui = tool.renderedUI {
                         text += "\n\n[Native view shown to the user: \(ui.title)]\n" + (tool.renderedText ?? "")
                     }

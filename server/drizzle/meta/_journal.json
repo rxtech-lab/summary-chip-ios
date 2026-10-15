@@ -225,6 +225,13 @@
       "when": 1791532800003,
       "tag": "0031_paper_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1791988637996,
+      "tag": "0032_mini_apps",
+      "breakpoints": true
     }
   ]
 }

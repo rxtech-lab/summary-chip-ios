@@ -13,6 +13,7 @@ export interface VersionContentByKind {
   trip: { document: TripDocument };
   /** A paper's title and LaTeX source; only what's saved as a version, never the autosaved working copy in between. */
   paper: PaperDocument;
+  mini_app: import("@/lib/contracts/mini-app").MiniAppDocument;
 }
 
 export type VersionContent = VersionContentByKind[SummaryKind];
@@ -25,6 +26,7 @@ export const VERSION_TITLE_PATHS: Record<SummaryKind, string> = {
   summary: "$.title",
   trip: "$.document.title",
   paper: "$.title",
+  mini_app: "$.title",
 };
 
 export function summaryContent(row: VersionContentByKind["summary"]): VersionContentByKind["summary"] {

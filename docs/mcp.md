@@ -338,3 +338,12 @@ curl -i https://summary.rxlab.app/api/mcp \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
 ```
+
+## Mini App authoring
+
+Mini Apps add `get_mini_app_catalog`, `validate_mini_app`, `create_mini_app`,
+`get_mini_app`, `list_mini_apps` (ten per page), and `update_mini_app`.
+Edits require the current revision and create an agent-authored document version.
+The catalog advertises supported native components, logic and connector schemas;
+validation also runs isolated fixture tests. Credentials are configured by the user
+in Chippy, never through authoring tools. See [Mini Apps](mini-apps.md).

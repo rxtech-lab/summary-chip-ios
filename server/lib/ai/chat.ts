@@ -1,3 +1,5 @@
+import { miniChatTools, MINI_CHAT_GUIDE } from "./mini-app";
+import { getMiniApp } from "@/lib/mini-app/service";
 import { randomUUID } from "node:crypto";
 import { convertToModelMessages, jsonSchema, stepCountIs, streamText, tool, type LanguageModelUsage, type UIMessage } from "ai";
 import { z } from "zod";
@@ -42,7 +44,9 @@ export const chatRequestSchema = z.object({
    * in place of the stored text (local-file summaries store none); never persisted.
    */
   localContent: z.string().max(MAX_TEXT_LENGTH).optional(),
-  /** Chats with the trip agent about one of the user's trips (its detail screen); the agent can edit it. Takes precedence over `summaryId`. */
+  /** Focused Mini App authoring; access is checked before chat billing. */
+  miniAppId: z.string().uuid().optional(),
+  /** Chats with the trip agent about an owned trip. Takes precedence over `summaryId`. */
   tripId: z.string().min(1).max(100).optional(),
 }).loose();
 
@@ -229,6 +233,7 @@ export interface StreamChatOptions {
   summaryId?: string;
   localContent?: string;
   tripId?: string;
+  miniAppId?: string;
   billingEnvironment?: BillingEnvironment;
   /** The request's signal: a client that hangs up still pays for the steps already run. */
   abortSignal?: AbortSignal;
@@ -248,10 +253,13 @@ export async function streamChat(
   const ai = await getAiProvider();
   const model = ai.chatModelId();
   const turnId = randomUUID();
+  const mini = options.miniAppId ? await getMiniApp(db, options.miniAppId, userId) : undefined;
   // Refuses an empty balance (402) before the model runs.
   const charge = await reserveChatPoints(userId, turnId, model, options.billingEnvironment);
   const billing = charge ? chatBilling(ai, charge) : undefined;
+  const miniEnabled = process.env.MINI_APPS_ENABLED === "true" || process.env.NODE_ENV === "test";
   const tools = {
+    ...(miniEnabled ? miniChatTools(db, userId) : {}),
     ...chatTools(db, userId, ai),
     ...chatWebTools(db, userId, ai),
     ...chatUITools(),
@@ -261,6 +269,8 @@ export async function streamChat(
   const result = streamText({
     model: ai.chatModel(),
     instructions: chatInstructions()
+      + (miniEnabled ? MINI_CHAT_GUIDE : "")
+      + (mini ? `\nThe user is editing Mini App ${mini.id} at revision ${mini.revision}. Read it with getMiniApp before editing.` : "")
       + (focused ? focusedSummaryInstructions(focused, local) : "")
       + (trip ? tripChatInstructions(trip.summary.id, trip.trip.document) : ""),
     messages: await convertToModelMessages(messages, { tools }),

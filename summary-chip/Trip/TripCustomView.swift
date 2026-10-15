@@ -4,7 +4,9 @@ import SwiftUI
 /// Draws a custom view's JSON spec with native components, json-render style: each element's
 /// `type` picks a component from the catalog in `server/lib/contracts/trip-view.ts`, containers
 /// draw their children by id. Unknown types and broken references draw nothing.
-struct TripViewRenderer: View {
+typealias TripViewRenderer = NativeJSONViewRenderer
+
+struct NativeJSONViewRenderer: View {
     let spec: TripViewSpec
     /// For `money` values without their own currency.
     let currency: String

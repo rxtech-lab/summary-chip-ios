@@ -109,6 +109,7 @@ public enum DocumentVersionContent: Sendable, Hashable {
     case trip(TripDocument)
     /// A paper's title and LaTeX project.
     case paper(PaperSource)
+    case miniApp(MiniAppDocument)
     /// A kind this build doesn't know; it can be listed and restored, not shown.
     case unsupported
 }
@@ -135,6 +136,7 @@ public struct DocumentVersionDetail: Decodable, Sendable, Hashable, Identifiable
         case .summary: content = .summary(try c.decode(SummaryVersionContent.self, forKey: .content))
         case .trip: content = .trip(try c.decode(TripContent.self, forKey: .content).document)
         case .paper: content = .paper(try c.decode(PaperSource.self, forKey: .content))
+        case .miniApp: content = .miniApp(try c.decode(MiniAppDocument.self, forKey: .content))
         case .other: content = .unsupported
         }
     }
@@ -147,6 +149,7 @@ public struct DocumentVersionRestore: Decodable, Sendable, Hashable {
     public var summary: Summary?
     public var trip: Trip?
     public var paper: Paper?
+    public var miniApp: MiniApp?
 
     public init(version: DocumentVersion?, summary: Summary? = nil, trip: Trip? = nil, paper: Paper? = nil) {
         self.version = version

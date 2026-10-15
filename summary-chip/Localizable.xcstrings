@@ -690,6 +690,9 @@
     "5" : {
       "shouldTranslate" : false
     },
+    "A new illustration replaces the Mini App's current cover." : {
+
+    },
     "A new illustration replaces the trip's current cover." : {
 
     },
@@ -726,6 +729,9 @@
       }
     },
     "A paper can have at most 60 files." : {
+
+    },
+    "A preview link shows the app's title and description to anyone holding the link." : {
 
     },
     "A quick look at how Chippy works." : {
@@ -802,6 +808,9 @@
       }
     },
     "Abstract" : {
+
+    },
+    "Access" : {
 
     },
     "Account" : {
@@ -932,6 +941,9 @@
         }
       }
     },
+    "Add an API integration with Edit with AI, then connect your account here." : {
+
+    },
     "Add Day" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1026,6 +1038,9 @@
           }
         }
       }
+    },
+    "Add Member" : {
+
     },
     "Add Moment" : {
       "localizations" : {
@@ -1157,6 +1172,9 @@
           }
         }
       }
+    },
+    "Add Record" : {
+
     },
     "Add Review" : {
 
@@ -1529,6 +1547,9 @@
     "All Versions…" : {
 
     },
+    "Allow Chippy to use your location in Settings, then try again." : {
+
+    },
     "Allow notifications for Chippy in system Settings to receive summary alerts." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1688,6 +1709,9 @@
           }
         }
       }
+    },
+    "API Key" : {
+
     },
     "API Key Created" : {
       "localizations" : {
@@ -2059,6 +2083,9 @@
           }
         }
       }
+    },
+    "Blank app" : {
+
     },
     "Blue" : {
       "extractionState" : "manual",
@@ -2659,6 +2686,9 @@
         }
       }
     },
+    "Chippy stores the key securely. It is never included in the app itself." : {
+
+    },
     "Chippy translates the paper's title and text using your points. Existing translations are reused; only new or changed text is translated. Equations, references and images are preserved. Switch to Original to edit the paper." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2852,6 +2882,9 @@
           }
         }
       }
+    },
+    "Client Secret" : {
+
     },
     "Close" : {
       "localizations" : {
@@ -3057,6 +3090,12 @@
     "Confirmation: %@" : {
 
     },
+    "Connect" : {
+
+    },
+    "Connect Account" : {
+
+    },
     "Connect an Agent" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3072,6 +3111,9 @@
           }
         }
       }
+    },
+    "Connect API" : {
+
     },
     "Connect to the internet to see the summaries you starred." : {
       "localizations" : {
@@ -3106,7 +3148,6 @@
       }
     },
     "Connection" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3121,6 +3162,12 @@
           }
         }
       }
+    },
+    "Connection Access" : {
+
+    },
+    "Connections" : {
+
     },
     "Contents" : {
 
@@ -3451,6 +3498,9 @@
         }
       }
     },
+    "Cover updated" : {
+
+    },
     "Covered by" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3531,6 +3581,12 @@
         }
       }
     },
+    "Create Preview Link" : {
+
+    },
+    "Create your app, then describe what you want with Edit with AI. You can also build one directly in Chat." : {
+
+    },
     "Created %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3597,6 +3653,9 @@
           }
         }
       }
+    },
+    "Credentials" : {
+
     },
     "Credit" : {
       "localizations" : {
@@ -3704,6 +3763,9 @@
           }
         }
       }
+    },
+    "Data" : {
+
     },
     "Date" : {
       "localizations" : {
@@ -3872,6 +3934,9 @@
     "Default Size" : {
 
     },
+    "Definition" : {
+
+    },
     "Delete" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4000,6 +4065,9 @@
         }
       }
     },
+    "Delete Mini App" : {
+
+    },
     "Delete My Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4064,6 +4132,9 @@
         }
       }
     },
+    "Delete Record" : {
+
+    },
     "Delete Review" : {
 
     },
@@ -4082,6 +4153,9 @@
           }
         }
       }
+    },
+    "Delete this record?" : {
+
     },
     "Delete Transport" : {
       "localizations" : {
@@ -4364,6 +4438,9 @@
         }
       }
     },
+    "Disable Preview Link" : {
+
+    },
     "Disabled" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4379,6 +4456,12 @@
           }
         }
       }
+    },
+    "Disconnect" : {
+
+    },
+    "Disconnect this account?" : {
+
     },
     "Discover" : {
       "localizations" : {
@@ -4589,6 +4672,9 @@
         }
       }
     },
+    "Edit Definition" : {
+
+    },
     "Edit Expense" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4685,6 +4771,9 @@
         }
       }
     },
+    "Edit Record" : {
+
+    },
     "Edit Sharing" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4759,6 +4848,9 @@
     "Edit View" : {
 
     },
+    "Edit with AI" : {
+
+    },
     "Edited" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4800,6 +4892,9 @@
           }
         }
       }
+    },
+    "Email" : {
+
     },
     "Enable Notifications" : {
       "localizations" : {
@@ -6345,6 +6440,9 @@
         }
       }
     },
+    "Integration" : {
+
+    },
     "Integrations" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6980,6 +7078,9 @@
         }
       }
     },
+    "Load More" : {
+
+    },
     "Loading %@…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7323,6 +7424,9 @@
     "Make this clearer, add a citation, shorten it…" : {
 
     },
+    "Manage Access" : {
+
+    },
     "Manage Translations…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7354,6 +7458,9 @@
           }
         }
       }
+    },
+    "Map" : {
+
     },
     "Margins" : {
       "extractionState" : "manual",
@@ -7394,6 +7501,15 @@
     "Meet your Trip Diary" : {
 
     },
+    "Member" : {
+
+    },
+    "Member Access" : {
+
+    },
+    "Member Email" : {
+
+    },
     "Membership required" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7409,6 +7525,15 @@
           }
         }
       }
+    },
+    "Mini App" : {
+
+    },
+    "Mini App Builder" : {
+
+    },
+    "Mini App Unavailable" : {
+
     },
     "Missing “%@”." : {
 
@@ -7687,6 +7812,9 @@
         }
       }
     },
+    "New Mini App" : {
+
+    },
     "New Paper" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7823,6 +7951,9 @@
           }
         }
       }
+    },
+    "No Access" : {
+
     },
     "No activity yet" : {
       "localizations" : {
@@ -8157,6 +8288,9 @@
       }
     },
     "No rates yet." : {
+
+    },
+    "No Records" : {
 
     },
     "No References" : {
@@ -8594,6 +8728,9 @@
         }
       }
     },
+    "OAuth Callback" : {
+
+    },
     "Off" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8707,6 +8844,12 @@
         }
       }
     },
+    "Only invited app members can use this connection. Saving with no operations revokes their access." : {
+
+    },
+    "Only invited people can run this app. Each person's personal tables stay private." : {
+
+    },
     "Onward" : {
       "comment" : "Trip route kind: travelling on to a new place",
       "localizations" : {
@@ -8755,6 +8898,9 @@
           }
         }
       }
+    },
+    "Open App" : {
+
     },
     "Open Chippy and sign in first." : {
       "localizations" : {
@@ -8821,6 +8967,9 @@
       }
     },
     "Open Link" : {
+
+    },
+    "Open Mini App" : {
 
     },
     "Open Review of “%@”" : {
@@ -9113,6 +9262,9 @@
           }
         }
       }
+    },
+    "Origin" : {
+
     },
     "Original" : {
       "localizations" : {
@@ -9429,6 +9581,12 @@
           }
         }
       }
+    },
+    "Permissions" : {
+
+    },
+    "Personal tracker" : {
+
     },
     "Phone" : {
       "localizations" : {
@@ -9861,6 +10019,9 @@
         }
       }
     },
+    "Preview %@" : {
+
+    },
     "Preview Unavailable" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9876,6 +10037,9 @@
           }
         }
       }
+    },
+    "Preview uses sample data and simulated API responses." : {
+
     },
     "Previous Photo" : {
       "localizations" : {
@@ -9944,6 +10108,9 @@
           }
         }
       }
+    },
+    "Public API — no account needed" : {
+
     },
     "Public link" : {
       "extractionState" : "stale",
@@ -10014,6 +10181,12 @@
 
     },
     "Rates From" : {
+
+    },
+    "Read" : {
+
+    },
+    "Read and Write" : {
 
     },
     "Read more" : {
@@ -10162,6 +10335,9 @@
         }
       }
     },
+    "Record" : {
+
+    },
     "Ref %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10295,6 +10471,9 @@
         }
       }
     },
+    "Reload" : {
+
+    },
     "Remaining" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10310,6 +10489,9 @@
           }
         }
       }
+    },
+    "Remove" : {
+
     },
     "Remove file link" : {
       "localizations" : {
@@ -10378,6 +10560,9 @@
         }
       }
     },
+    "Remove Member" : {
+
+    },
     "Remove the association with this summary and any saved copy. The original file in Files and the summary are kept." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10393,6 +10578,9 @@
           }
         }
       }
+    },
+    "Remove this member?" : {
+
     },
     "Remove this trip from your calendar?" : {
 
@@ -10776,6 +10964,9 @@
     "Reviews…" : {
 
     },
+    "Revision %lld" : {
+
+    },
     "Revoke" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10971,6 +11162,9 @@
         }
       }
     },
+    "Save App" : {
+
+    },
     "Save Version Now" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11066,6 +11260,9 @@
           }
         }
       }
+    },
+    "Saved to your library." : {
+
     },
     "Saving changes…" : {
       "localizations" : {
@@ -11587,6 +11784,9 @@
         }
       }
     },
+    "Share App Preview" : {
+
+    },
     "Share Link" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11650,6 +11850,12 @@
           }
         }
       }
+    },
+    "Shared Account" : {
+
+    },
+    "Sharing" : {
+
     },
     "Shinkansen" : {
       "localizations" : {
@@ -11814,6 +12020,9 @@
     "Sight" : {
 
     },
+    "Sign In" : {
+
+    },
     "Sign in with RxLab" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11829,6 +12038,9 @@
           }
         }
       }
+    },
+    "Sign in with the provider in your browser. Chippy stores the connection securely." : {
+
     },
     "Sign Out" : {
       "localizations" : {
@@ -12160,6 +12372,9 @@
           }
         }
       }
+    },
+    "Start with" : {
+
     },
     "Starts" : {
       "localizations" : {
@@ -12648,6 +12863,9 @@
         }
       }
     },
+    "Tabs" : {
+
+    },
     "Tag" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12762,6 +12980,9 @@
       }
     },
     "Text Options" : {
+
+    },
+    "The app, its records, and its connections will be removed permanently." : {
 
     },
     "The day and its moments are removed from the diary." : {
@@ -13111,6 +13332,9 @@
     "This image can't be replaced." : {
 
     },
+    "This integration was removed from the app. You can disconnect the saved account." : {
+
+    },
     "This is a saved copy of the shared file. Link the original from Files if you want to open the latest version." : {
       "localizations" : {
         "zh-Hans" : {
@@ -13161,6 +13385,9 @@
           }
         }
       }
+    },
+    "This Mini App needs a newer renderer." : {
+
     },
     "This paper can't be edited." : {
 
@@ -13881,6 +14108,9 @@
     "Update Calendar" : {
 
     },
+    "Update Chippy" : {
+
+    },
     "Update stopped" : {
 
     },
@@ -14121,6 +14351,9 @@
           }
         }
       }
+    },
+    "Use as a Shared Connection" : {
+
     },
     "Use Current Location" : {
       "localizations" : {
@@ -14814,6 +15047,9 @@
     "You" : {
 
     },
+    "You choose which members and operations can use it after connecting." : {
+
+    },
     "You'll get a notification when it's ready." : {
       "localizations" : {
         "zh-Hans" : {
@@ -14893,6 +15129,9 @@
           }
         }
       }
+    },
+    "Your Account" : {
+
     },
     "Your account and everything in it will be permanently deleted in 7 days. You can cancel any time before then." : {
       "localizations" : {

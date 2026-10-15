@@ -9,6 +9,7 @@ import type { SummaryJson } from "./serialize";
 import type { BillingEnvironmentResolver } from "./translations";
 import { VERSION_TITLE_PATHS, type VersionContent, type VersionContentByKind } from "./document-versions";
 import { getOwnedTrip, saveDocument, validDocument, withStoredDefaults, type TripJson } from "./trips";
+import { updateMiniApp, getMiniApp } from "@/lib/mini-app/service";
 import { restorePaper, type PaperJson } from "./papers";
 
 /** One row of `GET /api/v1/summaries/:id/versions`. */
@@ -36,6 +37,7 @@ export interface RestoreJson {
   summary: SummaryJson | null;
   trip: TripJson | null;
   paper: PaperJson | null;
+  miniApp?: Awaited<ReturnType<typeof getMiniApp>> | null;
 }
 
 export const DEFAULT_VERSION_PAGE = 50;
@@ -146,6 +148,9 @@ export async function restoreVersion(
   } else if (row.kind === "paper") {
     // Manual edits not saved as a version yet are saved first, so the restore can be undone to them.
     result = { summary: null, trip: null, paper: await restorePaper(db, ownerId, id, row.content as unknown as VersionContentByKind["paper"], { ...deps, ...restore }) };
+  } else if (row.kind === "mini_app") {
+    const current = await getMiniApp(db, id, ownerId);
+    result = { summary: null, trip: null, paper: null, miniApp: await updateMiniApp(db, id, ownerId, row.content, current.revision, "restore", version) };
   } else {
     const content = row.content as unknown as VersionContentByKind["summary"];
     result = {

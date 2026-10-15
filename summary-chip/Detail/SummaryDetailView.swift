@@ -288,6 +288,8 @@ struct SummaryDestination: View {
                 title: summary.title,
                 onOpenTrip: onOpenTrip.map { action in { action(summary) } }
             )
+        } else if summary.kind == .miniApp {
+            MiniAppDetailView(environment: environment, appID: summary.id)
         } else if summary.kind == .paper {
             PaperDetailView(environment: environment, paperID: summary.id, title: summary.title)
         } else {

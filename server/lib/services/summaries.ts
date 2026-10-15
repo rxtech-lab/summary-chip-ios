@@ -46,6 +46,7 @@ import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, r
 import { translateTrip } from "./trip-translations";
 import { notifySummaryAdded } from "./notifications";
 import { selectCoverTheme } from "./cover-colors";
+import { redesignMiniAppCover } from "@/lib/mini-app/cover";
 
 export interface ServiceDeps {
   ai?: AiProvider;
@@ -802,7 +803,7 @@ async function storeImages(store: ObjectStore, id: string, timestamp: number, im
 }
 
 /** Best-effort deletion of R2 objects that are no longer referenced. */
-async function deleteObjects(store: ObjectStore, keys: (string | null)[]): Promise<void> {
+export async function deleteObjects(store: ObjectStore, keys: (string | null)[]): Promise<void> {
   await Promise.all(keys.filter((key): key is string => Boolean(key)).map((key) =>
     store.delete(key).catch((error) => console.warn("[summaries] retired image delete failed", error))));
 }
@@ -892,20 +893,21 @@ export async function regenerateImage(
   const updatedAt = now();
   // Never reuse the previous key, even if the clock has not moved.
   const timestamp = Math.max(updatedAt.getTime(), existing.updatedAt.getTime() + 1);
-  const theme = await selectCoverTheme(db, ownerId, existing.theme);
+  const subject = { ...existing, ...await redesignMiniAppCover(db, ai, existing) };
+  const theme = await selectCoverTheme(db, ownerId, subject.theme);
   const images = await generateOgImages({
     id: `${existing.id}-${timestamp}`,
-    headline: existing.ogHeadline ?? existing.title,
-    summary: existing.summary,
-    category: existing.category,
-    keywords: existing.keywords,
+    headline: subject.ogHeadline ?? subject.title,
+    summary: subject.summary,
+    category: subject.category,
+    keywords: subject.keywords,
     theme,
     siteLabel: siteLabelFor(existing),
-    language: existing.language,
+    language: subject.language,
     kind: existing.kind,
   }, imageStyle, ai);
   const keys = await storeImages(store, existing.id, timestamp, images);
-  const changes = { imageStyle, theme, ...keys, updatedAt: new Date(timestamp) };
+  const changes = { imageStyle, theme, ogHeadline: subject.ogHeadline, language: subject.language, keywords: subject.keywords, ...keys, updatedAt: new Date(timestamp) };
   await db.update(summaries).set(changes).where(eq(summaries.id, existing.id));
   await deleteObjects(store, [existing.ogImageKey, existing.artImageKey].filter((key) => key !== keys.ogImageKey && key !== keys.artImageKey));
   await retireTranslatedCovers(db, store, [existing.id]);

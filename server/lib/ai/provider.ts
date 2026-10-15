@@ -614,6 +614,7 @@ export class GatewayAiProvider implements AiProvider {
 export function illustrationInstruction(input: DesignInput): string {
   if (input.kind === "trip") return tripIllustrationInstruction(input);
   if (input.kind === "paper") return paperIllustrationInstruction(input);
+  if (input.kind === "mini_app") return miniAppIllustrationInstruction(input);
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
     "Create a 16:9 text-free editorial illustration to be used as the background artwork of a social preview card for this article.",
@@ -655,6 +656,21 @@ function paperIllustrationInstruction(input: DesignInput): string {
     "Fill the entire canvas edge to edge with the notebook and desk, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
     "The image must contain NO text of any kind: no handwriting, letters, words, characters in any script, numbers, equations, mathematical symbols, axis labels, captions, logos or watermarks. Pages, charts, figures and sticky notes must be blank or purely pictorial; plots have bare axes and no tick labels.",
     "Reminder: a purely visual image with zero text, typography, handwriting, equations or lettering.",
+  ].join(" ");
+}
+
+/** A Mini App's cover: a crafted app-icon-like object for what the tool does, still text-free. */
+function miniAppIllustrationInstruction(input: DesignInput): string {
+  const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
+  return [
+    "Create a 16:9 text-free illustration to be used as the cover artwork of a small interactive app (a personal tool or widget).",
+    "ABSOLUTE RULE: never include any text in the image. The app details below are context for choosing what to draw only; do not write the app name, labels or any other words anywhere in the picture.",
+    `App: "${input.headline}". What it does: ${input.summary.slice(0, 300)}. Features: ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a polished, tactile 3D scene like a premium app-store feature graphic — a glossy rounded app-icon-like object or a few floating interface cards (blank lists, toggles, charts with bare axes, buttons) combined with objects that represent what the app tracks or does. Palette: ${input.colors.join(", ")}; overall tone ${tone}.`,
+    "Fill the entire canvas edge to edge with a designed background: soft gradients, layered geometric shapes, subtle grid lines and soft light and depth. No blank or plain white areas, no frame or border.",
+    "Place the main subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
+    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, logos, wordmarks or watermarks. Screens, cards, buttons and charts must be blank or purely pictorial.",
+    "Reminder: a purely visual image with zero text, typography or lettering.",
   ].join(" ");
 }
 

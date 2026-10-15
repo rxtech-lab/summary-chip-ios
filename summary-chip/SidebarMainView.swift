@@ -15,6 +15,7 @@ struct SidebarMainView: View {
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
     @State private var showsNewPaper = false
+    @State private var showsNewMiniApp = false
     @State private var libraryPath: [Summary] = []
     @State private var likesPath: [Summary] = []
 
@@ -71,6 +72,16 @@ struct SidebarMainView: View {
                 }
             }
         }
+        .sheet(isPresented: $showsNewMiniApp) {
+            NewMiniAppSheet(environment: environment) { app in
+                Task {
+                    guard let summary = try? await environment.api.summary(id: app.id) else { return }
+                    environment.library.upsert(summary)
+                    selection = .library
+                    libraryPath = [summary]
+                }
+            }
+        }
         // "Open in Library" from a link sheet.
         .onChange(of: environment.pendingLibraryItem) { _, item in
             guard let item else { return }
@@ -80,6 +91,7 @@ struct SidebarMainView: View {
         .focusedSceneValue(\.newSummaryAction, { showsNewSummary = true })
         .focusedSceneValue(\.newTripAction, { showsNewTrip = true })
         .focusedSceneValue(\.newPaperAction, { showsNewPaper = true })
+        .focusedSceneValue(\.newMiniAppAction, { showsNewMiniApp = true })
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
     }
 
@@ -141,6 +153,7 @@ extension FocusedValues {
     }
 
     @Entry var newPaperAction: (() -> Void)?
+    @Entry var newMiniAppAction: (() -> Void)?
 }
 
 #if os(macOS)
@@ -149,6 +162,7 @@ struct SummaryMacCommands: Commands {
     @FocusedValue(\.chatPanelVisibility) private var chatPanel
     @FocusedValue(\.newTripAction) private var newTrip
     @FocusedValue(\.newPaperAction) private var newPaper
+    @FocusedValue(\.newMiniAppAction) private var newMiniApp
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -161,6 +175,8 @@ struct SummaryMacCommands: Commands {
             Button("New Paper", systemImage: "doc.richtext") { newPaper?() }
                 .keyboardShortcut("n", modifiers: [.command, .option])
                 .disabled(newPaper == nil)
+            Button("New Mini App", systemImage: "app.badge") { newMiniApp?() }
+                .disabled(newMiniApp == nil)
         }
         CommandGroup(after: .sidebar) {
             Button(chatPanel?.wrappedValue == true ? String(localized: "Hide Chat") : String(localized: "Show Chat")) {

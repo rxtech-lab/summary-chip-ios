@@ -26,11 +26,11 @@ struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openLibraryItem) private var openLibraryItem
 
-    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
-        let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip)
+        let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip, miniAppID: miniAppID)
         model.onTripUpdated = onTripUpdated
         self._model = State(initialValue: model)
         self._transcriptEntries = State(initialValue: model.entries)
@@ -38,9 +38,10 @@ struct ChatView: View {
 
     private var trip: TripChat? { model.trip }
     /// A chat about one summary or trip, presented as a sheet over it.
-    private var isSheet: Bool { summary != nil || trip != nil }
+    private var isSheet: Bool { summary != nil || trip != nil || model.miniAppID != nil }
 
     private var title: Text {
+        if model.miniAppID != nil { return Text("Mini App Builder") }
         if let trip { return trip.isExpense ? Text("Add Expense with AI") : Text("Trip Agent") }
         return summary == nil ? Text("Chat") : Text("Ask About This")
     }
@@ -106,7 +107,7 @@ struct ChatView: View {
             }
         }
         .sheet(item: $toolDetail) { tool in
-            ChatToolDetailSheet(tool: tool)
+            ChatToolDetailSheet(tool: tool, environment: environment)
         }
         .sheet(item: $selectedReference, onDismiss: openSelectedTrip) { reference in
             ChatSummarySheet(
@@ -456,7 +457,11 @@ private struct ChatToolCallCard: View, Equatable {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            if let ui = tool.renderedUI {
+            if let draft = tool.miniAppDraft {
+                Button { openTool(tool) } label: { Label("Preview \(draft.title)", systemImage: "app.badge") }
+            } else if let appID = tool.miniAppID {
+                Button { openSummary(appID) } label: { Label("Open Mini App", systemImage: "app.badge") }
+            } else if let ui = tool.renderedUI {
                 Button {
                     openTool(tool)
                 } label: {

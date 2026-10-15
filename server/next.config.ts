@@ -6,8 +6,10 @@ const nextConfig: NextConfig = {
   // Do not write AGENTS.md / CLAUDE.md into the package on `next dev`.
   agentRules: false,
   outputFileTracingIncludes: {
+    "/api/v1/mini-apps/**": ["./lib/mini-app/script-worker.mjs", "./node_modules/quickjs-emscripten/**", "./node_modules/quickjs-emscripten-core/**", "./node_modules/@jitl/**"],
+    "/api/v1/chat": ["./lib/mini-app/script-worker.mjs", "./node_modules/quickjs-emscripten/**", "./node_modules/quickjs-emscripten-core/**", "./node_modules/@jitl/**"],
     "/api/v1/*": ["./lib/subscription/certificates/*.cer"],
-    "/api/mcp": ["./lib/subscription/certificates/*.cer"],
+    "/api/mcp": ["./lib/mini-app/script-worker.mjs", "./node_modules/quickjs-emscripten/**", "./node_modules/quickjs-emscripten-core/**", "./node_modules/@jitl/**", "./lib/subscription/certificates/*.cer"],
     "/api/v1/papers/*/export": ["./lib/latex/pandoc-worker.mjs", "./node_modules/pandoc-wasm/package.json", "./node_modules/pandoc-wasm/index.js", "./node_modules/pandoc-wasm/src/**", "./node_modules/@bjorn3/browser_wasi_shim/package.json", "./node_modules/@bjorn3/browser_wasi_shim/dist/*.js"],
   },
   /**

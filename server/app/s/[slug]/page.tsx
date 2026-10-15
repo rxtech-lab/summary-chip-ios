@@ -186,6 +186,7 @@ function InvitedOnly({ row }: { row: SummaryRow }) {
           <p className="md-text-secondary mt-3 leading-relaxed">
             It was shared with specific people. Open it in the Chippy app and sign in with the email address it was shared with.
           </p>
+          {row.kind === "mini_app" && <a href={`summarychip://s/${encodeURIComponent(row.slug)}`} className="md-button mt-4">Open in Chippy</a>}
         </div>
       </article>
     </main>
@@ -285,6 +286,13 @@ export default async function SummaryPage({ params, searchParams }: Props) {
           </ul>
         ) : null}
 
+        {row.kind === "mini_app" ? (
+          <section className="md-card mt-10 p-5">
+            <h2 className="text-lg font-semibold">Interactive Mini App</h2>
+            <p className="mt-2">Run this app in Chippy on iPhone, iPad, or Mac. Sign in with your invited account; personal records stay private.</p>
+            <a href={`summarychip://s/${encodeURIComponent(slug)}`} className="md-button mt-4">Open in Chippy</a>
+          </section>
+        ) : null}
         {row.kind === "paper" ? (
           <a href={`/s/${slug}/paper.pdf`} target="_blank" rel="noopener" className="md-button mt-10" style={{ backgroundColor: accent, color: accentText }}>
             Read the paper (PDF)

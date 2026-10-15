@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
     @State private var showsNewPaper = false
+    @State private var showsNewMiniApp = false
     @State private var showsCredits = false
     @State private var sharingSummary: Summary?
     @State private var deletingSummary: Summary?
@@ -51,6 +52,16 @@ struct LibraryView: View {
                         Task {
                             guard let summary = await environment.libraryItem(forCreated: trip) else { return }
                             // Let the sheet finish dismissing before pushing.
+                            try? await Task.sleep(for: .milliseconds(350))
+                            if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
+                        }
+                    }
+                }
+                .sheet(isPresented: $showsNewMiniApp) {
+                    NewMiniAppSheet(environment: environment) { app in
+                        Task {
+                            guard let summary = try? await environment.api.summary(id: app.id) else { return }
+                            environment.library.upsert(summary)
                             try? await Task.sleep(for: .milliseconds(350))
                             if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
                         }
@@ -116,6 +127,8 @@ struct LibraryView: View {
                     Label("New Paper", systemImage: "doc.richtext")
                 }
                 .accessibilityIdentifier("new-paper")
+                Button { showsNewMiniApp = true } label: { Label("New Mini App", systemImage: "app.badge") }
+                    .accessibilityIdentifier("new-mini-app")
             } label: {
                 Label("New", systemImage: "plus")
             }

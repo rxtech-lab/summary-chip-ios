@@ -49,6 +49,7 @@ struct SummaryChipApp: App {
                     UpdateService.shared.start()
                     #endif
                     #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") { return }
                     #if os(iOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-local-file") { return }
@@ -111,7 +112,9 @@ struct SummaryChipApp: App {
     @ViewBuilder
     private var standardAppContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
+        if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") {
+            MiniAppPreviewHost()
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
             ChatView(environment: environment, model: ChatModel(client: environment.chatClient, store: .init(directory: nil)))
         } else if ProcessInfo.processInfo.arguments.contains("--preview-credits") {
             CreditsPreviewHost()
