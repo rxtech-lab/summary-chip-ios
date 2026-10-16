@@ -38,4 +38,30 @@ struct MiniAppTests {
         #expect(!MiniAppPublicAPI.isPublic(.object(keyed)))
         #expect(throws: MiniAppPublicAPI.Failure.unavailable("forecast")) { try MiniAppPublicAPI.makeRequest(connector: .object(keyed), operation: "forecast", input: .object(["latitude": .number(1)])) }
     }
+    @Test func exportBuildsFilesFromEvaluatedContent() throws {
+        let rows: JSONValue = .array([.object(["title": .string("Milk, 2L"), "done": .bool(false)]), .object(["title": .string("Say \"hi\""), "count": .number(3)])])
+        let csv = try MiniAppFile.export(.object(["filename": .string("tasks"), "format": .string("csv"), "content": rows]))
+        #expect(csv.filename == "tasks.csv")
+        #expect(String(decoding: csv.data, as: UTF8.self) == "count,done,title\r\n,false,\"Milk, 2L\"\r\n3,,\"Say \"\"hi\"\"\"\r\n")
+        let ordered = MiniAppFile.csv(.array([.array([.string("B"), .string("A")]), .array([.number(1.5), .null])]))
+        #expect(ordered == "B,A\r\n1.5,\r\n")
+        let json = try MiniAppFile.export(.object(["filename": .string("data.json"), "format": .string("json"), "content": .object(["b": .number(1), "a": .string("x/y")])]))
+        #expect(json.filename == "data.json")
+        #expect(String(decoding: json.data, as: UTF8.self) == "{\n  \"a\" : \"x/y\",\n  \"b\" : 1\n}")
+        let text = try MiniAppFile.export(.object(["filename": .string("../notes"), "content": .string("Hello")]))
+        #expect(text.filename == "-notes.txt")
+        #expect(text.data == Data("Hello".utf8))
+        #expect(try MiniAppFile.export(.object(["filename": .string("  "), "content": .null])).filename == "Export.txt")
+        #expect(throws: MiniAppFile.Failure.tooLarge(MiniAppFile.exportLimit)) {
+            try MiniAppFile.export(.object(["filename": .string("big"), "content": .string(String(repeating: "x", count: MiniAppFile.exportLimit + 1))]))
+        }
+    }
+    @Test func downloadsAcceptOnlyHTTPSWithoutCredentials() throws {
+        #expect(try MiniAppFile.downloadURL(.string("https://files.example.com/report.pdf")).host == "files.example.com")
+        for bad in ["http://files.example.com/a", "https://user:pw@files.example.com/a", "file:///etc/hosts", "https://", "report.pdf"] {
+            #expect(throws: MiniAppFile.Failure.invalidURL) { try MiniAppFile.downloadURL(.string(bad)) }
+        }
+        #expect(throws: MiniAppFile.Failure.invalidURL) { try MiniAppFile.downloadURL(.number(1)) }
+        #expect(MiniAppFile.filename("report.pdf", fallback: "Download", defaultExtension: nil) == "report.pdf")
+    }
 }

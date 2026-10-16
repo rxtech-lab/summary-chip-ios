@@ -61,6 +61,29 @@ it("validates the catalog, versions, cycles and automatic writes", async () => {
   const write = example(); write.ui.elements.root.events.load = "save";
   expect((await validateMiniApp(write)).issues.join()).toContain("read action");
 });
+it("evaluates export and download steps into device file effects", async () => {
+  const doc = example();
+  doc.actions.exportCsv = { trigger: "interaction", input: {}, steps: [
+    { type: "query", query: "tasks", into: "records" },
+    { type: "export", filename: { op: "concat", args: ["tasks-", { get: "state.title" }] }, format: "csv", content: [["Title"], ["Buy milk"]] },
+  ] };
+  doc.actions.fetch = { trigger: "interaction", input: {}, steps: [{ type: "download", url: { get: "state.link" }, filename: "report.pdf" }] };
+  expect((await validateMiniApp(doc)).ok).toBe(true);
+  const exported = await previewMiniAction(doc, { action: "exportCsv", state: { title: "today" }, input: {} });
+  expect(exported.effects).toEqual([{ type: "export", filename: "tasks-today", format: "csv", content: [["Title"], ["Buy milk"]] }]);
+  const app = await createMiniApp(env.handle.db, "user-alice", doc);
+  const run = (state: Record<string, string>) => runMiniAction(env.handle.db, app.id, "user-alice", { revision: app.revision, action: "fetch", key: crypto.randomUUID(), input: {}, state });
+  expect(((await run({ link: "https://files.example.com/r.pdf" })) as { effects: unknown }).effects).toEqual([{ type: "download", url: "https://files.example.com/r.pdf", filename: "report.pdf" }]);
+  await expect(run({ link: "http://files.example.com/r.pdf" })).rejects.toMatchObject({ code: "MINI_DOWNLOAD_INVALID" });
+  await expect(run({ link: "https://user:pw@files.example.com/r.pdf" })).rejects.toMatchObject({ code: "MINI_DOWNLOAD_INVALID" });
+  const onLoad = structuredClone(doc); onLoad.actions.load.steps.push({ type: "export", filename: "x", content: "y" });
+  expect((await validateMiniApp(onLoad)).issues.join()).toContain("File export requires an interaction action");
+  const literal = structuredClone(doc); literal.actions.fetch.steps = [{ type: "download", url: "ftp://files.example.com/a" }];
+  expect((await validateMiniApp(literal)).issues.join()).toContain("Download url must be an HTTPS URL");
+  const huge = structuredClone(doc); huge.actions.exportCsv.steps = [{ type: "export", filename: "big", content: { op: "concat", args: Array(11).fill({ get: "state.chunk" }) } }];
+  await expect(previewMiniAction(huge, { action: "exportCsv", state: { chunk: "x".repeat(100_000) }, input: {} })).rejects.toMatchObject({ code: "MINI_EXPORT_LIMIT" });
+  expect(miniAppCatalog().nativeProps.export).toContain("csv");
+});
 it("isolates personal rows between members, apps and the app creator", async () => {
   const app = await createMiniApp(env.handle.db, "user-alice", example());
   await expect(getMiniApp(env.handle.db, app.id, "user-bob")).rejects.toMatchObject({ status: 404 });
