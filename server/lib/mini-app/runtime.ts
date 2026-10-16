@@ -2,7 +2,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { miniAppRuns, miniAppConnections, miniAppConnectionGrants } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
-import { validateFields, type Json, type MiniAppDocument, type MiniRun, type MiniStep } from "@/lib/contracts/mini-app";
+import { miniDownloadUrl, validateFields, type Json, type MiniAppDocument, type MiniRun, type MiniStep } from "@/lib/contracts/mini-app";
 import { evaluate, writePath } from "./expressions";
 import { callMiniConnector } from "./connections";
 import { fingerprint } from "./secrets";
@@ -10,13 +10,14 @@ import { miniAccess, mutateMiniRecord, queryMiniRecords } from "./service";
 import { runMiniScript } from "./scripts";
 import { validMiniApp } from "./validation";
 
-type Effects = { type: "present" | "dismiss"; target?: string }[];
+type Effects = { [key: string]: Json }[];
 interface Operations {
   query: (query: string, context: Record<string, Json>, cursor?: string) => Promise<Json>;
   mutate: (step: Extract<MiniStep, { type: "mutate" }>, context: Record<string, Json>) => Promise<void>;
   request: (connector: string, operation: string, input: Json) => Promise<Json>;
   check: () => Promise<void>;
 }
+const fileName = (value: Json) => (value === null || typeof value === "object" ? "" : String(value)).slice(0, 200);
 async function execute(document: MiniAppDocument, input: Omit<MiniRun, "key" | "revision">, ops: Operations, budgetDeadline = Date.now() + 30_000) {
   const action = document.actions[input.action];
   if (!action) throw new ApiError(404, "MINI_ACTION_NOT_FOUND", "Action not found");
@@ -37,6 +38,19 @@ async function execute(document: MiniAppDocument, input: Omit<MiniRun, "key" | "
         case "if": await steps(evaluate(step.condition, context) ? step.then : step.else ?? []); break;
         case "present": effects.push({ type: "present", target: step.target }); break;
         case "dismiss": effects.push({ type: "dismiss" }); break;
+        // The device builds or fetches the file; the effect only carries evaluated values.
+        case "export": {
+          const content = evaluate(step.content, context);
+          if (Buffer.byteLength(JSON.stringify(content)) > 1024 * 1024) throw new ApiError(422, "MINI_EXPORT_LIMIT", "Exported file exceeds 1 MiB");
+          effects.push({ type: "export", filename: fileName(evaluate(step.filename, context)), format: step.format ?? "text", content });
+          break;
+        }
+        case "download": {
+          const url = evaluate(step.url, context);
+          if (!miniDownloadUrl(url)) throw new ApiError(422, "MINI_DOWNLOAD_INVALID", "Downloads need an HTTPS URL without credentials");
+          effects.push({ type: "download", url, ...(step.filename === undefined ? {} : { filename: fileName(evaluate(step.filename, context)) }) });
+          break;
+        }
       }
       if (Buffer.byteLength(JSON.stringify(state)) > 1024 * 1024) throw new ApiError(422, "MINI_STATE_LIMIT", "App state exceeds 1 MiB");
     }
