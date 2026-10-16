@@ -7,6 +7,7 @@ export const jsonValue: z.ZodType<Json> = z.lazy(() => z.union([z.null(), z.bool
 export const miniId = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,79}$/).refine(v => !["__proto__", "prototype", "constructor"].includes(v));
 const fields = z.record(miniId, z.object({ type: z.enum(["string", "number", "boolean", "date", "json"]), required: z.boolean().default(false) }).strict());
 export const MINI_COMPONENTS = [...VIEW_ELEMENT_TYPES.filter(v => v !== "Place"), "Navigation", "Tabs", "Tab", "Toolbar", "Menu", "Form", "Section", "Button", "TextField", "TextEditor", "Toggle", "Picker", "DatePicker", "Location", "Map", "Progress", "Empty", "Sheet", "Dialog", "Alert", "Confirmation"] as const;
+export const MINI_EXPORT_FORMATS = ["text", "csv", "json"] as const;
 export const MINI_EVENTS = ["press", "change", "submit", "load", "refresh", "search"] as const;
 export const miniNodeSchema = z.object({
   type: z.enum(MINI_COMPONENTS), props: z.record(z.string().max(80), jsonValue).default({}),
@@ -29,7 +30,9 @@ export type MiniStep =
   | { type: "script"; script: string; input: Json; into: string }
   | { type: "if"; condition: Json; then: MiniStep[]; else?: MiniStep[] }
   | { type: "present"; target: string }
-  | { type: "dismiss" };
+  | { type: "dismiss" }
+  | { type: "export"; filename: Json; format?: "text" | "csv" | "json"; content: Json }
+  | { type: "download"; url: Json; filename?: Json };
 const statePath = z.string().regex(/^[A-Za-z][A-Za-z0-9_.-]{0,199}$/).refine(v => v.split(".").every(p => !["__proto__", "prototype", "constructor"].includes(p)));
 export const miniStepSchema: z.ZodType<MiniStep> = z.lazy(() => z.discriminatedUnion("type", [
   z.object({ type: z.literal("set"), path: statePath, value: jsonValue }).strict(),
@@ -39,6 +42,9 @@ export const miniStepSchema: z.ZodType<MiniStep> = z.lazy(() => z.discriminatedU
   z.object({ type: z.literal("script"), script: miniId, input: jsonValue, into: statePath }).strict(),
   z.object({ type: z.literal("if"), condition: jsonValue, then: z.array(miniStepSchema).max(50), else: z.array(miniStepSchema).max(50).optional() }).strict(),
   z.object({ type: z.literal("present"), target: miniId }).strict(), z.object({ type: z.literal("dismiss") }).strict(),
+  // Files the user saves with the native Save dialog: built from state, or fetched from an HTTPS URL by the device.
+  z.object({ type: z.literal("export"), filename: jsonValue, format: z.enum(MINI_EXPORT_FORMATS).optional(), content: jsonValue }).strict(),
+  z.object({ type: z.literal("download"), url: jsonValue, filename: jsonValue.optional() }).strict(),
 ]));
 const https = z.string().url().max(2048).refine(v => { const u = new URL(v); return u.protocol === "https:" && !u.username && !u.password && !u.hash; }, "Use an HTTPS URL without credentials or fragment");
 export const miniConnectorSchema = z.object({
@@ -124,7 +130,7 @@ export function miniDocumentIssues(doc: MiniAppDocument): string[] {
   const steps = (list: MiniStep[], read: boolean, depth: number) => {
     if (depth > 12) { add("Actions nest too deeply"); return; }
     for (const step of list) {
-      for (const key of ["value", "condition", "input", "recordId", "revision", "cursor"] as const) if (key in step) expression((step as unknown as Record<string, Json>)[key], `action.${step.type}.${key}`);
+      for (const key of ["value", "condition", "input", "recordId", "revision", "cursor", "filename", "content", "url"] as const) if (key in step) expression((step as unknown as Record<string, Json>)[key], `action.${step.type}.${key}`);
       if (step.type === "if") { steps(step.then, read, depth + 1); steps(step.else ?? [], read, depth + 1); }
       if (step.type === "query" && !doc.queries[step.query]) add(`Missing query ${step.query}`);
       if (step.type === "mutate" && (!doc.tables[step.table] || read)) add(`Mutation ${step.table} requires an existing table and interaction action`);
@@ -134,6 +140,9 @@ export function miniDocumentIssues(doc: MiniAppDocument): string[] {
       }
       if (step.type === "script" && !doc.scripts[step.script]) add(`Missing script ${step.script}`);
       if (step.type === "present" && !doc.ui.elements[step.target]) add(`Missing presentation ${step.target}`);
+      // A Save dialog never opens from loading, searching or refreshing.
+      if ((step.type === "export" || step.type === "download") && read) add(`File ${step.type} requires an interaction action`);
+      if (step.type === "download" && typeof step.url === "string" && !miniDownloadUrl(step.url)) add("Download url must be an HTTPS URL without credentials");
     }
   };
   for (const action of Object.values(doc.actions)) steps(action.steps, action.trigger === "read", 0);
@@ -143,6 +152,13 @@ export function miniDocumentIssues(doc: MiniAppDocument): string[] {
   }
   for (const fixture of doc.fixtures.tests) if (!doc.actions[fixture.action]) add(`Fixture references missing action ${fixture.action}`);
   return issues;
+}
+
+/** The URL a `download` step may hand to the device: HTTPS, no embedded credentials. */
+export function miniDownloadUrl(value: Json): value is string {
+  if (typeof value !== "string" || value.length > 2048 || !URL.canParse(value)) return false;
+  const url = new URL(value);
+  return url.protocol === "https:" && !url.username && !url.password;
 }
 
 export function validateFields(value: unknown, schema: z.infer<typeof fields>): Record<string, Json> {
@@ -195,6 +211,8 @@ export function miniAppCatalog() {
       Location: "title, icon, binding (state path), auto (bool); a button that asks for the device's when-in-use location and writes {latitude, longitude, accuracy} to binding, then fires change (a read action). With auto it fills in on load when access was already granted; it never prompts on its own",
       Map: "latitude, longitude, span (meters shown around the center, default 5000), markers [{id, latitude, longitude, title, icon (SF Symbol), tone (accent|positive|negative|warning)}], height (points, 120-600, default 260), interactive (default true), binding (state path receiving the selected marker id); change fires on marker selection (a read action, e.g. present a half-height Sheet). Without a center the map fits its markers",
       Progress: "title", Empty: "title, icon, message",
+      export: "action step {type:\"export\", filename, format: text (default) | csv | json, content}; opens the native Save dialog with a file built from the evaluated content. csv takes an array of rows: arrays keep their column order, objects use their keys (sorted) as the header. Interaction actions only",
+      download: "action step {type:\"download\", url, filename?}; the device downloads the HTTPS file (25 MiB max) and opens the native Save dialog. The filename defaults to the server's suggestion. Interaction actions only",
       all: "visible expression, repeat.items expression (each row becomes item), props expressions; form bindings are literal state paths",
     },
     examples: [miniAppExample], limits: { elements: 300, depth: 24, steps: 50, scriptMemoryMiB: 32 },

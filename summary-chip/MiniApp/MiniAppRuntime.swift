@@ -1,6 +1,7 @@
 import Observation
 import SummaryKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MiniPresentation: Identifiable, Hashable { let id: String }
 
@@ -17,6 +18,8 @@ final class MiniAppRuntime {
     var navigation: MiniPresentation?
     private var pendingReads: [String: (item: JSONValue, input: [String: JSONValue])] = [:]
     var presentationItem: JSONValue = .null
+    /// A file from an `export` or `download` step, waiting for the Save dialog.
+    var file: MiniAppFile?
     var error: String?
     var busy = false
     var feedback = 0
@@ -60,7 +63,7 @@ final class MiniAppRuntime {
                 try await runOnDevice(steps, app: app, item: item, input: input, state: &working, effects: &effects, budget: &budget, deadline: .now + 30)
                 for (key, value) in state where startingState[key] != value { working[key] = value }
                 state = working
-                for effect in effects { apply(effect, item: item) }
+                for effect in effects { try await apply(effect, item: item) }
             } else {
                 let startingState = state
                 let result = try await api.miniAppAction(id: app?.id, document: document, revision: app?.revision ?? 0, action: action, state: state, input: input, item: item, records: records)
@@ -68,14 +71,14 @@ final class MiniAppRuntime {
                 for (key, value) in state where startingState[key] != value { merged[key] = value }
                 state = merged
                 if let records = result.records { self.records = records }
-                for effect in result.effects { apply(effect, item: item) }
+                for effect in result.effects { try await apply(effect, item: item) }
             }
         } catch { self.error = error.localizedDescription }
     }
     private func isLocal(_ steps: [JSONValue]) -> Bool {
         steps.allSatisfy { step in
             if step["type"]?.stringValue == "if" { return isLocal(step["then"]?.miniArray ?? []) && isLocal(step["else"]?.miniArray ?? []) }
-            return ["set", "present", "dismiss"].contains(step["type"]?.stringValue ?? "")
+            return ["set", "present", "dismiss", "export"].contains(step["type"]?.stringValue ?? "")
         }
     }
     /// Keyless API requests go straight from the device; scripts still run in the server sandbox.
@@ -84,7 +87,7 @@ final class MiniAppRuntime {
         steps.allSatisfy { step in
             switch step["type"]?.stringValue {
             case "if": runsOnDevice(step["then"]?.miniArray ?? []) && runsOnDevice(step["else"]?.miniArray ?? [])
-            case "set", "present", "dismiss", "script": true
+            case "set", "present", "dismiss", "script", "export", "download": true
             case "request": MiniAppPublicAPI.isPublic(step["connector"]?.stringValue.flatMap { document.connectors[$0] })
             default: false
             }
@@ -108,7 +111,7 @@ final class MiniAppRuntime {
             case "script":
                 let result = try await api.miniAppScript(id: app.id, revision: app.revision, script: step["script"]?.stringValue ?? "", input: evaluated("input"))
                 if let path = step["into"]?.stringValue { MiniAppExpression.write(&state, path: path, value: result) }
-            default: effects.append(step)
+            default: effects.append(Self.evaluatedEffect(step, context: context))
             }
         }
     }
@@ -123,11 +126,25 @@ final class MiniAppRuntime {
                 applyLocal(step[branch]?.miniArray ?? [], item: item, input: input, budget: &budget)
             case "set":
                 if let path = step["path"]?.stringValue { MiniAppExpression.write(&state, path: path, value: MiniAppExpression.evaluate(step["value"] ?? .null, context: context)) }
-            default: apply(step, item: item)
+            default:
+                do { try applyNow(Self.evaluatedEffect(step, context: context), item: item) } catch { self.error = error.localizedDescription; return }
             }
         }
     }
-    private func apply(_ effect: JSONValue, item: JSONValue) {
+    /// File steps carry expressions; the server evaluates them, so device-run steps must match.
+    private static func evaluatedEffect(_ step: JSONValue, context: [String: JSONValue]) -> JSONValue {
+        guard case .object(var effect) = step, ["export", "download"].contains(step["type"]?.stringValue ?? "") else { return step }
+        for key in ["filename", "content", "url"] where effect[key] != nil {
+            effect[key] = MiniAppExpression.evaluate(effect[key]!, context: context)
+        }
+        return .object(effect)
+    }
+    /// Downloads run inside the action, so the busy indicator covers them.
+    private func apply(_ effect: JSONValue, item: JSONValue) async throws {
+        if effect["type"]?.stringValue == "download" { file = try await MiniAppFile.download(effect) } else { try applyNow(effect, item: item) }
+    }
+    private func applyNow(_ effect: JSONValue, item: JSONValue) throws {
+        if effect["type"]?.stringValue == "export" { file = try MiniAppFile.export(effect); return }
         if effect["type"]?.stringValue == "dismiss" { presentation = nil; dialog = nil; alert = nil; navigation = nil; return }
         guard let target = effect["target"]?.stringValue, let node = document.ui.elements[target] else { return }
         presentationItem = item
@@ -181,6 +198,7 @@ struct MiniAppRuntimeView: View {
                     .navigationTitle(model.document.ui.elements[target.id]?.props["title"]?.miniText ?? "")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close", systemImage: "xmark") { model.presentation = nil } } }
             }
+            .modifier(MiniFileExport(model: model, active: true))
             .modifier(MiniSheetHeight(half: model.document.ui.elements[target.id]?.props["height"]?.stringValue == "half"))
         }
         .confirmationDialog(dialogTitle(model.dialog), isPresented: Binding(get: { model.dialog != nil }, set: { if !$0 { model.dialog = nil } }), titleVisibility: .visible) {
@@ -189,6 +207,7 @@ struct MiniAppRuntimeView: View {
         .alert(dialogTitle(model.alert), isPresented: Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })) {
             presentationButtons(model.alert)
         } message: { Text(dialogMessage(model.alert)) }
+        .modifier(MiniFileExport(model: model, active: model.presentation == nil))
         .statusAlert("Clip", message: model.error) { model.error = nil }
         .sensoryFeedback(.selection, trigger: model.feedback)
         .sensoryFeedback(.error, trigger: model.error)
@@ -207,6 +226,27 @@ struct MiniAppRuntimeView: View {
         }
         Button("Cancel", role: .cancel) {}
     }
+}
+
+/// The Save dialog for `model.file`, from whichever view is frontmost: the root, or an open sheet.
+private struct MiniFileExport: ViewModifier {
+    @Bindable var model: MiniAppRuntime
+    let active: Bool
+    func body(content: Content) -> some View {
+        content.fileExporter(isPresented: Binding(get: { active && model.file != nil }, set: { if !$0 { model.file = nil } }),
+                             document: model.file.map(MiniFileDocument.init), contentType: .data, defaultFilename: model.file?.filename) { result in
+            if case .failure(let error) = result { model.error = error.localizedDescription }
+        }
+    }
+}
+
+/// Bytes for the Save dialog; the filename (with its extension) comes from the Clip.
+private struct MiniFileDocument: FileDocument {
+    static let readableContentTypes: [UTType] = [.data]
+    let data: Data
+    init(_ file: MiniAppFile) { data = file.data }
+    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
 /// `height: "half"` opens a sheet at half height (draggable to full); otherwise the standard size.
