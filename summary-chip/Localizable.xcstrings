@@ -4,98 +4,82 @@
     "" : {
 
     },
-    "Clips" : {
+    "Add File" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clips"
+            "value" : "添加文件"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Clips"
+            "value" : "加入檔案"
           }
         }
       }
     },
-    "Create a clip or ask Chat to build one. Your saved clips appear here." : {
+    "Choose File…" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "创建 Clip，或让聊天助手帮你构建。保存的 Clip 会显示在这里。"
+            "value" : "选择文件…"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "建立 Clip，或請聊天助理幫你製作。儲存的 Clip 會顯示在這裡。"
+            "value" : "選擇檔案…"
           }
         }
       }
     },
-    "Loading your clips…" : {
+    "Photo Library" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在载入你的 Clip…"
+            "value" : "照片图库"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在載入你的 Clip…"
+            "value" : "照片圖庫"
           }
         }
       }
     },
-    "No clips match the current filters." : {
+    "The file couldn't be read." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有 Clip 符合当前筛选条件。"
+            "value" : "无法读取该文件。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "沒有 Clip 符合目前的篩選條件。"
+            "value" : "無法讀取該檔案。"
           }
         }
       }
     },
-    "No clips yet" : {
+    "Uploading…" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "还没有 Clip "
+            "value" : "正在上传…"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "還沒有 Clip"
-          }
-        }
-      }
-    },
-    "No Matching Clips" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有匹配的 Clip"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有符合條件的 Clip"
+            "value" : "正在上傳…"
           }
         }
       }
@@ -786,7 +770,9 @@
     "5" : {
       "shouldTranslate" : false
     },
-    "A new illustration replaces the Clip's current cover." : {},
+    "A new illustration replaces the Clip's current cover." : {
+
+    },
     "A new illustration replaces the trip's current cover." : {
 
     },
@@ -2980,6 +2966,44 @@
     "Client Secret" : {
 
     },
+    "Clip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clip"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clip"
+          }
+        }
+      }
+    },
+    "Clip Builder" : {
+
+    },
+    "Clip Unavailable" : {
+
+    },
+    "Clips" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clips"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clips"
+          }
+        }
+      }
+    },
     "Close" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3485,8 +3509,18 @@
     },
     "Couldn't load your clips" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法载入你的 Clips" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法載入你的 Clips" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法载入你的 Clips"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入你的 Clips"
+          }
+        }
       }
     },
     "Couldn't load your Feed" : {
@@ -3645,6 +3679,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建立"
+          }
+        }
+      }
+    },
+    "Create a clip or ask Chat to build one. Your saved clips appear here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建 Clip，或让聊天助手帮你构建。保存的 Clip 会显示在这里。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立 Clip，或請聊天助理幫你製作。儲存的 Clip 會顯示在這裡。"
           }
         }
       }
@@ -4101,6 +4151,9 @@
         }
       }
     },
+    "Delete Clip" : {
+
+    },
     "Delete Day" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4165,7 +4218,6 @@
         }
       }
     },
-    "Delete Clip" : {},
     "Delete My Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5310,6 +5362,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "近期更新中新增的功能。"
+          }
+        }
+      }
+    },
+    "Feed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "动态"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動態"
           }
         }
       }
@@ -6949,22 +7017,6 @@
         }
       }
     },
-    "Feed" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "动态"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "動態"
-          }
-        }
-      }
-    },
     "Likes" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7246,6 +7298,9 @@
         }
       }
     },
+    "Loading progress" : {
+
+    },
     "Loading source…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7294,6 +7349,22 @@
         }
       }
     },
+    "Loading your clips…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在载入你的 Clip…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入你的 Clip…"
+          }
+        }
+      }
+    },
     "Loading your likes…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7325,6 +7396,9 @@
           }
         }
       }
+    },
+    "Loading…" : {
+
     },
     "Local" : {
       "comment" : "Train category: stops at every station",
@@ -7624,24 +7698,6 @@
         }
       }
     },
-    "Clip" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clip"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clip"
-          }
-        }
-      }
-    },
-    "Clip Builder" : {},
-    "Clip Unavailable" : {},
     "Missing “%@”." : {
 
     },
@@ -7836,6 +7892,9 @@
         }
       }
     },
+    "New Clip" : {
+
+    },
     "New cover ready" : {
 
     },
@@ -7919,7 +7978,6 @@
         }
       }
     },
-    "New Clip" : {},
     "New Paper" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8124,6 +8182,38 @@
         }
       }
     },
+    "No clips match the current filters." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有 Clip 符合当前筛选条件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有 Clip 符合目前的篩選條件。"
+          }
+        }
+      }
+    },
+    "No clips yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有 Clip "
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有 Clip"
+          }
+        }
+      }
+    },
     "No costs yet." : {
       "localizations" : {
         "zh-Hans" : {
@@ -8321,6 +8411,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有符合結果 · 依語意"
+          }
+        }
+      }
+    },
+    "No Matching Clips" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配的 Clip"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有符合條件的 Clip"
           }
         }
       }
@@ -9023,6 +9129,9 @@
         }
       }
     },
+    "Open Clip" : {
+
+    },
     "Open file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9074,7 +9183,6 @@
     "Open Link" : {
 
     },
-    "Open Clip" : {},
     "Open Review of “%@”" : {
 
     },
@@ -10419,6 +10527,9 @@
         }
       }
     },
+    "Ready" : {
+
+    },
     "Ready to Review" : {
 
     },
@@ -11364,7 +11475,9 @@
         }
       }
     },
-    "Saved to Clips." : {},
+    "Saved to Clips." : {
+
+    },
     "Saving changes…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12477,6 +12590,9 @@
     "Start with" : {
 
     },
+    "Starting…" : {
+
+    },
     "Starts" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13408,6 +13524,9 @@
         }
       }
     },
+    "This Clip needs a newer renderer." : {
+
+    },
     "This day has a drawn path; stops here mark the places it visits." : {
       "localizations" : {
         "zh-Hans" : {
@@ -13487,7 +13606,6 @@
         }
       }
     },
-    "This Clip needs a newer renderer." : {},
     "This paper can't be edited." : {
 
     },
@@ -15327,6 +15445,22 @@
         }
       }
     },
+    "Your Feed history of opened summaries" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在动态中打开过的摘要记录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在動態中打開過的摘要記錄"
+          }
+        }
+      }
+    },
     "Your free allowance and point charges are set by the server. Top-ups add points without a recurring subscription." : {
       "localizations" : {
         "zh-Hans" : {
@@ -15355,22 +15489,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "免費額度和點數扣除標準由伺服器設定。儲值會在瀏覽器中打開 Stripe 結帳頁面，增加點數且不會自動續訂。"
-          }
-        }
-      }
-    },
-    "Your Feed history of opened summaries" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你在动态中打开过的摘要记录"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你在動態中打開過的摘要記錄"
           }
         }
       }

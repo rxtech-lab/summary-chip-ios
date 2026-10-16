@@ -184,6 +184,7 @@ struct MainTabView: View {
     @State private var libraryPath: [Summary] = []
     @State private var miniAppsPath: [Summary] = []
     @State private var likesPath: [Summary] = []
+    @Environment(\.openMiniApp) private var openMiniApp
 
     var body: some View {
         TabView(selection: $selection) {
@@ -215,7 +216,7 @@ struct MainTabView: View {
     private func openItem(_ summary: Summary) {
         if summary.kind == .miniApp {
             selection = .miniApps
-            miniAppsPath = [summary]
+            if let openMiniApp { openMiniApp(summary) } else { miniAppsPath = [summary] }
         } else {
             selection = .library
             libraryPath = [summary]

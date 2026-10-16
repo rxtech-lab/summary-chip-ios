@@ -4,7 +4,13 @@ import SwiftUI
 struct MiniAppDetailView: View {
     let environment: AppEnvironment
     let appID: String
+    /// Shown on the loading screen before the Clip's definition arrives.
+    let title: String
     @State private var runtime: MiniAppRuntime?
+    @State private var isLoading = true
+    @State private var progress = 0.0
+    @State private var progressCap = 0.0
+    @State private var loadingStatus = String(localized: "Loading…")
     @State private var error: String?
     @State private var showsEditor = false
     @State private var showsChat = false
@@ -15,29 +21,36 @@ struct MiniAppDetailView: View {
     @State private var coverUpdated = false
     @State private var coverError: String?
 
-    init(environment: AppEnvironment, appID: String) {
-        self.environment = environment; self.appID = appID
+    init(environment: AppEnvironment, appID: String, title: String = "") {
+        self.environment = environment; self.appID = appID; self.title = title
         _versions = State(initialValue: DocumentVersionsModel(api: environment.api, id: appID))
     }
     var body: some View {
-        Group {
+        ZStack {
             if let runtime {
+                // Mounted under the loading screen so the Clip's load actions run before it shows.
                 if case .miniApp(let document) = versions.preview?.content {
                     MiniAppVersionPreview(api: environment.api, document: document).id(versions.preview?.id)
                 } else { MiniAppRuntimeView(model: runtime) }
             } else if let error { ContentUnavailableView("Clip Unavailable", systemImage: "exclamationmark.triangle", description: Text(error)) }
-            else { ProgressView() }
+            if isLoading && error == nil {
+                MiniAppLoadingView(title: runtime?.document.title ?? title, progress: progress, status: loadingStatus)
+                    .transition(.opacity.combined(with: .scale(scale: 1.06)))
+                    .zIndex(1)
+            }
         }
-        .navigationTitle(runtime?.document.title ?? "Clip")
+        .animation(.easeInOut(duration: 0.4), value: isLoading)
+        .navigationTitle(isLoading ? "" : runtime?.document.title ?? "Clip")
         #if os(iOS)
         // A Clip with its own tabs takes over the bottom of the screen on iPhone: the app's tab bar
         // hides so the Clip's tab bar is the only one.
         .toolbar(usesOwnTabs ? .hidden : .automatic, for: .tabBar)
         #endif
-        .task { await reload() }
+        .task { await initialLoad() }
+        .sensoryFeedback(.success, trigger: isLoading) { old, new in old && !new }
         .toolbar {
             // One More menu, so the Clip's own toolbar items keep the bar.
-            ToolbarItem(placement: .primaryAction) {
+            if !isLoading { ToolbarItem(placement: .primaryAction) {
                 Menu {
                     if runtime?.app?.isOwner == true {
                         Section {
@@ -60,7 +73,7 @@ struct MiniAppDetailView: View {
                 } label: { Label("More", systemImage: "ellipsis.circle") }
                     .menuIndicator(.hidden)
                     .accessibilityIdentifier("mini-app-more")
-            }
+            } }
         }
         .safeAreaInset(edge: .bottom) { if versions.isPreviewing { VersionPreviewBanner(model: versions) } }
         .overlay(alignment: .top) {
@@ -118,6 +131,31 @@ struct MiniAppDetailView: View {
             isGeneratingCover = false
             coverError = error.localizedDescription
         }
+    }
+    /// Loads the Clip behind the loading screen, easing the progress bar toward each stage's cap.
+    private func initialLoad() async {
+        let creep = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(120))
+                progress += (progressCap - progress) * 0.08
+            }
+        }
+        defer { creep.cancel() }
+        progress = 0.06; progressCap = 0.6
+        await reload()
+        guard let runtime, error == nil else { return }
+        progress = max(progress, 0.7); progressCap = 0.95
+        loadingStatus = String(localized: "Starting…")
+        // Give the Clip's load actions a moment to begin, then wait for them (up to 15 s).
+        try? await Task.sleep(for: .milliseconds(100))
+        let deadline = ContinuousClock.now + .seconds(15)
+        while runtime.busy, ContinuousClock.now < deadline, !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        progressCap = 1; progress = 1
+        loadingStatus = String(localized: "Ready")
+        try? await Task.sleep(for: .milliseconds(350))
+        isLoading = false
     }
     private func reload() async {
         do {
@@ -189,6 +227,7 @@ struct MiniAppPreviewView: View {
     @State private var error: String?
     @State private var busy = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openMiniApp) private var openMiniApp
     init(environment: AppEnvironment, document: MiniAppDocument) {
         self.environment = environment
         _runtime = State(initialValue: MiniAppRuntime(api: environment.api, document: document))
@@ -203,7 +242,13 @@ struct MiniAppPreviewView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
-                        if let saved { NavigationLink("Open App") { MiniAppDetailView(environment: environment, appID: saved.id) } }
+                        if let saved, let openMiniApp {
+                            Button("Open App") {
+                                dismiss()
+                                // Let the sheet finish closing before the Clip takes the screen.
+                                Task { try? await Task.sleep(for: .milliseconds(350)); openMiniApp(id: saved.id, title: saved.document.title) }
+                            }
+                        } else if let saved { NavigationLink("Open App") { MiniAppDetailView(environment: environment, appID: saved.id, title: saved.document.title) } }
                         else { Button("Save App", systemImage: "square.and.arrow.down") { Task { await save() } }.disabled(busy) }
                     }
                 }

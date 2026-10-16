@@ -347,3 +347,18 @@ Edits require the current revision and create an agent-authored document version
 The catalog advertises supported native components, logic and connector schemas;
 validation also runs isolated fixture tests. Credentials are configured by the user
 in Chippy, never through authoring tools. See [Mini Apps](mini-apps.md).
+
+### Initial data and files
+
+`create_mini_app` accepts optional `records` (`{ tableId: [record, …] }`, at most 100 per
+table) to start the app's tables with data. `add_mini_app_records` adds up to 100 records
+to one table of an existing app, and `list_mini_app_records` (read scope) pages through
+them 50 at a time. Every record is checked against the table's declared fields before
+any is written. Personal tables are filled for the signed-in user only; shared tables
+for everyone with access.
+
+`upload_mini_app_file` stores an image or file for an app, from a completed
+`create_upload` (`uploadKey`) or a public `url`, and returns a file reference
+`{id, url, name, contentType, size, width?, height?}`. Keep it in a `json` record field
+or `initialState`, and show images with an `Image` element whose `url` is the
+reference's `url`.

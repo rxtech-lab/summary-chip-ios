@@ -1,7 +1,10 @@
 import { parentPort, workerData } from "node:worker_threads";
-import { getQuickJS } from "quickjs-emscripten";
+import { newQuickJSWASMModule, newVariant, RELEASE_SYNC } from "quickjs-emscripten";
 try {
-  const quickJS = await getQuickJS();
+  // The QuickJS build ignores setMemoryLimit, so bound the WASM heap itself: 16 MiB to start,
+  // at most 48 MiB (32 MiB for the script). Running out fails the script with "out of memory".
+  const wasmMemory = new WebAssembly.Memory({ initial: 256, maximum: 768 });
+  const quickJS = await newQuickJSWASMModule(newVariant(RELEASE_SYNC, { wasmMemory }));
   const runtime = quickJS.newRuntime();
   runtime.setMemoryLimit(32 * 1024 * 1024);
   runtime.setMaxStackSize(256 * 1024);

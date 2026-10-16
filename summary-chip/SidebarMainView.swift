@@ -19,6 +19,7 @@ struct SidebarMainView: View {
     @State private var libraryPath: [Summary] = []
     @State private var miniAppsPath: [Summary] = []
     @State private var likesPath: [Summary] = []
+    @Environment(\.openMiniApp) private var openMiniApp
 
     var body: some View {
         NavigationSplitView {
@@ -83,7 +84,7 @@ struct SidebarMainView: View {
                     guard let summary = try? await environment.api.summary(id: app.id) else { return }
                     environment.library.upsert(summary)
                     selection = .miniApps
-                    miniAppsPath = [summary]
+                    openClip(summary)
                 }
             }
         }
@@ -104,11 +105,15 @@ struct SidebarMainView: View {
     private func openFromSearch(_ summary: Summary) {
         if summary.kind == .miniApp {
             selection = .miniApps
-            miniAppsPath = [summary]
+            openClip(summary)
         } else {
             selection = .library
             libraryPath = [summary]
         }
+    }
+
+    private func openClip(_ summary: Summary) {
+        if let openMiniApp { openMiniApp(summary) } else { miniAppsPath = [summary] }
     }
 }
 

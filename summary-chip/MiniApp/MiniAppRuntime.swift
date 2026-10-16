@@ -3,7 +3,11 @@ import SummaryKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct MiniPresentation: Identifiable, Hashable { let id: String }
+/// A presented element and the row (`item`) it was opened for.
+struct MiniPresentation: Identifiable, Hashable {
+    let id: String
+    var item: JSONValue = .null
+}
 
 @Observable
 final class MiniAppRuntime {
@@ -15,13 +19,16 @@ final class MiniAppRuntime {
     var presentation: MiniPresentation?
     var dialog: MiniPresentation?
     var alert: MiniPresentation?
-    var navigation: MiniPresentation?
+    /// Pages pushed onto the Clip's navigation stack, and onto the open sheet's own stack.
+    var navigation: [MiniPresentation] = []
+    var sheetNavigation: [MiniPresentation] = []
     private var pendingReads: [String: (item: JSONValue, input: [String: JSONValue])] = [:]
-    var presentationItem: JSONValue = .null
     /// A file from an `export` or `download` step, waiting for the Save dialog.
     var file: MiniAppFile?
     var error: String?
     var busy = false
+    /// Files being uploaded by `FilePicker`s.
+    var uploading = 0
     var feedback = 0
     var search = ""
 
@@ -145,18 +152,28 @@ final class MiniAppRuntime {
     }
     private func applyNow(_ effect: JSONValue, item: JSONValue) throws {
         if effect["type"]?.stringValue == "export" { file = try MiniAppFile.export(effect); return }
-        if effect["type"]?.stringValue == "dismiss" { presentation = nil; dialog = nil; alert = nil; navigation = nil; return }
+        if effect["type"]?.stringValue == "dismiss" { dismissTop(); return }
         guard let target = effect["target"]?.stringValue, let node = document.ui.elements[target] else { return }
-        presentationItem = item
+        let page = MiniPresentation(id: target, item: item)
         switch node.type {
-        case "Navigation": navigation = MiniPresentation(id: target)
-        case "Alert": alert = MiniPresentation(id: target)
-        case "Confirmation", "Dialog": dialog = MiniPresentation(id: target)
-        default: presentation = MiniPresentation(id: target)
+        case "Navigation":
+            // Pages stack: list → detail → sub-detail. Inside a sheet they push onto the sheet's stack.
+            if presentation != nil { if sheetNavigation.count < 20 { sheetNavigation.append(page) } }
+            else if navigation.count < 20 { navigation.append(page) }
+        case "Alert": alert = page
+        case "Confirmation", "Dialog": dialog = page
+        default: sheetNavigation = []; presentation = page
         }
     }
+    /// `dismiss` closes the topmost layer: an alert or dialog, then a page pushed in the sheet,
+    /// then the sheet, then the top page of the Clip's stack.
+    private func dismissTop() {
+        if dialog != nil || alert != nil { dialog = nil; alert = nil }
+        else if presentation != nil { if sheetNavigation.isEmpty { presentation = nil } else { sheetNavigation.removeLast() } }
+        else if !navigation.isEmpty { navigation.removeLast() }
+    }
     private func validateForm() throws {
-        let root = presentation?.id ?? document.ui.root
+        let root = (presentation.map { sheetNavigation.last ?? $0 } ?? navigation.last)?.id ?? document.ui.root
         var pending = [root]; var seen: Set<String> = []
         while let id = pending.popLast(), seen.count < 300 {
             guard seen.insert(id).inserted, let node = document.ui.elements[id] else { continue }
@@ -189,14 +206,14 @@ struct MiniAppRuntimeView: View {
         }
         .disabled(model.busy)
         .overlay(alignment: .top) { if model.busy { ProgressView().padding().background(.regularMaterial, in: Capsule()) } }
-        .navigationDestination(item: $model.navigation) { target in
-            MiniAppNodeView(model: model, id: target.id, item: model.presentationItem)
-        }
-        .sheet(item: $model.presentation) { target in
+        .overlay { if model.uploading > 0 { ActionStatusOverlay(String(localized: "Uploading…")) } }
+        .modifier(MiniPushedPages(model: model, path: \.navigation, depth: 0))
+        .sheet(item: $model.presentation, onDismiss: { model.sheetNavigation = [] }) { target in
             NavigationStack {
-                MiniAppNodeView(model: model, id: target.id, item: model.presentationItem)
+                MiniAppNodeView(model: model, id: target.id, item: target.item)
                     .navigationTitle(model.document.ui.elements[target.id]?.props["title"]?.miniText ?? "")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close", systemImage: "xmark") { model.presentation = nil } } }
+                    .modifier(MiniPushedPages(model: model, path: \.sheetNavigation, depth: 0))
             }
             .modifier(MiniFileExport(model: model, active: true))
             .modifier(MiniSheetHeight(half: model.document.ui.elements[target.id]?.props["height"]?.stringValue == "half"))
@@ -219,12 +236,29 @@ struct MiniAppRuntimeView: View {
             ForEach(node.children, id: \.self) { id in
                 if let button = model.document.ui.elements[id] {
                     Button(button.props["title"]?.miniText ?? "Continue", role: button.props["role"]?.stringValue == "destructive" ? .destructive : nil) {
-                        model.event(button, "press", item: model.presentationItem)
+                        model.event(button, "press", item: target.item)
                     }
                 }
             }
         }
         Button("Cancel", role: .cancel) {}
+    }
+}
+
+/// Pushes the page at `depth` of a navigation path. Each pushed page carries the next depth, so
+/// pages stack; Back (or a swipe) pops it and everything above it.
+private struct MiniPushedPages: ViewModifier {
+    let model: MiniAppRuntime
+    let path: ReferenceWritableKeyPath<MiniAppRuntime, [MiniPresentation]>
+    let depth: Int
+    func body(content: Content) -> some View {
+        content.navigationDestination(item: Binding(
+            get: { model[keyPath: path].indices.contains(depth) ? model[keyPath: path][depth] : nil },
+            set: { if $0 == nil, model[keyPath: path].count > depth { model[keyPath: path].removeSubrange(depth...) } }
+        )) { page in
+            MiniAppNodeView(model: model, id: page.id, item: page.item)
+                .modifier(MiniPushedPages(model: model, path: path, depth: depth + 1))
+        }
     }
 }
 

@@ -447,6 +447,7 @@ private struct ChatToolCallCard: View, Equatable {
     let tool: ChatToolActivity
     let openSummary: (String) -> Void
     let openTool: (ChatToolActivity) -> Void
+    @Environment(\.openMiniApp) private var openMiniApp
 
     // Text deltas change the parent entry, but not a completed tool's content.
     // Ignore rebuilt navigation closures so its images and effects stay mounted.
@@ -460,7 +461,9 @@ private struct ChatToolCallCard: View, Equatable {
             if let draft = tool.miniAppDraft {
                 Button { openTool(tool) } label: { Label("Preview \(draft.title)", systemImage: "app.badge") }
             } else if let appID = tool.miniAppID {
-                Button { openSummary(appID) } label: { Label("Open Clip", systemImage: "app.badge") }
+                Button {
+                    if let openMiniApp { openMiniApp(id: appID, title: "") } else { openSummary(appID) }
+                } label: { Label("Open Clip", systemImage: "app.badge") }
             } else if let ui = tool.renderedUI {
                 Button {
                     openTool(tool)

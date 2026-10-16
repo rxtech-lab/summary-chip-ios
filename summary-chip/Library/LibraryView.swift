@@ -21,6 +21,7 @@ struct LibraryView: View {
     @Environment(\.openSummarySearch) private var openSearch
     @Environment(\.openLibraryItem) private var openLibraryItem
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
+    @Environment(\.openMiniApp) private var openMiniApp
 
     init(environment: AppEnvironment, path: Binding<[Summary]>? = nil, kind: SummaryKind? = nil) {
         self.environment = environment
@@ -31,13 +32,15 @@ struct LibraryView: View {
     }
 
     private var isMiniApps: Bool { model.kind == .miniApp }
+    /// Clips open full screen (or in their own window) rather than on this stack.
+    private var stackPath: Binding<[Summary]> { (path ?? $localPath).presentingMiniApps(with: openMiniApp) }
 
     private var pointsTitle: String {
         environment.credits.points.map { $0.formatted() } ?? "–"
     }
 
     var body: some View {
-        NavigationStack(path: path ?? $localPath) {
+        NavigationStack(path: stackPath) {
             content
                 .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
                 .navigationDestination(for: Summary.self) { summary in
@@ -67,7 +70,7 @@ struct LibraryView: View {
                             guard let summary = await environment.libraryItem(forCreated: trip) else { return }
                             // Let the sheet finish dismissing before pushing.
                             try? await Task.sleep(for: .milliseconds(350))
-                            if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
+                            stackPath.wrappedValue.append(summary)
                         }
                     }
                 }
@@ -82,7 +85,7 @@ struct LibraryView: View {
                                 openLibraryItem(summary)
                                 return
                             }
-                            if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
+                            stackPath.wrappedValue.append(summary)
                         }
                     }
                 }
@@ -180,7 +183,7 @@ struct LibraryView: View {
             guard let summary = await environment.libraryItem(forCreated: paper) else { return }
             // Let the sheet finish dismissing before pushing.
             try? await Task.sleep(for: .milliseconds(350))
-            if let path { path.wrappedValue.append(summary) } else { localPath.append(summary) }
+            stackPath.wrappedValue.append(summary)
         }
     }
 
@@ -275,7 +278,8 @@ struct LibraryView: View {
         } else if model.items.isEmpty {
             emptyState
         } else {
-            SummaryCardFeed(entries: model.entries, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
+            // Clips are a plain grid; only the Feed is grouped by day with a timeline.
+            SummaryCardFeed(entries: model.entries, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
                 Task { await model.loadMore() }
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) {

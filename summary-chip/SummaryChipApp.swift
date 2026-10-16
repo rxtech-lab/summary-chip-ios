@@ -35,6 +35,7 @@ struct SummaryChipApp: App {
     var body: some Scene {
         WindowGroup {
             appContent
+                .miniAppPresenter(environment: environment)
                 #if os(macOS)
                 .frame(minWidth: 820, minHeight: 620)
                 #endif
@@ -49,7 +50,7 @@ struct SummaryChipApp: App {
                     UpdateService.shared.start()
                     #endif
                     #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") || ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") { return }
                     #if os(iOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-local-file") { return }
@@ -90,6 +91,9 @@ struct SummaryChipApp: App {
             }
         }
         #endif
+        #if os(macOS)
+        MiniAppWindow(environment: environment)
+        #endif
     }
 
     @ViewBuilder
@@ -112,7 +116,9 @@ struct SummaryChipApp: App {
     @ViewBuilder
     private var standardAppContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") {
+        if ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") {
+            MiniAppLoadingPreviewHost()
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") {
             MiniAppPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
             ChatView(environment: environment, model: ChatModel(client: environment.chatClient, store: .init(directory: nil)))

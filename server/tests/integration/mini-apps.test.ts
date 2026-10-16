@@ -302,3 +302,54 @@ it("runs a saved app's script step for actions executed on the device", async ()
   await expect(runMiniScriptStep(env.handle.db, app.id, "user-alice", { revision: 5, script: "double", input: { n: 1 } })).rejects.toMatchObject({ code: "MINI_REVISION_CONFLICT" });
   await expect(runMiniScriptStep(env.handle.db, app.id, "user-bob", { revision: 0, script: "double", input: { n: 1 } })).rejects.toMatchObject({ status: 404 });
 });
+
+it("seeds initial records through MCP and validates them before saving", async () => {
+  const keyResponse = await keysRoute.POST(apiRequest("POST", "keys", { token: env.tokens.alice, body: { name: "Seeder" } })); const { key } = await keyResponse.json(); let rpcId = 0;
+  async function call(name: string, args: object) {
+    const r = await mcpRoute.POST(apiRequest("POST", "/api/mcp", { token: key, headers: { accept: "application/json, text/event-stream" }, body: { jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: args } } })); return (await r.json()).result;
+  }
+  const rejected = await call("create_mini_app", { document: example(), records: { tasks: [{ title: "Ok" }, { nope: 1 }] } });
+  expect(rejected.isError).toBe(true); expect(rejected.content[0].text).toContain("records.tasks.1");
+  expect(await env.handle.db.select().from(summaries)).toHaveLength(0);
+  const created = await call("create_mini_app", { document: example(), records: { tasks: [{ title: "Buy milk" }, { title: "Call mom" }] } });
+  expect(created.isError).not.toBe(true); expect(created.structuredContent.records).toEqual({ tasks: 2 });
+  const id = created.structuredContent.app.id;
+  const added = await call("add_mini_app_records", { appId: id, table: "tasks", records: [{ title: "Water plants" }] });
+  expect(added.structuredContent.count).toBe(1);
+  expect((await call("add_mini_app_records", { appId: id, table: "tasks", records: [{ title: 3 }] })).isError).toBe(true);
+  const listed = await call("list_mini_app_records", { appId: id, table: "tasks" });
+  expect(listed.structuredContent.items.map((r: { data: { title: string } }) => r.data.title).sort()).toEqual(["Buy milk", "Call mom", "Water plants"]);
+  // Personal seed data belongs to the agent's user only.
+  await env.handle.db.insert(miniAppMembers).values({ appId: id, email: "bob@example.com", permissions: {} });
+  expect((await queryMiniRecords(env.handle.db, id, "user-bob", { table: "tasks", filters: [], limit: 50 })).items).toHaveLength(0);
+  expect(toolScope("list_mini_app_records")).toBe("chippy:read"); expect(toolScope("add_mini_app_records")).toBe("chippy:write"); expect(toolScope("upload_mini_app_file")).toBe("chippy:write");
+});
+
+it("stores picked images and files for a Clip and serves them by unguessable URL", async () => {
+  const { default: sharp } = await import("sharp");
+  const { attachMiniAppFile, createMiniAppUpload } = await import("@/lib/mini-app/files");
+  const fileRoute = await import("@/app/api/public/mini-app-files/[token]/[name]/route");
+  const app = await createMiniApp(env.handle.db, "user-alice", example());
+  const png = new Uint8Array(await sharp({ create: { width: 3000, height: 1500, channels: 3, background: "#3366ff" } }).png().toBuffer());
+  const ticket = await createMiniAppUpload(env.handle.db, app.id, "user-alice", { filename: "Beach Day.png", mimeType: "image/png", byteSize: png.byteLength });
+  await env.store.put(ticket.key, { bytes: png, contentType: "image/png" });
+  const image = await attachMiniAppFile(env.handle.db, app.id, "user-alice", { uploadKey: ticket.key });
+  expect(image).toMatchObject({ name: "Beach Day.png", contentType: "image/jpeg", width: 2048, height: 1024 });
+  const [token, name] = new URL(image.url).pathname.split("/").slice(-2);
+  const served = await fileRoute.GET(new Request(image.url), params({ token, name }));
+  expect(served.headers.get("content-type")).toBe("image/jpeg"); expect(served.headers.get("content-disposition")).toBeNull();
+
+  const html = new TextEncoder().encode("<script>alert(1)</script>");
+  const doc = await createMiniAppUpload(env.handle.db, app.id, "user-alice", { filename: "notes.html", mimeType: "text/html", byteSize: html.byteLength });
+  await env.store.put(doc.key, { bytes: html, contentType: "text/html" });
+  const file = await attachMiniAppFile(env.handle.db, app.id, "user-alice", { uploadKey: doc.key });
+  const [fileToken, fileName] = new URL(file.url).pathname.split("/").slice(-2);
+  const download = await fileRoute.GET(new Request(file.url), params({ token: fileToken, name: fileName }));
+  expect(download.headers.get("content-disposition")).toContain("attachment"); expect(download.headers.get("x-content-type-options")).toBe("nosniff");
+  expect((await fileRoute.GET(new Request(file.url), params({ token: "../x", name: fileName }))).status).toBe(404);
+
+  // Only people who can open the Clip can upload to it, and only their own uploads.
+  await expect(createMiniAppUpload(env.handle.db, app.id, "user-bob", { filename: "x.png", mimeType: "image/png", byteSize: 10 })).rejects.toMatchObject({ status: 404 });
+  await env.handle.db.insert(miniAppMembers).values({ appId: app.id, email: "bob@example.com", permissions: {} });
+  await expect(attachMiniAppFile(env.handle.db, app.id, "user-bob", { uploadKey: ticket.key })).rejects.toMatchObject({ status: 403 });
+});

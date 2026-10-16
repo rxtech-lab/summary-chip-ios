@@ -58,7 +58,7 @@ export const MAX_LIST_RESULTS = 10;
 export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"chips\"). Use search_summaries to find chips by meaning "
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
-  + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover. Never include credentials in their JSON. "
+  + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover; add_mini_app_records fills a table with initial data (or pass records to create_mini_app), list_mini_app_records reads it back, and upload_mini_app_file stores an image or file (from create_upload's uploadKey or a public URL) and returns a file reference to keep in a json field or initialState. Never include credentials in their JSON. "
   + "update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
   + "flights, hotels, expenses, custom views such as a fare comparison table, and alternative plans such as route 1 / route 2 "
   + "for a day or the whole trip): list_trips and get_trip read them, create_trip saves a new TripDocument, update_trip applies "
@@ -197,6 +197,7 @@ function describe(error: unknown): string {
       return `LaTeX could not compile the paper (${error.code}).${listed ? `\n${listed}` : ""}`;
     }
     if (error.code === "MINI_APP_INVALID") return `${error.message}: ${JSON.stringify(error.details)}. Use validate_mini_app to repair the definition.`;
+    if (error.code === "MINI_RECORD_INVALID" && error.details) return `${error.message}. Fields: ${JSON.stringify((error.details as { fields?: unknown }).fields)}. Only declared fields are allowed; required ones must be set.`;
     if (error.code === "MINI_REVISION_CONFLICT") return `${error.message} Call get_mini_app, then update_mini_app with its revision.`;
     if (error.code === "TRIP_REVISION_CONFLICT") return `${error.message} Call get_trip for the latest document, then update_trip again. (${error.code})`;
     return `${error.message} (${error.code})`;
