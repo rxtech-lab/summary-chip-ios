@@ -76,6 +76,15 @@ public struct APIKey: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+/// One active OAuth authorization. A client can have several authorizations.
+public struct MCPConnectedClient: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var clientId: String
+    public var name: String
+    public var scope: String
+    public var expiresAt: Date
+}
+
 /// Live tool metadata from `GET /api/v1/mcp/tools`, derived from the server's MCP registrations.
 public struct MCPTool: Codable, Sendable, Hashable, Identifiable {
     public var name: String

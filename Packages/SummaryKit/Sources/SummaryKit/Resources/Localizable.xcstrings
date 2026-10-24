@@ -1056,6 +1056,28 @@
         }
       }
     },
+    "Copy Image" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Image"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "複製圖片"
+          }
+        }
+      }
+    },
     "Copy link" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1088,6 +1110,28 @@
         }
       }
     },
+    "Copying image…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying image…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在复制图片…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在複製圖片…"
+          }
+        }
+      }
+    },
     "Could not read the server response. %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1100,6 +1144,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法讀取伺服器回應。%@"
+          }
+        }
+      }
+    },
+    "Couldn't copy image" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't copy image"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法复制图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法複製圖片"
           }
         }
       }
@@ -2005,6 +2071,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "圖片"
+          }
+        }
+      }
+    },
+    "Image copied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image copied"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片已复制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖片已複製"
           }
         }
       }

@@ -4,86 +4,6 @@
     "" : {
 
     },
-    "Add File" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加文件"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "加入檔案"
-          }
-        }
-      }
-    },
-    "Choose File…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择文件…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇檔案…"
-          }
-        }
-      }
-    },
-    "Photo Library" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "照片图库"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "照片圖庫"
-          }
-        }
-      }
-    },
-    "The file couldn't be read." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法读取该文件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法讀取該檔案。"
-          }
-        }
-      }
-    },
-    "Uploading…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在上传…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在上傳…"
-          }
-        }
-      }
-    },
     "· %@" : {
       "shouldTranslate" : false
     },
@@ -893,6 +813,9 @@
     "Access" : {
 
     },
+    "Access expires" : {
+
+    },
     "Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1080,6 +1003,22 @@
     },
     "Add Figure…" : {
 
+    },
+    "Add File" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加文件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入檔案"
+          }
+        }
+      }
     },
     "Add Hotel" : {
       "localizations" : {
@@ -1939,6 +1878,9 @@
           }
         }
       }
+    },
+    "Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys." : {
+
     },
     "Arrival" : {
       "localizations" : {
@@ -2810,6 +2752,22 @@
     "Choose an image to replace this file." : {
 
     },
+    "Choose File…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择文件…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇檔案…"
+          }
+        }
+      }
+    },
     "Choose Image…" : {
 
     },
@@ -2962,6 +2920,9 @@
           }
         }
       }
+    },
+    "Client" : {
+
     },
     "Client Secret" : {
 
@@ -3265,6 +3226,9 @@
         }
       }
     },
+    "Connected Clients" : {
+
+    },
     "Connection" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3486,6 +3450,9 @@
 
     },
     "Couldn't Import Image" : {
+
+    },
+    "Couldn’t Load Clients" : {
 
     },
     "Couldn't load more. Try again" : {
@@ -3714,6 +3681,9 @@
           }
         }
       }
+    },
+    "Create and edit your library" : {
+
     },
     "Create API Key…" : {
       "localizations" : {
@@ -7279,6 +7249,9 @@
         }
       }
     },
+    "Loading clients…" : {
+
+    },
     "Loading image…" : {
 
     },
@@ -8213,6 +8186,9 @@
           }
         }
       }
+    },
+    "No Connected Clients" : {
+
     },
     "No costs yet." : {
       "localizations" : {
@@ -9831,6 +9807,22 @@
         }
       }
     },
+    "Photo Library" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片图库"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片圖庫"
+          }
+        }
+      }
+    },
     "Photo: …" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10454,6 +10446,9 @@
         }
       }
     },
+    "Read your library" : {
+
+    },
     "Reader" : {
 
     },
@@ -10581,6 +10576,9 @@
 
     },
     "References…" : {
+
+    },
+    "Refresh" : {
 
     },
     "Refresh Rates" : {
@@ -12320,6 +12318,9 @@
         }
       }
     },
+    "Sign-in" : {
+
+    },
     "Signed in" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13233,6 +13234,22 @@
     "The figure is still waiting to be saved. Try again." : {
 
     },
+    "The file couldn't be read." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取该文件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取該檔案。"
+          }
+        }
+      }
+    },
     "The file is removed from the paper. Earlier versions still have it." : {
       "localizations" : {
         "zh-Hans" : {
@@ -13501,6 +13518,9 @@
           }
         }
       }
+    },
+    "These apps have permission to use Chippy through OAuth. This does not indicate whether they are online. Each authorization is listed separately. Clients using an API key are listed under API Keys." : {
+
     },
     "These diagrams are drawn by LaTeX." : {
 
@@ -14448,6 +14468,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上傳的 PDF 和產生的圖片"
+          }
+        }
+      }
+    },
+    "Uploading…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在上传…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在上傳…"
           }
         }
       }

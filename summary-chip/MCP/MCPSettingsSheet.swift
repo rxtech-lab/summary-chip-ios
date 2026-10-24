@@ -14,6 +14,7 @@ struct MCPSettingsSheet: View {
     @State private var selectedTool: MCPTool?
     @State private var interactionCount = 0
     @State private var showsCreate = false
+    @State private var showsClients = false
     @State private var renaming: APIKey?
     @State private var revoking: APIKey?
     @State private var busyMessage: String?
@@ -25,6 +26,7 @@ struct MCPSettingsSheet: View {
         NavigationStack {
             Form {
                 endpointSection
+                connectedClientsSection
                 keysSection
                 toolsSection
             }
@@ -58,6 +60,9 @@ struct MCPSettingsSheet: View {
                 CreateAPIKeySheet(api: api) { created in
                     keys = [created] + (keys ?? [])
                 }
+            }
+            .sheet(isPresented: $showsClients) {
+                MCPConnectedClientsSheet(api: api)
             }
             .sheet(item: $renaming) { key in
                 RenameAPIKeySheet(api: api, key: key) { renamed in
@@ -101,6 +106,18 @@ struct MCPSettingsSheet: View {
     }
 
     // MARK: Sections
+
+    private var connectedClientsSection: some View {
+        Section {
+            Button {
+                interactionCount += 1
+                showsClients = true
+            } label: {
+                Label("Connected Clients", systemImage: "laptopcomputer.and.iphone")
+            }
+            .accessibilityIdentifier("mcp-connected-clients")
+        }
+    }
 
     private var endpointSection: some View {
         Section {
@@ -357,5 +374,121 @@ private struct MCPToolDetailsSheet: View {
         #if os(macOS)
         .frame(width: 500, height: 420)
         #endif
+    }
+}
+
+/// OAuth authorizations live separately from key management and tool discovery.
+private struct MCPConnectedClientsSheet: View {
+    let api: SummaryAPIClient
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var clients: [MCPConnectedClient]?
+    @State private var loadError: String?
+    @State private var refreshError: String?
+    @State private var interactionCount = 0
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let clients, !clients.isEmpty {
+                    List {
+                        Section {
+                            ForEach(clients) { client in
+                                NavigationLink {
+                                    Form {
+                                        LabeledContent("Client", value: client.name)
+                                        LabeledContent("Sign-in", value: "OAuth")
+                                        Section("Permissions") {
+                                            ForEach(client.scope.split(separator: " ").map(String.init), id: \.self) { scope in
+                                                switch scope {
+                                                case "chippy:read": Text("Read your library")
+                                                case "chippy:write": Text("Create and edit your library")
+                                                default: Text(verbatim: scope)
+                                                }
+                                            }
+                                        }
+                                        LabeledContent("Access expires") {
+                                            Text(client.expiresAt, format: .dateTime.year().month().day().hour().minute())
+                                        }
+                                    }
+                                    .navigationTitle(client.name)
+                                } label: {
+                                    Label(client.name, systemImage: "app.connected.to.app.below.fill")
+                                }
+                                .simultaneousGesture(TapGesture().onEnded { interactionCount += 1 })
+                                .accessibilityIdentifier("mcp-connected-client")
+                            }
+                        } footer: {
+                            explanation
+                        }
+                    }
+                } else if clients != nil {
+                    ContentUnavailableView {
+                        Label("No Connected Clients", systemImage: "app.connected.to.app.below.fill")
+                    } description: {
+                        Text("Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys.")
+                    }
+                } else if let loadError {
+                    ContentUnavailableView {
+                        Label("Couldn’t Load Clients", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(loadError)
+                    } actions: {
+                        Button("Try Again") {
+                            interactionCount += 1
+                            Task { await load() }
+                        }
+                    }
+                } else {
+                    ProgressView("Loading clients…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .navigationTitle("Connected Clients")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Refresh", systemImage: "arrow.clockwise") {
+                        interactionCount += 1
+                        Task { await load() }
+                    }
+                }
+            }
+            .refreshable { await load() }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                await load()
+            }
+            .sensoryFeedback(.selection, trigger: interactionCount)
+            .sensoryFeedback(.error, trigger: loadError) { _, new in new != nil }
+            .sensoryFeedback(.error, trigger: refreshError) { _, new in new != nil }
+            .statusAlert("Connected Clients", message: refreshError) { refreshError = nil }
+        }
+        #if os(macOS)
+        .frame(width: 560, height: 620)
+        #endif
+    }
+
+    private var explanation: some View {
+        Text("These apps have permission to use Chippy through OAuth. This does not indicate whether they are online. Each authorization is listed separately. Clients using an API key are listed under API Keys.")
+    }
+
+    private func load() async {
+        loadError = nil
+        do {
+            let loaded = try await api.mcpClients()
+            guard !Task.isCancelled else { return }
+            clients = loaded
+            refreshError = nil
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled else { return }
+            if clients == nil { loadError = error.localizedDescription } else { refreshError = error.localizedDescription }
+        }
     }
 }

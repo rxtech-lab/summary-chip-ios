@@ -388,9 +388,25 @@ public struct SummaryTileView: View {
                     Image(systemName: "star.fill").imageScale(.small)
                 }
                 Text(stamp).lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .accessibilityHidden(true)
                 TranslationBadge(summary: summary)
                     .padding(.leading, 4)
+                if summary.kind == .summary {
+                    Spacer(minLength: 6)
+                    Label {
+                        Text(summary.sourceLabel)
+                            .truncationMode(.tail)
+                    } icon: {
+                        summary.source.image
+                            .imageScale(.small)
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                    .help(summary.sourceLabel)
+                    .accessibilityIdentifier("summary-tile-source")
+                }
             }
             .font(.subheadline.weight(.medium))
             .foregroundStyle(secondary)

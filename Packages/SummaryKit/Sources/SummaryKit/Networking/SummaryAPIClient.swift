@@ -213,6 +213,15 @@ public final class SummaryAPIClient: Sendable {
 
     // MARK: MCP
 
+    /// Unexpired OAuth authorizations for this account; these are not live sessions.
+    public func mcpClients() async throws -> [MCPConnectedClient] {
+        struct Page: Decodable { let items: [MCPConnectedClient] }
+        var request = get("/api/v1/mcp/clients")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let page: Page = try await send(request)
+        return page.items
+    }
+
     /// The hosted MCP server agents connect to with an API key.
     public var mcpEndpoint: URL { baseURL.appending(path: "/api/mcp") }
 
