@@ -1335,6 +1335,22 @@
         }
       }
     },
+    "Add Translation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加翻译"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增翻譯"
+          }
+        }
+      }
+    },
     "Add Transport" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2910,6 +2926,22 @@
         }
       }
     },
+    "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为此播客卡片的新版本选择来源卡片。之前的版本会保留在“管理版本”中。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為此 Podcast 卡片的新版本選擇來源卡片。先前的版本會保留在「管理版本」中。"
+          }
+        }
+      }
+    },
     "Chosen" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3830,6 +3862,38 @@
     },
     "Couldn't Switch Plan" : {
 
+    },
+    "Couldn't Translate Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法翻译播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法翻譯 Podcast"
+          }
+        }
+      }
+    },
+    "Couldn't Update Languages" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更新语言"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法更新語言"
+          }
+        }
+      }
     },
     "Couldn't update Likes" : {
       "localizations" : {
@@ -5052,6 +5116,22 @@
     },
     "Each image is limited to 10 MB." : {
 
+    },
+    "Each language has its own voices, captions and video. Switching keeps your place in the conversation." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每种语言都有自己的语音、字幕和视频。切换语言时会保留当前的对话位置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每種語言都有自己的語音、字幕和影片。切換語言時會保留目前的對話位置。"
+          }
+        }
+      }
     },
     "Each OAuth authorization is shown separately. These are permissions, not online sessions. Manage API-key clients under API Keys." : {
 
@@ -6519,6 +6599,9 @@
     "Generate Video" : {
 
     },
+    "Generating cover…" : {
+
+    },
     "Generation uses points. Audio and video design are saved for future playback. Keep the app open while the video renders. Each version is kept until you remove it." : {
 
     },
@@ -7048,8 +7131,37 @@
     "Item" : {
 
     },
-    "Its share links will stop working. If it is the default, another version will become the default." : {
-
+    "Its recording, captions and video are deleted. Share links play the other languages." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其录音、字幕和视频将被删除。分享链接会播放其他语言。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其錄音、字幕和影片將被刪除。分享連結會播放其他語言。"
+          }
+        }
+      }
+    },
+    "Its share links and translations will stop working. If it is the default, another version will become the default." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其分享链接和翻译将失效。如果它是默认版本，另一个版本将成为默认版本。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其分享連結和翻譯將失效。如果它是預設版本，另一個版本將成為預設版本。"
+          }
+        }
+      }
     },
     "Journey's end" : {
 
@@ -7282,6 +7394,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "語言…"
+          }
+        }
+      }
+    },
+    "Languages" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "語言"
           }
         }
       }
@@ -7707,6 +7835,22 @@
     },
     "Loading image…" : {
 
+    },
+    "Loading language…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在载入语言…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入語言…"
+          }
+        }
+      }
     },
     "Loading links…" : {
       "localizations" : {
@@ -11345,7 +11489,20 @@
       }
     },
     "Remove" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除"
+          }
+        }
+      }
     },
     "Remove file link" : {
       "localizations" : {
@@ -11445,8 +11602,40 @@
     "Remove this podcast version?" : {
 
     },
+    "Remove this translation?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除此翻译？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除此翻譯？"
+          }
+        }
+      }
+    },
     "Remove this trip from your calendar?" : {
 
+    },
+    "Remove Translation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除翻译"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除翻譯"
+          }
+        }
+      }
     },
     "Remove Version" : {
 
@@ -11488,6 +11677,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在從喜歡中移除…"
+          }
+        }
+      }
+    },
+    "Removing translation…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在移除翻译…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在移除翻譯…"
           }
         }
       }
@@ -13971,6 +14176,22 @@
         }
       }
     },
+    "The hosts read the same conversation in the new language, with new captions. The video keeps its scenes and translates its labels." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主持人会用新语言朗读同一段对话，并生成新字幕。视频保留原有场景，并翻译其中的标签。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主持人會用新語言朗讀同一段對話，並產生新字幕。影片保留原有場景，並翻譯其中的標籤。"
+          }
+        }
+      }
+    },
     "The image was added." : {
 
     },
@@ -14702,7 +14923,20 @@
       }
     },
     "Translate" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻譯"
+          }
+        }
+      }
     },
     "Translate to" : {
       "localizations" : {
@@ -14722,6 +14956,22 @@
     },
     "Translate to %@?" : {
 
+    },
+    "Translate…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻譯…"
+          }
+        }
+      }
     },
     "Translated" : {
 
@@ -14776,6 +15026,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在翻譯，完成後會通知你"
+          }
+        }
+      }
+    },
+    "Translating podcast…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻译播客…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻譯 Podcast…"
           }
         }
       }
@@ -14840,6 +15106,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "翻譯已過期 — 請在匯出前更新"
+          }
+        }
+      }
+    },
+    "Translation removed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译已移除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻譯已移除"
+          }
+        }
+      }
+    },
+    "Translation uses points. The translation is saved with this version and appears in the language list." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻译会消耗点数。翻译会随此版本保存，并显示在语言列表中。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翻譯會消耗點數。翻譯會隨此版本儲存，並顯示在語言列表中。"
           }
         }
       }

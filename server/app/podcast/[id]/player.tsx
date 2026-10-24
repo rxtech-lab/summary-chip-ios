@@ -2,6 +2,7 @@
 
 import { captionText } from "@/lib/services/podcast-captions";
 import { useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { publicPodcastData } from "@/lib/services/podcast-sharing";
 
 export default function PodcastWebPlayer({ podcast }: { podcast: Awaited<ReturnType<typeof publicPodcastData>> }) {
@@ -9,6 +10,9 @@ export default function PodcastWebPlayer({ podcast }: { podcast: Awaited<ReturnT
   const audio = useRef<HTMLMediaElement>(null);
   const [time, setTime] = useState(0);
   const [error, setError] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const languageNames = new Intl.DisplayNames([podcast.language], { type: "language" });
   const segment = podcast.segments.find(s => s.startSeconds <= time && time < s.endSeconds);
   const caption = segment?.captionCues
     ? segment.captionCues.find(cue => cue.startSeconds <= time && time < cue.endSeconds)?.text ?? ""
@@ -24,7 +28,16 @@ export default function PodcastWebPlayer({ podcast }: { podcast: Awaited<ReturnT
         <p>{caption}</p>
       </div>}
     </div>}
-    <h1 className="text-2xl font-bold">{podcast.title}</h1>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-2xl font-bold">{podcast.title}</h1>
+      {podcast.languages.length > 1 && <label className="flex items-center gap-2 text-sm">
+        <span className="opacity-60">Language</span>
+        <select value={podcast.language} className="rounded-xl border border-current/20 bg-transparent px-3 py-2"
+          onChange={event => router.replace(event.target.value === podcast.languages[0] ? pathname : `${pathname}?language=${encodeURIComponent(event.target.value)}`)}>
+          {podcast.languages.map(code => <option key={code} value={code}>{languageNames.of(code) ?? code}</option>)}
+        </select>
+      </label>}
+    </div>
     {!podcast.videoPath && <audio ref={audio as React.RefObject<HTMLAudioElement>} controls preload="metadata" src={podcast.audioPath} className="w-full"
       aria-label={podcast.title} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onError={() => setError(true)} />}
     {error && <div role="alert" className="fixed inset-x-5 top-5 mx-auto max-w-lg rounded-2xl bg-neutral-900 p-4 text-white shadow-xl">

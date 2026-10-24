@@ -17,6 +17,13 @@ final class DailyPodcastPlayer {
     var currentTime = 0.0
     var duration = 0.0
     var error: String?
+    /// The language being loaded while switching; playback resumes at the same turn in it.
+    var switchingLanguage: String?
+    /// The listener's last chosen podcast language, applied to episodes translated into it.
+    var preferredLanguage: String? {
+        get { access(keyPath: \.preferredLanguage); return UserDefaults.standard.string(forKey: "podcastPreferredLanguage") }
+        set { withMutation(keyPath: \.preferredLanguage) { UserDefaults.standard.set(newValue, forKey: "podcastPreferredLanguage") } }
+    }
     @ObservationIgnored private var captionTimelines: [Int: PodcastCaptionTimeline] = [:]
     @ObservationIgnored private var audio: AVAudioPlayer?
     @ObservationIgnored private var task: Task<Void, Never>?
@@ -68,7 +75,6 @@ final class DailyPodcastPlayer {
         if self.podcast?.key != podcast.key || self.podcast?.video?.id != podcast.video?.id { replace(podcast) }
         date = podcast.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
         isPresented = true
-        if !playing { toggle() }
     }
     func close() {
         stop()
@@ -78,6 +84,38 @@ final class DailyPodcastPlayer {
         duration = 0
         error = nil
         isPresented = false
+    }
+
+    /// Plays the episode in another of its languages from the start of the same turn (turns match one to one).
+    func switchLanguage(to language: String, remember: Bool = true) async {
+        guard let podcast, podcast.language != language, switchingLanguage == nil else { return }
+        if remember { preferredLanguage = language }
+        let turn = index
+        let wasPlaying = playing
+        switchingLanguage = language
+        defer { switchingLanguage = nil }
+        do {
+            let episode = try await api.podcastEpisode(podcast, language: language)
+            guard self.podcast?.key == podcast.key else { return }
+            show(episode, resumingAt: turn, playing: wasPlaying)
+        } catch is CancellationError {
+        } catch { self.error = error.localizedDescription }
+    }
+
+    /// Shows an updated presentation of the current episode (e.g. a new translation) at the same turn.
+    func show(_ episode: DailyPodcast, resumingAt turn: Int? = nil, playing resume: Bool? = nil) {
+        let turn = turn ?? index
+        let resume = resume ?? playing
+        replace(episode)
+        if episode.segments.indices.contains(turn) { seek(to: episode.segments[turn].startSeconds ?? 0) }
+        if resume { toggle() }
+    }
+
+    /// Opens a newly loaded episode in the listener's preferred language when it has one.
+    func applyPreferredLanguage() async {
+        guard let podcast, let preferred = preferredLanguage, podcast.language != preferred,
+              podcast.availableLanguages.contains(preferred) else { return }
+        await switchLanguage(to: preferred, remember: false)
     }
 
     func replace(_ podcast: DailyPodcast) {
@@ -106,6 +144,14 @@ final class DailyPodcastPlayer {
             videoPlayer?.play()
             if task == nil { loadAndPlay() }
         } catch { self.error = error.localizedDescription }
+    }
+    /// Loads a video episode into the player without starting it, so its native controls can play it.
+    func prepareVideo() {
+        guard podcast?.video != nil, videoPlayer == nil, task == nil, !usesPreviewPlayback else { return }
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+        #endif
+        loadAndPlay()
     }
     func seek(to time: Double) {
         currentTime = max(0, min(duration, time))
@@ -167,8 +213,8 @@ final class DailyPodcastPlayer {
             if let failure = movie.currentItem?.error { throw failure }
             let time = movie.currentTime().seconds
             if time.isFinite { currentTime = time }
-            if let length = movie.currentItem?.duration.seconds, length.isFinite { duration = length }
-            playing = movie.rate > 0
+            if let length = movie.currentItem?.duration.seconds, length.isFinite, length != duration { duration = length }
+            if playing != (movie.rate > 0) { playing = movie.rate > 0 }
         }
     }
 

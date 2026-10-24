@@ -6,7 +6,7 @@ import type { Database } from "@/lib/db/client";
 import { podcastShareLinks, summaries, type PodcastShareLinkRow } from "@/lib/db/schema";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateSlug, isValidSlug } from "@/lib/slug";
-import { dailyPodcastEpisode } from "./daily-podcast";
+import { dailyPodcastEpisode, podcastInLanguage } from "./daily-podcast";
 import { isLinkLive, isShareLinkLive } from "./share-access";
 
 /**
@@ -124,14 +124,18 @@ export async function deletePodcastShareLink(db: Database, ownerId: string, key:
   await db.delete(podcastShareLinks).where(eq(podcastShareLinks.id, linkId));
 }
 
-/** Every page, media and artwork request passes this gate; no public bucket URLs are exposed. */
-export async function publicPodcast(db: Database, token: string, now = new Date()) {
+/**
+ * Every page, media and artwork request passes this gate; no public bucket URLs are exposed.
+ * `podcast` is presented in `language` when the episode has that translation, otherwise in its original language.
+ */
+export async function publicPodcast(db: Database, token: string, now = new Date(), language?: string | null) {
   const [link] = isValidSlug(token)
     ? await db.select().from(podcastShareLinks).where(eq(podcastShareLinks.token, token)).limit(1)
     : [];
   if (!link || !isShareLinkLive(link, now)) throw notFound("Podcast not found");
   try {
-    const podcast = await publishableEpisode(db, link.ownerId, link.day, link.episodeKey);
+    const episode = await publishableEpisode(db, link.ownerId, link.day, link.episodeKey);
+    const podcast = podcastInLanguage(episode, language && episode.translations?.[language] ? language : undefined);
     return { link, podcast };
   } catch (error) {
     if (error instanceof ApiError && [403, 404].includes(error.status)) throw notFound("Podcast not found");
@@ -139,11 +143,13 @@ export async function publicPodcast(db: Database, token: string, now = new Date(
   }
 }
 
-export async function publicPodcastData(db: Database, token: string) {
-  const { podcast } = await publicPodcast(db, token);
-  return { title: podcast.title, language: podcast.language, createdAt: podcast.createdAt,
-    durationSeconds: podcast.durationSeconds, audioPath: `/api/public/podcasts/${token}/audio`,
-    videoPath: podcast.video?.published && podcast.video.published.videoId === podcast.video.id ? `/api/public/podcasts/${token}/video` : null,
+export async function publicPodcastData(db: Database, token: string, language?: string | null) {
+  const { podcast } = await publicPodcast(db, token, undefined, language);
+  // Media follow the listener's language; the original keeps the plain URLs.
+  const suffix = podcast.language === podcast.originalLanguage ? "" : `?language=${encodeURIComponent(podcast.language)}`;
+  return { title: podcast.title, language: podcast.language, languages: podcast.languages ?? [podcast.language], createdAt: podcast.createdAt,
+    durationSeconds: podcast.durationSeconds, audioPath: `/api/public/podcasts/${token}/audio${suffix}`,
+    videoPath: podcast.video?.published && podcast.video.published.videoId === podcast.video.id ? `/api/public/podcasts/${token}/video${suffix}` : null,
     segments: podcast.segments.map((segment, index) => ({ caption: segment.caption, captionCues: segment.captionCues,
       speaker: podcast.speakers[segment.speaker].name, startSeconds: segment.startSeconds ?? 0,
       endSeconds: segment.endSeconds ?? 0, icon: segment.icon,

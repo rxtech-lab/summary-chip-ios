@@ -10,7 +10,7 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   return withPublicApi(request, async ({ db }) => {
-    const { link, podcast } = await publicPodcast(db, (await context.params).id);
+    const { link, podcast } = await publicPodcast(db, (await context.params).id, undefined, new URL(request.url).searchParams.get("language"));
     const url = await publishedPodcastVideoUrl(link.ownerId, podcast);
     return new Response(null, { status: 302, headers: { location: url, "cache-control": "private, no-store" } });
   });
