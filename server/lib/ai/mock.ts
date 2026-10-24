@@ -1,3 +1,5 @@
+import type { PodcastInput } from "./podcast-agent";
+import type { PodcastVideoInput } from "./podcast-video-agent";
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import type { TranslationLanguage } from "@/lib/contracts/api";
@@ -34,6 +36,8 @@ export class MockAiProvider implements AiProvider {
     illustrate: DesignInput[];
     narrateTour: TourNarrationInput[];
     speak: string[];
+    composeMusic: string[];
+    writePodcastVideo: PodcastVideoInput[];
   } = {
     isSharedLink: [],
     summarize: [],
@@ -52,6 +56,8 @@ export class MockAiProvider implements AiProvider {
     illustrate: [],
     narrateTour: [],
     speak: [],
+    composeMusic: [],
+    writePodcastVideo: [],
   };
 
   /** A share snippet is a URL with under 200 characters of accompanying text. */
@@ -240,6 +246,28 @@ export class MockAiProvider implements AiProvider {
     return this.pricing;
   }
 
+  async writePodcast(input: PodcastInput) {
+    return { title: "Your daily podcast", mood: "calm" as const, speakers: [{ name: "Alex", voice: input.voices[0] }],
+      segments: input.chips.map((chip) => ({ speaker: 0, chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
+  }
+
+  /** Videos are off unless a test opts in, like music. */
+  video = false;
+
+  podcastVideoModelId(): string | null {
+    return this.video ? "mock/video" : null;
+  }
+
+  async podcastVideoPricing(): Promise<ModelPricing | null> {
+    return this.pricing;
+  }
+
+  async writePodcastVideo(input: PodcastVideoInput, options: TourNarrationOptions = {}): Promise<Record<string, string> | null> {
+    this.calls.writePodcastVideo.push(input);
+    options.onUsage?.(MOCK_STEP_USAGE);
+    return { "src/Video.tsx": MOCK_PODCAST_VIDEO };
+  }
+
   speechModelId(): string | null {
     return "mock/speech";
   }
@@ -249,9 +277,42 @@ export class MockAiProvider implements AiProvider {
     return 0.01;
   }
 
+  async transcribePodcast(audio: Uint8Array) {
+    const size = audio[6] * 2097152 + audio[7] * 16384 + audio[8] * 128 + audio[9];
+    return [{ text: new TextDecoder().decode(audio.subarray(21, 10 + size)), startSecond: 0, endSecond: 4 * 1152 / 44100 }];
+  }
+
   async speak(text: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
     this.calls.speak.push(text);
-    return { bytes: new TextEncoder().encode(`ID3 mock audio: ${text}`), mediaType: "audio/mpeg" };
+    // A valid ID3 title keeps tests able to identify which text was spoken, followed by silent MP3 frames.
+    const title = new TextEncoder().encode(text);
+    const tagSize = 11 + title.length;
+    const bytes = new Uint8Array(10 + tagSize + 417 * 4);
+    const syncsafe = (size: number) => [(size >> 21) & 127, (size >> 14) & 127, (size >> 7) & 127, size & 127];
+    bytes.set([73, 68, 51, 4, 0, 0, ...syncsafe(tagSize)]);
+    bytes.set([84, 73, 84, 50, ...syncsafe(title.length + 1), 0, 0, 3], 10);
+    bytes.set(title, 21);
+    for (let at = 10 + tagSize; at < bytes.length; at += 417) bytes.set([0xff, 0xfb, 0x90, 0xc0], at);
+    return { bytes, mediaType: "audio/mpeg" };
+  }
+
+  /** Music is off unless a test opts in, keeping other podcast tests on the plain recording. */
+  music = false;
+
+  musicModelId(): string | null {
+    return this.music ? "mock/music" : null;
+  }
+
+  musicUsdPerClip(): number {
+    return 0.04;
+  }
+
+  async composeMusic(prompt: string): Promise<Uint8Array> {
+    this.calls.composeMusic.push(prompt);
+    // Two seconds of silent stereo 44.1 kHz frames.
+    const bytes = new Uint8Array(417 * 77);
+    for (let at = 0; at < bytes.length; at += 417) bytes.set([0xff, 0xfb, 0x90, 0x00], at);
+    return bytes;
   }
 
   embeddingModelId(): string | null {
@@ -346,3 +407,14 @@ export function createMockChatModel(): LanguageModelV4 {
     },
   };
 }
+
+/** A deterministic animated composition without burned captions. */
+export const MOCK_PODCAST_VIDEO = `import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { podcast } from "./podcast";
+export const PodcastVideo: React.FC = () => {
+  const frame = useCurrentFrame();
+  return <AbsoluteFill style={{ backgroundColor: "#242354", color: "white", justifyContent: "center", alignItems: "center", fontSize: 48 }}>
+    <div style={{transform: "translateX(" + Math.sin(frame / 24) * 100 + "px)"}}>{podcast.title}</div>
+  </AbsoluteFill>;
+};
+`;

@@ -140,48 +140,18 @@ extension PaperReaderParser {
 
     /// The entries of a `.bib` file; `@string` abbreviations are expanded.
     static func bibRecords(_ text: String) -> [BibRecord] {
-        let chars = Array(text)
-        var index = 0
+        var scanner = BibRecordScanner(chars: Array(text))
+        return scanner.records()
+    }
+}
+
+private struct BibRecordScanner {
+    let chars: [Character]
+    var index = 0
+    var strings: [String: String] = [:]
+
+    mutating func records() -> [BibRecord] {
         var records: [BibRecord] = []
-        var strings: [String: String] = [:]
-        func skipSpaces() { while index < chars.count, chars[index].isWhitespace { index += 1 } }
-        func word() -> String {
-            var result = ""
-            while index < chars.count, chars[index].isLetter || chars[index].isNumber || "-_:./+'".contains(chars[index]) {
-                result.append(chars[index])
-                index += 1
-            }
-            return result
-        }
-        func balanced(_ close: Character) -> String {
-            var depth = 0
-            var result = ""
-            while index < chars.count {
-                let c = chars[index]
-                index += 1
-                if c == "\\", index < chars.count { result.append(c); result.append(chars[index]); index += 1; continue }
-                if c == "{" { depth += 1 } else if c == "}" { if depth == 0, close == "}" { break }; depth -= 1 }
-                if c == close, depth == 0, close != "}" { break }
-                result.append(c)
-            }
-            return result
-        }
-        func value() -> String {
-            var result = ""
-            repeat {
-                skipSpaces()
-                guard index < chars.count else { break }
-                switch chars[index] {
-                case "{": index += 1; result += balanced("}")
-                case "\"": index += 1; result += balanced("\"")
-                default: let bare = word(); result += strings[bare.lowercased()] ?? bare
-                }
-                skipSpaces()
-                guard index < chars.count, chars[index] == "#" else { break }
-                index += 1
-            } while true
-            return result
-        }
         while index < chars.count {
             guard chars[index] == "@" else { index += 1; continue }
             index += 1
@@ -215,5 +185,46 @@ extension PaperReaderParser {
             }
         }
         return records
+    }
+
+    private mutating func skipSpaces() { while index < chars.count, chars[index].isWhitespace { index += 1 } }
+    private mutating func word() -> String {
+        var result = ""
+        while index < chars.count, chars[index].isLetter || chars[index].isNumber || "-_:./+'".contains(chars[index]) {
+            result.append(chars[index])
+            index += 1
+        }
+        return result
+    }
+
+    private mutating func balanced(_ close: Character) -> String {
+        var depth = 0
+        var result = ""
+        while index < chars.count {
+            let c = chars[index]
+            index += 1
+            if c == "\\", index < chars.count { result.append(c); result.append(chars[index]); index += 1; continue }
+            if c == "{" { depth += 1 } else if c == "}" { if depth == 0, close == "}" { break }; depth -= 1 }
+            if c == close, depth == 0, close != "}" { break }
+            result.append(c)
+        }
+        return result
+    }
+
+    private mutating func value() -> String {
+        var result = ""
+        repeat {
+            skipSpaces()
+            guard index < chars.count else { break }
+            switch chars[index] {
+            case "{": index += 1; result += balanced("}")
+            case "\"": index += 1; result += balanced("\"")
+            default: let bare = word(); result += strings[bare.lowercased()] ?? bare
+            }
+            skipSpaces()
+            guard index < chars.count, chars[index] == "#" else { break }
+            index += 1
+        } while true
+        return result
     }
 }

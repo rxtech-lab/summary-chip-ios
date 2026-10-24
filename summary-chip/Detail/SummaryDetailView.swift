@@ -11,6 +11,7 @@ struct SummaryDetailView: View {
     @State private var showsChat = false
     @State private var showsShare = false
     @State private var showsEditSharing = false
+    @State private var showsNewPodcast = false
     @State private var showsRegenerate = false
     @State private var showsLanguage = false
     @State private var showsLocalFile = false
@@ -94,6 +95,17 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsLanguage) {
             DisplayLanguageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
+        .sheet(isPresented: $showsNewPodcast) {
+            DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true, initialChip: summary) { podcast in
+                Task {
+                    if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
+                        environment.library.insert(chip)
+                    }
+                    try? await Task.sleep(for: .milliseconds(350))
+                    environment.podcastPlayer.present(podcast: podcast)
+                }
+            }
+        }
         .sheet(isPresented: $showsRegenerate) {
             RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
@@ -116,6 +128,7 @@ struct SummaryDetailView: View {
                 dismiss()
             }
         }
+        .sensoryFeedback(.selection, trigger: showsNewPodcast)
         .sensoryFeedback(.impact(weight: .light), trigger: showsSourceText) { _, new in new }
         .sensoryFeedback(.success, trigger: savedCount)
         .sensoryFeedback(.success, trigger: didDelete) { _, new in new }
@@ -171,6 +184,10 @@ struct SummaryDetailView: View {
             Label("Share…", systemImage: "square.and.arrow.up")
         }
         .accessibilityIdentifier("share-summary")
+        if !isPreviewingVersion {
+            Button { showsNewPodcast = true } label: { Label("Create Podcast", systemImage: "waveform") }
+                .accessibilityIdentifier("summary-create-podcast")
+        }
         if summary.isOwner {
             // A submenu: pick a version to preview in place, restore it, or open the full history.
             VersionToolbarMenu(model: versions)
@@ -290,6 +307,8 @@ struct SummaryDestination: View {
             )
         } else if summary.kind == .miniApp {
             MiniAppDetailView(environment: environment, appID: summary.id, title: summary.title)
+        } else if summary.kind == .podcast {
+            LibraryPodcastDetail(environment: environment, summary: summary)
         } else if summary.kind == .paper {
             PaperDetailView(environment: environment, paperID: summary.id, title: summary.title)
         } else {
@@ -441,5 +460,70 @@ struct DeepLinkSheet: View {
         case .slug(let slug): environment.likes.items.first { $0.slug == slug }
         case .summaryID(let id), .tripID(let id): environment.likes.items.first { $0.id == id }
         }
+    }
+}
+
+private struct LibraryPodcastDetail: View {
+    let environment: AppEnvironment
+    let summary: Summary
+    @State private var podcast: DailyPodcast?
+    @State private var loading = true
+    @State private var openingChip = false
+    @State private var error: String?
+    var body: some View {
+        Group {
+            if let podcast {
+                DailyPodcastPlaybackView(api: environment.api, podcast: podcast,
+                    player: environment.podcastPlayer, onOpenChip: { id in
+                        openingChip = true
+                        Task {
+                            defer { openingChip = false }
+                            do { environment.pendingLibraryItem = try await environment.api.summary(id: id) }
+                            catch { self.error = error.localizedDescription }
+                        }
+                    })
+            } else if !loading {
+                ContentUnavailableView {
+                    Label("Podcast Unavailable", systemImage: "waveform")
+                } actions: {
+                    Button("Retry") { Task { await load() } }
+                }
+            } else { Color.clear }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            if loading || openingChip {
+                ProgressView(openingChip ? "Opening chip…" : "Loading podcast…")
+                    .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+        .navigationTitle(summary.title)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Podcast Options", systemImage: "ellipsis") { environment.podcastPlayer.isPresented = true }
+                    .disabled(podcast == nil)
+            }
+        }
+        .task { await load() }
+        .onDisappear {
+            if environment.podcastPlayer.inlinePodcastKey == podcast?.key { environment.podcastPlayer.inlinePodcastKey = nil }
+        }
+        .alert("Couldn't Open Podcast", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            Button("OK", role: .cancel) { error = nil }
+        } message: { Text(error ?? "") }
+    }
+    private func load() async {
+        loading = true
+        defer { loading = false }
+        do {
+            let saved = try await environment.api.libraryPodcast(summaryID: summary.id)
+            try Task.checkCancellation()
+            podcast = saved
+            environment.podcastPlayer.inlinePodcastKey = saved.key
+            if environment.podcastPlayer.podcast?.key != saved.key || environment.podcastPlayer.podcast?.video?.id != saved.video?.id {
+                environment.podcastPlayer.replace(saved)
+                environment.podcastPlayer.date = saved.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
+            }
+        } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
 }

@@ -36,6 +36,7 @@ struct ContentView: View {
                 .accessibilityIdentifier("rxauth-sign-in")
             case .signedIn:
                 signedInContent
+                    .modifier(DailyPodcastPresentation(environment: environment))
                     // Dropping a file or link anywhere in the window opens New Summary with it.
                     .summaryDropDestination(isEnabled: presentation == nil) {
                         isDropTargeted = $0
@@ -73,6 +74,7 @@ struct ContentView: View {
             if state == .signedIn {
                 presentNext()
             } else {
+                environment.podcastPlayer.close()
                 presentation = nil
             }
         }
@@ -184,6 +186,7 @@ struct MainTabView: View {
     @State private var libraryPath: [Summary] = []
     @State private var miniAppsPath: [Summary] = []
     @State private var likesPath: [Summary] = []
+    @Environment(\.openPodcast) private var openPodcast
     @Environment(\.openMiniApp) private var openMiniApp
 
     var body: some View {
@@ -214,6 +217,10 @@ struct MainTabView: View {
     }
 
     private func openItem(_ summary: Summary) {
+        if summary.kind == .podcast, !summary.isExpired, let openPodcast {
+            openPodcast(summary)
+            return
+        }
         if summary.kind == .miniApp {
             selection = .miniApps
             if let openMiniApp { openMiniApp(summary) } else { miniAppsPath = [summary] }

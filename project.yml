@@ -48,6 +48,8 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.10.0
+  RxRemotion:
+    path: Packages/RxRemotion
   SummaryKit:
     path: Packages/SummaryKit
   RxAuthSwift:
@@ -143,6 +145,7 @@ targets:
       - path: summary-chipTests
     dependencies:
       - target: summary-chip
+      - package: RxRemotion
       - package: SummaryKit
     settings:
       base:
@@ -177,6 +180,7 @@ targets:
     groups:
       - summary-chip-macOS
     dependencies:
+      - package: RxRemotion
       - package: Sparkle
         destinationFilters: [macOS]
       - package: SummaryKit
@@ -414,6 +418,7 @@ targets:
       - path: summary-chipTests
     dependencies:
       - target: summary-chip
+      - package: RxRemotion
       - package: SummaryKit
     settings:
       base:

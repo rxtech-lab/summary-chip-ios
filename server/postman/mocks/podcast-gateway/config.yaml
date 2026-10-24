@@ -1,0 +1,9 @@
+version: 1
+name: Podcast gateway contract fixture
+slug: podcast-gateway
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

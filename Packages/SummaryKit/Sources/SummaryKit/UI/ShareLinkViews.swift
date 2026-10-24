@@ -1,11 +1,76 @@
 #if os(iOS) || os(macOS)
 import SwiftUI
 
-/// A summary's share links, each with its own lifetime and, optionally, a list of invited emails.
-/// Summaries are shared only through links made here. Pushed from the share sheet.
+/// Where a list of share links is saved: a summary's links (which may be invite-only) or a podcast
+/// episode's (always open to anyone holding them, since its web player is signed out).
+public struct ShareLinkStore: Sendable {
+    public enum Subject: Sendable { case summary, podcast }
+
+    public var subject: Subject
+    var create: @Sendable (ShareLinkChanges) async throws -> SummaryShareLink
+    var update: @Sendable (_ linkID: String, ShareLinkChanges) async throws -> SummaryShareLink
+    var delete: @Sendable (_ linkID: String) async throws -> Void
+
+    public init(
+        subject: Subject,
+        create: @escaping @Sendable (ShareLinkChanges) async throws -> SummaryShareLink,
+        update: @escaping @Sendable (_ linkID: String, ShareLinkChanges) async throws -> SummaryShareLink,
+        delete: @escaping @Sendable (_ linkID: String) async throws -> Void
+    ) {
+        self.subject = subject
+        self.create = create
+        self.update = update
+        self.delete = delete
+    }
+
+    var allowsInvites: Bool { subject == .summary }
+
+    public static func summary(api: SummaryAPIClient, summaryID: String) -> ShareLinkStore {
+        ShareLinkStore(subject: .summary) { changes in
+            try await api.createShareLink(summaryID: summaryID, changes: changes)
+        } update: { linkID, changes in
+            try await api.updateShareLink(summaryID: summaryID, linkID: linkID, changes: changes)
+        } delete: { linkID in
+            try await api.deleteShareLink(summaryID: summaryID, linkID: linkID)
+        }
+    }
+
+    public static func podcast(api: SummaryAPIClient, podcast: DailyPodcast) -> ShareLinkStore {
+        ShareLinkStore(subject: .podcast) { changes in
+            try await api.createPodcastShareLink(podcast, changes: changes)
+        } update: { linkID, changes in
+            try await api.updatePodcastShareLink(key: podcast.key, linkID: linkID, changes: changes)
+        } delete: { linkID in
+            try await api.deletePodcastShareLink(key: podcast.key, linkID: linkID)
+        }
+    }
+
+    var emptyMessage: Text {
+        switch subject {
+        case .summary: Text("No links yet. Add one to share the summary, with its own expiry, or only with certain people.", bundle: .module)
+        case .podcast: Text("No links yet. Add one to let anyone with it listen to this episode on the web and read its captions, with its own expiry.", bundle: .module)
+        }
+    }
+
+    var listFooter: Text {
+        switch subject {
+        case .summary: Text("Anyone who opened the summary with a link loses access when you delete it or it expires.", bundle: .module)
+        case .podcast: Text("A link stops playing the episode when you delete it or it expires. Your source chips keep their sharing settings.", bundle: .module)
+        }
+    }
+
+    var deleteMessage: Text {
+        switch subject {
+        case .summary: Text("The link stops working, and everyone who opened the summary with it loses access.", bundle: .module)
+        case .podcast: Text("The link stops working for everyone who has it.", bundle: .module)
+        }
+    }
+}
+
+/// A summary's or podcast's share links, each with its own lifetime and, for summaries, optionally
+/// a list of invited emails. Pushed from the share sheet, or the root of a podcast's publish sheet.
 public struct ShareLinksView: View {
-    let api: SummaryAPIClient
-    let summaryID: String
+    let store: ShareLinkStore
     @Binding var links: [SummaryShareLink]
 
     @State private var editor: EditorTarget?
@@ -17,8 +82,11 @@ public struct ShareLinksView: View {
     @State private var savedCount = 0
 
     public init(api: SummaryAPIClient, summaryID: String, links: Binding<[SummaryShareLink]>) {
-        self.api = api
-        self.summaryID = summaryID
+        self.init(store: .summary(api: api, summaryID: summaryID), links: links)
+    }
+
+    public init(store: ShareLinkStore, links: Binding<[SummaryShareLink]>) {
+        self.store = store
         self._links = links
     }
 
@@ -38,42 +106,49 @@ public struct ShareLinksView: View {
         List {
             Section {
                 if links.isEmpty {
-                    Text("No links yet. Add one to share the summary, with its own expiry, or only with certain people.", bundle: .module)
+                    store.emptyMessage
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
                 ForEach(links) { link in
-                    Button { editor = .edit(link) } label: { ShareLinkRow(link: link, copied: copiedID == link.id) }
-                        .tint(.primary)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) { deleting = link } label: {
-                                Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
-                            }
+                    HStack(spacing: 12) {
+                        Button { editor = .edit(link) } label: { ShareLinkRow(link: link) }
+                            .buttonStyle(.plain)
+                        Button { copy(link) } label: {
+                            Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
                         }
-                        .swipeActions(edge: .leading) {
-                            Button { copy(link) } label: {
-                                Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
-                            }
-                            .tint(.accentColor)
+                        .buttonStyle(.borderless)
+                        .disabled(link.isExpired)
+                        .accessibilityIdentifier("copy-share-link")
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { deleting = link } label: {
+                            Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
                         }
-                        .contextMenu {
-                            Button { copy(link) } label: { Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc") }
-                            Button { editor = .edit(link) } label: { Label(String(localized: "Edit Link", bundle: .module), systemImage: "slider.horizontal.3") }
-                            Divider()
-                            Button(role: .destructive) { deleting = link } label: { Label(String(localized: "Delete", bundle: .module), systemImage: "trash") }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button { copy(link) } label: {
+                            Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
                         }
-                        .accessibilityIdentifier("share-link-row")
+                        .tint(.accentColor)
+                    }
+                    .contextMenu {
+                        Button { copy(link) } label: { Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc") }
+                        Button { editor = .edit(link) } label: { Label(String(localized: "Edit Link", bundle: .module), systemImage: "slider.horizontal.3") }
+                        Divider()
+                        Button(role: .destructive) { deleting = link } label: { Label(String(localized: "Delete", bundle: .module), systemImage: "trash") }
+                    }
+                    .accessibilityIdentifier("share-link-row")
                 }
-                Button { editor = .create } label: {
-                    Label(String(localized: "Add Link", bundle: .module), systemImage: "plus.circle.fill")
-                }
-                .disabled(links.count >= 20)
-                .accessibilityIdentifier("add-share-link")
             } footer: {
-                Text("Anyone who opened the summary with a link loses access when you delete it or it expires.", bundle: .module)
+                store.listFooter
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .navigationTitle(Text("Links", bundle: .module, comment: "Title of the screen managing a summary's share links"))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(store.subject == .podcast
+            ? Text("Publish Podcast", bundle: .module, comment: "Title of the screen managing a podcast episode's share links")
+            : Text("Links", bundle: .module, comment: "Title of the screen managing a summary's share links"))
         .summaryInlineNavigationTitle()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -81,17 +156,18 @@ public struct ShareLinksView: View {
                     Label(String(localized: "Add Link", bundle: .module), systemImage: "plus")
                 }
                 .disabled(links.count >= 20)
+                .accessibilityIdentifier("add-share-link")
             }
         }
         .sheet(item: $editor) { target in
             switch target {
             case .create:
-                ShareLinkEditorSheet(api: api, summaryID: summaryID, link: nil) { created in
+                ShareLinkEditorSheet(store: store, link: nil) { created in
                     links.append(created)
                     savedCount += 1
                 } onDeleted: { _ in }
             case .edit(let link):
-                ShareLinkEditorSheet(api: api, summaryID: summaryID, link: link) { updated in
+                ShareLinkEditorSheet(store: store, link: link) { updated in
                     if let index = links.firstIndex(where: { $0.id == updated.id }) { links[index] = updated }
                     savedCount += 1
                 } onDeleted: { id in
@@ -110,10 +186,13 @@ public struct ShareLinksView: View {
                 Task { await delete(link) }
             }
         } message: { _ in
-            Text("The link stops working, and everyone who opened the summary with it loses access.", bundle: .module)
+            store.deleteMessage
         }
         .overlay {
             if let status { ActionStatusOverlay(status) }
+        }
+        .overlay(alignment: .bottom) {
+            if copiedID != nil { LinkCopiedFeedback() }
         }
         .statusAlert(Text("Couldn't delete the link", bundle: .module), message: errorMessage) { errorMessage = nil }
         .sensoryFeedback(.success, trigger: deletedCount)
@@ -140,7 +219,7 @@ public struct ShareLinksView: View {
         status = String(localized: "Deleting link…", bundle: .module)
         defer { status = nil }
         do {
-            try await api.deleteShareLink(summaryID: summaryID, linkID: link.id)
+            try await store.delete(link.id)
             links.removeAll { $0.id == link.id }
             deletedCount += 1
         } catch {
@@ -162,10 +241,21 @@ struct ShareLinkIcon: View {
     }
 }
 
+/// Clipboard feedback stays above the content without blocking the next action.
+struct LinkCopiedFeedback: View {
+    var body: some View {
+        Label(String(localized: "Copied", bundle: .module), systemImage: "checkmark.circle.fill")
+            .font(.callout.weight(.semibold))
+            .padding()
+            .background(.regularMaterial, in: Capsule())
+            .padding(.bottom, 20)
+            .allowsHitTesting(false)
+    }
+}
+
 /// One extra link: its name, who can open it, and when it expires.
 struct ShareLinkRow: View {
     let link: SummaryShareLink
-    var copied = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -187,11 +277,6 @@ struct ShareLinkRow: View {
                 }
             }
             Spacer(minLength: 0)
-            if copied {
-                Image(systemName: "checkmark")
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityLabel(Text("Copied", bundle: .module))
-            }
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
@@ -200,10 +285,9 @@ struct ShareLinkRow: View {
 }
 
 /// Dedicated sheet to create or change one share link: its name, who can open it (anyone, or only
-/// invited emails), and its lifetime. Removing an email revokes that person's access on save.
+/// invited emails, for summaries), and its lifetime. Removing an email revokes that person's access on save.
 public struct ShareLinkEditorSheet: View {
-    let api: SummaryAPIClient
-    let summaryID: String
+    let store: ShareLinkStore
     let link: SummaryShareLink?
     let onSaved: (SummaryShareLink) -> Void
     let onDeleted: (String) -> Void
@@ -218,14 +302,21 @@ public struct ShareLinkEditorSheet: View {
     @State private var errorMessage: String?
     @State private var confirmsDelete = false
     @State private var addedCount = 0
+    @State private var copied = false
     @FocusState private var emailFieldFocused: Bool
 
     public init(
         api: SummaryAPIClient, summaryID: String, link: SummaryShareLink?,
         onSaved: @escaping (SummaryShareLink) -> Void, onDeleted: @escaping (String) -> Void
     ) {
-        self.api = api
-        self.summaryID = summaryID
+        self.init(store: .summary(api: api, summaryID: summaryID), link: link, onSaved: onSaved, onDeleted: onDeleted)
+    }
+
+    public init(
+        store: ShareLinkStore, link: SummaryShareLink?,
+        onSaved: @escaping (SummaryShareLink) -> Void, onDeleted: @escaping (String) -> Void
+    ) {
+        self.store = store
         self.link = link
         self.onSaved = onSaved
         self.onDeleted = onDeleted
@@ -248,6 +339,7 @@ public struct ShareLinkEditorSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
+                if let link { clipboardSection(link) }
                 Section {
                     TextField(String(localized: "Name", bundle: .module), text: $label, prompt: Text("Family, Team…", bundle: .module))
                         .accessibilityIdentifier("share-link-label")
@@ -257,9 +349,10 @@ public struct ShareLinkEditorSheet: View {
                     Text("Only you see the name.", bundle: .module)
                 }
 
-                accessSection
-
-                if access == .invited { invitedSection }
+                if store.allowsInvites {
+                    accessSection
+                    if access == .invited { invitedSection }
+                }
 
                 Section {
                     Picker(selection: $ttl) {
@@ -290,6 +383,7 @@ public struct ShareLinkEditorSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(link == nil ? Text("New Link", bundle: .module) : Text("Edit Link", bundle: .module))
             .summaryInlineNavigationTitle()
             .toolbar {
@@ -308,17 +402,49 @@ public struct ShareLinkEditorSheet: View {
             .confirmationDialog(Text("Delete this link?", bundle: .module), isPresented: $confirmsDelete, titleVisibility: .visible) {
                 Button(String(localized: "Delete Link", bundle: .module), role: .destructive) { Task { await delete() } }
             } message: {
-                Text("The link stops working, and everyone who opened the summary with it loses access.", bundle: .module)
+                store.deleteMessage
             }
             .overlay {
                 if let status { ActionStatusOverlay(status) }
             }
+            .overlay(alignment: .bottom) {
+                if copied { LinkCopiedFeedback() }
+            }
+            .task(id: copied) {
+                guard copied else { return }
+                try? await Task.sleep(for: .seconds(2))
+                copied = false
+            }
+            .sensoryFeedback(.success, trigger: copied) { _, new in new }
             .statusAlert(Text("Couldn't save the link", bundle: .module), message: errorMessage) { errorMessage = nil }
             .interactiveDismissDisabled(status != nil)
             .sensoryFeedback(.impact(weight: .light), trigger: addedCount)
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
         .summarySheetSize()
+    }
+
+    private func clipboardSection(_ link: SummaryShareLink) -> some View {
+        Section {
+            Text(link.url.absoluteString)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                #if os(iOS)
+                UIPasteboard.general.url = link.url
+                #else
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(link.url.absoluteString, forType: .string)
+                #endif
+                copied = true
+            } label: {
+                Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
+            }
+            .disabled(link.isExpired)
+            .accessibilityIdentifier("copy-edited-share-link")
+        }
     }
 
     private var accessSection: some View {
@@ -439,10 +565,10 @@ public struct ShareLinkEditorSheet: View {
                     ttl: ttlChanged ? ttl : nil,
                     emails: emailsChanged ? emails : nil
                 )
-                saved = try await api.updateShareLink(summaryID: summaryID, linkID: link.id, changes: changes)
+                saved = try await store.update(link.id, changes)
             } else {
                 let changes = ShareLinkChanges(label: trimmedLabel, access: access, ttl: ttl, emails: access == .invited ? emails : [])
-                saved = try await api.createShareLink(summaryID: summaryID, changes: changes)
+                saved = try await store.create(changes)
             }
             onSaved(saved)
             dismiss()
@@ -456,7 +582,7 @@ public struct ShareLinkEditorSheet: View {
         status = String(localized: "Deleting link…", bundle: .module)
         defer { status = nil }
         do {
-            try await api.deleteShareLink(summaryID: summaryID, linkID: link.id)
+            try await store.delete(link.id)
             onDeleted(link.id)
             dismiss()
         } catch {

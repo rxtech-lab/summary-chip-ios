@@ -281,28 +281,26 @@ public struct ShareActionsSection: View {
         Section {
             Picker(String(localized: "Share as", bundle: .module), selection: $mode) {
                 ForEach(ShareMode.allCases) { mode in
-                    HStack(spacing: 14) {
-                        Image(systemName: mode.systemImage)
-                            .font(.title3)
-                            .frame(width: 28)
-                            .foregroundStyle(.tint)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(mode.title)
-                            Text(mode.detail).font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    .tag(mode)
+                    Label(mode.title, systemImage: mode.systemImage).tag(mode)
                 }
             }
-            .pickerStyle(.inline)
-            .labelsHidden()
+            .pickerStyle(.menu)
             .disabled(isPreparing)
+            Text(mode.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .overlay {
+                    if isPreparing { ActionStatusOverlay(String(localized: "Preparing to share…", bundle: .module)) }
+                }
+                .overlay(alignment: .bottom) {
+                    if copied { LinkCopiedFeedback() }
+                }
+                .statusAlert(Text("Couldn't share", bundle: .module), message: errorMessage) { errorMessage = nil }
         } header: {
             Text("Share as", bundle: .module)
         } footer: {
-            if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
-            } else if showsPrivateNote, summary.visibility == .private {
+            if showsPrivateNote, summary.visibility == .private {
                 Text("This summary is private, so the link won't open for anyone else. Make it public under Edit sharing.", bundle: .module)
             }
         }
@@ -415,8 +413,6 @@ public struct ShareLinkSections: View {
     @State private var selectedLinkID: String?
     @State private var loaded = false
     @State private var loadError: String?
-    @State private var creating = false
-    @State private var createdCount = 0
     @State private var editingSharing = false
     @State private var sharingSavedCount = 0
 
@@ -473,19 +469,15 @@ public struct ShareLinkSections: View {
                 .pickerStyle(.menu)
                 .sensoryFeedback(.selection, trigger: selectedLinkID)
                 .accessibilityIdentifier("share-link-picker")
-                if liveLinks.isEmpty {
-                    Button { creating = true } label: {
-                        Label(String(localized: "Create Link", bundle: .module), systemImage: "plus.circle.fill")
-                    }
-                    .accessibilityIdentifier("create-share-link")
-                }
             }
             if loaded {
-                Button { editingSharing = true } label: {
-                    DefaultLinkRow(summary: summary)
+                if isDefaultSelected {
+                    Button { editingSharing = true } label: {
+                        DefaultLinkRow(summary: summary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("edit-default-link-sharing")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("edit-default-link-sharing")
                 NavigationLink {
                     ShareLinksView(api: api, summaryID: summary.id, links: $links)
                 } label: {
@@ -500,14 +492,6 @@ public struct ShareLinkSections: View {
             Text("Link to share", bundle: .module)
                 .task { await load() }
                 .onChange(of: links) { keepSelection() }
-                .sheet(isPresented: $creating) {
-                    ShareLinkEditorSheet(api: api, summaryID: summary.id, link: nil) { created in
-                        links.append(created)
-                        selectedLinkID = created.id
-                        createdCount += 1
-                    } onDeleted: { _ in }
-                }
-                .sensoryFeedback(.success, trigger: createdCount)
                 .sheet(isPresented: $editingSharing) {
                     EditSharingSheet(api: api, summary: summary) { updated in
                         onSummaryUpdated(updated)
@@ -517,6 +501,8 @@ public struct ShareLinkSections: View {
                 .sensoryFeedback(.success, trigger: sharingSavedCount)
         } footer: {
             footer
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
         }
         ShareActionsSection(summary: shared, actionInToolbar: actionInToolbar, showsPrivateNote: false, canShare: canShare)
     }
@@ -525,7 +511,7 @@ public struct ShareLinkSections: View {
     private var footer: some View {
         if let selectedLink {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(selectedLink.access == .invited
                         ? String(localized: "Opens for \(selectedLink.emails.count) invited people.", bundle: .module)
                         : String(localized: "Opens for anyone with the link.", bundle: .module))
@@ -538,7 +524,7 @@ public struct ShareLinkSections: View {
                 if summary.visibility == .private {
                     Text("This summary is private, so its default link only opens for you. Make it public above, or create a link to share it.", bundle: .module)
                 } else {
-                    HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Opens for anyone with the link.", bundle: .module)
                         ExpiryLabel(summary.expiresAt)
                     }
@@ -615,7 +601,11 @@ public struct ShareModeSheet: View {
             List {
                 Section {
                     SummaryOGImage(summary: summary)
+                        #if os(macOS)
+                        .frame(maxWidth: 344)
+                        #endif
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                 } footer: {
                     if !manages {
@@ -637,6 +627,7 @@ public struct ShareModeSheet: View {
                     #endif
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(Text("Share", bundle: .module, comment: "Title of the share sheet"))
             .summaryInlineNavigationTitle()
             .toolbar {

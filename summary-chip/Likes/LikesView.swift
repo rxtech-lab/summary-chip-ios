@@ -12,6 +12,7 @@ struct LikesView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openSummarySearch) private var openSearch
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
+    @Environment(\.openPodcast) private var openPodcast
     @Environment(\.openMiniApp) private var openMiniApp
 
     private var model: LikesModel { environment.likes }
@@ -62,6 +63,9 @@ struct LikesView: View {
         } else {
             SummaryCardFeed(entries: model.entries, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
                 Task { await model.loadMore() }
+            }, onSelect: { summary in
+                if summary.kind == .podcast, !summary.isExpired, let openPodcast { openPodcast(summary) }
+                else { (path ?? $localPath).presentingMiniApps(with: openMiniApp).wrappedValue.append(summary) }
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) { toggleLike(summary) }
                 if !summary.isExpired {

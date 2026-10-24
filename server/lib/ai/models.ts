@@ -168,3 +168,25 @@ export function speechUsdPerCharacter(): number {
   const configured = Number(process.env.AI_SPEECH_USD_PER_CHARACTER);
   return Number.isFinite(configured) && configured >= 0 && process.env.AI_SPEECH_USD_PER_CHARACTER?.trim() ? configured : DEFAULT_SPEECH_USD_PER_CHARACTER;
 }
+
+/** Default model that writes podcast motion videos (Remotion code): a strong coding model. */
+export const DEFAULT_PODCAST_VIDEO_MODEL = "anthropic/claude-sonnet-5.5";
+
+/** Podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); `off` publishes podcasts without a video. */
+export function podcastVideoModelId(): string | null {
+  const configured = process.env.AI_PODCAST_VIDEO_MODEL?.trim();
+  if (configured && /^(off|none|false)$/i.test(configured)) return null;
+  return configured || DEFAULT_PODCAST_VIDEO_MODEL;
+}
+
+export function podcastVideoModel(id: string): LanguageModel {
+  return cachedChatModel(id);
+}
+
+/** Model used to recover podcast caption timestamps from generated speech. */
+export function transcriptionModelId(): string {
+  return process.env.AI_TRANSCRIPTION_MODEL?.trim() || "mistral/voxtral-mini-transcribe-3";
+}
+export function transcriptionModel() {
+  return gateway().transcriptionModel(transcriptionModelId());
+}

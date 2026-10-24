@@ -287,6 +287,9 @@ struct PaperDetailView: View {
         }
     }
 
+}
+
+extension PaperDetailView {
     // MARK: Toolbar
 
     @ToolbarContentBuilder

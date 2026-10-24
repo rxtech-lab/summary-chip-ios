@@ -57,7 +57,7 @@ struct SettingsView: View {
                     Task { cacheSize = await environment.cacheSize() }
                 }
             } message: {
-                Text("Saved summaries and images are removed from this device. Your summaries stay in your account.")
+                Text("Saved summaries, images and podcast audio are removed from this device. Your summaries stay in your account.")
             }
             .sensoryFeedback(.success, trigger: clearedCount)
             .task {

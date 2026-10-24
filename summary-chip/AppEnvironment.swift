@@ -39,6 +39,7 @@ final class AppEnvironment {
     let authManager: OAuthManager
     let tokenBroker: SharedTokenBroker
     let api: SummaryAPIClient
+    let podcastPlayer: DailyPodcastPlayer
     let chatClient: ChatStreamClient
     let chatStore = ChatTranscriptStore()
     let assetLoader: SummaryAssetLoader
@@ -64,6 +65,7 @@ final class AppEnvironment {
         self.authManager = authManager
         self.tokenBroker = tokenBroker
         self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker, session: session)
+        self.podcastPlayer = DailyPodcastPlayer(api: api)
         self.chatClient = ChatStreamClient(api: api)
         self.assetLoader = SummaryAssetLoader(tokenProvider: tokenBroker)
         let offline = OfflineSummaryStore()
@@ -191,19 +193,23 @@ final class AppEnvironment {
         await signOut()
     }
 
-    /// Bytes used by offline summaries and cached images.
+    /// Bytes used by offline summaries, cached images and podcast recordings.
     func cacheSize() async -> Int {
-        await SummaryAssetLoader.imageCacheSize() + library.offline.fileSize
+        await SummaryAssetLoader.imageCacheSize() + library.offline.fileSize + PodcastAudioCache.shared.diskSize + PodcastMotionRenderer.cacheSize
     }
 
-    /// Drops offline summaries and cached images; the library re-fills them as it loads.
+    /// Drops offline summaries, cached images and podcast audio; they refill on demand.
     func clearCache() {
+        PodcastAudioCache.shared.clear()
+        PodcastMotionRenderer.clearCache()
         library.offline.clear()
         try? FileManager.default.removeItem(at: SharedImageCache.temporaryDirectory)
         SummaryAssetLoader.clearImageCache()
     }
 
     func signOut() async {
+        podcastPlayer.close()
+        PodcastMotionRenderer.clearCache()
         authenticationState = .signedOut
         await SummaryNotifications.shared.signOut()
         try? await tokenBroker.logout()

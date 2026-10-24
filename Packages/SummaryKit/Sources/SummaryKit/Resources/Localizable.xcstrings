@@ -425,6 +425,22 @@
         }
       }
     },
+    "A link stops playing the episode when you delete it or it expires. Your source chips keep their sharing settings." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接被删除或过期后将无法再播放这一集。来源卡片的共享设置保持不变。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結被刪除或過期後將無法再播放這一集。來源卡片的共享設定保持不變。"
+          }
+        }
+      }
+    },
     "A paper can have at most 60 files." : {
 
     },
@@ -1266,6 +1282,22 @@
         }
       }
     },
+    "Couldn't share" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法分享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法分享"
+          }
+        }
+      }
+    },
     "Create" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1283,6 +1315,7 @@
       }
     },
     "Create Link" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1493,6 +1526,9 @@
           }
         }
       }
+    },
+    "Designing video…" : {
+
     },
     "Discard" : {
       "localizations" : {
@@ -1975,6 +2011,9 @@
           }
         }
       }
+    },
+    "Generating voices…" : {
+
     },
     "Generating…" : {
       "localizations" : {
@@ -2562,6 +2601,9 @@
     "Misreferenced" : {
       "comment" : "Paper reference error"
     },
+    "Mixing audio and aligning captions…" : {
+
+    },
     "Name" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2675,6 +2717,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "永不到期"
+          }
+        }
+      }
+    },
+    "No links yet. Add one to let anyone with it listen to this episode on the web and read its captions, with its own expiry." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有链接。添加一个链接，让持有链接的人在网页上收听这一集并阅读字幕，每个链接都有自己的有效期。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還沒有連結。新增一個連結，讓持有連結的人在網頁上收聽這一集並閱讀字幕，每個連結都有自己的有效期。"
           }
         }
       }
@@ -3129,6 +3187,22 @@
     "pgfplots Chart" : {
 
     },
+    "Play daily podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放每日播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放每日 Podcast"
+          }
+        }
+      }
+    },
     "Please open %@ and sign in." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3144,6 +3218,40 @@
           }
         }
       }
+    },
+    "Podcast" : {
+
+    },
+    "Podcast ready" : {
+
+    },
+    "Podcasts" : {
+
+    },
+    "Preparing music…" : {
+
+    },
+    "Preparing podcast…" : {
+
+    },
+    "Preparing to share…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备分享…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備分享…"
+          }
+        }
+      }
+    },
+    "Preparing video…" : {
+
     },
     "Preview image" : {
       "localizations" : {
@@ -3255,6 +3363,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "公開連結"
+          }
+        }
+      }
+    },
+    "Publish Podcast" : {
+      "comment" : "Title of the screen managing a podcast episode's share links",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发布播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "發佈播客"
           }
         }
       }
@@ -3576,6 +3701,9 @@
           }
         }
       }
+    },
+    "Saving podcast…" : {
+
     },
     "Scheduled" : {
       "localizations" : {
@@ -4157,6 +4285,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連結將在 %@後失效。摘要會保留在你的動態中，你隨時可以延長連結有效期限。"
+          }
+        }
+      }
+    },
+    "The link stops working for everyone who has it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有持有该链接的人都将无法再使用它。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有持有該連結的人都將無法再使用它。"
           }
         }
       }
@@ -5072,6 +5216,9 @@
           }
         }
       }
+    },
+    "Writing script…" : {
+
     },
     "Writing the summary" : {
       "localizations" : {

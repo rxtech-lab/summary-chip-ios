@@ -19,6 +19,7 @@ struct SidebarMainView: View {
     @State private var libraryPath: [Summary] = []
     @State private var miniAppsPath: [Summary] = []
     @State private var likesPath: [Summary] = []
+    @Environment(\.openPodcast) private var openPodcast
     @Environment(\.openMiniApp) private var openMiniApp
 
     var body: some View {
@@ -103,6 +104,10 @@ struct SidebarMainView: View {
 
     /// Opens a search result in its document's tab.
     private func openFromSearch(_ summary: Summary) {
+        if summary.kind == .podcast, !summary.isExpired, let openPodcast {
+            openPodcast(summary)
+            return
+        }
         if summary.kind == .miniApp {
             selection = .miniApps
             openClip(summary)

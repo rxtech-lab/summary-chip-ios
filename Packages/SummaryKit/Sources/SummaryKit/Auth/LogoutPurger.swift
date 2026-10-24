@@ -7,6 +7,7 @@ public enum SharedLogoutPurger {
     public static let sharedDirectories = ["SharedImages", "Uploads", "Cache", "Chats", "LocalFiles"]
 
     public static func purge(fileManager: FileManager = .default) {
+        PodcastAudioCache.shared.clear()
         try? fileManager.removeItem(at: SharedImageCache.temporaryDirectory)
         SummaryAssetLoader.clearImageCache()
         guard let container = fileManager.containerURL(

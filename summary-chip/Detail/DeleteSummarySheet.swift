@@ -47,6 +47,7 @@ struct DeleteSummarySheet: View {
         switch summary.kind {
         case .trip: "Delete Trip"
         case .paper: "Delete Paper"
+        case .podcast: "Delete Podcast"
         case .miniApp: "Delete Clip"
         case .summary, .other: "Delete Summary"
         }
@@ -55,6 +56,7 @@ struct DeleteSummarySheet: View {
     private var deleteMessage: LocalizedStringKey {
         switch summary.kind {
         case .trip: "The link and preview stop working and the trip is removed permanently. To only stop sharing, make it private instead."
+        case .podcast: "The podcast will be removed from your library."
         case .miniApp: "The app, its records, and its connections will be removed permanently."
         case .paper: "The link and preview stop working and the paper is removed permanently. To only stop sharing, make it private instead."
         case .summary, .other: "The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead."
