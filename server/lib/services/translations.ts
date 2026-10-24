@@ -46,6 +46,11 @@ export function acceptedLanguage(request: Request): TranslationLanguage | null {
   return preferredLanguage(request.headers.get("accept-language"));
 }
 
+/** The language the summary's kept source document is in: its own when it was judged to differ. */
+export function sourceLanguageOf(row: Pick<SummaryRow, "language" | "sourceLanguage">): string {
+  return row.sourceLanguage ?? row.language;
+}
+
 /**
  * The language a viewer reads a summary in, or null for as written: the owner reads the language
  * they chose (`displayLanguage`), everyone else their own (`Accept-Language`).
@@ -177,6 +182,8 @@ async function startSourceTranslation(
   const source = row.contentMarkdown;
   // Nothing kept, or the original is still being written: there is nothing to translate yet.
   if (!source || translation.contentMarkdown) return translation;
+  // The source is already in this language, though the chip isn't.
+  if (translationLanguageFor(sourceLanguageOf(row)) === translation.language) return translation;
   const stale = new Date(now.getTime() - SOURCE_TRANSLATION_PENDING_MS);
   const claimed = await db.update(summaryTranslations)
     .set({ contentMarkdown: "", updatedAt: now })
@@ -334,7 +341,12 @@ export async function readSummaries(
   return readings;
 }
 
-/** The source document in `language` when its translation is ready; otherwise the original, flagged pending while one is written. */
+/**
+ * The source document in the language the summary is read in (`language`, null = as written) when
+ * its translation is ready; otherwise the original, flagged pending while one is written. The source
+ * may be in another language than the chip, so it is translated even when the chip isn't, and not
+ * when it is already in the reading language.
+ */
 export async function readSourceMarkdown(
   db: Database,
   row: SummaryRow,
@@ -344,9 +356,46 @@ export async function readSourceMarkdown(
 ): Promise<{ markdown: string; language: string; translationPending: boolean } | null> {
   const original = sourceMarkdownFor(row, viewerId);
   if (original === null) return null;
-  const { translation } = await readSummary(db, row, language, translationPayer(row, viewerId, options.environment), options);
+  const asWritten = { markdown: original, language: sourceLanguageOf(row), translationPending: false };
+  const target = language ?? translationLanguageFor(row.language);
+  if (!target || translationLanguageFor(sourceLanguageOf(row)) === target) return asWritten;
+  const payer = translationPayer(row, viewerId, options.environment);
+  const translation = language
+    ? (await readSummary(db, row, language, payer, options)).translation
+    : await readSourceInChipLanguage(db, row, target, payer, options.ai);
   if (translation?.contentMarkdown) return { markdown: translation.contentMarkdown, language: translation.language, translationPending: false };
-  return { markdown: original, language: row.language, translationPending: translation?.contentMarkdown === "" };
+  return { ...asWritten, translationPending: translation?.contentMarkdown === "" };
+}
+
+/**
+ * The source translated into the chip's own language, kept on a translation row for that language
+ * whose card is the original (the chip needs no translation); started in the background like any
+ * source translation.
+ */
+async function readSourceInChipLanguage(
+  db: Database,
+  row: SummaryRow,
+  language: TranslationLanguage,
+  payer: TranslationPayer,
+  ai?: AiProvider,
+  now = new Date(),
+): Promise<SummaryTranslationRow | null> {
+  await db.insert(summaryTranslations).values({
+    summaryId: row.id,
+    language,
+    title: row.title,
+    summary: row.summary,
+    highlights: row.highlights,
+    tags: row.tags,
+    contentMarkdown: null,
+    headline: null,
+    ogImageKey: null,
+    createdAt: now,
+    updatedAt: now,
+  }).onConflictDoNothing();
+  const translation = await findTranslation(db, row.id, language);
+  if (!translation) return null;
+  return startSourceTranslation(db, ai ?? await getAiProvider(), row, translation, payer, now);
 }
 
 /** The owner edited the title while reading a translation: the edit belongs to that translation. */
@@ -366,15 +415,19 @@ export interface TranslationStatus {
   sourcePending: boolean;
 }
 
-/** The languages a summary has been translated into, in `TRANSLATION_LANGUAGES` order. */
-export async function listTranslations(db: Database, summaryId: string, now = new Date()): Promise<TranslationStatus[]> {
+/**
+ * The languages a summary has been translated into, in `TRANSLATION_LANGUAGES` order. The row that
+ * only holds the source translated into the chip's own `language` isn't a translation of the chip.
+ */
+export async function listTranslations(db: Database, summaryId: string, language: string | null = null, now = new Date()): Promise<TranslationStatus[]> {
+  const original = translationLanguageFor(language);
   const rows = await db.select({
     language: summaryTranslations.language,
     contentMarkdown: summaryTranslations.contentMarkdown,
     updatedAt: summaryTranslations.updatedAt,
   }).from(summaryTranslations).where(eq(summaryTranslations.summaryId, summaryId));
   const order = (language: string) => TRANSLATION_LANGUAGES.indexOf(language as TranslationLanguage);
-  return rows.sort((a, b) => order(a.language) - order(b.language)).map((row) => ({
+  return rows.filter((row) => row.language !== original).sort((a, b) => order(a.language) - order(b.language)).map((row) => ({
     language: row.language,
     sourceTranslated: Boolean(row.contentMarkdown),
     sourcePending: isSourceTranslationPending(row, now),

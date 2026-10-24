@@ -151,6 +151,11 @@ export interface AiProvider {
    * languages, or null when it is another language, the model is disabled or the call failed.
    */
   detectLanguage(input: LanguageInput): Promise<TranslationLanguage | null>;
+  /**
+   * The language a source document (the raw text a chip was written from) is in, judged by the
+   * evaluation model on its start: it may differ from the chip's. Null as for `detectLanguage`.
+   */
+  detectSourceLanguage(text: string): Promise<TranslationLanguage | null>;
   /** The title, summary and highlights translated, or null when the translation failed. */
   translateSummary(input: TranslateInput, options?: TranslateOptions): Promise<LlmTranslation | null>;
   /** A Markdown source document translated with its formatting, links and images intact, or null when it failed. */
@@ -286,6 +291,13 @@ const LANGUAGE_INSTRUCTIONS = `The state is a summary card (title, summary and k
 Judge the sentences, not names, brands, code, URLs or quoted terms. For Chinese, choose Traditional or Simplified by the characters used.
 Choose "other" when the card is written in a language that is not listed.`;
 
+const SOURCE_LANGUAGE_INSTRUCTIONS = `The state is the start of a source document: an article, post, transcript, document or notes. Choose the language most of its prose is written in.
+Judge the sentences, not names, brands, code, URLs, markup or quoted terms. For Chinese, choose Traditional or Simplified by the characters used.
+Choose "other" when the document is written in a language that is not listed.`;
+
+/** Characters of a source document the evaluation model reads to judge its language. */
+const SOURCE_LANGUAGE_SAMPLE_CHARS = 4_000;
+
 /** Choice criteria for `detectLanguage`: every translation language, and a way out for the rest. */
 const LANGUAGE_CRITERIA: Record<TranslationLanguage | "other", string> = {
   ...Object.fromEntries(TRANSLATION_LANGUAGES.map((language) => [language, LANGUAGE_NAMES[language]])) as Record<TranslationLanguage, string>,
@@ -295,6 +307,26 @@ const LANGUAGE_CRITERIA: Record<TranslationLanguage | "other", string> = {
 const SHARED_LINK_INSTRUCTIONS = `The state is text a user shared to a summariser app and it contains at least one URL.
 Answer true when the text is mainly a pointer to the linked page: a share-sheet snippet, a teaser or truncated headline ending in "...", an app prompt such as "copy this text and open the app", or a URL with only a short caption; summarising the text alone would miss the actual content.
 Answer false when the text is substantial content in its own right (an article, notes, a message or a document) that merely mentions or cites a link.`;
+
+/** The translation language the evaluation model reads `state` in, or null ("other", disabled or failed). */
+async function chooseLanguage(state: string, instructions: string, fallback: string): Promise<TranslationLanguage | null> {
+  const id = evaluationModelId();
+  if (!id) return null;
+  try {
+    const { answers } = await evaluate({
+      model: evaluationModel(id),
+      state,
+      questions: { language: { type: "choice", instructions, criteria: LANGUAGE_CRITERIA } },
+      maxRetries: 1,
+      abortSignal: AbortSignal.timeout(15_000),
+    });
+    const choice = answers.language.choice;
+    return choice === "other" ? null : choice;
+  } catch (error) {
+    console.warn(`[ai] language detection failed; ${fallback}`, error);
+    return null;
+  }
+}
 
 export class GatewayAiProvider implements AiProvider {
   async summarizeTripChanges(input: TripChangeInput): Promise<string> {
@@ -324,22 +356,14 @@ export class GatewayAiProvider implements AiProvider {
   }
 
   async detectLanguage(input: LanguageInput): Promise<TranslationLanguage | null> {
-    const id = evaluationModelId();
-    if (!id) return null;
-    try {
-      const { answers } = await evaluate({
-        model: evaluationModel(id),
-        state: [`Title: ${input.title}`, `Summary: ${input.summary}`, ...input.highlights.map((highlight) => `- ${highlight}`)].join("\n").slice(0, 4_000),
-        questions: { language: { type: "choice", instructions: LANGUAGE_INSTRUCTIONS, criteria: LANGUAGE_CRITERIA } },
-        maxRetries: 1,
-        abortSignal: AbortSignal.timeout(15_000),
-      });
-      const choice = answers.language.choice;
-      return choice === "other" ? null : choice;
-    } catch (error) {
-      console.warn("[ai] language detection failed; keeping the language the summary declares", error);
-      return null;
-    }
+    const state = [`Title: ${input.title}`, `Summary: ${input.summary}`, ...input.highlights.map((highlight) => `- ${highlight}`)].join("\n").slice(0, 4_000);
+    return chooseLanguage(state, LANGUAGE_INSTRUCTIONS, "keeping the language the summary declares");
+  }
+
+  async detectSourceLanguage(text: string): Promise<TranslationLanguage | null> {
+    const sample = text.trim().slice(0, SOURCE_LANGUAGE_SAMPLE_CHARS);
+    if (!sample) return null;
+    return chooseLanguage(sample, SOURCE_LANGUAGE_INSTRUCTIONS, "the source is taken to be in the summary's language");
   }
 
   async summarize(input: SummarizeInput): Promise<LlmSummary> {

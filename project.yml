@@ -180,6 +180,9 @@ targets:
     groups:
       - summary-chip-macOS
     dependencies:
+      # VideoPlayer lives in _AVKit_SwiftUI, which subclasses AVPlayerView but
+      # doesn't load AVKit itself; without this link it aborts on macOS.
+      - sdk: AVKit.framework
       - package: RxRemotion
       - package: Sparkle
         destinationFilters: [macOS]

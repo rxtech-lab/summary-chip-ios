@@ -400,6 +400,7 @@ export async function createSummary(
     tags: draft.tags,
     keywords: draft.keywords,
     language: draft.language,
+    sourceLanguage: null,
     displayLanguage: null,
     theme: draft.theme,
     ogHeadline: draft.headline,
@@ -523,8 +524,14 @@ export async function importSummary(
 
   // The model designs the headline and emoji; the server assigns the palette below, including
   // when the model fails, so similar topics still get varied colors.
-  // The caller's `language` defaults to "en"; the evaluation model checks what the text is really in.
-  const language = await ai.detectLanguage({ title: input.title, summary: input.summary, highlights: input.highlights }) ?? input.language;
+  // The agent may write the chip in another language than its source, and its declared `language`
+  // (default "en") may be wrong: the evaluation model judges both. The declared one is only kept
+  // when the model can't name the chip's language.
+  const [detected, sourceLanguage] = await Promise.all([
+    ai.detectLanguage({ title: input.title, summary: input.summary, highlights: input.highlights }),
+    ai.detectSourceLanguage(text),
+  ]);
+  const language = detected ?? input.language;
   const design = await ai.designCover({
     title: input.title,
     summary: input.summary,
@@ -575,6 +582,7 @@ export async function importSummary(
     tags: draft.tags,
     keywords: draft.keywords,
     language: draft.language,
+    sourceLanguage,
     displayLanguage: null,
     theme: draft.theme,
     ogHeadline: draft.headline,
@@ -948,5 +956,5 @@ export async function incrementViewCount(db: Database, id: string): Promise<void
 /** `{ originalLanguage, items }`: the languages the summary is already translated into (owner, or anyone who may open it). */
 export async function getTranslations(db: Database, id: string, viewerId: string): Promise<{ originalLanguage: string; items: TranslationStatus[] }> {
   const row = await getSummaryForViewer(db, id, viewerId);
-  return { originalLanguage: row.language, items: await listTranslations(db, row.id) };
+  return { originalLanguage: row.language, items: await listTranslations(db, row.id, row.language) };
 }

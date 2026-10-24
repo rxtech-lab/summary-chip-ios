@@ -263,6 +263,39 @@ describe("summary language detection", () => {
     expect(chip.language).toBe("it");
   });
 
+  async function readSource(id: string, token: string, language?: string) {
+    const headers: Record<string, string> = language ? { "accept-language": language } : {};
+    const response = await markdownRoute.GET(apiRequest("GET", `/api/v1/summaries/${id}/markdown`, { token, headers }), params({ id }));
+    expect(response.status).toBe(200);
+    return response.json();
+  }
+
+  it("judges the source text's language on its own: a Korean chip of a Japanese article", async () => {
+    // The agent declares "ja" (as if it copied the source's), but wrote the chip in Korean.
+    const source = "量子ウィジェットは研究室の歯車をつなぐ小さな装置です。";
+    const chip = await importChip({ title: "양자 위젯 해설", summary: "연구실의 톱니바퀴를 잇는 작은 장치입니다.", text: source, language: "ja" });
+    expect(chip.language).toBe("ko");
+    expect(env.ai.calls.detectSourceLanguage).toEqual([source]);
+
+    // A Japanese reader gets the chip translated, and the source as written.
+    expect(await getSummary(chip.id, env.tokens.bob, "ja")).toMatchObject({ language: "ja" });
+    expect(await readSource(chip.id, env.tokens.bob, "ja")).toEqual({ markdown: source, language: "ja", translationPending: false });
+    // A Korean reader gets the chip as written, and the source translated into Korean.
+    await vi.waitFor(async () => {
+      expect(await readSource(chip.id, env.tokens.bob, "ko")).toEqual({ markdown: `[ko] ${source}`, language: "ko", translationPending: false });
+    });
+    expect(env.ai.calls.translateDocument.map(({ to }) => to)).toEqual(["ko"]);
+    // The row that holds it isn't a translation of the chip.
+    const listed = await translationsRoute.GET(apiRequest("GET", `/api/v1/summaries/${chip.id}/translations`, { token: env.tokens.alice }), params({ id: chip.id }));
+    expect((await listed.json()).items.map((item: { language: string }) => item.language)).toEqual(["ja"]);
+  });
+
+  it("takes an undetected source to be in the chip's language", async () => {
+    const chip = await importChip({ title: "Quantum widgets explained", summary: "Tiny lab devices that link gears." });
+    expect(await readSource(chip.id, env.tokens.bob, "en")).toMatchObject({ language: "en", translationPending: false });
+    expect(env.ai.calls.translateDocument).toHaveLength(0);
+  });
+
   it("detects the language of a summary written in the source's language, but not of a requested one", async () => {
     await createAsAlice();
     expect(env.ai.calls.detectLanguage).toHaveLength(1);
