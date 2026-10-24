@@ -4,7 +4,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
     @MainActor func testGeneratesPlaysRegeneratesAndReopensSavedPodcast() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = ["--preview-likes", "--preview-podcast-playback", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let dayPlay = app.buttons["daily-podcast-play"].firstMatch
         XCTAssertTrue(dayPlay.waitForExistence(timeout: 15))
@@ -59,7 +59,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
     @MainActor func testOpeningChipKeepsPlayingInMiniPlayer() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--preview-likes", "--preview-podcast-navigation", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = ["--preview-likes", "--preview-podcast-playback", "--preview-podcast-navigation", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let dayPlay = app.buttons["daily-podcast-play"].firstMatch
         XCTAssertTrue(dayPlay.waitForExistence(timeout: 15))
@@ -90,7 +90,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
     @MainActor func testCreatesPodcastFromToolbarWithSearchAndSourceFilter() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = ["--preview-likes", "--preview-podcast-playback", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         XCTAssertTrue(app.buttons["new-summary"].waitForExistence(timeout: 15))
         app.buttons["new-summary"].tap()

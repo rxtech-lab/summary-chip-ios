@@ -58,7 +58,8 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     private var items: [Item]
 
     private init() {
-        let now = Date.now
+        // Keep the first day's summary and viewed trip together even around midnight.
+        let now = Calendar.current.startOfDay(for: .now).addingTimeInterval(12 * 3600)
         let day: TimeInterval = 86_400
         items = [
             Item(id: "clip-01", slug: "P0cketClip", kind: "mini_app", title: "Pocket Checklist",

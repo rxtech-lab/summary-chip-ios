@@ -21,6 +21,15 @@ final class DailyPodcastPlayer {
     @ObservationIgnored private var audio: AVAudioPlayer?
     @ObservationIgnored private var task: Task<Void, Never>?
 
+    private var usesPreviewPlayback: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--preview-podcast-playback")
+            && ProcessInfo.processInfo.arguments.contains("--preview-likes")
+        #else
+        false
+        #endif
+    }
+
     init(api: SummaryAPIClient) { self.api = api }
     var index: Int { podcast?.segmentIndex(at: currentTime) ?? 0 }
     var progress: Double { duration > 0 ? min(1, currentTime / duration) : 0 }
@@ -80,6 +89,12 @@ final class DailyPodcastPlayer {
     }
     func toggle() {
         if playing { playing = false; audio?.pause(); videoPlayer?.pause(); return }
+        if usesPreviewPlayback {
+            if currentTime >= duration { seek(to: 0) }
+            playing = true
+            if task == nil { startPreviewPlayback() }
+            return
+        }
         do {
             #if os(iOS)
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
@@ -109,8 +124,33 @@ final class DailyPodcastPlayer {
         playing = false
         buffering = false
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if !usesPreviewPlayback {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
+    }
+
+    /// UI fixtures exercise playback state without the simulator's audio device. In CI,
+    /// AVAudioPlayer preparation can deadlock against XCTest's screen-recording audio capture.
+    private func startPreviewPlayback() {
+        task = Task { [weak self] in
+            let clock = ContinuousClock()
+            var previous = clock.now
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+                guard let self else { return }
+                let now = clock.now
+                let elapsed = previous.duration(to: now).components
+                previous = now
+                guard playing else { continue }
+                currentTime = min(duration, currentTime + Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18)
+                if currentTime >= duration {
+                    playing = false
+                    task = nil
+                    return
+                }
+            }
+        }
     }
     private func playVideo(_ podcast: DailyPodcast) async throws {
         buffering = true
