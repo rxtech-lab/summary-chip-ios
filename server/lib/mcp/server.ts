@@ -287,7 +287,8 @@ export function createMcpServer(context: McpContext): McpServer {
       tags: z.array(z.string()).optional().describe("Tags; at most 12, lowercased by the server."),
       keywords: z.array(z.string()).optional().describe("Search keywords; at most 10."),
       category: z.enum(CATEGORIES).optional().describe("Category of the chip. Default Other."),
-      language: z.string().optional().describe("BCP-47 code of the language the title and summary are written in, e.g. en, zh-Hant. Default en."),
+      language: z.string().optional().describe("BCP-47 code of the language the title and summary are written in, e.g. en, zh-Hant. "
+        + "Only a hint: the server judges the chip's language, and the source text's (which may differ), itself."),
       sourceUrl: z.string().optional().describe("http(s) URL the text came from."),
       sourceTitle: z.string().optional().describe("Title of the source."),
       siteName: z.string().optional().describe("Name of the source site."),

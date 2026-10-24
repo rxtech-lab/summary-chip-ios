@@ -17,6 +17,14 @@ import type { LlmSummary, LlmTranslation } from "./summary-schema";
 /** One model step of 10 input + 10 output tokens. */
 const MOCK_STEP_USAGE = { inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0];
 
+/** Kana → ja, hangul → ko, other Han → zh-Hans; anything else is left undetected (null). */
+function languageByScript(text: string): TranslationLanguage | null {
+  if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text)) return "ja";
+  if (/\p{Script=Hangul}/u.test(text)) return "ko";
+  if (/\p{Script=Han}/u.test(text)) return "zh-Hans";
+  return null;
+}
+
 /** Deterministic stand-in for tests and `SUMMARY_MOCK_SERVICES=true` local development. */
 export class MockAiProvider implements AiProvider {
   readonly calls: {
@@ -24,6 +32,7 @@ export class MockAiProvider implements AiProvider {
     summarize: SummarizeInput[];
     formatMarkdown: MarkdownInput[];
     detectLanguage: LanguageInput[];
+    detectSourceLanguage: string[];
     translateSummary: TranslateInput[];
     translateDocument: { markdown: string; to: TranslationLanguage }[];
     translateStrings: { texts: string[]; to: TranslationLanguage }[];
@@ -46,6 +55,7 @@ export class MockAiProvider implements AiProvider {
     summarize: [],
     formatMarkdown: [],
     detectLanguage: [],
+    detectSourceLanguage: [],
     translateSummary: [],
     translateDocument: [],
     translateStrings: [],
@@ -105,14 +115,16 @@ export class MockAiProvider implements AiProvider {
     return `${input.title ? `# ${input.title}\n\n` : ""}${input.content.trim()}`;
   }
 
-  /** Judges by script: kana → ja, hangul → ko, other Han → zh-Hans; anything else is left undetected (null). */
+  /** Judges by script (`languageByScript`). */
   async detectLanguage(input: LanguageInput): Promise<TranslationLanguage | null> {
     this.calls.detectLanguage.push(input);
-    const text = `${input.title} ${input.summary}`;
-    if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text)) return "ja";
-    if (/\p{Script=Hangul}/u.test(text)) return "ko";
-    if (/\p{Script=Han}/u.test(text)) return "zh-Hans";
-    return null;
+    return languageByScript(`${input.title} ${input.summary}`);
+  }
+
+  /** Judged by script like `detectLanguage`. */
+  async detectSourceLanguage(text: string): Promise<TranslationLanguage | null> {
+    this.calls.detectSourceLanguage.push(text);
+    return languageByScript(text);
   }
 
   /** False from tests simulates a failed translation. */

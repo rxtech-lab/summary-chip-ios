@@ -77,6 +77,11 @@ export const summaries = sqliteTable("summaries", {
   tags: text("tags", { mode: "json" }).$type<string[]>().notNull(),
   keywords: text("keywords", { mode: "json" }).$type<string[]>().notNull(),
   language: text("language").notNull(),
+  /**
+   * The language the kept source document is in, as the evaluation model judged it for chips whose
+   * source may be in another language than the chip (added by agents); null = `language`.
+   */
+  sourceLanguage: text("source_language"),
   /** The language the owner chose to read this summary in (a `TRANSLATION_LANGUAGES` code); null = as written. */
   displayLanguage: text("display_language"),
   theme: text("theme", { mode: "json" }).$type<SummaryTheme>().notNull(),

@@ -279,6 +279,7 @@ export async function createPaper(db: Database, principal: ApiPrincipal, input: 
     tags: draft.tags,
     keywords: draft.keywords,
     language: draft.language,
+    sourceLanguage: null,
     displayLanguage: null,
     theme: draft.theme,
     ogHeadline: draft.headline,
