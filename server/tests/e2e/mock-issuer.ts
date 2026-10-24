@@ -33,6 +33,10 @@ createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", issuer);
   const { pathname } = url;
   if (pathname === "/.well-known/jwks.json") return sendJson(response, 200, { keys: [jwk] });
+  if (pathname === "/mcp-redirect-callback") {
+    response.writeHead(302, { location: `http://localhost:${port}/mcp-callback` }).end();
+    return;
+  }
   if (pathname === "/mcp-callback") {
     response.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" }).end("<h1>Agent callback received</h1>");
     return;

@@ -86,8 +86,12 @@ function setFlowCookie(response: Response, id: string, value: string, maxAge = L
 function validRedirect(value: string): boolean {
   try {
     const url = new URL(value);
-    return !url.hash && !url.username && !url.password && !/[\s;'"<>]/.test(url.origin) && (url.protocol === "https:"
-      || (url.protocol === "http:" && ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname)));
+    if (url.hash || url.username || url.password || /[\s;'"<>]/.test(value)) return false;
+    if (url.protocol === "https:") return true;
+    if (url.protocol === "http:") return ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
+    // Native MCP clients (including RxCode) return through their registered app scheme.
+    return !["javascript:", "data:", "file:", "vbscript:", "blob:", "about:", "ftp:", "ws:", "wss:"].includes(url.protocol)
+      && /^[a-z][a-z0-9+.-]*:$/.test(url.protocol);
   } catch { return false; }
 }
 
@@ -105,7 +109,7 @@ export async function registerClient(request: Request): Promise<Response> {
   let json: unknown;
   try { json = JSON.parse(text); } catch { throw new OAuthError("invalid_client_metadata", "Client metadata must be JSON."); }
   const parsed = registrationSchema.safeParse(json);
-  if (!parsed.success) throw new OAuthError("invalid_client_metadata", "Use HTTPS or loopback redirect URIs and public authorization-code clients.");
+  if (!parsed.success) throw new OAuthError("invalid_client_metadata", "Use HTTPS, loopback or native app redirect URIs and public authorization-code clients.");
   const metadata = parsed.data;
   if (!metadata.grant_types.includes("authorization_code")) throw new OAuthError("invalid_client_metadata", "The authorization_code grant is required.");
   const scope = scopes(metadata.scope ?? MCP_SCOPES.join(" "));
@@ -191,10 +195,13 @@ export async function callback(request: Request): Promise<Response> {
   const principal = await verifyBearerToken(tokens.access_token, getBearerVerifierConfig(new Set([upstream.clientId])))
     .catch(() => { throw new OAuthError("invalid_grant", "Chippy sign-in could not be verified. Start again."); });
   await ensureUser(db, principal);
-  const consent = secret();
-  await db.update(mcpOAuthRequests).set({ ownerId: principal.sub, consentHash: digest(consent), upstreamVerifier: "" }).where(eq(mcpOAuthRequests.id, pending.id));
+  // The callback already proved possession of this flow's HttpOnly cookie. Keep its
+  // value across the redirect instead of requiring a second cookie handoff to succeed.
+  // Consent gets a fresh window even when sign-in used most of the login deadline.
+  await db.update(mcpOAuthRequests).set({ ownerId: principal.sub, consentHash: digest(state), upstreamVerifier: "",
+    expiresAt: new Date(Date.now() + LOGIN_SECONDS * 1000) }).where(eq(mcpOAuthRequests.id, pending.id));
   const response = new Response(null, { status: 302, headers: { location: `${oauthUrl("consent")}?request=${pending.id}`, "cache-control": "no-store" } });
-  setFlowCookie(response, pending.id, consent);
+  setFlowCookie(response, pending.id, state);
   return response;
 }
 
@@ -218,8 +225,10 @@ export async function consentPage(request: Request): Promise<Response> {
   // `no-referrer` makes native form POSTs send Origin: null. Preserve the origin for this
   // same-origin submission while suppressing referrers to the external agent callback.
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "same-origin",
-    // Chromium applies form-action to the 302 too; allow only this flow's registered callback origin.
-    "content-security-policy": `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${new URL(flow.redirectUri).origin}; frame-ancestors 'none'; base-uri 'none'`, "x-content-type-options": "nosniff" } });
+    // Do not constrain form-action: browsers apply it to the entire redirect chain,
+    // including the agent's redirects after its registered callback. The form action
+    // is fixed by us; approval validates Origin, CSRF and the exact stored callback.
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'", "x-content-type-options": "nosniff" } });
 }
 
 export async function approveConsent(request: Request): Promise<Response> {

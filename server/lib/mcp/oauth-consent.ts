@@ -31,7 +31,8 @@ export function renderConsentPage(options: ConsentPageOptions): string {
     : { icon: editIcon, title: "Save and edit", detail: "Save summaries and create or edit trip diaries" });
   const accountLabel = accountName || accountEmail || "Your Chippy account";
   const agentInitial = Array.from(clientName.trim())[0] || "A";
-  const destination = new URL(redirectUri).host;
+  const callback = new URL(redirectUri);
+  const destination = callback.origin === "null" ? `${callback.protocol}//${callback.host}${callback.pathname}` : callback.host;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark"><title>Connect to Chippy</title>
