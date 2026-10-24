@@ -11,8 +11,9 @@ import type { ObjectStore } from "@/lib/storage/r2";
 export type MusicRole = "intro" | "bed" | "outro";
 export type PodcastMusic = Record<MusicRole, Uint8Array> & { generatedClips: number };
 
-// Lyria writes and sings lyrics unless told otherwise, and reads words like "warm", "human", "host" or
+// Lyria writes and sings lyrics unless told otherwise, and reads words like "human", "host" or
 // "conversation" as an invitation to add voices, so the prompts describe only instruments and texture.
+// Keep the no-vocals line short: a long list of exclusions trips Lyria's prompt filter (PROHIBITED_CONTENT).
 const MOODS: Record<PodcastMusicMood, string> = {
   bright: "upbeat modern pop-electronic instrumental, plucked synths, light claps and a bouncy bassline, optimistic and playful, around 110 BPM",
   calm: "gentle lo-fi acoustic instrumental, soft felt piano, nylon guitar and brushed drums, relaxed and easygoing, around 80 BPM",
@@ -29,7 +30,7 @@ const ROLES: Record<MusicRole, string> = {
 
 /** Exported for tests and tooling that inspect prompts without generating. */
 export function musicPrompt(mood: PodcastMusicMood, role: MusicRole) {
-  return `INSTRUMENTAL ONLY. Purely instrumental music with absolutely no voices of any kind: no singing, no vocals, no lyrics, no rap, no spoken word, no humming, no choir, no oohs or aahs, no vocal chops or samples, no whistling, no breaths, no crowd noise.\n\n${ROLES[role]}\n\nStyle: ${MOODS[mood]}.\n\nProfessionally mixed and mastered production music with a clean stereo image. Every melody is played by instruments, never sung. Reminder: instrumental only, no vocals.`;
+  return `${ROLES[role]}\n\nStyle: ${MOODS[mood]}.\n\nINSTRUMENTAL ONLY: no vocals, no singing, no lyrics, no spoken word; every melody is played by instruments. Professionally mixed and mastered production music with a clean stereo image.`;
 }
 
 /**

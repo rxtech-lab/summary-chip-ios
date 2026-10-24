@@ -41,7 +41,7 @@ Errors use the standard `{error: {code, message, requestId}}` envelope:
 
 ## Theme music
 
-Episodes are produced like a show rather than read back to back, following debate-bot's Lyria music beds. The agent picks a music mood for the day: `bright`, `calm`, `focused`, `warm` or `reflective`. Each mood has three instrumental Lyria clips: an intro theme, a loopable background bed and an outro. Prompts open with an explicit no-voice list and avoid words such as host, human or conversation that invite vocals; a clip whose returned lyrics text has sung sections (verse, chorus…) is re-rolled, and if every attempt sings, the episode publishes without music. The recording is laid out as follows:
+Episodes are produced like a show rather than read back to back, following debate-bot's Lyria music beds. The agent picks a music mood for the day: `bright`, `calm`, `focused`, `warm` or `reflective`. Each mood has three instrumental Lyria clips: an intro theme, a loopable background bed and an outro. Prompts end with a short no-vocals line (long exclusion lists trip Lyria's prompt filter) and avoid words such as host, human or conversation that invite vocals; a clip whose returned lyrics text has sung sections (verse, chorus…) is re-rolled, as is a prompt Lyria randomly blocks (`promptFeedback.blockReason`), and if every attempt sings, the episode publishes without music. The recording is laid out as follows:
 
 1. The intro plays alone for about five seconds, then ducks under the welcome and fades out.
 2. The bed loops quietly (equal-power crossfades) under the conversation. Turns about the same chip are 0.35 s apart; a change of chip leaves a 1.6 s break where the bed swells.

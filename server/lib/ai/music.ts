@@ -39,6 +39,7 @@ export async function composeMusic(prompt: string, options?: { abortSignal?: Abo
 }
 
 interface LyriaResponse {
+  promptFeedback?: { blockReason?: string };
   candidates?: { content?: { parts?: { text?: string; inlineData?: { mimeType?: string; data?: string } }[] }; finishReason?: string; finishMessage?: string }[];
 }
 
@@ -62,6 +63,8 @@ async function composeOnce(model: string, prompt: string, abortSignal?: AbortSig
     throw response.status === 429 || response.status >= 500 ? new RetryableError(message) : new Error(message);
   }
   const parsed = JSON.parse(text) as LyriaResponse;
+  // A blocked prompt returns no candidates; the filter is stochastic enough that a retry often passes.
+  if (parsed.promptFeedback?.blockReason) throw new RetryableError(`Lyria blocked the prompt (${parsed.promptFeedback.blockReason})`);
   // Lyria returns the lyrics it sang as text; a clip with sung sections is re-rolled, never used.
   const lyrics = parsed.candidates?.flatMap((c) => c.content?.parts ?? []).map((part) => part.text ?? "").join("\n") ?? "";
   if (hasSungLyrics(lyrics)) throw new RetryableError(`Lyria added vocals: ${lyrics.slice(0, 200)}`);

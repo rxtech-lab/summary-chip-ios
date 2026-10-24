@@ -49,7 +49,7 @@ describe("podcast music mix", () => {
   it("describes only a mood and an instrumental role to Lyria", () => {
     const prompt = musicPrompt("focused", "bed");
     expect(prompt).toMatch(/INSTRUMENTAL ONLY/);
-    expect(prompt).toMatch(/no singing, no vocals, no lyrics/);
+    expect(prompt).toMatch(/no vocals, no singing, no lyrics/);
     // Words that invite Lyria to add a voice stay out of every prompt.
     for (const role of ["intro", "bed", "outro"] as const) expect(musicPrompt("warm", role)).not.toMatch(/\b(host|human|spoken conversation|talk over)\b/i);
     expect(prompt).toMatch(/loop/);
