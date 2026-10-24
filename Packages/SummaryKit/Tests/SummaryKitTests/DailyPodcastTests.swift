@@ -5,16 +5,21 @@ import Testing
 @Suite(.serialized) struct DailyPodcastTests {
     @Test func usesLocalDayBoundariesAndCarriesBillingProofOnlyForGeneration() async throws {
         PodcastProtocol.recorder.clear()
+        let cacheFolder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: cacheFolder) }
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [PodcastProtocol.self]
         let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
-                                   session: URLSession(configuration: config), billingProofProvider: { .xcode })
+                                   session: URLSession(configuration: config), billingProofProvider: { .xcode },
+                                   podcastAudioCache: PodcastAudioCache(directory: cacheFolder))
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/New_York")!
         let date = calendar.date(from: DateComponents(year: 2030, month: 3, day: 10, hour: 12))!
         #expect(try await api.dailyPodcast(date: date, calendar: calendar) == nil)
         let podcast = try await api.generateDailyPodcast(date: date, language: .zhHant, regenerate: true, calendar: calendar)
         #expect(podcast.language == "zh-Hant")
+        #expect(try await api.dailyPodcastAudio(podcast) == Data("audio".utf8))
+        // A second load (playback or export) must use disk without another HTTP request.
         #expect(try await api.dailyPodcastAudio(podcast) == Data("audio".utf8))
         let requests = PodcastProtocol.recorder.values
         #expect(requests.count == 3)
@@ -31,6 +36,87 @@ import Testing
         #expect(requests.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == "Bearer podcast-token" })
         let body = try JSONSerialization.jsonObject(with: requests[1].httpBody!) as! [String: Any]
         #expect(body["language"] as? String == "zh-Hant")
+        #expect(body["regenerate"] as? Bool == true)
+    }
+
+    @Test @MainActor func receivesStreamedProgressAndCompletion() async throws {
+        PodcastProtocol.recorder.clear()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PodcastProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://stream.podcast.test")!, tokenProvider: PodcastToken(),
+                                   session: URLSession(configuration: config), billingProofProvider: { .xcode })
+        var updates: [PodcastGenerationProgress] = []
+        let podcast = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true,
+                                                        onProgress: { updates.append($0) })
+        #expect(podcast.key == "key")
+        #expect(updates.map(\.percent) == [0, 45, 100])
+        #expect(updates[1].completedSegments == 1)
+        #expect(updates[1].totalSegments == 2)
+        #expect(PodcastProtocol.recorder.values.count == 1)
+        #expect(PodcastProtocol.recorder.values[0].value(forHTTPHeaderField: "x-storekit-environment") == "xcode")
+    }
+
+    @Test @MainActor func videoCompositionStreamsWithBillingProof() async throws {
+        PodcastProtocol.recorder.clear()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PodcastProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://stream.podcast.test")!, tokenProvider: PodcastToken(),
+                                   session: URLSession(configuration: config), billingProofProvider: { .xcode })
+        let initial = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true)
+        var progress: [Int] = []
+        let result = try await api.composePodcastVideo(initial, onProgress: { progress.append($0.percent) })
+        #expect(result.key == initial.key)
+        #expect(progress == [0, 45, 100])
+        let request = PodcastProtocol.recorder.values.last!
+        #expect(request.url?.path == "/api/v1/daily-podcasts/key/video")
+        #expect(request.value(forHTTPHeaderField: "Accept") == "text/event-stream")
+        #expect(request.value(forHTTPHeaderField: "x-storekit-environment") == "xcode")
+    }
+
+    @Test func interruptedAndFailedStreamsNeverRetry() async throws {
+        for host in ["interrupted.podcast.test", "failed.podcast.test"] {
+            PodcastProtocol.recorder.clear()
+            let config = URLSessionConfiguration.ephemeral
+            config.protocolClasses = [PodcastProtocol.self]
+            let api = SummaryAPIClient(baseURL: URL(string: "https://\(host)")!, tokenProvider: PodcastToken(),
+                                       session: URLSession(configuration: config))
+            do {
+                _ = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true, onProgress: { _ in })
+                Issue.record("An incomplete stream must fail")
+            } catch let error as SummaryAPIError {
+                if host.hasPrefix("failed") {
+                    guard case .server(let status, let body) = error else { Issue.record("Expected server error"); return }
+                    #expect(status == 502)
+                    #expect(body.code == "PODCAST_FAILED")
+                } else { #expect(error == .invalidResponse) }
+            }
+            #expect(PodcastProtocol.recorder.values.count == 1)
+        }
+    }
+
+    @Test func streamingRequestAcceptsLegacyJSONWithoutResubmitting() async throws {
+        PodcastProtocol.recorder.clear()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PodcastProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
+                                   session: URLSession(configuration: config))
+        let podcast = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true, onProgress: { _ in })
+        #expect(podcast.key == "key")
+        #expect(PodcastProtocol.recorder.values.count == 1)
+    }
+
+    @Test func sendsExplicitChipSelectionForLibraryPodcast() async throws {
+        PodcastProtocol.recorder.clear()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PodcastProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
+                                   session: URLSession(configuration: config))
+        _ = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true,
+                                               chipIds: ["older-chip", "today-chip"], library: true, includeVideo: false)
+        let body = try JSONSerialization.jsonObject(with: PodcastProtocol.recorder.values[0].httpBody!) as! [String: Any]
+        #expect(body["chipIds"] as? [String] == ["older-chip", "today-chip"])
+        #expect(body["library"] as? Bool == true)
+        #expect(body["includeVideo"] as? Bool == false)
         #expect(body["regenerate"] as? Bool == true)
     }
 
@@ -78,7 +164,7 @@ private final class PodcastRecorder: @unchecked Sendable {
 }
 private final class PodcastProtocol: URLProtocol, @unchecked Sendable {
     static let recorder = PodcastRecorder()
-    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "podcast.test" }
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host?.hasSuffix("podcast.test") == true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
     override func startLoading() {
@@ -109,8 +195,21 @@ private final class PodcastProtocol: URLProtocol, @unchecked Sendable {
         else if request.httpMethod == "POST" {
             body = #"{"podcast":{"key":"key","title":"Daily","language":"zh-Hant","createdAt":"2030-03-10T05:00:00Z","durationSeconds":2,"audioPath":"/api/v1/daily-podcasts/key/audio?start=2030-03-10T05%3A00%3A00Z&end=2030-03-11T04%3A00%3A00Z","speakers":[{"name":"Alex","voice":"voice"}],"segments":[{"speaker":0,"chipId":"one","caption":"Hello","audioPath":"/api/v1/daily-podcasts/key/audio?start=2030-03-10T05%3A00%3A00Z&end=2030-03-11T04%3A00%3A00Z","imagePath":null,"icon":"🎙️"}]}}"#
         } else { body = #"{"podcast":null}"# }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        var payload = body
+        var headers = ["Content-Type": "application/json"]
+        if request.url?.host != "podcast.test", request.value(forHTTPHeaderField: "Accept") == "text/event-stream" {
+            headers["Content-Type"] = "text/event-stream"
+            payload = ": keepalive\n\ndata: {\"type\":\"progress\",\"progress\":{\"stage\":\"preparing\",\"percent\":0}}\n\n"
+            if request.url?.host == "stream.podcast.test" {
+                payload += "data: {\"type\":\"progress\",\"progress\":{\"stage\":\"speech\",\"percent\":45,\"completedSegments\":1,\"totalSegments\":2}}\n\n"
+                payload += "data: {\"type\":\"progress\",\"progress\":{\"stage\":\"complete\",\"percent\":100}}\n\n"
+                payload += "data: {\"type\":\"complete\"," + body.dropFirst() + "\n\n"
+            } else if request.url?.host == "failed.podcast.test" {
+                payload += "data: {\"type\":\"error\",\"status\":502,\"error\":{\"code\":\"PODCAST_FAILED\",\"message\":\"Generation failed\"}}\n\n"
+            }
+        }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: headers)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(payload.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
 }

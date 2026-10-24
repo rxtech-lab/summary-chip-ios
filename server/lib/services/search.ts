@@ -42,10 +42,11 @@ const SEARCHABLE: (SQL | SQLiteColumn)[] = [
  */
 export function searchCondition(q: string): SQL {
   const tokens = searchTokens(q);
-  const terms = tokens.length ? tokens : [q.trim()];
+  const terms = [...new Set((tokens.length ? tokens : [q.trim()]).map((term) => term.toLowerCase()))];
+  // SQLite LIKE already folds ASCII case. Avoid lower() on every field for every term.
   return and(...terms.map((term) => {
-    const pattern = `%${escapeLike(term.toLowerCase())}%`;
-    return or(...SEARCHABLE.map((column) => sql`lower(${column}) LIKE ${pattern} ESCAPE '\\'`))!;
+    const pattern = `%${escapeLike(term)}%`;
+    return or(...SEARCHABLE.map((column) => sql`${column} LIKE ${pattern} ESCAPE '\\'`))!;
   }))!;
 }
 

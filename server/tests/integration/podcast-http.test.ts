@@ -1,3 +1,5 @@
+import { transcribePodcastAudio } from "@/lib/ai/podcast-transcription";
+import { alignPodcastCaptions } from "@/lib/services/podcast-captions";
 import { generateSpeech } from "ai";
 import { joinPodcastAudio } from "@/lib/services/podcast-audio";
 import { createGateway } from "@ai-sdk/gateway";
@@ -6,6 +8,15 @@ import { writePodcast } from "@/lib/ai/podcast-agent";
 
 // Opt-in real SDK/HTTP test; start the committed Postman simulation first.
 describe.skipIf(!process.env.PODCAST_SIMULATION_URL)("podcast narration over HTTP", () => {
+  it("requests segment timestamps over HTTP and restores the original text", async () => {
+    const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
+    const segments = await transcribePodcastAudio(new Uint8Array([255, 251, 144, 192]), undefined,
+      gateway.transcriptionModel("mistral/voxtral-mini-transcribe-3"));
+    expect(alignPodcastCaptions("Welcome to RxLab! Here is the news.", segments)).toEqual([
+      { text: "Welcome to RxLab", startSeconds: 0.3, endSeconds: 2.1 },
+      { text: "Here is the news", startSeconds: 2.8, endSeconds: 4.2 },
+    ]);
+  });
   it("uses the gateway SDK and validates grounded multi-host output", async () => {
     const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
     const script = await writePodcast(gateway("fixture/podcast"), {
@@ -25,4 +36,13 @@ describe.skipIf(!process.env.PODCAST_SIMULATION_URL)("podcast narration over HTT
     expect(recording.durationSeconds).toBeGreaterThan(0);
     expect(recording.cues[1].startSeconds).toBe(recording.cues[0].endSeconds);
   });
+  it("accepts more than 24 grounded turns through the gateway SDK", async () => {
+    const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
+    const chips = Array.from({ length: 30 }, (_, index) => ({
+      id: `chip-${index}`, title: `Discovery ${index}`, summary: `Finding ${index}.`, highlights: [],
+    }));
+    const script = await writePodcast(gateway("fixture/podcast"), { language: "English", voices: ["voice-a"], chips });
+    expect(script.segments.map((segment) => segment.chipId)).toEqual(chips.map((chip) => chip.id));
+  });
+
 });

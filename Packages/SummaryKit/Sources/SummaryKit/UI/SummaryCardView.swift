@@ -164,13 +164,13 @@ public struct TranslationBadge: View {
     }
 }
 
-/// Marks a library item that opens as a trip diary, paper, or Clip.
+/// Marks a library item that opens as a trip diary, podcast, paper, or Clip.
 public struct KindBadge: View {
     let kind: SummaryKind
 
     /// Nil for kinds that open as a plain summary and carry no badge.
     public init?(kind: SummaryKind) {
-        guard kind == .trip || kind == .paper || kind == .miniApp else { return nil }
+        guard kind == .trip || kind == .podcast || kind == .paper || kind == .miniApp else { return nil }
         self.kind = kind
     }
 
@@ -194,6 +194,7 @@ public struct KindBadge: View {
     private var title: Text {
         switch kind {
         case .trip: Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
+        case .podcast: Text("Podcast", bundle: .module)
         case .miniApp: Text("Clip", bundle: .module, comment: "Badge on a library tile that is a Clip")
         default: Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
         }
@@ -202,6 +203,7 @@ public struct KindBadge: View {
     private var systemImage: String {
         switch kind {
         case .trip: "map.fill"
+        case .podcast: "waveform"
         case .miniApp: "app.badge.fill"
         default: "doc.richtext.fill"
         }

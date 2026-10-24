@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import Foundation
 import SummaryKit
 
 @MainActor @Observable
@@ -8,8 +9,11 @@ final class DailyPodcastPlayer {
     var podcast: DailyPodcast?
     var date: Date?
     var isPresented = false
+    var inlinePodcastKey: String?
     var playing = false
     var buffering = false
+    var videoPlayer: AVPlayer?
+    var videoProgress: PodcastMotionRenderer.Progress?
     var currentTime = 0.0
     var duration = 0.0
     var error: String?
@@ -26,6 +30,9 @@ final class DailyPodcastPlayer {
     }
     var captionLines: [String] {
         guard let segment else { return [] }
+        if let cues = segment.captionCues {
+            return PodcastCaptionTimeline.lines(at: currentTime, cues: cues)
+        }
         if captionTimelines[index] == nil { captionTimelines[index] = PodcastCaptionTimeline(segment.caption) }
         // Time against the audible voice, not the turn's padded length, and snap to its measured pauses.
         let timing = PodcastCaptionTimeline.Timing(start: segment.voiceStartSeconds ?? segment.startSeconds ?? 0,
@@ -48,6 +55,12 @@ final class DailyPodcastPlayer {
         self.date = date
         isPresented = true
     }
+    func present(podcast: DailyPodcast) {
+        if self.podcast?.key != podcast.key || self.podcast?.video?.id != podcast.video?.id { replace(podcast) }
+        date = podcast.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
+        isPresented = true
+        if !playing { toggle() }
+    }
     func close() {
         stop()
         podcast = nil
@@ -66,7 +79,7 @@ final class DailyPodcastPlayer {
         duration = podcast.durationSeconds ?? 0
     }
     func toggle() {
-        if playing { playing = false; audio?.pause(); return }
+        if playing { playing = false; audio?.pause(); videoPlayer?.pause(); return }
         do {
             #if os(iOS)
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
@@ -75,12 +88,14 @@ final class DailyPodcastPlayer {
             if currentTime >= duration { seek(to: 0) }
             playing = true
             if let audio { audio.play() }
+            videoPlayer?.play()
             if task == nil { loadAndPlay() }
         } catch { self.error = error.localizedDescription }
     }
     func seek(to time: Double) {
         currentTime = max(0, min(duration, time))
         audio?.currentTime = currentTime
+        videoPlayer?.seek(to: CMTime(seconds: currentTime, preferredTimescale: 600))
     }
     func skip(_ seconds: Double) { seek(to: currentTime + seconds) }
     func stop() {
@@ -88,16 +103,43 @@ final class DailyPodcastPlayer {
         task = nil
         audio?.stop()
         audio = nil
+        videoPlayer?.pause()
+        videoPlayer = nil
+        videoProgress = nil
         playing = false
         buffering = false
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
     }
+    private func playVideo(_ podcast: DailyPodcast) async throws {
+        buffering = true
+        let url = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { [weak self] in self?.videoProgress = $0 }
+        try Task.checkCancellation()
+        let movie = AVPlayer(url: url)
+        videoPlayer = movie
+        await movie.seek(to: CMTime(seconds: currentTime, preferredTimescale: 600))
+        buffering = false
+        videoProgress = nil
+        if playing { movie.play() }
+        while !Task.isCancelled {
+            try await Task.sleep(for: .milliseconds(100))
+            if let failure = movie.currentItem?.error { throw failure }
+            let time = movie.currentTime().seconds
+            if time.isFinite { currentTime = time }
+            if let length = movie.currentItem?.duration.seconds, length.isFinite { duration = length }
+            playing = movie.rate > 0
+        }
+    }
+
     private func loadAndPlay() {
         task = Task { [weak self] in
             guard let self, let podcast else { return }
             do {
+                if podcast.video != nil {
+                    try await playVideo(podcast)
+                    return
+                }
                 if audio == nil {
                     buffering = true
                     let data = try await api.dailyPodcastAudio(podcast)

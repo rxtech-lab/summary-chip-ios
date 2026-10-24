@@ -41,7 +41,7 @@ import { findDuplicateChip } from "./duplicates";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
-import { canViewerRead, findGrantToken, grantTokenSql, isLinkLive, readableByViewer } from "./share-access";
+import { canViewerRead, findGrantToken, grantTokenForViewSql, isLinkLive, readableByViewer } from "./share-access";
 import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, translationPayer, type BillingEnvironmentResolver, type TranslationStatus } from "./translations";
 import { translateTrip } from "./trip-translations";
 import { notifySummaryAdded } from "./notifications";
@@ -619,9 +619,18 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   // Likes are ordered by when they were starred; everything else by created (own) or last viewed (others').
   const activity = query.scope === "liked"
     ? sql<number>`${summaryLikes.likedAt}`
+    : query.scope === "mine" ? sql<number>`${summaries.createdAt}`
+    : query.scope === "viewed" ? sql<number>`${summaryViews.viewedAt}`
     : sql<number>`(CASE WHEN ${summaries.ownerId} = ${userId} THEN ${summaries.createdAt} ELSE ${summaryViews.viewedAt} END)`;
 
-  const conditions = [scope];
+  // Give SQLite an indexed set of candidate IDs before the ownership/view OR and
+  // access checks. Otherwise the mixed scope can scan every user's summaries.
+  const candidates = query.scope === "mine" ? mine
+    : query.scope === "viewed" ? inArray(summaries.id, db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId)))
+    : query.scope === "liked" ? inArray(summaries.id, db.select({ id: summaryLikes.summaryId }).from(summaryLikes).where(eq(summaryLikes.userId, userId)))
+    : inArray(summaries.id, db.select({ id: summaries.id }).from(summaries).where(mine)
+      .union(db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId))));
+  const conditions = [candidates, scope];
   if (query.category) conditions.push(eq(summaries.category, query.category));
   if (query.visibility) conditions.push(eq(summaries.visibility, query.visibility));
   if (query.source) conditions.push(eq(summaries.source, query.source));
@@ -636,7 +645,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     const at = cursor.time.getTime();
     conditions.push(or(sql`${activity} < ${at}`, and(sql`${activity} = ${at}`, lt(summaries.id, cursor.id)))!);
   }
-  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenSql(userId), activity: activity.mapWith(Number) })
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenForViewSql(userId, summaryViews.shareLinkId), activity: activity.mapWith(Number) })
     .from(summaries)
     .leftJoin(summaryViews, view)
     .leftJoin(summaryLikes, likeOf(userId))
@@ -676,7 +685,7 @@ async function searchLibrary(
   const offset = decodeOffsetCursor(query.cursor);
   const vector = await embedQuery(deps.ai ?? await getAiProvider(), query.q);
   const match = relevance(query.q, vector);
-  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenSql(userId) })
+  const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenForViewSql(userId, summaryViews.shareLinkId) })
     .from(summaries)
     .leftJoin(summaryViews, and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId)))
     .leftJoin(summaryLikes, likeOf(userId))

@@ -15,6 +15,16 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         XCTAssertTrue(app.buttons["podcast-generation-submit"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Language"].exists || app.buttons["Language"].exists)
         attach(app, "daily-podcast-language")
+        app.buttons["podcast-select-chips"].tap()
+        XCTAssertTrue(app.buttons["Clear Selection"].waitForExistence(timeout: 5))
+        app.buttons["Clear Selection"].tap()
+        app.buttons["podcast-chip-picker-done"].tap()
+        XCTAssertFalse(app.buttons["podcast-generation-submit"].isEnabled)
+        app.buttons["podcast-select-chips"].tap()
+        app.buttons["Select All"].tap()
+        attach(app, "daily-podcast-chip-selection")
+        app.buttons["podcast-chip-picker-done"].tap()
+        selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
         XCTAssertTrue(app.staticTexts["podcast-caption"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["podcast-toggle"].exists)
@@ -22,11 +32,17 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         app.buttons["podcast-more"].tap()
         app.buttons["Regenerate Podcast"].tap()
         XCTAssertTrue(app.buttons["podcast-generation-submit"].waitForExistence(timeout: 5))
+        selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
-        let confirm = app.buttons.matching(identifier: "Regenerate Podcast").allElementsBoundByIndex.last!
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-        confirm.tap()
         XCTAssertTrue(app.staticTexts["podcast-caption"].waitForExistence(timeout: 10))
+        app.buttons["podcast-more"].tap()
+        app.buttons["Manage Versions"].tap()
+        XCTAssertTrue(app.buttons["Set as Default"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "Remove").count, 2)
+        app.buttons["Set as Default"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Default updated"].waitForExistence(timeout: 5))
+        attach(app, "daily-podcast-versions")
+        app.buttons["podcast-versions-done"].tap()
         app.buttons["Done"].tap()
         XCTAssertTrue(dayPlay.waitForExistence(timeout: 5))
         dayPlay.tap()
@@ -50,6 +66,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         dayPlay.tap()
         XCTAssertTrue(app.buttons["podcast-generate"].waitForExistence(timeout: 5))
         app.buttons["podcast-generate"].tap()
+        selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
         XCTAssertTrue(app.buttons["podcast-open-chip"].waitForExistence(timeout: 10))
         let initial = progress(app)
@@ -68,6 +85,48 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         XCTAssertTrue(miniToggle.waitForExistence(timeout: 5))
         app.buttons["podcast-mini-close"].tap()
         XCTAssertTrue(miniToggle.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor func testCreatesPodcastFromToolbarWithSearchAndSourceFilter() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(app.buttons["new-summary"].waitForExistence(timeout: 15))
+        app.buttons["new-summary"].tap()
+        app.buttons["new-podcast"].tap()
+        XCTAssertTrue(app.buttons["podcast-select-chips"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["podcast-generation-submit"].isEnabled)
+        app.buttons["podcast-select-chips"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap(); search.typeText("roasters")
+        let chip = app.buttons.containing(.staticText, identifier: "Why specialty roasters are buying their own farms").firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        chip.tap()
+        app.buttons["podcast-source-filter"].tap()
+        app.buttons["Web"].tap()
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        attach(app, "new-podcast-search-chips")
+        app.buttons["podcast-chip-picker-done"].tap()
+        XCTAssertTrue(app.buttons["podcast-generation-submit"].isEnabled)
+        selectAudioOnly(app)
+        app.buttons["podcast-generation-submit"].tap()
+        XCTAssertTrue(app.buttons["podcast-toggle"].waitForExistence(timeout: 10))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["A day of discoveries"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["podcast-mini-close"].tap()
+        app.staticTexts["A day of discoveries"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["podcast-toggle"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["podcast-mini-toggle"].exists)
+        attach(app, "podcast-chip-detail")
+    }
+
+    @MainActor private func selectAudioOnly(_ app: XCUIApplication) {
+        let picker = app.buttons["podcast-generation-media"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.tap()
+        app.buttons["Audio only"].tap()
     }
 
     @MainActor private func progress(_ app: XCUIApplication) -> Double {

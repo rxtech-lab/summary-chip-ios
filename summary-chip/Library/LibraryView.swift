@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var showsFilters = false
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
+    @State private var showsNewPodcast = false
     @State private var showsNewPaper = false
     @State private var showsNewMiniApp = false
     @State private var showsCredits = false
@@ -22,6 +23,7 @@ struct LibraryView: View {
     @Environment(\.openSummarySearch) private var openSearch
     @Environment(\.openLibraryItem) private var openLibraryItem
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
+    @Environment(\.openPodcast) private var openPodcast
     @Environment(\.openMiniApp) private var openMiniApp
 
     init(environment: AppEnvironment, path: Binding<[Summary]>? = nil, kind: SummaryKind? = nil) {
@@ -88,6 +90,17 @@ struct LibraryView: View {
                                 return
                             }
                             stackPath.wrappedValue.append(summary)
+                        }
+                    }
+                }
+                .sheet(isPresented: $showsNewPodcast) {
+                    DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true) { podcast in
+                        Task {
+                            if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
+                                environment.library.insert(chip)
+                            }
+                            try? await Task.sleep(for: .milliseconds(350))
+                            environment.podcastPlayer.present(podcast: podcast)
                         }
                     }
                 }
@@ -171,6 +184,9 @@ struct LibraryView: View {
                 Label("New Paper", systemImage: "doc.richtext")
             }
             .accessibilityIdentifier("new-paper")
+            Button { podcastTaps += 1; showsNewPodcast = true } label: {
+                Label("New Podcast", systemImage: "waveform")
+            }.accessibilityIdentifier("new-podcast")
             Button { showsNewMiniApp = true } label: { Label("New Clip", systemImage: "app.badge") }
                 .accessibilityIdentifier("new-mini-app")
         } label: {
@@ -283,6 +299,9 @@ struct LibraryView: View {
             // Clips are a plain grid; only the Feed is grouped by day with a timeline.
             SummaryCardFeed(entries: model.entries, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
                 Task { await model.loadMore() }
+            }, onSelect: { summary in
+                if summary.kind == .podcast, let openPodcast { openPodcast(summary) }
+                else { stackPath.wrappedValue.append(summary) }
             }, onPlayDay: { day in
                 podcastTaps += 1
                 environment.podcastPlayer.present(date: day)

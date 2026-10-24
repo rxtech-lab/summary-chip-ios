@@ -1,9 +1,39 @@
 import Foundation
 
-/// Short, readable phrases from a spoken turn. The speech model gives no word timestamps, so phrase
-/// timing is estimated from how long each phrase takes to say, and snapped to the pauses measured in
-/// the recording where the text has punctuation. The audio and original transcript remain unchanged.
+/// Transcribed caption cues for new episodes, with legacy phrase estimation for older recordings.
 public struct PodcastCaptionTimeline: Sendable {
+    public struct Cue: Codable, Sendable, Equatable {
+        public var text: String
+        public var startSeconds: Double
+        public var endSeconds: Double
+        public init(text: String, startSeconds: Double, endSeconds: Double) {
+            self.text = text; self.startSeconds = startSeconds; self.endSeconds = endSeconds
+        }
+    }
+
+    /// Keep transcribed boundaries and silence gaps; estimate page changes within each segment.
+    /// Each page has at most two short lines, including in exported subtitle tracks.
+    public static func pagedCues(_ cues: [Cue]) -> [Cue] {
+        cues.flatMap { cue -> [Cue] in
+            guard cue.startSeconds.isFinite, cue.endSeconds.isFinite,
+                  cue.startSeconds >= 0, cue.endSeconds > cue.startSeconds else { return [] }
+            let timeline = PodcastCaptionTimeline(withoutPunctuation(cue.text))
+            let ends = timeline.phraseEnds(.init(start: cue.startSeconds, end: cue.endSeconds))
+            return stride(from: 0, to: timeline.phrases.count, by: 2).map { index in
+                let last = min(index + 1, timeline.phrases.count - 1)
+                return Cue(text: timeline.phrases[index...last].joined(separator: "\n"),
+                           startSeconds: index == 0 ? cue.startSeconds : ends[index - 1],
+                           endSeconds: ends[last])
+            }
+        }
+    }
+
+    /// Transcribed intervals are authoritative; gaps deliberately display no caption.
+    public static func lines(at time: Double, cues: [Cue]) -> [String] {
+        guard let cue = pagedCues(cues).first(where: { $0.startSeconds <= time && time < $0.endSeconds }) else { return [] }
+        return cue.text.components(separatedBy: "\n")
+    }
+
     /// Where a turn's voice is audible and where it pauses, in episode seconds.
     public struct Timing: Sendable, Equatable {
         public var start: Double
@@ -128,18 +158,12 @@ public struct PodcastCaptionTimeline: Sendable {
         lines(at: progress).joined(separator: "\n")
     }
 
-    /// Replaces punctuation with spaces, keeping apostrophes and hyphens inside words ("Here's", "e-mail").
-    static func withoutPunctuation(_ phrase: String) -> String {
-        let characters = Array(phrase)
-        let mapped = characters.indices.map { index -> Character in
-            let character = characters[index]
-            guard character.unicodeScalars.allSatisfy({ CharacterSet.punctuationCharacters.contains($0) }) else { return character }
-            if "'’-".contains(character), index > 0, index < characters.count - 1,
-               characters[index - 1].isLetter, characters[index + 1].isLetter {
-                return character
-            }
-            return " "
-        }
-        return String(mapped).split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    /// Caption display never includes punctuation, including apostrophes and hyphens.
+    public static func withoutPunctuation(_ phrase: String) -> String {
+        let mapped = phrase.unicodeScalars.compactMap { scalar -> String? in
+            if "'’".unicodeScalars.contains(scalar) { return nil }
+            return CharacterSet.punctuationCharacters.contains(scalar) ? " " : String(scalar)
+        }.joined()
+        return mapped.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }

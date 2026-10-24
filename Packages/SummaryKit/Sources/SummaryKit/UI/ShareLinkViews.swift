@@ -111,36 +111,41 @@ public struct ShareLinksView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(links) { link in
-                    Button { editor = .edit(link) } label: { ShareLinkRow(link: link, copied: copiedID == link.id) }
-                        .tint(.primary)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) { deleting = link } label: {
-                                Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
-                            }
+                    HStack(spacing: 12) {
+                        Button { editor = .edit(link) } label: { ShareLinkRow(link: link) }
+                            .buttonStyle(.plain)
+                        Button { copy(link) } label: {
+                            Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
                         }
-                        .swipeActions(edge: .leading) {
-                            Button { copy(link) } label: {
-                                Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
-                            }
-                            .tint(.accentColor)
+                        .buttonStyle(.borderless)
+                        .disabled(link.isExpired)
+                        .accessibilityIdentifier("copy-share-link")
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { deleting = link } label: {
+                            Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
                         }
-                        .contextMenu {
-                            Button { copy(link) } label: { Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc") }
-                            Button { editor = .edit(link) } label: { Label(String(localized: "Edit Link", bundle: .module), systemImage: "slider.horizontal.3") }
-                            Divider()
-                            Button(role: .destructive) { deleting = link } label: { Label(String(localized: "Delete", bundle: .module), systemImage: "trash") }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button { copy(link) } label: {
+                            Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
                         }
-                        .accessibilityIdentifier("share-link-row")
+                        .tint(.accentColor)
+                    }
+                    .contextMenu {
+                        Button { copy(link) } label: { Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc") }
+                        Button { editor = .edit(link) } label: { Label(String(localized: "Edit Link", bundle: .module), systemImage: "slider.horizontal.3") }
+                        Divider()
+                        Button(role: .destructive) { deleting = link } label: { Label(String(localized: "Delete", bundle: .module), systemImage: "trash") }
+                    }
+                    .accessibilityIdentifier("share-link-row")
                 }
-                Button { editor = .create } label: {
-                    Label(String(localized: "Add Link", bundle: .module), systemImage: "plus.circle.fill")
-                }
-                .disabled(links.count >= 20)
-                .accessibilityIdentifier("add-share-link")
             } footer: {
                 store.listFooter
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(store.subject == .podcast
             ? Text("Publish Podcast", bundle: .module, comment: "Title of the screen managing a podcast episode's share links")
             : Text("Links", bundle: .module, comment: "Title of the screen managing a summary's share links"))
@@ -151,6 +156,7 @@ public struct ShareLinksView: View {
                     Label(String(localized: "Add Link", bundle: .module), systemImage: "plus")
                 }
                 .disabled(links.count >= 20)
+                .accessibilityIdentifier("add-share-link")
             }
         }
         .sheet(item: $editor) { target in
@@ -184,6 +190,9 @@ public struct ShareLinksView: View {
         }
         .overlay {
             if let status { ActionStatusOverlay(status) }
+        }
+        .overlay(alignment: .bottom) {
+            if copiedID != nil { LinkCopiedFeedback() }
         }
         .statusAlert(Text("Couldn't delete the link", bundle: .module), message: errorMessage) { errorMessage = nil }
         .sensoryFeedback(.success, trigger: deletedCount)
@@ -232,10 +241,21 @@ struct ShareLinkIcon: View {
     }
 }
 
+/// Clipboard feedback stays above the content without blocking the next action.
+struct LinkCopiedFeedback: View {
+    var body: some View {
+        Label(String(localized: "Copied", bundle: .module), systemImage: "checkmark.circle.fill")
+            .font(.callout.weight(.semibold))
+            .padding()
+            .background(.regularMaterial, in: Capsule())
+            .padding(.bottom, 20)
+            .allowsHitTesting(false)
+    }
+}
+
 /// One extra link: its name, who can open it, and when it expires.
 struct ShareLinkRow: View {
     let link: SummaryShareLink
-    var copied = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -257,11 +277,6 @@ struct ShareLinkRow: View {
                 }
             }
             Spacer(minLength: 0)
-            if copied {
-                Image(systemName: "checkmark")
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityLabel(Text("Copied", bundle: .module))
-            }
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
@@ -287,6 +302,7 @@ public struct ShareLinkEditorSheet: View {
     @State private var errorMessage: String?
     @State private var confirmsDelete = false
     @State private var addedCount = 0
+    @State private var copied = false
     @FocusState private var emailFieldFocused: Bool
 
     public init(
@@ -323,6 +339,7 @@ public struct ShareLinkEditorSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
+                if let link { clipboardSection(link) }
                 Section {
                     TextField(String(localized: "Name", bundle: .module), text: $label, prompt: Text("Family, Team…", bundle: .module))
                         .accessibilityIdentifier("share-link-label")
@@ -366,6 +383,7 @@ public struct ShareLinkEditorSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(link == nil ? Text("New Link", bundle: .module) : Text("Edit Link", bundle: .module))
             .summaryInlineNavigationTitle()
             .toolbar {
@@ -389,12 +407,44 @@ public struct ShareLinkEditorSheet: View {
             .overlay {
                 if let status { ActionStatusOverlay(status) }
             }
+            .overlay(alignment: .bottom) {
+                if copied { LinkCopiedFeedback() }
+            }
+            .task(id: copied) {
+                guard copied else { return }
+                try? await Task.sleep(for: .seconds(2))
+                copied = false
+            }
+            .sensoryFeedback(.success, trigger: copied) { _, new in new }
             .statusAlert(Text("Couldn't save the link", bundle: .module), message: errorMessage) { errorMessage = nil }
             .interactiveDismissDisabled(status != nil)
             .sensoryFeedback(.impact(weight: .light), trigger: addedCount)
             .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
         }
         .summarySheetSize()
+    }
+
+    private func clipboardSection(_ link: SummaryShareLink) -> some View {
+        Section {
+            Text(link.url.absoluteString)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                #if os(iOS)
+                UIPasteboard.general.url = link.url
+                #else
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(link.url.absoluteString, forType: .string)
+                #endif
+                copied = true
+            } label: {
+                Label(String(localized: "Copy Link", bundle: .module), systemImage: "doc.on.doc")
+            }
+            .disabled(link.isExpired)
+            .accessibilityIdentifier("copy-edited-share-link")
+        }
     }
 
     private var accessSection: some View {

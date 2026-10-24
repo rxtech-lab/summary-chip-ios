@@ -41,6 +41,16 @@ export function grantTokenSql(viewerId: string | AnySQLiteColumn, now = new Date
     LIMIT 1)`;
 }
 
+/** The list query already joined the viewer's view; reuse its link instead of reading it again. */
+export function grantTokenForViewSql(viewerId: string, shareLinkId: AnySQLiteColumn, now = new Date()): SQL<string | null> {
+  return sql<string | null>`(SELECT l.token FROM share_links l
+    WHERE l.id = ${shareLinkId} AND l.summary_id = summaries.id
+      AND (l.expires_at IS NULL OR l.expires_at > ${now.getTime()})
+      AND (l.access = 'anyone' OR EXISTS (SELECT 1 FROM share_link_emails e JOIN users u ON u.id = ${viewerId}
+        WHERE e.link_id = l.id AND e.email = lower(u.email)))
+    LIMIT 1)`;
+}
+
 /** Summaries `viewerId` may open without owning them: a live public link, or a share link that still lets them in. */
 export function readableByViewer(viewerId: string | AnySQLiteColumn, now = new Date()): SQL {
   return or(isPublicAndLive(now), sql`${grantTokenSql(viewerId, now)} IS NOT NULL`, sql`(summaries.kind = 'mini_app' AND EXISTS (SELECT 1 FROM mini_app_members m JOIN users u ON lower(u.email) = m.email WHERE m.app_id = summaries.id AND u.id = ${viewerId}))`)!;

@@ -1,9 +1,16 @@
 import SummaryKit
 import SwiftUI
 
+extension EnvironmentValues {
+    @Entry var openPodcast: ((Summary) -> Void)?
+}
+
 /// The app owns playback; presentation and chip navigation never replace its audio player.
 struct DailyPodcastPresentation: ViewModifier {
     let environment: AppEnvironment
+    @State private var podcastTask: Task<Void, Never>?
+    @State private var openingPodcast = false
+    @State private var podcastTaps = 0
     @State private var pendingChipID: String?
     @State private var openingChip = false
     @State private var error: String?
@@ -12,8 +19,10 @@ struct DailyPodcastPresentation: ViewModifier {
     func body(content: Content) -> some View {
         @Bindable var player = environment.podcastPlayer
         content
+            .environment(\.openPodcast, openPodcast)
+            .sensoryFeedback(.selection, trigger: podcastTaps)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if player.podcast != nil, !player.isPresented {
+                if player.podcast != nil, !player.isPresented, player.inlinePodcastKey != player.podcast?.key {
                     DailyPodcastMiniPlayer(player: player)
                         .frame(maxWidth: 640)
                         .padding(.horizontal, 16)
@@ -30,19 +39,34 @@ struct DailyPodcastPresentation: ViewModifier {
                 }
             }
             .overlay {
-                if openingChip {
-                    ProgressView("Opening chip…")
+                if openingChip || openingPodcast {
+                    ProgressView(openingPodcast ? "Loading podcast…" : "Opening chip…")
                         .padding(24)
                         .glassEffect(.regular, in: .rect(cornerRadius: 20))
                 }
             }
-            .alert("Couldn't Open Chip", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            .alert("Couldn't Open Item", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
             .alert("Couldn't Play Podcast", isPresented: Binding(get: { !player.isPresented && player.error != nil }, set: { if !$0 { player.error = nil } })) {
                 Button("OK", role: .cancel) { player.error = nil }
             } message: { Text(player.error ?? "") }
-            .onDisappear { openingTask?.cancel() }
+            .onDisappear { openingTask?.cancel(); podcastTask?.cancel() }
+    }
+
+    private func openPodcast(_ summary: Summary) {
+        guard !openingPodcast else { return }
+        podcastTaps += 1
+        openingPodcast = true
+        podcastTask = Task {
+            defer { openingPodcast = false }
+            do {
+                let podcast = try await environment.api.libraryPodcast(summaryID: summary.id)
+                try Task.checkCancellation()
+                environment.podcastPlayer.present(podcast: podcast)
+            } catch is CancellationError {
+            } catch { self.error = error.localizedDescription }
+        }
     }
 
     private func openPendingChip() {

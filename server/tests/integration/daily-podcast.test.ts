@@ -1,3 +1,10 @@
+import type { AiProvider } from "@/lib/ai/provider";
+import { createGateway } from "@ai-sdk/gateway";
+import { generateSpeech } from "ai";
+import { writePodcast } from "@/lib/ai/podcast-agent";
+import * as versionsRoute from "@/app/api/v1/daily-podcasts/versions/route";
+import * as versionRoute from "@/app/api/v1/daily-podcasts/[key]/route";
+import * as libraryPodcastRoute from "@/app/api/v1/summaries/[id]/podcast/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import * as route from "@/app/api/v1/daily-podcasts/route";
@@ -8,8 +15,9 @@ import * as linkRoute from "@/app/api/v1/daily-podcasts/[key]/links/[linkId]/rou
 import * as publicRoute from "@/app/api/public/podcasts/[id]/route";
 import * as publicAudio from "@/app/api/public/podcasts/[id]/audio/route";
 import * as publicArt from "@/app/api/public/podcasts/[id]/art/[index]/route";
-import { podcastShareLinks, summaries, summaryViews } from "@/lib/db/schema";
+import { podcastEpisodes, podcastShareLinks, summaries, summaryViews } from "@/lib/db/schema";
 import { podcastDaySchema, type DailyPodcast } from "@/lib/contracts/daily-podcast";
+import { dayKey } from "@/lib/services/daily-podcast";
 import { createShareLink } from "@/lib/services/share-links";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -33,6 +41,99 @@ const saved = (token = env.tokens.alice) => route.GET(apiRequest("GET", path, { 
 function audio(podcast: DailyPodcast, token = env.tokens.alice, key = podcast.key) {
   return audioRoute.GET(apiRequest("GET", podcast.audioPath!, { token }), params({ key }));
 }
+
+describe("podcast selection and versions", () => {
+  it("selects chips explicitly and rejects empty, out-of-day and inaccessible selections before AI", async () => {
+    const one = await chip("One");
+    await chip("Two");
+    const tomorrow = await chip("Tomorrow", env.tokens.alice, day.end);
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const response = await generate({ chipIds: [one.id] });
+    expect(response.status).toBe(200);
+    expect((await response.json()).podcast.chipIds).toEqual([one.id]);
+    expect((await generate({ chipIds: [] })).status).toBe(400);
+    expect((await generate({ regenerate: true, chipIds: [tomorrow.id] })).status).toBe(422);
+    expect((await generate({ regenerate: true, chipIds: ["unavailable"] })).status).toBe(422);
+    expect(writer).toHaveBeenCalledTimes(1);
+    const candidates = await versionsRoute.GET(apiRequest("GET", `${path.replace("?", "/versions?")}&chips=true`, { token: env.tokens.alice }));
+    expect((await candidates.json()).items.map((item: { id: string }) => item.id)).toContain(one.id);
+  });
+
+  it("persists corrected caption cues in episode time", async () => {
+    await chip("Caption timing");
+    const response = await generate();
+    expect(response.status).toBe(200);
+    const { podcast } = await response.json() as { podcast: DailyPodcast };
+    for (const segment of podcast.segments) {
+      expect(segment.captionCues?.length).toBeGreaterThan(0);
+      expect(segment.captionCues![0].startSeconds).toBeCloseTo(segment.startSeconds!, 2);
+      expect(segment.captionCues!.at(-1)!.endSeconds).toBeCloseTo(segment.endSeconds!, 2);
+      expect(segment.captionCues!.every(cue => !/\p{P}/u.test(cue.text))).toBe(true);
+    }
+    expect((await (await saved()).json()).podcast.segments).toEqual(podcast.segments);
+  });
+
+  it("does not publish an episode when transcription has no timestamps", async () => {
+    await chip("Missing timestamps");
+    vi.spyOn(env.ai, "transcribePodcast").mockResolvedValue([]);
+    expect((await generate()).status).toBe(502);
+    expect((await (await saved()).json()).podcast).toBeNull();
+  });
+
+  it("keeps versions, switches the default without AI, removes versions and revokes their links", async () => {
+    await chip("Discovery");
+    const first = (await (await generate()).json()).podcast as DailyPodcast;
+    const second = (await (await generate({ regenerate: true })).json()).podcast as DailyPodcast;
+    const versionURL = `/api/v1/daily-podcasts/versions?${new URLSearchParams(day)}`;
+    const list = async () => (await (await versionsRoute.GET(apiRequest("GET", versionURL, { token: env.tokens.alice }))).json()).items;
+    expect((await list()).map((v: { podcast: DailyPodcast }) => v.podcast.key).sort()).toEqual([first.key, second.key].sort());
+    const action = (method: "PATCH" | "DELETE", episode: DailyPodcast, token = env.tokens.alice) => versionRoute[method](
+      apiRequest(method, `/api/v1/daily-podcasts/${episode.key}?${new URLSearchParams(day)}`, { token }), params({ key: episode.key }));
+    expect((await action("PATCH", first, env.tokens.bob)).status).toBe(404);
+    const storageCalls = ["get", "put", "delete"].map((method) =>
+      vi.spyOn(env.store, method as "get").mockRejectedValue(new Error("Storage unavailable")));
+    expect((await action("PATCH", first)).status).toBe(200);
+    expect((await (await saved()).json()).podcast.key).toBe(first.key);
+    const link = await linksRoute.POST(apiRequest("POST", `/api/v1/daily-podcasts/${first.key}/links`, { token: env.tokens.alice, body: { day } }), params({ key: first.key }));
+    const shared = await link.json();
+    expect(link.status).toBe(201);
+    const calls = env.ai.calls.speak.length;
+    expect((await action("DELETE", first)).status).toBe(200);
+    expect((await audio(first)).status).toBe(404);
+    expect((await (await saved()).json()).podcast.key).toBe(second.key);
+    expect((await list())).toHaveLength(1);
+    const publicToken = new URL(shared.url).pathname.split("/").at(-1)!;
+    expect((await publicRoute.GET(new Request(shared.url), params({ id: publicToken }))).status).toBe(404);
+    expect((await action("DELETE", second)).status).toBe(200);
+    expect((await (await saved()).json()).podcast).toBeNull();
+    expect((await list())).toHaveLength(0);
+    expect(env.ai.calls.speak.length).toBe(calls);
+    for (const call of storageCalls) expect(call).not.toHaveBeenCalled();
+  });
+
+  it("creates a searchable library podcast from older chips without changing the daily default or duplicating source content", async () => {
+    const today = await chip("Today");
+    const old = await chip("Old source", env.tokens.alice, "2029-01-01T00:00:00Z");
+    const daily = (await (await generate()).json()).podcast as DailyPodcast;
+    const result = await generate({ library: true, chipIds: [old.id], regenerate: true });
+    expect(result.status).toBe(200);
+    const podcast = (await result.json()).podcast as DailyPodcast;
+    expect(podcast.summaryId).toBeTruthy();
+    const library = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?kind=podcast", { token: env.tokens.alice }));
+    expect((await library.json()).items.map((item: { id: string }) => item.id)).toEqual([podcast.summaryId]);
+    expect((await (await saved()).json()).podcast.key).toBe(daily.key);
+    const detail = await libraryPodcastRoute.GET(apiRequest("GET", `/api/v1/summaries/${podcast.summaryId}/podcast`, { token: env.tokens.alice }), params({ id: podcast.summaryId! }));
+    expect((await detail.json()).podcast.key).toBe(podcast.key);
+    expect((await audio(podcast, env.tokens.bob)).status).toBe(404);
+    // Put the generated library chip on this activity day; it must still never become source content.
+    await env.handle.db.update(summaries).set({ createdAt: new Date(day.start) }).where(eq(summaries.id, podcast.summaryId!));
+    const regenerated = (await (await generate({ regenerate: true })).json()).podcast as DailyPodcast;
+    expect(regenerated.chipIds).toEqual([today.id]);
+    expect((await generate({ library: true, chipIds: [podcast.summaryId], regenerate: true })).status).toBe(422);
+    await env.handle.db.delete(summaries).where(eq(summaries.id, podcast.summaryId!));
+    expect((await audio(podcast)).status).toBe(404);
+  });
+});
 
 describe("daily podcast contract", () => {
   it("requires authentication and validates language and a single local day including DST", async () => {
@@ -77,6 +178,25 @@ describe("daily podcast contract", () => {
     const regenerated = await generate({ regenerate: true });
     expect(regenerated.status).toBe(200);
     expect((await regenerated.json()).podcast.chipIds).toEqual([own.id]);
+  });
+
+  it("generates and reopens a complete episode for a day with more than 24 chips", async () => {
+    const chips = [];
+    for (let index = 0; index < 30; index++) chips.push(await chip(`Discovery ${index}`));
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const response = await generate();
+    expect(response.status).toBe(200);
+    const { podcast } = await response.json() as { podcast: DailyPodcast };
+    const ids = new Set(chips.map((item) => item.id));
+    expect(new Set(writer.mock.calls[0][0].chips.map((item) => item.id))).toEqual(ids);
+    expect(new Set(podcast.chipIds)).toEqual(ids);
+    expect(new Set(podcast.segments.map((segment) => segment.chipId))).toEqual(ids);
+    expect(podcast.segments).toHaveLength(30);
+    expect(env.ai.calls.speak).toHaveLength(30);
+    expect(podcast.segments.at(-1)?.endSeconds).toBe(podcast.durationSeconds);
+    expect((await audio(podcast)).status).toBe(200);
+    expect((await (await saved()).json()).podcast).toEqual(podcast);
+    expect(writer).toHaveBeenCalledTimes(1);
   });
 
   it("shares concurrent generation and preserves a working saved episode when regeneration fails", async () => {
@@ -139,28 +259,43 @@ describe("daily podcast contract", () => {
     expect(podcast.segments[0].startSeconds).toBe(0);
   });
 
-  it("upgrades a saved episode into one MP3 without calling AI again", async () => {
-    await chip("An older episode");
+  it("reads database documents without storage and never imports storage-only episodes", async () => {
+    await chip("Database episode");
     const podcast = (await (await generate()).json()).podcast as DailyPodcast;
-    const latestKey = [...env.store.objects.keys()].find((key) => key.endsWith("/latest.json"))!;
-    const base = latestKey.slice(0, -"/latest.json".length);
-    const sourceAudio = await env.ai.speak("Original recorded words");
-    await env.store.put(`${base}/${podcast.key}/0.mp3`, { bytes: sourceAudio.bytes, contentType: "audio/mpeg" });
-    delete podcast.audioPath;
-    delete podcast.durationSeconds;
-    delete podcast.segments[0].startSeconds;
-    delete podcast.segments[0].endSeconds;
-    const object = { bytes: new TextEncoder().encode(JSON.stringify(podcast)), contentType: "application/json" };
-    await env.store.put(latestKey, object);
-    await env.store.put(`${base}/${podcast.key}.json`, object);
-    await env.store.delete(`${base}/${podcast.key}/audio.mp3`);
-    const voiceCalls = env.ai.calls.speak.length;
-    const upgraded = (await (await saved()).json()).podcast as DailyPodcast;
-    expect(upgraded.audioPath).toContain(`/${podcast.key}/audio?`);
-    expect(upgraded.durationSeconds).toBeGreaterThan(0);
-    expect(upgraded.segments[0].startSeconds).toBe(0);
-    expect((await audio(upgraded)).status).toBe(200);
-    expect(env.ai.calls.speak).toHaveLength(voiceCalls);
+    expect([...env.store.objects.keys()].some((key) => key.endsWith(`/latest.json`) || key.endsWith(`/${podcast.key}.json`))).toBe(false);
+    const stored = { ...podcast, title: "Updated in the database" };
+    await env.handle.db.update(podcastEpisodes).set({ document: stored }).where(eq(podcastEpisodes.key, podcast.key));
+    const legacy = { bytes: new TextEncoder().encode(JSON.stringify(podcast)), contentType: "application/json" };
+    const base = dayKey("user-alice", day);
+    await env.store.put(`${base}/latest.json`, legacy);
+    await env.store.put(`${base}/${podcast.key}.json`, legacy);
+    const read = vi.spyOn(env.store, "get").mockRejectedValue(new Error("Storage unavailable"));
+    expect((await (await saved()).json()).podcast).toEqual(stored);
+    const detail = (date = day, token = env.tokens.alice) => versionRoute.GET(apiRequest("GET",
+      `/api/v1/daily-podcasts/${podcast.key}?${new URLSearchParams(date)}`, { token }), params({ key: podcast.key }));
+    expect((await (await detail()).json()).podcast).toEqual(stored);
+    expect((await detail(day, env.tokens.bob)).status).toBe(404);
+    expect((await detail({ start: "2030-04-02T00:00:00+08:00", end: "2030-04-03T00:00:00+08:00" })).status).toBe(404);
+    const list = () => versionsRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/versions?${new URLSearchParams(day)}`, { token: env.tokens.alice }));
+    expect((await (await list()).json()).items[0].podcast).toEqual(stored);
+    expect((await versionsRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/versions?${new URLSearchParams(day)}`, { token: env.tokens.bob }))).status).toBe(200);
+    await env.handle.db.delete(podcastEpisodes).where(eq(podcastEpisodes.key, podcast.key));
+    expect((await (await saved()).json()).podcast).toBeNull();
+    expect((await (await list()).json()).items).toEqual([]);
+    expect((await audio(podcast)).status).toBe(404);
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("omits versions whose source access was revoked", async () => {
+    await saved();
+    const shared = await chip("Shared source", env.tokens.bob);
+    await env.handle.db.insert(summaryViews).values({ summaryId: shared.id, userId: "user-alice", viewedAt: new Date(day.start) });
+    await generate();
+    const own = await chip("Own source");
+    const allowed = (await (await generate({ regenerate: true, chipIds: [own.id] })).json()).podcast;
+    await env.handle.db.update(summaries).set({ visibility: "private" }).where(eq(summaries.id, shared.id));
+    const response = await versionsRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/versions?${new URLSearchParams(day)}`, { token: env.tokens.alice }));
+    expect((await response.json()).items.map((item: { podcast: DailyPodcast }) => item.podcast.key)).toEqual([allowed.key]);
   });
 
   it("shares the saved recording through revocable links with expiration and protected artwork", async () => {
@@ -195,6 +330,7 @@ describe("daily podcast contract", () => {
     expect(data.title).toBe(podcast.title);
     expect(data.audioPath).toBe(`/api/public/podcasts/${id}/audio`);
     expect(data.segments[0].caption).toBe(podcast.segments[0].caption);
+    expect(data.segments[0].captionCues).toEqual(podcast.segments[0].captionCues);
     expect(JSON.stringify(data)).not.toContain(source.id);
     expect(data).not.toHaveProperty("chipIds");
     expect((await art()).status).toBe(200);
@@ -264,5 +400,69 @@ describe("daily podcast contract", () => {
     // Alice can read through a private chip's separate share link, but cannot republish it.
     expect((await saved()).status).toBe(200);
     expect((await request()).status).toBe(403);
+  });
+});
+
+describe("live podcast progress", () => {
+  function streamRequest() {
+    const request = apiRequest("POST", "/api/v1/daily-podcasts", { token: env.tokens.alice, body: { day, language: "ja", regenerate: true } });
+    request.headers.set("accept", "text/event-stream");
+    return request;
+  }
+  function events(text: string) {
+    return text.split("\n").filter((line) => line.startsWith("data: ")).map((line) => JSON.parse(line.slice(6)));
+  }
+  it("delivers progress before speech finishes and shares generation with another subscriber", async () => {
+    await chip("Streamed discovery");
+    const speak = env.ai.speak.bind(env.ai);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const spy = vi.spyOn(env.ai, "speak").mockImplementation(async (...args) => { await gate; return speak(...args); });
+    const first = await route.POST(streamRequest());
+    expect(first.headers.get("content-type")).toContain("text/event-stream");
+    const reader = first.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    try {
+      while (!events(text).some((event) => event.progress?.stage === "speech")) {
+        text += decoder.decode((await reader.read()).value);
+      }
+      expect(events(text).some((event) => event.type === "complete")).toBe(false);
+      const second = await route.POST(streamRequest());
+      release();
+      while (true) { const next = await reader.read(); if (next.done) break; text += decoder.decode(next.value); }
+      const one = events(text);
+      const two = events(await second.text());
+      const progress = one.filter((event) => event.type === "progress").map((event) => event.progress);
+      expect(progress.map((p) => p.percent)).toEqual(progress.map((p) => p.percent).sort((a, b) => a - b));
+      expect(progress.at(-1).percent).toBe(100);
+      const speech = progress.filter((p) => p.stage === "speech");
+      expect(speech.at(-1).completedSegments).toBe(speech.at(-1).totalSegments);
+      expect(spy).toHaveBeenCalledTimes(speech.at(-1).totalSegments);
+      expect(two[0].progress.stage).toBe("speech");
+      expect(two.at(-1).podcast.key).toBe(one.at(-1).podcast.key);
+      expect((await (await saved()).json()).podcast.key).toBe(one.at(-1).podcast.key);
+    } finally { release(); }
+  });
+  it.skipIf(!process.env.PODCAST_SIMULATION_URL)("streams generation using the real SDK against the HTTP simulation", async () => {
+    await chip("HTTP streamed discovery");
+    const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
+    vi.spyOn(env.ai as AiProvider, "writePodcast").mockImplementation((input, options) => writePodcast(gateway("fixture/podcast"), input, options));
+    vi.spyOn(env.ai as AiProvider, "speak").mockImplementation(async (text, voice) => {
+      const result = await generateSpeech({ model: gateway.speechModel("fixture/speech"), text, voice, outputFormat: "mp3" });
+      return { bytes: result.audio.uint8Array, mediaType: "audio/mpeg" };
+    });
+    const result = events(await (await route.POST(streamRequest())).text());
+    expect(result.some((event) => event.progress?.completedSegments > 0)).toBe(true);
+    expect(result.at(-1).type).toBe("complete");
+    expect(result.at(-1).podcast.durationSeconds).toBeGreaterThan(0);
+  });
+
+  it("ends with a structured error without completion on failed speech", async () => {
+    await chip("Failed speech");
+    vi.spyOn(env.ai, "speak").mockRejectedValue(new Error("Provider unavailable"));
+    const result = events(await (await route.POST(streamRequest())).text());
+    expect(result.at(-1)).toMatchObject({ type: "error", status: 502, error: { code: "PODCAST_FAILED" } });
+    expect(result.some((event) => event.type === "complete" || event.progress?.percent === 100)).toBe(false);
   });
 });

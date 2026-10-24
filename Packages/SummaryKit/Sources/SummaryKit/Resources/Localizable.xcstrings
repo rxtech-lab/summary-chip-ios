@@ -1282,6 +1282,22 @@
         }
       }
     },
+    "Couldn't share" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法分享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法分享"
+          }
+        }
+      }
+    },
     "Create" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1299,6 +1315,7 @@
       }
     },
     "Create Link" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1509,6 +1526,9 @@
           }
         }
       }
+    },
+    "Designing video…" : {
+
     },
     "Discard" : {
       "localizations" : {
@@ -1991,6 +2011,9 @@
           }
         }
       }
+    },
+    "Generating voices…" : {
+
     },
     "Generating…" : {
       "localizations" : {
@@ -2577,6 +2600,9 @@
     },
     "Misreferenced" : {
       "comment" : "Paper reference error"
+    },
+    "Mixing audio and aligning captions…" : {
+
     },
     "Name" : {
       "localizations" : {
@@ -3193,6 +3219,40 @@
         }
       }
     },
+    "Podcast" : {
+
+    },
+    "Podcast ready" : {
+
+    },
+    "Podcasts" : {
+
+    },
+    "Preparing music…" : {
+
+    },
+    "Preparing podcast…" : {
+
+    },
+    "Preparing to share…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备分享…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備分享…"
+          }
+        }
+      }
+    },
+    "Preparing video…" : {
+
+    },
     "Preview image" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3641,6 +3701,9 @@
           }
         }
       }
+    },
+    "Saving podcast…" : {
+
     },
     "Scheduled" : {
       "localizations" : {
@@ -5153,6 +5216,9 @@
           }
         }
       }
+    },
+    "Writing script…" : {
+
     },
     "Writing the summary" : {
       "localizations" : {

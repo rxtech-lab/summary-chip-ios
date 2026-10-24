@@ -1,8 +1,8 @@
 # Daily podcasts
 
-The Feed's daily play button opens a dedicated player sheet. A separate generation sheet chooses the spoken language. An agent writes a conversational podcast from all readable summary chips on that activity day, independently of pagination and feed filters. Owned chips use their creation date; others use their last viewed date, matching the Feed. Trips, papers and clips are excluded. The current limit is 24 chips and 24 short spoken turns; larger days are explicitly refused rather than silently truncated.
+The Feed's daily play button opens a dedicated player sheet. A separate generation sheet chooses the spoken language and source chips. All eligible chips are selected by default. An agent writes a conversational podcast from all readable summary chips on that activity day, independently of pagination and feed filters. Owned chips use their creation date; others use their last viewed date, matching the Feed. Trips, papers, clips and generated podcast chips are excluded. There is no fixed chip or spoken-turn count limit: all eligible chips are included and the agent uses as many concise turns as needed. Generation remains subject to model context/output capacity, the request timeout and server memory; longer days take more time and points.
 
-The player overlays host names, exact spoken captions, a seek slider and playback controls on the cover using Liquid Glass. One continuous MP3 plays the whole episode, with timed caption and artwork changes and 15-second skip controls. A dedicated download sheet saves the original complete MP3, or renders a 1280×720 MP4 locally with the recording, timed artwork and burned-in captions. Regeneration has a native confirmation and may choose a different language. Generation and buffering use overlays; mobile interactions provide haptics.
+The player overlays host names, exact spoken captions, a seek slider and playback controls on the cover using Liquid Glass. One continuous MP3 plays the whole episode, with timed caption and artwork changes and 15-second skip controls. A dedicated download sheet saves the original complete MP3, or renders a 1280×720 MP4 locally with the recording, timed artwork and burned-in captions. New Version opens a creation sheet and keeps previous versions. Manage Versions opens a dedicated sheet for playback, setting the default, or removal with native confirmation. Generation and buffering use overlays; mobile interactions provide haptics.
 
 ## API contract
 
@@ -20,11 +20,11 @@ All `/api/v1` endpoints require the app's bearer token. All JSON responses use `
 }
 ```
 
-Languages: `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`. The response envelope is `{ "podcast": DailyPodcast }`. A saved episode is returned unchanged, including its original language, unless `regenerate` is explicitly true. Generation spends points for narration and speech; saved playback is free. App Store billing proof follows the same routing as trip tours. Request timeout: 300 seconds. Do not automatically replay an ambiguous regeneration request.
+Languages: `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`. The response envelope is `{ "podcast": DailyPodcast }`. For backward compatibility, a saved episode is returned unchanged when `regenerate` is false and `chipIds` is omitted. Supplying `chipIds` or `regenerate: true` creates another version. Generation spends points for narration and speech; saved playback is free. App Store billing proof follows the same routing as trip tours. Request timeout: 300 seconds. Do not automatically replay an ambiguous regeneration request.
 
 `DailyPodcast` contains `key`, `title`, `language`, `createdAt`, `day`, `chipIds`, `audioPath`, `durationSeconds`, `speakers: [{name, voice}]`, and caption cues in `segments: [{speaker, chipId, caption, startSeconds, endSeconds, voiceStartSeconds, voiceEndSeconds, pauseSeconds, imagePath, icon}]`. `voiceStartSeconds`/`voiceEndSeconds` bound the audible voice inside the turn and `pauseSeconds` lists its measured pauses (≥ 150 ms), all in episode seconds; they're omitted when a turn can't be analysed. `speaker` is a zero-based index. `caption` is the exact spoken turn. `imagePath` is an optional relative authenticated chip artwork URL, with `icon` as fallback.
 
-`GET /api/v1/daily-podcasts/:key/audio?start=<instant>&end=<instant>` returns the complete persisted MP3 with `Content-Disposition: attachment` and `private, no-store`. It never generates speech. Audio is assembled by remuxing validated MPEG Layer III frames with a complete-file Xing seek header; all voices must use compatible sample rate and channel layout. The old per-segment route remains for legacy artifacts. Opening an older saved episode assembles its existing recordings once and saves the continuous track and timings without any AI calls. Storage is partitioned by the authenticated account; all source chips must still be readable for metadata or audio to be returned. Deleting or revoking a source blocks old episode access; explicit regeneration selects the remaining readable chips.
+`GET /api/v1/daily-podcasts/:key/audio?start=<instant>&end=<instant>` returns the complete persisted MP3 with `Content-Disposition: attachment` and `private, no-store`. It never generates speech. Audio is assembled by remuxing validated MPEG Layer III frames with a complete-file Xing seek header; all voices must use compatible sample rate and channel layout. The old per-segment route remains for legacy artifacts. Episode reads never upgrade legacy audio or read episode JSON from object storage. Storage is partitioned by the authenticated account; all source chips must still be readable for metadata or audio to be returned. Deleting or revoking a source blocks old episode access; explicit regeneration selects the remaining readable chips.
 
 Errors use the standard `{error: {code, message, requestId}}` envelope:
 
@@ -34,7 +34,7 @@ Errors use the standard `{error: {code, message, requestId}}` envelope:
 | 401 | Standard auth errors | Sign in required |
 | 402 | PODCAST_POINTS_EXHAUSTED | Top up before generation |
 | 404 | NOT_FOUND | Missing episode, segment or source access |
-| 422 | PODCAST_EMPTY / PODCAST_TOO_LARGE | No eligible chips / more than 24 |
+| 422 | PODCAST_EMPTY | No eligible chips |
 | 503 | PODCAST_SPEECH_UNAVAILABLE | Speech model not configured |
 | 503 | PODCAST_BILLING_NOT_CONFIGURED / PODCAST_BILLING_UNAVAILABLE | Points service unavailable |
 | 502 | PODCAST_FAILED | Script, speech or storage failed |
@@ -53,9 +53,11 @@ Prompts describe only the mood and role, never chip content. Each clip is theref
 
 ## Storage and models
 
+On iOS and macOS, playback and MP3/MP4 export share a disk cache of complete episode audio in the app's Caches directory. Each recording expires seven days after download; listening again does not extend its lifetime. Expired files are pruned when audio is requested or cache storage is measured. Cache misses download the saved recording without generating audio. Failed or cancelled downloads are not cached, and disk-write failures leave playback available. Cache storage is included in Settings; Clear Cache and sign-out remove recordings, and removing a daily version evicts its audio. The OS may reclaim cached files earlier. Locally downloaded audio remains available until expiry or clearing even if source access is subsequently revoked on the server; metadata and new downloads still require server authorization.
+
 Uses the existing private S3-compatible `ObjectStore` (R2 configuration), `AI_TOUR_MODEL`, `AI_SPEECH_MODEL`, speech pricing and points billing. `AI_PODCAST_VOICES` optionally lists up to four comma-separated voice IDs supported by the configured speech model. It defaults to `AI_TOUR_VOICE`. The agent chooses one to four hosts from the available voices, with a single narrator as the default configuration.
 
-Each generation gets an immutable UUID and persists its complete script and one MP3. Individual speech turns are only transient inputs to assembly; new episodes do not store separate audio parts. Only after all audio succeeds does `latest.json` switch to the new episode. A failed generation leaves the previous episode available. Concurrent taps in the same server process share one generation; there is no distributed cross-instance lock. Old versions remain private and are retained so an open player can finish playing during regeneration.
+Each generation gets an immutable UUID and persists its complete script and one MP3. Individual speech turns are only transient inputs to assembly; new episodes do not store separate audio parts. Only after all audio succeeds does `latest.json` switch to the new episode. A failed generation leaves the previous episode available. Concurrent requests for the same day, language and chip selection in the same server process share one generation; there is no distributed cross-instance lock. Old versions remain private and are retained so an open player can finish playing during regeneration.
 
 ## Verification
 
@@ -73,13 +75,13 @@ bun run test tests/integration/daily-podcast.test.ts
 
 The focused `DailyPodcastUITests` uses the app's offline preview fixture and synthetic WAV audio. It verifies the sheet flow, captions, controls, regeneration and saved reopening, independently of cloud AI/S3 credentials.
 
-Native media tests render an MP4 and verify one audio track, one video track, duration and changing cover/caption frames on macOS and iOS. MP3 assembly tests include generated constant/variable bitrate tones and a legacy upgrade. Live provider voice quality and cloud storage remain separate from these local checks.
+Native media tests render an MP4 and verify one audio track, one video track, duration and changing motion frames and a selectable subtitle track on macOS and iOS. MP3 assembly tests include generated constant/variable bitrate tones and a legacy upgrade. Live provider voice quality and cloud storage remain separate from these local checks.
 
 ## Reading while listening
 
 The active caption offers **Open Chip**, using its saved `chipId`. The app minimizes the full player and opens that chip in the Feed navigation. Playback belongs to `AppEnvironment`, so this navigation, tab changes and expanding the player reuse the same audio session and position. The compact Liquid Glass player shows the current artwork/title/caption and provides expand, play/pause and explicit close controls. Source-loading errors leave playback running and use a native alert. Dismissing the full player minimizes it; closing the compact player or signing out stops playback.
 
-Live captions show one short phrase at a time with content-sized height. The speech model returns no word timestamps, so phrase timing is estimated by speaking weight (digits count as longer, punctuation as none) across the turn's audible voice, and sentence and clause ends snap to the nearest measured pause. Older episodes without voice timing fall back to the cue window. On Mac, a custom player control bar overlays the top of the artwork without a navigation title or bottom sheet toolbar. The More menu groups Publish to Web, Regenerate Podcast and Download Podcast on both platforms.
+Live captions show one short phrase at a time with content-sized height. The speech model returns no word timestamps, so phrase timing is estimated by speaking weight (digits count as longer, punctuation as none) across the turn's audible voice, and sentence and clause ends snap to the nearest measured pause. Older episodes without voice timing fall back to the cue window. On Mac, a custom player control bar overlays the top of the artwork without a navigation title or bottom sheet toolbar. The More menu groups Publish to Web, New Version, Manage Versions and Download Podcast on both platforms.
 
 ## Publish to web
 
@@ -92,3 +94,111 @@ Each `/podcast/:token` link opens a web player with native audio seeking, timed 
 The page and every metadata, audio and artwork request recheck the link's expiry and the source permissions. Media responses use `private, no-store` and never redirect to long-lived public storage URLs. Missing, expired and deleted links return 404. Audio a listener has already downloaded can't be recalled. Creating a link shares the recorded content of your own private chips without changing those chips' settings. Someone else's chip must have a live public primary link: being invited to a private chip gives you the right to read it, not to republish it (403 `PODCAST_SOURCE_PRIVATE`). If a source becomes unavailable, every link to the episode stops opening, but its owner can still list and delete those links.
 
 Database migration `0034_podcast_share_links.sql` adds the `podcast_share_links` table (a random 12-character token per link) and drops the unreleased `podcast_publications` table from `0033`. Deploy the migration with the server before releasing the app UI.
+
+## Selecting chips, library episodes and daily versions
+
+`POST /api/v1/daily-podcasts` also accepts `chipIds?: string[]` and `library?: boolean` (default false). An omitted daily selection means all eligible chips; an explicit empty selection returns 400. Every selected daily ID must remain readable and belong to that activity day, or generation fails with 422 `PODCAST_SELECTION` before billing/AI. Duplicate IDs are treated as one source. Each successful daily creation becomes the default and preserves earlier versions.
+
+**New → New Podcast** and a summary's **Create Podcast** action open a dedicated sheet. **Chips** opens a searchable picker using the paginated library API restricted to `kind=summary`, with source filters. Selection survives searches and paging. A summary action preselects that chip. Creation sends `library: true` and explicit `chipIds`; sources may come from any activity day. It creates a private library chip with `kind=podcast` and returns its ID as `DailyPodcast.summaryId`. This episode does not change a daily default or appear in daily versions. `GET /api/v1/summaries/:id/podcast` returns the owner's persisted episode, rechecking the chip and every source. Opening its detail uses the existing podcast design and the app-owned audio player, which keeps playing during navigation.
+
+New owner-authenticated endpoints (no AI or points):
+
+- `GET /api/v1/daily-podcasts/versions?start=…&end=…` returns `{items: [{podcast: DailyPodcast, isDefault: boolean}]}`, newest first. Unreadable recordings are omitted. Documents are read directly from the database, with source permissions checked in batches across versions.
+- The same URL with `chips=true` returns `{items: [{id, title, source}]}` for all readable eligible daily source chips, independent of feed filters/paging.
+- `GET /api/v1/daily-podcasts/:key?start=…&end=…` opens a persisted recording.
+- `PATCH` at that URL selects a daily default and returns `{podcast}`. The app switches the shared player to it and plays. Library episodes cannot become daily defaults (422 `PODCAST_LIBRARY`).
+- `DELETE` at that URL removes a daily version and returns `{deleted: true}`. Its recording becomes inaccessible and its share links are revoked. If it was the default, the newest remaining readable version becomes default; no versions means `{podcast: null}`. Removed versions are retained as database tombstones.
+
+Migration `0035_podcast_versions.sql` adds the owner/day episode catalogue and its link to library chips. Deploy it with the server before shipping the app. Recordings still live in private object storage. Default changes use a database batch. The database is the sole source for episode documents and defaults; legacy object-storage JSON is neither read, written nor imported. No legacy migration is performed. The in-process generation lock does not deduplicate across server instances.
+
+## Motion video
+
+Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design runs alongside speech. The same generation sheet continues through local rendering, with live frame progress, before opening the native video player. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
+
+Playback uses the motion MP4 whenever an episode has a video design, rendering and caching it if needed. Audio-only saved episodes expose **Generate Video** in More. **Regenerate Podcast** opens the same generation sheet with Podcast / Video only options; **Download Podcast** offers MP3 and, when a design exists, MP4. There is no separate creation sheet or static-slide export fallback.
+
+Narration is never supplied as visible text to new compositions. The prompt calls for topic-specific motion explanations (animated flows, progressive paths, moving objects and transformations), and validation rejects caption helpers/transcript access. The MP4 receives a selectable tx3g subtitle track timed to voice windows and pauses; captions are not rasterized into frames. Legacy caption helpers receive empty narration when re-rendered. Previously downloaded/published MP4s are unchanged until regenerated and republished.
+
+The vendored `Packages/RxRemotion` compiles the composition in WebKit and encodes an MP4 with the saved recording through AVFoundation. The app injects actual segment timing, artwork and chip titles. Rendering requires the app to stay open; progress appears in an overlay. Completed renders are cached per episode and design, included in Settings cache storage, and removed by Clear Cache or sign-out. A failed render does not publish a partial movie.
+
+Publish Video renders if needed, uploads the MP4 using an authenticated presigned upload ticket, then confirms publication. Existing web share links play that video. Remove Published Video asks for native confirmation and returns those links to audio. Creating a new design also removes the previous publication. The sheet updates episode metadata without resetting the audio playback position.
+
+The owner video API is under `/api/v1/daily-podcasts/:key/video`: GET reads composition source with the saved day boundaries; POST creates a replacement; POST `/upload` issues a ticket for the current `videoId` and `byteSize`; POST `/publication` confirms it; DELETE `/publication` removes it. Stale design IDs return 409. Public video requests validate the share link and source access before issuing a storage redirect; the resulting URL remains valid for up to one hour, including after link revocation.
+
+Local validation for the motion-video integration includes eight server lifecycle/agent tests with deterministic providers and a native one-second render test on macOS and iOS Simulator. The native check verifies one audio track, one video track, duration, dimensions and changing frames. It caught an iOS viewport mismatch, fixed by keeping the WebView as a sized child of the window controller and declaring a mobile viewport. These checks do not establish live model quality, physical-device render performance or production uploads.
+
+### Live generation progress
+
+`POST /api/v1/daily-podcasts` accepts `Accept: text/event-stream`. Authentication,
+input validation and billing-environment validation happen before the stream opens.
+Clients omitting this header continue to receive `{ "podcast": ... }` JSON.
+Each SSE event is a single JSON `data:` line:
+
+- `{"type":"progress","progress":{"stage":"speech","percent":45,"completedSegments":1,"totalSegments":2}}`
+- `{"type":"complete","podcast":{...}}` is the terminal successful result.
+- `{"type":"error","status":502,"error":{"code":"PODCAST_FAILED","message":"...","requestId":"..."}}` is a terminal failure after HTTP headers were sent.
+
+Stages are preparing (0%), script (5%), speech (20–70%, based on completed voice
+segments), music (70%), mixing/caption alignment (75%), video-design (85–94%, updated after completed agent steps), saving (95%),
+and complete (100%). These are estimated work weights, not elapsed-time estimates;
+AI calls can leave a stage unchanged for a while. Music and video start alongside
+speech; their stages indicate waiting for those results. Optional fallbacks still
+allow the recording to finish. 100% follows successful saving and billing settlement.
+Comments every ten seconds keep idle streams active. Concurrent requests within the
+same server process share generation and replay the latest progress to new observers.
+Disconnecting stops delivery, not the underlying generation; clients never automatically
+retry an interrupted paid POST. Reopen the podcast to check whether it was saved.
+
+The app shows live progress in the existing full-height generation sheet's overlay,
+with a numeric percentage and exact voice-segment count. It accepts legacy JSON from
+the same request when talking to an older server (spinner only), without resubmitting.
+
+Video design creation (`POST /api/v1/daily-podcasts/:key/video`) supports the same
+SSE envelope and legacy JSON fallback. Its progress stages are preparing (0%),
+video-design (10%, then +20 per completed agent step, capped at 80%), saving (90%),
+and complete (100%, after persistence and billing settlement). Design events include
+`completedSteps`, the actual number of finished agent steps, including validation/fix
+attempts. The percentage is estimated work progress: it can remain unchanged while
+a model step runs. Concurrent observers share the same generation and receive its
+latest progress. The shared generation sheet shows these updates in its overlay, followed by local frame and encoding progress.
+
+### Decision-model video progress
+
+Video design consumes the agent's live text/tool-input stream and validation evidence.
+The configured `AI_EVALUATION_MODEL` (default `typesafe-ai/jev`; `off` disables it)
+judges bounded composition milestones through AI SDK's evaluation API. Calls are
+single-flight, at most once per three seconds, with a four-second timeout and no
+retries. Only the latest 12,000 characters of generated output are included;
+raw output is never sent to the client. A failed evaluation retains the last
+estimate. No elapsed-time or step-count increment is used for video design.
+
+The composition estimate is mapped to the existing SSE `video-design` stage
+budget (10–82% for video-only generation; 85–94% while a full episode waits for
+video). These are work estimates, not time remaining. Saving and completion are
+emitted only by the service; local frame rendering continues to use real frame
+counts. Evaluation requests use the existing Gateway credentials and incur
+provider usage. The existing native overlay consumes the unchanged SSE contract.
+
+### Transcribed caption timing
+
+New podcasts transcribe each generated voice turn through AI Gateway using
+`AI_TRANSCRIPTION_MODEL` (default `mistral/voxtral-mini-transcribe-3`) and the existing
+Gateway credentials. Segment timestamps are requested explicitly. Edit alignment
+maps recognized text back to the original script to correct spelling and omissions;
+all displayed caption punctuation is removed, including apostrophes and hyphens.
+The original script remains intact for narration and transcript reading.
+
+`segments[].captionCues` contains `{ text, startSeconds, endSeconds }` in episode
+seconds, offset by the mixer's voice positions so intro music and interludes do not
+shift captions. Playback and MP4 subtitle export use the same cues and leave silence
+gaps empty. Voxtral supplies segment timing, not word timing. Long segments advance through pages of at most two short lines without dropping text. Page timing is estimated within each transcribed segment; its outer boundaries and silence gaps stay unchanged. Older episodes without cues retain legacy estimated timing;
+regenerate them to obtain transcribed timestamps. Empty, invalid, overlapping or
+substantially mismatched transcripts fail new generation rather than publish guessed
+caption timing. Calls use the generation deadline, a 45-second per-call timeout and
+no automatic transcription retries.
+
+Local verification: `bun run test tests/unit/podcast-captions.test.ts` and the existing
+Postman daily-podcast simulation with `PODCAST_SIMULATION_URL` exercise alignment
+and the SDK HTTP contract. These fixtures do not establish live Voxtral accuracy.
+
+The Download Podcast sheet also offers **Captions (SRT)** for audio-only and video episodes. This exports UTF-8 subtitles with episode timestamps through the native file picker, using the same punctuation-free cues as MP4 export without fetching audio or rendering video.

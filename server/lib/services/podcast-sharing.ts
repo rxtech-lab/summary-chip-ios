@@ -143,7 +143,8 @@ export async function publicPodcastData(db: Database, token: string) {
   const { podcast } = await publicPodcast(db, token);
   return { title: podcast.title, language: podcast.language, createdAt: podcast.createdAt,
     durationSeconds: podcast.durationSeconds, audioPath: `/api/public/podcasts/${token}/audio`,
-    segments: podcast.segments.map((segment, index) => ({ caption: segment.caption,
+    videoPath: podcast.video?.published && podcast.video.published.videoId === podcast.video.id ? `/api/public/podcasts/${token}/video` : null,
+    segments: podcast.segments.map((segment, index) => ({ caption: segment.caption, captionCues: segment.captionCues,
       speaker: podcast.speakers[segment.speaker].name, startSeconds: segment.startSeconds ?? 0,
       endSeconds: segment.endSeconds ?? 0, icon: segment.icon,
       imagePath: segment.imagePath ? `/api/public/podcasts/${token}/art/${index}` : null })) };

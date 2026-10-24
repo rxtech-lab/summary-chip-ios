@@ -1,4 +1,6 @@
+import { transcribePodcastAudio } from "./podcast-transcription";
 import { writePodcast, type PodcastInput } from "./podcast-agent";
+import { writePodcastVideo, type PodcastVideoInput, type PodcastVideoOptions } from "./podcast-video-agent";
 import { composeMusic, musicModelId, musicUsdPerClip } from "./music";
 import type { PodcastScript } from "@/lib/contracts/daily-podcast";
 import type { SummaryKind } from "@/lib/db/schema";
@@ -17,6 +19,8 @@ import {
   imageLanguageModel,
   imageModelId,
   imageTimeoutMs,
+  podcastVideoModel,
+  podcastVideoModelId,
   isLanguageImageModel,
   speechModel,
   speechModelId,
@@ -178,6 +182,12 @@ export interface AiProvider {
   chatPricing(): Promise<ModelPricing | null>;
   /** Narration for every scene of a trip tour, in order, from the tour model. Throws when it failed. */
   writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript>;
+  /** Gateway id of the podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); null when videos are off. */
+  podcastVideoModelId(): string | null;
+  /** The video model's API list price, or null when the catalog has none. */
+  podcastVideoPricing(): Promise<ModelPricing | null>;
+  /** Validated Remotion files animating a podcast script, or null when the agent couldn't produce any. */
+  writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null>;
   narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]>;
   /** Gateway id of the tour model (`AI_TOUR_MODEL`), recorded on the points it charges. */
   tourModelId(): string;
@@ -189,6 +199,7 @@ export interface AiProvider {
   speechUsdPerCharacter(): number;
   /** `text` read aloud by `voice`, as MP3 audio. Throws when it failed. */
   speak(text: string, voice: string, options?: { abortSignal?: AbortSignal }): Promise<{ bytes: Uint8Array; mediaType: string }>;
+  transcribePodcast(audio: Uint8Array, options?: { abortSignal?: AbortSignal }): Promise<{ text: string; startSecond: number; endSecond: number }[]>;
   /** Id of the Lyria model that writes podcast theme music (`AI_MUSIC_MODEL`); null when music is disabled. */
   musicModelId(): string | null;
   /** The music model's price per generated clip in USD. */
@@ -582,12 +593,31 @@ export class GatewayAiProvider implements AiProvider {
     return writePodcast(tourModel(), input, options);
   }
 
+  podcastVideoModelId(): string | null {
+    return podcastVideoModelId();
+  }
+
+  async podcastVideoPricing(): Promise<ModelPricing | null> {
+    const id = podcastVideoModelId();
+    return id ? textModelPricing(id) : null;
+  }
+
+  async writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null> {
+    const id = podcastVideoModelId();
+    if (!id) return null;
+    return writePodcastVideo(podcastVideoModel(id), input, options);
+  }
+
   speechModelId(): string | null {
     return speechModelId();
   }
 
   speechUsdPerCharacter(): number {
     return speechUsdPerCharacter();
+  }
+
+  async transcribePodcast(audio: Uint8Array, options?: { abortSignal?: AbortSignal }) {
+    return transcribePodcastAudio(audio, options);
   }
 
   async speak(text: string, voice: string, options?: { abortSignal?: AbortSignal }): Promise<{ bytes: Uint8Array; mediaType: string }> {

@@ -45,6 +45,7 @@ public final class SummaryAPIClient: Sendable {
     public let baseURL: URL
     let tokenProvider: any AccessTokenProvider
     let session: URLSession
+    let podcastAudioCache: PodcastAudioCache
     private let billingProofProvider: @Sendable () async -> StoreKitBillingProof?
     /// Reads a page the server couldn't, on the device. Nil: the server's error stands.
     private let pageReader: PageReader?
@@ -52,9 +53,9 @@ public final class SummaryAPIClient: Sendable {
     public typealias PageReader = @Sendable (URL) async throws -> WebpageSource
 
     public convenience init(baseURL: URL, tokenProvider: any AccessTokenProvider, session: URLSession = .shared) {
-        self.init(baseURL: baseURL, tokenProvider: tokenProvider, session: session, billingProofProvider: Self.liveBillingProof) { url in
+        self.init(baseURL: baseURL, tokenProvider: tokenProvider, session: session, billingProofProvider: Self.liveBillingProof, pageReader: { url in
             try await WebPageReader.read(url)
-        }
+        })
     }
 
     init(
@@ -62,13 +63,15 @@ public final class SummaryAPIClient: Sendable {
         tokenProvider: any AccessTokenProvider,
         session: URLSession,
         billingProofProvider: @escaping @Sendable () async -> StoreKitBillingProof?,
-        pageReader: PageReader? = nil
+        pageReader: PageReader? = nil,
+        podcastAudioCache: PodcastAudioCache = .shared
     ) {
         self.baseURL = baseURL
         self.tokenProvider = tokenProvider
         self.session = session
         self.billingProofProvider = billingProofProvider
         self.pageReader = pageReader
+        self.podcastAudioCache = podcastAudioCache
     }
 
     private static func liveBillingProof() async -> StoreKitBillingProof? {
@@ -415,7 +418,7 @@ public final class SummaryAPIClient: Sendable {
         let path = request.url?.path
         guard path == "/api/v1/billing" ||
             (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat" || path == "/api/v1/daily-podcasts"
-                || Self.isTripIngestPath(path) || Self.isTripTourPath(path))),
+                || Self.isTripIngestPath(path) || Self.isTripTourPath(path) || Self.isPodcastVideoPath(path))),
             let proof = await billingProofProvider() else { return }
         switch proof {
         case .xcode:

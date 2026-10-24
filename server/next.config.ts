@@ -15,8 +15,9 @@ const nextConfig: NextConfig = {
   /**
    * `@libsql/client` loads a native binding for local `file:` databases and pdf.js (via unpdf)
    * ships its own worker bundle, so both are required at runtime instead of being bundled.
+   * esbuild (podcast video validation) spawns its platform binary.
    */
-  serverExternalPackages: ["@libsql/client", "libsql", "unpdf", "linkedom", "sharp"],
+  serverExternalPackages: ["@libsql/client", "libsql", "unpdf", "linkedom", "sharp", "esbuild"],
 };
 
 // Compiles `"use workflow"` / `"use step"` (the flight tracker in `workflows/`).

@@ -7,16 +7,48 @@ import Testing
         let timeline = PodcastCaptionTimeline(text)
         #expect(timeline.phrases.count >= 3)
         #expect(timeline.phrases.joined(separator: " ") == text)
-        #expect(timeline.lines(at: 0) == ["Welcome to the daily podcast", "Here's our first story"])
-        #expect(timeline.caption(at: 0) == "Welcome to the daily podcast\nHere's our first story")
+        #expect(timeline.lines(at: 0) == ["Welcome to the daily podcast", "Heres our first story"])
+        #expect(timeline.caption(at: 0) == "Welcome to the daily podcast\nHeres our first story")
         #expect(timeline.lines(at: 1).last == "followed by a useful takeaway")
         #expect(timeline.lines(at: -1) == timeline.lines(at: 0))
         #expect(timeline.lines(at: .nan) == timeline.lines(at: 0))
     }
 
+    @Test func usesTranscribedBoundariesAndHidesSilence() {
+        let cues = [PodcastCaptionTimeline.Cue(text: "Hello, world!", startSeconds: 2, endSeconds: 3),
+                    .init(text: "Second phrase", startSeconds: 5, endSeconds: 8)]
+        #expect(PodcastCaptionTimeline.lines(at: 1, cues: cues).isEmpty)
+        #expect(PodcastCaptionTimeline.lines(at: 2, cues: cues).joined(separator: " ") == "Hello world")
+        #expect(PodcastCaptionTimeline.lines(at: 3, cues: cues).isEmpty)
+        #expect(PodcastCaptionTimeline.lines(at: 5, cues: cues) == ["Second phrase"])
+        #expect(PodcastCaptionTimeline.lines(at: 8, cues: cues).isEmpty)
+    }
+
+    @Test func splitsLongTranscriptionsIntoTwoLinePagesWithoutLosingText() {
+        for text in [
+            "社区中有人呼吁发展更多本地和开源模型 相关的梗图也在网上传播 其中一张画面带有 GPU 与盘蛇 名为 Come and Take It",
+            "A longer spoken passage should advance through several short caption pages while preserving every word and keeping the original transcription boundaries"
+        ] {
+            let cue = PodcastCaptionTimeline.Cue(text: text, startSeconds: 2, endSeconds: 14)
+            let pages = PodcastCaptionTimeline.pagedCues([cue])
+            #expect(pages.count > 1)
+            #expect(pages.first?.startSeconds == 2)
+            #expect(pages.last?.endSeconds == 14)
+            #expect(pages.allSatisfy { $0.text.components(separatedBy: "\n").count <= 2 })
+            let compact = { (value: String) in value.filter { !$0.isWhitespace } }
+            #expect(compact(pages.map(\.text).joined()) == compact(text))
+            for (index, page) in pages.enumerated() {
+                #expect(page.endSeconds > page.startSeconds)
+                if index > 0 { #expect(page.startSeconds == pages[index - 1].endSeconds) }
+                #expect(PodcastCaptionTimeline.lines(at: page.startSeconds, cues: [cue]) == page.text.components(separatedBy: "\n"))
+            }
+            #expect(PodcastCaptionTimeline.lines(at: 14, cues: [cue]).isEmpty)
+        }
+    }
+
     @Test func replacesPunctuationWithSpaces() {
         #expect(PodcastCaptionTimeline.withoutPunctuation("大家好，今天「AI」新闻。") == "大家好 今天 AI 新闻")
-        #expect(PodcastCaptionTimeline.withoutPunctuation("Wait... what's e-mail?!") == "Wait what's e-mail")
+        #expect(PodcastCaptionTimeline.withoutPunctuation("Wait... what's e-mail?!") == "Wait whats e mail")
         let chinese = PodcastCaptionTimeline("大家好，欢迎收听。今天有三条新闻！")
         #expect(chinese.lines(at: 0) == ["大家好", "欢迎收听"])
         #expect(chinese.lines(at: 1) == ["今天有三条新闻"])

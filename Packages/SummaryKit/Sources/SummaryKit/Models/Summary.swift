@@ -132,10 +132,11 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
     case trip
     case paper
     case miniApp
+    case podcast
     case other(String)
 
     /// Every kind the server knows, in the order the library's filter lists them.
-    public static let known: [SummaryKind] = [.summary, .trip, .paper, .miniApp]
+    public static let known: [SummaryKind] = [.summary, .trip, .paper, .miniApp, .podcast]
 
     public var id: String { rawValue }
 
@@ -144,6 +145,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case "summary": self = .summary
         case "trip": self = .trip
         case "paper": self = .paper
+        case "podcast": self = .podcast
         case "mini_app": self = .miniApp
         default: self = .other(rawValue)
         }
@@ -154,6 +156,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .summary: "summary"
         case .trip: "trip"
         case .paper: "paper"
+        case .podcast: "podcast"
         case .miniApp: "mini_app"
         case .other(let raw): raw
         }
@@ -173,6 +176,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .summary: String(localized: "Summaries", bundle: .module, comment: "Library kind filter: summary cards")
         case .trip: String(localized: "Trips", bundle: .module, comment: "Library kind filter: trip diaries")
         case .paper: String(localized: "Papers", bundle: .module, comment: "Library kind filter: LaTeX papers")
+        case .podcast: String(localized: "Podcasts", bundle: .module)
         case .miniApp: String(localized: "Clips", bundle: .module)
         case .other(let raw): raw.capitalized
         }
@@ -183,6 +187,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .summary: "text.quote"
         case .trip: "map"
         case .paper: "doc.richtext"
+        case .podcast: "waveform"
         case .miniApp: "app.badge"
         case .other: "doc"
         }

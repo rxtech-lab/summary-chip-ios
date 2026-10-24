@@ -367,6 +367,16 @@
         }
       }
     },
+    "%lld of %lld voice segments" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld voice segments"
+          }
+        }
+      }
+    },
     "%lld options" : {
 
     },
@@ -457,6 +467,9 @@
           }
         }
       }
+    },
+    "%lld selected" : {
+
     },
     "%lld summaries added" : {
       "localizations" : {
@@ -1588,6 +1601,12 @@
         }
       }
     },
+    "All readable summary chips from this day are selected by default, across feed filters. You can choose which to include." : {
+
+    },
+    "All Sources" : {
+
+    },
     "All Versions…" : {
 
     },
@@ -2047,7 +2066,14 @@
         }
       }
     },
+    "Audio + video" : {
+
+    },
+    "Audio only" : {
+
+    },
     "Audio saves the complete podcast as MP3. Video includes the cover images, speakers and captions as MP4." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2062,6 +2088,9 @@
           }
         }
       }
+    },
+    "Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file." : {
+
     },
     "Authorized Apps" : {
 
@@ -2433,6 +2462,9 @@
           }
         }
       }
+    },
+    "Captions (SRT)" : {
+
     },
     "Car" : {
       "localizations" : {
@@ -2825,10 +2857,16 @@
         }
       }
     },
+    "Chips" : {
+
+    },
     "Choose a local image file." : {
 
     },
     "Choose an image to replace this file." : {
+
+    },
+    "Choose Chips" : {
 
     },
     "Choose File…" : {
@@ -2999,6 +3037,9 @@
           }
         }
       }
+    },
+    "Clear Selection" : {
+
     },
     "Client disconnected" : {
 
@@ -3474,6 +3515,9 @@
     "Couldn't Change Language" : {
 
     },
+    "Couldn't Complete Video Action" : {
+
+    },
     "Couldn't Delete" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3580,6 +3624,9 @@
       }
     },
     "Couldn't Import Image" : {
+
+    },
+    "Couldn't Load Chips" : {
 
     },
     "Couldn’t Load Clients" : {
@@ -3701,6 +3748,7 @@
       }
     },
     "Couldn't Open Chip" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3715,6 +3763,12 @@
           }
         }
       }
+    },
+    "Couldn't Open Item" : {
+
+    },
+    "Couldn't Open Podcast" : {
+
     },
     "Couldn't Play Podcast" : {
       "localizations" : {
@@ -3792,6 +3846,9 @@
           }
         }
       }
+    },
+    "Couldn't Update Podcasts" : {
+
     },
     "Cover updated" : {
 
@@ -3894,6 +3951,9 @@
           }
         }
       }
+    },
+    "Create Podcast" : {
+
     },
     "Create Preview Link" : {
 
@@ -4263,6 +4323,9 @@
         }
       }
     },
+    "Default" : {
+
+    },
     "Default Size" : {
 
     },
@@ -4463,6 +4526,9 @@
           }
         }
       }
+    },
+    "Delete Podcast" : {
+
     },
     "Delete Record" : {
 
@@ -5310,6 +5376,9 @@
         }
       }
     },
+    "Encoding video…" : {
+
+    },
     "Ends" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5351,6 +5420,9 @@
           }
         }
       }
+    },
+    "Estimated progress: %lld%%" : {
+
     },
     "Evening" : {
       "localizations" : {
@@ -6224,6 +6296,9 @@
         }
       }
     },
+    "Frames: %@" : {
+
+    },
     "Free" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6416,6 +6491,9 @@
         }
       }
     },
+    "Generate" : {
+
+    },
     "Generate a new cover?" : {
 
     },
@@ -6438,7 +6516,14 @@
         }
       }
     },
+    "Generate Video" : {
+
+    },
+    "Generation uses points. Audio and video design are saved for future playback. Keep the app open while the video renders. Each version is kept until you remove it." : {
+
+    },
     "Generation uses points. Audio is saved for future playback. Regeneration creates a new episode using the current chips and selected language." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -6888,18 +6973,19 @@
         }
       }
     },
-    "Includes all readable summary chips saved or opened on this day, across feed filters. The agent chooses the hosts. Up to 24 chips per episode." : {
+    "Includes all readable summary chips saved or opened on this day, across feed filters. The agent chooses the hosts." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "包含当天保存或打开的所有可读摘要，不受动态筛选影响。AI 自动选择主持人，每集最多 24 条摘要。"
+            "value" : "包含当天保存或打开的所有可读摘要，不受动态筛选影响。AI 自动选择主持人。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "包含當天儲存或開啟的所有可讀摘要，不受動態篩選影響。AI 自動選擇主持人，每集最多 24 則摘要。"
+            "value" : "包含當天儲存或開啟的所有可讀摘要，不受動態篩選影響。AI 自動選擇主持人。"
           }
         }
       }
@@ -6960,6 +7046,9 @@
 
     },
     "Item" : {
+
+    },
+    "Its share links will stop working. If it is the default, another version will become the default." : {
 
     },
     "Journey's end" : {
@@ -7610,6 +7699,9 @@
         }
       }
     },
+    "Loading chips…" : {
+
+    },
     "Loading clients…" : {
 
     },
@@ -7714,6 +7806,9 @@
           }
         }
       }
+    },
+    "Loading versions…" : {
+
     },
     "Loading your clips…" : {
       "localizations" : {
@@ -7981,6 +8076,9 @@
         }
       }
     },
+    "Manage Versions" : {
+
+    },
     "Manage…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8035,6 +8133,9 @@
           }
         }
       }
+    },
+    "Media" : {
+
     },
     "Meet your Trip Diary" : {
 
@@ -8262,6 +8363,9 @@
 
     },
     "New cover ready" : {
+
+    },
+    "New Daily Podcast" : {
 
     },
     "New Day" : {
@@ -8990,6 +9094,9 @@
           }
         }
       }
+    },
+    "No Versions" : {
+
     },
     "No Versions Yet" : {
 
@@ -10470,6 +10577,12 @@
         }
       }
     },
+    "Podcast" : {
+
+    },
+    "Podcast Options" : {
+
+    },
     "Podcast playback position" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10485,6 +10598,12 @@
           }
         }
       }
+    },
+    "Podcast Unavailable" : {
+
+    },
+    "Podcast Versions" : {
+
     },
     "Point of interest" : {
       "localizations" : {
@@ -10679,6 +10798,9 @@
         }
       }
     },
+    "Preparing video…" : {
+
+    },
     "Preview" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10820,6 +10942,15 @@
           }
         }
       }
+    },
+    "Publish Video" : {
+
+    },
+    "Published to share links" : {
+
+    },
+    "Publishing uploads the video so this episode's web share links play it. Manage links from Publish to Web in the podcast menu." : {
+
     },
     "Purchase limit reached" : {
       "localizations" : {
@@ -11286,6 +11417,9 @@
     "Remove Member" : {
 
     },
+    "Remove Published Video" : {
+
+    },
     "Remove the association with this summary and any saved copy. The original file in Files and the summary are kept." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11302,10 +11436,22 @@
         }
       }
     },
+    "Remove the published video?" : {
+
+    },
     "Remove this member?" : {
 
     },
+    "Remove this podcast version?" : {
+
+    },
     "Remove this trip from your calendar?" : {
+
+    },
+    "Remove Version" : {
+
+    },
+    "Remove Video" : {
 
     },
     "Removed" : {
@@ -11460,6 +11606,9 @@
         }
       }
     },
+    "Rendering video…" : {
+
+    },
     "Replace file link…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11483,6 +11632,7 @@
 
     },
     "Replace this day's podcast?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -11670,6 +11820,12 @@
           }
         }
       }
+    },
+    "Retry" : {
+
+    },
+    "Retry Video" : {
+
     },
     "Return" : {
       "comment" : "Trip route kind: heading back",
@@ -11991,6 +12147,7 @@
       }
     },
     "Saved summaries and images are removed from this device. Your summaries stay in your account." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -12005,6 +12162,9 @@
           }
         }
       }
+    },
+    "Saved summaries, images and podcast audio are removed from this device. Your summaries stay in your account." : {
+
     },
     "Saved to Clips." : {
 
@@ -12106,6 +12266,9 @@
         }
       }
     },
+    "Search chips" : {
+
+    },
     "Search Maps" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12169,6 +12332,9 @@
           }
         }
       }
+    },
+    "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : {
+
     },
     "Search your summaries and the web, and explore answers in tables and charts." : {
 
@@ -12380,6 +12546,9 @@
         }
       }
     },
+    "Select All" : {
+
+    },
     "Select some text or a link to summarize." : {
       "localizations" : {
         "zh-Hans" : {
@@ -12465,6 +12634,9 @@
         }
       }
     },
+    "Set as Default" : {
+
+    },
     "Set as Main File" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12547,6 +12719,9 @@
           }
         }
       }
+    },
+    "Share links will play audio. You can publish this video again later." : {
+
     },
     "Share on your terms" : {
       "localizations" : {
@@ -13924,6 +14099,9 @@
         }
       }
     },
+    "The podcast will be removed from your library." : {
+
+    },
     "The required package is added to the main file. You can keep editing the figure after saving." : {
 
     },
@@ -14193,6 +14371,7 @@
       }
     },
     "This uses points. Your saved episode stays available if generation fails." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -15012,6 +15191,9 @@
         }
       }
     },
+    "Updating podcasts…" : {
+
+    },
     "Updating the trip…" : {
 
     },
@@ -15386,6 +15568,9 @@
           }
         }
       }
+    },
+    "Video only" : {
+
     },
     "View" : {
 
@@ -16061,6 +16246,9 @@
           }
         }
       }
+    },
+    "Your audio was saved, but video design was unavailable. Retry Video to generate a video for this recording." : {
+
     },
     "Your Feed history of opened summaries" : {
       "localizations" : {

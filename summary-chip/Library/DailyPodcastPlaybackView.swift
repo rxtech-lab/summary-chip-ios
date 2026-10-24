@@ -1,3 +1,4 @@
+import AVKit
 import SummaryKit
 import SwiftUI
 
@@ -12,6 +13,10 @@ struct DailyPodcastPlaybackView: View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
                 Color.black
+                if podcast.video != nil {
+                    VideoPlayer(player: player.videoPlayer)
+                        .accessibilityIdentifier("podcast-video-player")
+                } else {
                 if let segment = player.segment {
                     SummaryRemoteImage(url: api.dailyPodcastImageURL(segment.imagePath), authorized: true) {
                         Text(segment.icon).font(.system(size: 120))
@@ -55,10 +60,24 @@ struct DailyPodcastPlaybackView: View {
                 .frame(maxWidth: 680)
                 .glassEffect(.regular.tint(.black.opacity(0.25)), in: .rect(cornerRadius: 24))
                 .padding(16)
+                }
             }
             .environment(\.colorScheme, .dark)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
+        }
+        .overlay {
+            if podcast.video != nil && player.buffering {
+                VStack(spacing: 12) {
+                    Text(player.videoProgress?.stage == .rendering ? "Rendering video…" : "Preparing video…")
+                    ProgressView(value: player.videoProgress?.fraction ?? 0).frame(width: 200)
+                    if let detail = player.videoProgress?.frameDetail { Text("Frames: \(detail)").monospacedDigit() }
+                }
+                .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+        .task(id: podcast.video?.id) {
+            if podcast.video != nil && player.videoPlayer == nil && !player.playing && !player.buffering { player.toggle() }
         }
         .sensoryFeedback(.selection, trigger: taps)
     }

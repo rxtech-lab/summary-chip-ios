@@ -17,7 +17,7 @@ export const VISIBILITIES = ["public", "private"] as const;
  * What a library item is: a summary card, a trip diary (its structured document lives in `trips`)
  * or a LaTeX paper (its source files live in `papers`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -293,6 +293,8 @@ export const paperReferenceChecks = sqliteTable("paper_reference_checks", {
   checkedAt: integer("checked_at", { mode: "timestamp_ms" }),
 }, (table) => [
   primaryKey({ columns: [table.summaryId, table.hash] }),
+  // Covers the frequently polled status read without fetching each row from the table.
+  index("paper_reference_checks_status_cover_idx").on(table.summaryId, table.hash, table.status, table.issue, table.message, table.startedAt, table.checkedAt),
 ]);
 
 export type PaperReferenceCheckRow = typeof paperReferenceChecks.$inferSelect;
@@ -716,3 +718,15 @@ export const miniAppRuns = sqliteTable("mini_app_runs", {
   result: text("result", { mode: "json" }).$type<import("@/lib/contracts/mini-app").Json>(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
 }, t => [uniqueIndex("mini_run_key_idx").on(t.appId, t.userId, t.key), index("mini_run_time_idx").on(t.createdAt)]);
+
+/** Episode catalogue. Recordings stay in object storage; tombstones revoke removed episodes. */
+export const podcastEpisodes = sqliteTable("podcast_episodes", {
+  key: text("key").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  dayStart: integer("day_start").notNull(),
+  dayEnd: integer("day_end").notNull(),
+  document: text("document", { mode: "json" }).$type<import("@/lib/contracts/daily-podcast").DailyPodcast>().notNull(),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
+  summaryId: text("summary_id").references(() => summaries.id, { onDelete: "cascade" }),
+}, (table) => [index("podcast_episodes_day_idx").on(table.ownerId, table.dayStart, table.dayEnd)]);
