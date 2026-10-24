@@ -1,3 +1,6 @@
+import { writePodcast, type PodcastInput } from "./podcast-agent";
+import { composeMusic, musicModelId, musicUsdPerClip } from "./music";
+import type { PodcastScript } from "@/lib/contracts/daily-podcast";
 import type { SummaryKind } from "@/lib/db/schema";
 import { embedMany, experimental_evaluate as evaluate, generateImage, generateSpeech, generateText, Output, type LanguageModel, type LanguageModelUsage } from "ai";
 import { TRANSLATION_LANGUAGES, type OutputLanguage, type TranslationLanguage } from "@/lib/contracts/api";
@@ -174,6 +177,7 @@ export interface AiProvider {
   /** The chat model's API list price, or null when the catalog has none. */
   chatPricing(): Promise<ModelPricing | null>;
   /** Narration for every scene of a trip tour, in order, from the tour model. Throws when it failed. */
+  writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript>;
   narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]>;
   /** Gateway id of the tour model (`AI_TOUR_MODEL`), recorded on the points it charges. */
   tourModelId(): string;
@@ -184,7 +188,13 @@ export interface AiProvider {
   /** The speech model's price per spoken character in USD. */
   speechUsdPerCharacter(): number;
   /** `text` read aloud by `voice`, as MP3 audio. Throws when it failed. */
-  speak(text: string, voice: string): Promise<{ bytes: Uint8Array; mediaType: string }>;
+  speak(text: string, voice: string, options?: { abortSignal?: AbortSignal }): Promise<{ bytes: Uint8Array; mediaType: string }>;
+  /** Id of the Lyria model that writes podcast theme music (`AI_MUSIC_MODEL`); null when music is disabled. */
+  musicModelId(): string | null;
+  /** The music model's price per generated clip in USD. */
+  musicUsdPerClip(): number;
+  /** An instrumental MP3 clip for `prompt`. Throws when it failed. */
+  composeMusic(prompt: string, options?: { abortSignal?: AbortSignal }): Promise<Uint8Array>;
   /** Id of the embedding model `embed` uses, or null when semantic search is disabled. */
   embeddingModelId(): string | null;
   /** One embedding per value, in order. Throws when the model is unavailable. */
@@ -568,6 +578,10 @@ export class GatewayAiProvider implements AiProvider {
     return textModelPricing(tourModelId());
   }
 
+  writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript> {
+    return writePodcast(tourModel(), input, options);
+  }
+
   speechModelId(): string | null {
     return speechModelId();
   }
@@ -576,17 +590,30 @@ export class GatewayAiProvider implements AiProvider {
     return speechUsdPerCharacter();
   }
 
-  async speak(text: string, voice: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+  async speak(text: string, voice: string, options?: { abortSignal?: AbortSignal }): Promise<{ bytes: Uint8Array; mediaType: string }> {
     const modelId = speechModelId();
     if (!modelId) throw new Error("AI_SPEECH_MODEL is not set");
     const { audio } = await generateSpeech({
       model: speechModel(modelId),
       text,
       voice,
+      outputFormat: "mp3",
       maxRetries: 2,
-      abortSignal: AbortSignal.timeout(45_000),
+      abortSignal: options?.abortSignal ? AbortSignal.any([options.abortSignal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
     });
     return { bytes: audio.uint8Array, mediaType: audio.mediaType || "audio/mpeg" };
+  }
+
+  musicModelId(): string | null {
+    return musicModelId();
+  }
+
+  musicUsdPerClip(): number {
+    return musicUsdPerClip();
+  }
+
+  composeMusic(prompt: string, options?: { abortSignal?: AbortSignal }): Promise<Uint8Array> {
+    return composeMusic(prompt, options);
   }
 
   embeddingModelId(): string | null {

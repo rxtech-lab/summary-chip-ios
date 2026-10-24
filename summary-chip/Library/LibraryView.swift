@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LibraryView: View {
     @Bindable var environment: AppEnvironment
+    @State private var podcastTaps = 0
     @State private var showsFilters = false
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
@@ -58,6 +59,7 @@ struct LibraryView: View {
                     if isMiniApps && path.isEmpty { Task { await model.reload() } }
                 }
                 .toolbar { libraryToolbar }
+                .sensoryFeedback(.selection, trigger: podcastTaps)
                 .sheet(isPresented: $showsFilters) {
                     LibraryFilterSheet(model: model) { applyFilter($0) }
                 }
@@ -281,6 +283,9 @@ struct LibraryView: View {
             // Clips are a plain grid; only the Feed is grouped by day with a timeline.
             SummaryCardFeed(entries: model.entries, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
                 Task { await model.loadMore() }
+            }, onPlayDay: { day in
+                podcastTaps += 1
+                environment.podcastPlayer.present(date: day)
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) {
                     Task {

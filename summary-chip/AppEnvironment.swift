@@ -39,6 +39,7 @@ final class AppEnvironment {
     let authManager: OAuthManager
     let tokenBroker: SharedTokenBroker
     let api: SummaryAPIClient
+    let podcastPlayer: DailyPodcastPlayer
     let chatClient: ChatStreamClient
     let chatStore = ChatTranscriptStore()
     let assetLoader: SummaryAssetLoader
@@ -64,6 +65,7 @@ final class AppEnvironment {
         self.authManager = authManager
         self.tokenBroker = tokenBroker
         self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker, session: session)
+        self.podcastPlayer = DailyPodcastPlayer(api: api)
         self.chatClient = ChatStreamClient(api: api)
         self.assetLoader = SummaryAssetLoader(tokenProvider: tokenBroker)
         let offline = OfflineSummaryStore()
@@ -204,6 +206,7 @@ final class AppEnvironment {
     }
 
     func signOut() async {
+        podcastPlayer.close()
         authenticationState = .signedOut
         await SummaryNotifications.shared.signOut()
         try? await tokenBroker.logout()

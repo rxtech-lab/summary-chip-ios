@@ -1,0 +1,5 @@
+simulation: daily-podcast
+routing: path
+mocks:
+  - routeKey: gateway
+    path: ../mocks/podcast-gateway/config.yaml

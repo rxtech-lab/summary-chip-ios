@@ -241,3 +241,12 @@ export function reserveTourPoints(userId: string, tripId: string, key: string, m
     },
   });
 }
+
+/** Holds points for a daily podcast, including all persisted speech. */
+export function reservePodcastPoints(userId: string, key: string, model: string, environment?: BillingEnvironment): Promise<ChatCharge | null> {
+  return holdPoints({ userId, key: `podcast:${key}`, description: `Daily podcast (${model})`,
+    metadata: { podcastKey: key, model }, environment,
+    codes: { exhausted: "PODCAST_POINTS_EXHAUSTED", exhaustedMessage: "Making a podcast uses points and your balance is empty.",
+      notConfigured: "PODCAST_BILLING_NOT_CONFIGURED", unavailable: "PODCAST_BILLING_UNAVAILABLE",
+      unavailableMessage: "Your points balance could not be checked. Please try again." } });
+}

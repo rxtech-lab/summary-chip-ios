@@ -7,6 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C2F5BD98EB6C436C4B6ADC8A /* DailyPodcastPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA39C2C4E325FDA3A945F9E /* DailyPodcastPresentation.swift */; };
+		5764D7FA154671FF6F5B82E7 /* PodcastMediaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162DDBAE0810E33B6D19CC32 /* PodcastMediaTests.swift */; };
+		42CAE4FB60FDB8FA77B4BEBC /* PodcastMediaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162DDBAE0810E33B6D19CC32 /* PodcastMediaTests.swift */; };
+		7B7CC3A0A7B98BA25B9E3D73 /* PodcastVideoExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C663B3B4F0B415BC17B14378 /* PodcastVideoExporter.swift */; };
+		C1108D6DAB66917D27173B8A /* DailyPodcastDownloadSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6A7AF084AB86C29C5E6D9D /* DailyPodcastDownloadSheet.swift */; };
+		DEFB30113A88C6E118AAA001 /* DailyPodcastSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB30113A88C6E118AAA002 /* DailyPodcastSharingSheet.swift */; };
+		1319B7B88F81E3146E156441 /* DailyPodcastPlaybackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541DB2971186B85F0C1632A0 /* DailyPodcastPlaybackView.swift */; };
+		1B100A277AC1AFC72D7DE1C1 /* DailyPodcastPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3115FF3BD9076D93F2CD45 /* DailyPodcastPlayer.swift */; };
+		70173702CECA1279668E0704 /* DailyPodcastUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B905F66CE6D07DBBE999FE /* DailyPodcastUITests.swift */; };
+		419C5BE61D753A76E16E83A8 /* DailyPodcastSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2FF3660A86B756EB98D0B7 /* DailyPodcastSheet.swift */; };
 		EA54B33D6E414B13A6507440 /* MCPConnectedClientsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA54B33D6E414B13A6507441 /* MCPConnectedClientsList.swift */; };
 		01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */; };
 		0311AC9C6C371D5C0E1F4029 /* TripWeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */; };
@@ -299,6 +309,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2DA39C2C4E325FDA3A945F9E /* DailyPodcastPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastPresentation.swift; sourceTree = "<group>"; };
+		162DDBAE0810E33B6D19CC32 /* PodcastMediaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastMediaTests.swift; sourceTree = "<group>"; };
+		C663B3B4F0B415BC17B14378 /* PodcastVideoExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastVideoExporter.swift; sourceTree = "<group>"; };
+		CF6A7AF084AB86C29C5E6D9D /* DailyPodcastDownloadSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastDownloadSheet.swift; sourceTree = "<group>"; };
+		DEFB30113A88C6E118AAA002 /* DailyPodcastSharingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastSharingSheet.swift; sourceTree = "<group>"; };
+		541DB2971186B85F0C1632A0 /* DailyPodcastPlaybackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastPlaybackView.swift; sourceTree = "<group>"; };
+		DD3115FF3BD9076D93F2CD45 /* DailyPodcastPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastPlayer.swift; sourceTree = "<group>"; };
+		34B905F66CE6D07DBBE999FE /* DailyPodcastUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastUITests.swift; sourceTree = "<group>"; };
+		ED2FF3660A86B756EB98D0B7 /* DailyPodcastSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastSheet.swift; sourceTree = "<group>"; };
 		EA54B33D6E414B13A6507441 /* MCPConnectedClientsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPConnectedClientsList.swift; sourceTree = "<group>"; };
 		039377FBF175910630ECE7A3 /* MiniAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppUITests.swift; sourceTree = "<group>"; };
 		03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMarkdownSheet.swift; sourceTree = "<group>"; };
@@ -871,6 +890,13 @@
 		AC6E376587C95424EC5E504B /* Library */ = {
 			isa = PBXGroup;
 			children = (
+				DD3115FF3BD9076D93F2CD45 /* DailyPodcastPlayer.swift */,
+				541DB2971186B85F0C1632A0 /* DailyPodcastPlaybackView.swift */,
+				CF6A7AF084AB86C29C5E6D9D /* DailyPodcastDownloadSheet.swift */,
+				DEFB30113A88C6E118AAA002 /* DailyPodcastSharingSheet.swift */,
+				C663B3B4F0B415BC17B14378 /* PodcastVideoExporter.swift */,
+				2DA39C2C4E325FDA3A945F9E /* DailyPodcastPresentation.swift */,
+				ED2FF3660A86B756EB98D0B7 /* DailyPodcastSheet.swift */,
 				A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */,
 				E23C89ED2552FEF380370664 /* LibraryModel.swift */,
 				834E013F2DE722C876CEECE6 /* LibraryView.swift */,
@@ -977,6 +1003,7 @@
 			isa = PBXGroup;
 			children = (
 				966BD9AAC4D5E170088B47FB /* AppRouteTests.swift */,
+				162DDBAE0810E33B6D19CC32 /* PodcastMediaTests.swift */,
 				79E0B144D599007182517D3F /* OnboardingTests.swift */,
 				A35B2DC4D2CF3B92E7D0AFEA /* PaperImageImportTests.swift */,
 				42BEBC1DCD62F1EF24ECF546 /* SummaryCreditsTests.swift */,
@@ -998,6 +1025,7 @@
 			children = (
 				9236C39688F07F83A5447905 /* ChatScrollDiagUITests.swift */,
 				A0EE92E3D91BF8D316B87E40 /* ChatStreamingUITests.swift */,
+				34B905F66CE6D07DBBE999FE /* DailyPodcastUITests.swift */,
 				095D3B67DF34AC1B37AEBEDB /* DeepLinkLikesUITests.swift */,
 				81068B73DA4992674C619696 /* LocalFileUITests.swift */,
 				6EDF44D7F681010B915C84F5 /* MiniAppUITests.swift */,
@@ -1371,6 +1399,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D68A99185E64B4485E123128 /* AppRouteTests.swift in Sources */,
+				42CAE4FB60FDB8FA77B4BEBC /* PodcastMediaTests.swift in Sources */,
 				6DC4FB5B68F8F16C4946EC96 /* OnboardingTests.swift in Sources */,
 				C79F0E94E211994C23BEDC21 /* PaperImageImportTests.swift in Sources */,
 				6FCBCB6B1D856B21ACC438FD /* SummaryCreditsTests.swift in Sources */,
@@ -1415,6 +1444,13 @@
 				8D2CB98316BE3106C45AB8D9 /* CreditsPreviewHost.swift in Sources */,
 				35471ED19EC8581225457621 /* CurrencyConversionSheet.swift in Sources */,
 				DC1C24635EF7D960A7952546 /* CurrencyConverter.swift in Sources */,
+				1B100A277AC1AFC72D7DE1C1 /* DailyPodcastPlayer.swift in Sources */,
+				1319B7B88F81E3146E156441 /* DailyPodcastPlaybackView.swift in Sources */,
+				C1108D6DAB66917D27173B8A /* DailyPodcastDownloadSheet.swift in Sources */,
+				DEFB30113A88C6E118AAA001 /* DailyPodcastSharingSheet.swift in Sources */,
+				7B7CC3A0A7B98BA25B9E3D73 /* PodcastVideoExporter.swift in Sources */,
+				C2F5BD98EB6C436C4B6ADC8A /* DailyPodcastPresentation.swift in Sources */,
+				419C5BE61D753A76E16E83A8 /* DailyPodcastSheet.swift in Sources */,
 				1527B842A732CEAB80A0C9D3 /* DayEditorSheet.swift in Sources */,
 				50EFF8AAC646DB16E7B14324 /* DeleteAccountSheet.swift in Sources */,
 				8A5DC833C29F1812C18023E6 /* DeleteSummarySheet.swift in Sources */,
@@ -1536,6 +1572,7 @@
 			files = (
 				7CBD89FC124DB1D258F3264D /* ChatScrollDiagUITests.swift in Sources */,
 				778C65CC484111EF946501C3 /* ChatStreamingUITests.swift in Sources */,
+				70173702CECA1279668E0704 /* DailyPodcastUITests.swift in Sources */,
 				3A70B49ED4D615DBEFE3BE63 /* DeepLinkLikesUITests.swift in Sources */,
 				C723705078F709EBE7A4ED72 /* LocalFileUITests.swift in Sources */,
 				1A5DE95F87FE25E99761C56F /* MiniAppUITests.swift in Sources */,
@@ -1572,6 +1609,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D617A241D43F8BBD1AE22B28 /* AppRouteTests.swift in Sources */,
+				5764D7FA154671FF6F5B82E7 /* PodcastMediaTests.swift in Sources */,
 				0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */,
 				5DD0A24CB85D83DFDA73CA9F /* PaperImageImportTests.swift in Sources */,
 				075EC82989959A4C8A7E69C5 /* SummaryCreditsTests.swift in Sources */,

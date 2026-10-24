@@ -1,3 +1,4 @@
+import type { PodcastInput } from "./podcast-agent";
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import type { TranslationLanguage } from "@/lib/contracts/api";
@@ -34,6 +35,7 @@ export class MockAiProvider implements AiProvider {
     illustrate: DesignInput[];
     narrateTour: TourNarrationInput[];
     speak: string[];
+    composeMusic: string[];
   } = {
     isSharedLink: [],
     summarize: [],
@@ -52,6 +54,7 @@ export class MockAiProvider implements AiProvider {
     illustrate: [],
     narrateTour: [],
     speak: [],
+    composeMusic: [],
   };
 
   /** A share snippet is a URL with under 200 characters of accompanying text. */
@@ -240,6 +243,11 @@ export class MockAiProvider implements AiProvider {
     return this.pricing;
   }
 
+  async writePodcast(input: PodcastInput) {
+    return { title: "Your daily podcast", mood: "calm" as const, speakers: [{ name: "Alex", voice: input.voices[0] }],
+      segments: input.chips.map((chip) => ({ speaker: 0, chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
+  }
+
   speechModelId(): string | null {
     return "mock/speech";
   }
@@ -251,7 +259,35 @@ export class MockAiProvider implements AiProvider {
 
   async speak(text: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
     this.calls.speak.push(text);
-    return { bytes: new TextEncoder().encode(`ID3 mock audio: ${text}`), mediaType: "audio/mpeg" };
+    // A valid ID3 title keeps tests able to identify which text was spoken, followed by silent MP3 frames.
+    const title = new TextEncoder().encode(text);
+    const tagSize = 11 + title.length;
+    const bytes = new Uint8Array(10 + tagSize + 417 * 4);
+    const syncsafe = (size: number) => [(size >> 21) & 127, (size >> 14) & 127, (size >> 7) & 127, size & 127];
+    bytes.set([73, 68, 51, 4, 0, 0, ...syncsafe(tagSize)]);
+    bytes.set([84, 73, 84, 50, ...syncsafe(title.length + 1), 0, 0, 3], 10);
+    bytes.set(title, 21);
+    for (let at = 10 + tagSize; at < bytes.length; at += 417) bytes.set([0xff, 0xfb, 0x90, 0xc0], at);
+    return { bytes, mediaType: "audio/mpeg" };
+  }
+
+  /** Music is off unless a test opts in, keeping other podcast tests on the plain recording. */
+  music = false;
+
+  musicModelId(): string | null {
+    return this.music ? "mock/music" : null;
+  }
+
+  musicUsdPerClip(): number {
+    return 0.04;
+  }
+
+  async composeMusic(prompt: string): Promise<Uint8Array> {
+    this.calls.composeMusic.push(prompt);
+    // Two seconds of silent stereo 44.1 kHz frames.
+    const bytes = new Uint8Array(417 * 77);
+    for (let at = 0; at < bytes.length; at += 417) bytes.set([0xff, 0xfb, 0x90, 0x00], at);
+    return bytes;
   }
 
   embeddingModelId(): string | null {

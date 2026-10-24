@@ -120,6 +120,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     /// Each owned summary's versions as made so far (oldest first), created on first use.
     private var versionHistory: [String: [[String: Any]]] = [:]
     /// The paper's figure (also drawn TikZ figures) and its compiled PDF, made on the main actor.
+    private var dailyPodcasts: [String: [String: Any]] = [:]
     private var paperImage = Data()
     private var paperPDF = Data()
     private let items: [Item]
@@ -195,37 +196,17 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         guard parts.count >= 3, parts[0] == "api", parts[1] == "v1" else { return notFound }
         let path = Array(parts.dropFirst(2))
         let id = path.count > 1 ? path[1] : ""
+        if path.first == "daily-podcasts" {
+            return routePodcast(request, path: path, method: method, query: query)
+        }
         switch (method, path.first ?? "", path.count) {
         case ("GET", "summaries", 1):
-            let liked = query.first { $0.name == "scope" }?.value == "liked"
-            let kind = query.first { $0.name == "kind" }?.value
-            let excludedKind = query.first { $0.name == "excludeKind" }?.value
-            let listed = items.filter { item in
-                (kind == nil || item.kind == kind) && item.kind != excludedKind &&
-                (liked ? likes[item.id] != nil : !item.isExpired && (item.isOwner || viewed.contains(item.id)))
-            }
-            .sorted { sortDate($0, liked: liked) > sortDate($1, liked: liked) }
-            return json(["items": listed.map(summary), "nextCursor": NSNull()])
+            return libraryResponse(query: query)
         case ("GET", "summaries", 2):
             guard let item = items.first(where: { $0.id == id }), !item.isExpired else { return notFound }
             return json(summary(item))
         case ("GET", "mini-apps", 2) where id == "clip-01":
-            // Its own tab bar, so the screenshots show it replacing the app's on iPhone.
-            var document = MiniAppDocument.blank(title: "Pocket Checklist")
-            document.ui.elements = [
-                "root": MiniAppNode(type: "Navigation", props: ["title": .string("Pocket Checklist")], children: ["tabs"]),
-                "tabs": MiniAppNode(type: "Tabs", children: ["today", "done"]),
-                "today": MiniAppNode(type: "Tab", props: ["title": .string("Today"), "icon": .string("checklist"), "badge": .string("2")], children: ["todayCard"]),
-                "todayCard": MiniAppNode(type: "Card", props: ["title": .string("To do")], children: ["task1", "task2"]),
-                "task1": MiniAppNode(type: "Text", props: ["text": .string("Water the plants")]),
-                "task2": MiniAppNode(type: "Text", props: ["text": .string("Pack the rail pass")]),
-                "done": MiniAppNode(type: "Tab", props: ["title": .string("Done"), "icon": .string("checkmark.circle")], children: ["doneCard"]),
-                "doneCard": MiniAppNode(type: "Card", props: ["title": .string("Finished")], children: ["task3"]),
-                "task3": MiniAppNode(type: "Text", props: ["text": .string("Book the night train")])
-            ]
-            let encoded = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(document))) ?? [:]
-            return json(["app": ["id": id, "document": encoded, "revision": 0, "isOwner": true,
-                                  "shareUrl": "https://summary.rxlab.app/s/P0cketClip", "permissions": [:]]])
+            return miniAppResponse(id: id)
         case ("PUT", "summaries", 3) where path[2] == "like":
             guard let item = items.first(where: { $0.id == id }), !item.isExpired else { return notFound }
             if likes[id] == nil { likes[id] = .now }
@@ -586,5 +567,73 @@ nonisolated enum LikesPreviewPaper {
           year = 1984,
         }
         """#
+}
+
+private extension LikesPreviewStore {
+    nonisolated func libraryResponse(query: [URLQueryItem]) -> (Int, Data) {
+        let liked = query.first { $0.name == "scope" }?.value == "liked"
+        let kind = query.first { $0.name == "kind" }?.value
+        let excludedKind = query.first { $0.name == "excludeKind" }?.value
+        let listed = items.filter { item in
+            (kind == nil || item.kind == kind) && item.kind != excludedKind &&
+            (liked ? likes[item.id] != nil : !item.isExpired && (item.isOwner || viewed.contains(item.id)))
+        }
+        .sorted { sortDate($0, liked: liked) > sortDate($1, liked: liked) }
+        return json(["items": listed.map(summary), "nextCursor": NSNull()])
+    }
+
+    nonisolated func miniAppResponse(id: String) -> (Int, Data) {
+        // Its own tab bar, so the screenshots show it replacing the app's on iPhone.
+        var document = MiniAppDocument.blank(title: "Pocket Checklist")
+        document.ui.elements = [
+            "root": MiniAppNode(type: "Navigation", props: ["title": .string("Pocket Checklist")], children: ["tabs"]),
+            "tabs": MiniAppNode(type: "Tabs", children: ["today", "done"]),
+            "today": MiniAppNode(type: "Tab", props: ["title": .string("Today"), "icon": .string("checklist"), "badge": .string("2")], children: ["todayCard"]),
+            "todayCard": MiniAppNode(type: "Card", props: ["title": .string("To do")], children: ["task1", "task2"]),
+            "task1": MiniAppNode(type: "Text", props: ["text": .string("Water the plants")]),
+            "task2": MiniAppNode(type: "Text", props: ["text": .string("Pack the rail pass")]),
+            "done": MiniAppNode(type: "Tab", props: ["title": .string("Done"), "icon": .string("checkmark.circle")], children: ["doneCard"]),
+            "doneCard": MiniAppNode(type: "Card", props: ["title": .string("Finished")], children: ["task3"]),
+            "task3": MiniAppNode(type: "Text", props: ["text": .string("Book the night train")])
+        ]
+        let encoded = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(document))) ?? [:]
+        return json(["app": ["id": id, "document": encoded, "revision": 0, "isOwner": true,
+                              "shareUrl": "https://summary.rxlab.app/s/P0cketClip", "permissions": [:]]])
+    }
+
+    nonisolated func routePodcast(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
+        let dayKey = query.first { $0.name == "start" }?.value ?? ""
+        let duration = ProcessInfo.processInfo.arguments.contains("--preview-podcast-navigation") ? 60 : 2
+        if method == "GET", path.count == 1 {
+            return json(["podcast": dailyPodcasts[dayKey].map { $0 as Any } ?? NSNull()])
+        }
+        if method == "POST", path.count == 1 {
+            let data = request.httpBodyStream.map(Self.read) ?? request.httpBody ?? Data()
+            let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+            let day = body["day"] as? [String: String] ?? [:]
+            let key = UUID().uuidString.lowercased()
+            let podcast: [String: Any] = [
+                "key": key, "title": "A day of discoveries", "language": body["language"] ?? "en",
+                "audioPath": "/api/v1/daily-podcasts/\(key)/audio", "durationSeconds": duration,
+                "createdAt": iso(.now), "speakers": [["name": "Alex", "voice": "preview"]],
+                "segments": [["speaker": 0, "startSeconds": 0, "endSeconds": duration, "chipId": "s-coffee", "caption": "Today we explore how coffee growers and specialty roasters work together to secure better harvests.",
+                              "audioPath": "/api/v1/daily-podcasts/\(key)/segments/0", "icon": "☕️"]]
+            ]
+            dailyPodcasts[day["start"] ?? ""] = podcast
+            return json(["podcast": podcast])
+        }
+        if method == "GET", path.count == 3, path[2] == "audio" {
+            // A short PCM WAV fixture: AVAudioPlayer accepts the file signature regardless of the endpoint suffix.
+            var wav = Data()
+            func word<T: FixedWidthInteger>(_ value: T) { var n = value.littleEndian; withUnsafeBytes(of: &n) { wav.append(contentsOf: $0) } }
+            let count = UInt32(duration * 16_000)
+            wav.append(Data("RIFF".utf8)); word(count + 36); wav.append(Data("WAVEfmt ".utf8))
+            word(UInt32(16)); word(UInt16(1)); word(UInt16(1)); word(UInt32(8_000)); word(UInt32(16_000))
+            word(UInt16(2)); word(UInt16(16)); wav.append(Data("data".utf8)); word(count)
+            wav.append(Data(repeating: 0, count: Int(count)))
+            return (200, wav)
+        }
+        return notFound
+    }
 }
 #endif

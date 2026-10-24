@@ -414,7 +414,7 @@ public final class SummaryAPIClient: Sendable {
     func applyBillingProof(to request: inout URLRequest) async {
         let path = request.url?.path
         guard path == "/api/v1/billing" ||
-            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat"
+            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat" || path == "/api/v1/daily-podcasts"
                 || Self.isTripIngestPath(path) || Self.isTripTourPath(path))),
             let proof = await billingProofProvider() else { return }
         switch proof {

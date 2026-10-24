@@ -147,7 +147,7 @@ const shareLinkEmailsSchema = z.array(z.string().trim().toLowerCase().pipe(z.ema
   .max(MAX_SHARE_LINK_EMAILS)
   .transform((emails) => [...new Set(emails)]);
 
-const shareLinkLabelSchema = z.string().trim().max(80).nullable().transform((value) => value || null);
+export const shareLinkLabelSchema = z.string().trim().max(80).nullable().transform((value) => value || null);
 
 /** `POST /api/v1/summaries/:id/links`. An `invited` link needs at least one email. */
 export const createShareLinkSchema = z.object({

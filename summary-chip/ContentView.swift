@@ -36,6 +36,7 @@ struct ContentView: View {
                 .accessibilityIdentifier("rxauth-sign-in")
             case .signedIn:
                 signedInContent
+                    .modifier(DailyPodcastPresentation(environment: environment))
                     // Dropping a file or link anywhere in the window opens New Summary with it.
                     .summaryDropDestination(isEnabled: presentation == nil) {
                         isDropTargeted = $0
@@ -73,6 +74,7 @@ struct ContentView: View {
             if state == .signedIn {
                 presentNext()
             } else {
+                environment.podcastPlayer.close()
                 presentation = nil
             }
         }

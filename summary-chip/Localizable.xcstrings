@@ -345,6 +345,28 @@
         }
       }
     },
+    "%lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %1$lld / %2$lld 段"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %1$lld / %2$lld 段"
+          }
+        }
+      }
+    },
     "%lld options" : {
 
     },
@@ -2009,6 +2031,38 @@
     "Ask, or paste a booking or link" : {
 
     },
+    "Audio (MP3)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频（MP3）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音訊（MP3）"
+          }
+        }
+      }
+    },
+    "Audio saves the complete podcast as MP3. Video includes the cover images, speakers and captions as MP4." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频将完整播客保存为 MP3。视频将封面图片、主持人和字幕保存为 MP4。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音訊會將完整 Podcast 儲存為 MP3。影片會將封面圖片、主持人與字幕儲存為 MP4。"
+          }
+        }
+      }
+    },
     "Authorized Apps" : {
 
     },
@@ -2075,6 +2129,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "返回"
+          }
+        }
+      }
+    },
+    "Back 15 Seconds" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后退 15 秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倒退 15 秒"
           }
         }
       }
@@ -2990,6 +3060,22 @@
         }
       }
     },
+    "Close Player" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭播放器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉播放器"
+          }
+        }
+      }
+    },
     "Close Search" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3407,6 +3493,22 @@
     "Couldn’t Disconnect Client" : {
 
     },
+    "Couldn't Download Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法下载播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法下載 Podcast"
+          }
+        }
+      }
+    },
     "Couldn't Export Paper" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3461,11 +3563,43 @@
     "Couldn't Generate Cover" : {
 
     },
+    "Couldn't Generate Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法生成播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法產生 Podcast"
+          }
+        }
+      }
+    },
     "Couldn't Import Image" : {
 
     },
     "Couldn’t Load Clients" : {
 
+    },
+    "Couldn't Load Links" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入連結"
+          }
+        }
+      }
     },
     "Couldn't load more. Try again" : {
       "localizations" : {
@@ -3479,6 +3613,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法載入更多。請再試一次"
+          }
+        }
+      }
+    },
+    "Couldn't Load Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入 Podcast"
           }
         }
       }
@@ -3546,6 +3696,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法查詢航班"
+          }
+        }
+      }
+    },
+    "Couldn't Open Chip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开摘要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開啟摘要"
+          }
+        }
+      }
+    },
+    "Couldn't Play Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法播放播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法播放 Podcast"
           }
         }
       }
@@ -3786,6 +3968,22 @@
         }
       }
     },
+    "Creating your podcast…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在制作播客…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在製作 Podcast…"
+          }
+        }
+      }
+    },
     "Credentials" : {
 
     },
@@ -3846,23 +4044,6 @@
         }
       }
     },
-    "Current status" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前状态"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目前狀態"
-          }
-        }
-      }
-    },
     "Cursor & Others" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3895,6 +4076,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自訂算繪適用於 PDF 和 Word。"
+          }
+        }
+      }
+    },
+    "Daily Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日 Podcast"
           }
         }
       }
@@ -4691,6 +4888,9 @@
         }
       }
     },
+    "Download" : {
+
+    },
     "Download PDF" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4704,6 +4904,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下載 PDF"
+          }
+        }
+      }
+    },
+    "Download Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載 Podcast"
+          }
+        }
+      }
+    },
+    "Downloaded" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已下载"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已下載"
           }
         }
       }
@@ -5170,6 +5402,22 @@
     },
     "Exchange Rates" : {
 
+    },
+    "Expand Podcast Player" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开播客播放器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展開 Podcast 播放器"
+          }
+        }
+      }
     },
     "Expense" : {
       "localizations" : {
@@ -5960,6 +6208,22 @@
         }
       }
     },
+    "Forward 15 Seconds" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快进 15 秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快轉 15 秒"
+          }
+        }
+      }
+    },
     "Free" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6157,6 +6421,38 @@
     },
     "Generate Cover" : {
 
+    },
+    "Generate Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "產生 Podcast"
+          }
+        }
+      }
+    },
+    "Generation uses points. Audio is saved for future playback. Regeneration creates a new episode using the current chips and selected language." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成会消耗点数。音频将保存，供日后播放。重新生成会根据当前摘要和所选语言制作新一集。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "產生內容會使用點數。音訊將會儲存，供日後播放。重新產生會依目前摘要與所選語言製作新一集。"
+          }
+        }
+      }
     },
     "Get started" : {
       "localizations" : {
@@ -6588,6 +6884,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在主檔案中以 \\input{%@} 引入它。"
+          }
+        }
+      }
+    },
+    "Includes all readable summary chips saved or opened on this day, across feed filters. The agent chooses the hosts. Up to 24 chips per episode." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包含当天保存或打开的所有可读摘要，不受动态筛选影响。AI 自动选择主持人，每集最多 24 条摘要。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包含當天儲存或開啟的所有可讀摘要，不受動態篩選影響。AI 自動選擇主持人，每集最多 24 則摘要。"
           }
         }
       }
@@ -7282,11 +7594,43 @@
         }
       }
     },
+    "Loading audio…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载音频…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入音訊…"
+          }
+        }
+      }
+    },
     "Loading clients…" : {
 
     },
     "Loading image…" : {
 
+    },
+    "Loading links…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载链接…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入連結…"
+          }
+        }
+      }
     },
     "Loading more activity" : {
       "localizations" : {
@@ -7300,6 +7644,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在載入更多活動"
+          }
+        }
+      }
+    },
+    "Loading podcast…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载播客…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入 Podcast…"
           }
         }
       }
@@ -8012,6 +8372,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新地點"
+          }
+        }
+      }
+    },
+    "New Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增 Podcast"
           }
         }
       }
@@ -9122,6 +9498,22 @@
     "Open App" : {
 
     },
+    "Open Chip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开摘要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟摘要"
+          }
+        }
+      }
+    },
     "Open Chippy and sign in first." : {
       "localizations" : {
         "zh-Hans" : {
@@ -9239,6 +9631,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在打開結帳頁面…"
+          }
+        }
+      }
+    },
+    "Opening chip…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打开摘要…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在開啟摘要…"
           }
         }
       }
@@ -10062,6 +10470,22 @@
         }
       }
     },
+    "Podcast playback position" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播客播放位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podcast 播放位置"
+          }
+        }
+      }
+    },
     "Point of interest" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10203,6 +10627,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "豪華經濟艙"
+          }
+        }
+      }
+    },
+    "Preparing download…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备下载…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備下載…"
           }
         }
       }
@@ -10361,6 +10801,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "公開連結"
+          }
+        }
+      }
+    },
+    "Publish to Web" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发布到网页"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "發佈至網頁"
           }
         }
       }
@@ -10703,6 +11159,22 @@
         }
       }
     },
+    "Regenerate Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新生成播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新產生 Podcast"
+          }
+        }
+      }
+    },
     "Regenerate this tour?" : {
 
     },
@@ -11009,6 +11481,22 @@
     },
     "Replace Image…" : {
 
+    },
+    "Replace this day's podcast?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "替换当天的播客？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代當天的 Podcast？"
+          }
+        }
+      }
     },
     "Replacing image…" : {
 
@@ -13704,6 +14192,22 @@
         }
       }
     },
+    "This uses points. Your saved episode stays available if generation fails." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作会消耗点数。如果生成失败，仍可播放已保存的节目。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作會使用點數。如果產生失敗，仍可播放已儲存的節目。"
+          }
+        }
+      }
+    },
     "Tight 8-minute transfer" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14262,6 +14766,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再試一次"
+          }
+        }
+      }
+    },
+    "Turn this day's chips into a podcast with captions and artwork. Choose a language before generating." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将当天的摘要制作成带字幕和配图的播客。生成前可选择语言。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將當天的摘要製作成附字幕與圖片的 Podcast。產生前可選擇語言。"
           }
         }
       }
@@ -14850,6 +15370,22 @@
     },
     "Versions" : {
 
+    },
+    "Video (MP4)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频（MP4）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "影片（MP4）"
+          }
+        }
+      }
     },
     "View" : {
 

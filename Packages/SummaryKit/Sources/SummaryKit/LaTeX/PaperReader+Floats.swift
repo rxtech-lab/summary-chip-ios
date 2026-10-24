@@ -10,6 +10,37 @@ extension PaperReaderParser {
     func float(_ raw: String, environment: String) -> [PaperBlock] {
         let isTable = environment.contains("table")
         let id = newID()
+        let (images, drawings, drawingSources, caption, labels, tabulars) = floatContent(raw)
+        guard !images.isEmpty || drawings > 0 || !tabulars.isEmpty else {
+            return nested(raw, alignment: .center)
+        }
+        let name = isTable ? "Table" : "Figure"
+        var number: String?
+        if caption != nil, environment != "subfloat" {
+            if isTable { tableCount += 1; number = floatNumber(tableCount) } else { figureCount += 1; number = floatNumber(figureCount) }
+        }
+        let target = PaperLabel(kind: isTable ? .table : .figure, number: number ?? "", name: name, block: id)
+        labelTarget = target
+        for key in labels where number != nil { document.labels[key] = target }
+        let captionSpans = caption.map { Self.trimmed(parseInline($0)) }
+        let figure = PaperFigure(images: images, drawings: drawings, caption: captionSpans, number: number, name: name, drawingSources: drawingSources)
+        guard let first = tabulars.first else {
+            return [PaperBlock(id: id, kind: .figure(figure))]
+        }
+        var table = table(first.body, environment: first.environment)
+        table.caption = captionSpans
+        table.number = number
+        table.name = name
+        table.figure = images.isEmpty && drawings == 0 ? nil : PaperFigure(images: images, drawings: drawings, caption: nil, number: nil, name: name, drawingSources: drawingSources)
+        return [PaperBlock(id: id, kind: .table(table))] + tabulars.dropFirst().map {
+            PaperBlock(id: newID(), kind: .table(self.table($0.body, environment: $0.environment)))
+        }
+    }
+
+    private func floatContent(_ raw: String) -> (
+        images: [PaperFigure.Image], drawings: Int, drawingSources: [String], caption: String?,
+        labels: [String], tabulars: [(environment: String, body: String)]
+    ) {
         var images: [PaperFigure.Image] = []
         var drawings = 0
         var drawingSources: [String] = []
@@ -65,30 +96,7 @@ extension PaperReaderParser {
                 }
             }
         }
-        guard !images.isEmpty || drawings > 0 || !tabulars.isEmpty else {
-            return nested(raw, alignment: .center)
-        }
-        let name = isTable ? "Table" : "Figure"
-        var number: String?
-        if caption != nil, environment != "subfloat" {
-            if isTable { tableCount += 1; number = floatNumber(tableCount) } else { figureCount += 1; number = floatNumber(figureCount) }
-        }
-        let target = PaperLabel(kind: isTable ? .table : .figure, number: number ?? "", name: name, block: id)
-        labelTarget = target
-        for key in labels where number != nil { document.labels[key] = target }
-        let captionSpans = caption.map { Self.trimmed(parseInline($0)) }
-        let figure = PaperFigure(images: images, drawings: drawings, caption: captionSpans, number: number, name: name, drawingSources: drawingSources)
-        guard let first = tabulars.first else {
-            return [PaperBlock(id: id, kind: .figure(figure))]
-        }
-        var table = table(first.body, environment: first.environment)
-        table.caption = captionSpans
-        table.number = number
-        table.name = name
-        table.figure = images.isEmpty && drawings == 0 ? nil : PaperFigure(images: images, drawings: drawings, caption: nil, number: nil, name: name, drawingSources: drawingSources)
-        return [PaperBlock(id: id, kind: .table(table))] + tabulars.dropFirst().map {
-            PaperBlock(id: newID(), kind: .table(self.table($0.body, environment: $0.environment)))
-        }
+        return (images, drawings, drawingSources, caption, labels, tabulars)
     }
 
     // MARK: Images

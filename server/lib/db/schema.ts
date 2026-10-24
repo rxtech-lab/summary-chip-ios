@@ -642,6 +642,29 @@ export const mcpOAuthTokens = sqliteTable("mcp_oauth_tokens", {
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 }, (table) => [index("mcp_oauth_tokens_grant_idx").on(table.grantId), index("mcp_oauth_tokens_expiry_idx").on(table.expiresAt)]);
 
+/**
+ * Share links to one owner's saved podcast episode, like a chip's `share_links`: each opens
+ * `/podcast/<token>` for anyone holding it until it expires or is deleted. Regeneration starts a
+ * new episode without links; the old episode's links keep opening its recording.
+ */
+export const podcastShareLinks = sqliteTable("podcast_share_links", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  episodeKey: text("episode_key").notNull(),
+  day: text("day", { mode: "json" }).$type<import("@/lib/contracts/daily-podcast").PodcastDay>().notNull(),
+  token: text("token").notNull(),
+  label: text("label"),
+  ttlDays: integer("ttl_days"),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, t => [
+  uniqueIndex("podcast_share_links_token_unique").on(t.token),
+  index("podcast_share_links_episode_idx").on(t.ownerId, t.episodeKey, t.createdAt),
+]);
+
+export type PodcastShareLinkRow = typeof podcastShareLinks.$inferSelect;
+
 // App definitions are versioned; records and encrypted credentials are never in versions.
 export const miniApps = sqliteTable("mini_apps", {
   summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
