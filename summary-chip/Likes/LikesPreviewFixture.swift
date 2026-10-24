@@ -260,6 +260,8 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
             return json(["categories": [], "tags": []])
         case ("GET", "api-keys", 1):
             return apiKeysResponse
+        case ("GET", "mcp", 2) where path[1] == "clients":
+            return mcpClientsResponse
         case ("POST", "chat", 1):
             // The whole answer arrives at once; the app parses it as the same UI message stream.
             let lines = Self.chatEvents.split(separator: "\n").map { "data: \($0)\n\n" }.joined() + "data: [DONE]\n\n"
@@ -343,6 +345,17 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 
     private func encoded(_ key: String, _ value: some Encodable) -> (Int, Data) {
         (200, try! SummaryJSON.encoder().encode([key: value]))
+    }
+
+    private var mcpClientsResponse: (Int, Data) {
+        return json(["items": [
+            ["id": "preview-cursor", "clientId": "cursor", "name": "Cursor", "scope": "chippy:read chippy:write",
+             "expiresAt": iso(.now.addingTimeInterval(30 * 86_400))],
+            ["id": "preview-claude", "clientId": "claude", "name": "Claude", "scope": "chippy:read",
+             "expiresAt": iso(.now.addingTimeInterval(14 * 86_400))],
+            ["id": "preview-cursor-2", "clientId": "cursor", "name": "Cursor", "scope": "chippy:read",
+             "expiresAt": iso(.now.addingTimeInterval(7 * 86_400))],
+        ]])
     }
 
     private var apiKeysResponse: (Int, Data) {

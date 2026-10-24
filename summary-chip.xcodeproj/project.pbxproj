@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EA54B33D6E414B13A6507440 /* MCPConnectedClientsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA54B33D6E414B13A6507441 /* MCPConnectedClientsList.swift */; };
 		01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */; };
 		0311AC9C6C371D5C0E1F4029 /* TripWeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */; };
 		0731B02E8F642C804C38ACF0 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E0B144D599007182517D3F /* OnboardingTests.swift */; };
@@ -298,6 +299,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		EA54B33D6E414B13A6507441 /* MCPConnectedClientsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPConnectedClientsList.swift; sourceTree = "<group>"; };
 		039377FBF175910630ECE7A3 /* MiniAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppUITests.swift; sourceTree = "<group>"; };
 		03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMarkdownSheet.swift; sourceTree = "<group>"; };
 		05A43C52A80A84D95466F332 /* ChippyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChippyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -783,6 +785,7 @@
 			children = (
 				7BA009540CF1E89E6C87D487 /* APIKeySheets.swift */,
 				A0F64B11D6B01961148BEFB3 /* MCPSettingsSheet.swift */,
+				EA54B33D6E414B13A6507441 /* MCPConnectedClientsList.swift */,
 			);
 			path = MCP;
 			sourceTree = "<group>";
@@ -1436,6 +1439,7 @@
 				EF27A46E415868551CC10B0F /* LocalFileSheet.swift in Sources */,
 				61123A1430EF303E89180F57 /* LocationProvider.swift in Sources */,
 				54652453BAE43998A68A0E0C /* MCPSettingsSheet.swift in Sources */,
+				EA54B33D6E414B13A6507440 /* MCPConnectedClientsList.swift in Sources */,
 				5C5C20572D3485E1246EDF7D /* MiniAppConnections.swift in Sources */,
 				4E8212E5C791274BEA06F5FE /* MiniAppDetailView.swift in Sources */,
 				6B589AB736510F62AB9BA16D /* MiniAppFilePicker.swift in Sources */,
