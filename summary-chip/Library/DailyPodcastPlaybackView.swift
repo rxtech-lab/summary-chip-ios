@@ -76,9 +76,7 @@ struct DailyPodcastPlaybackView: View {
                 .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
         }
-        .task(id: podcast.video?.id) {
-            if podcast.video != nil && player.videoPlayer == nil && !player.playing && !player.buffering { player.toggle() }
-        }
+        .task(id: podcast.video?.id) { player.prepareVideo() }
         .sensoryFeedback(.selection, trigger: taps)
     }
 

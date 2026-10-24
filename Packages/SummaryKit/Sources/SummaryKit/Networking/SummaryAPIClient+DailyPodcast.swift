@@ -11,6 +11,7 @@ public struct PodcastGenerationProgress: Decodable, Sendable, Equatable {
     public var title: String {
         switch stage {
         case "script": String(localized: "Writing script…", bundle: .module)
+        case "translating": String(localized: "Translating script…", bundle: .module)
         case "speech": String(localized: "Generating voices…", bundle: .module)
         case "music": String(localized: "Preparing music…", bundle: .module)
         case "mixing": String(localized: "Mixing audio and aligning captions…", bundle: .module)
@@ -55,7 +56,11 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
     public var day: PodcastDayBounds?
     public var key: String
     public var title: String
+    /// The language this episode is presented in; a translation shares the original's key and day.
     public var language: String
+    /// The language it was generated in, and every language it can play in (original first).
+    public var originalLanguage: String?
+    public var languages: [String]?
     public var createdAt: Date
     public var speakers: [Speaker]
     public var segments: [Segment]
@@ -79,6 +84,12 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
         /// Whether share links play the render of the current composition.
         public var isPublished: Bool { published?.videoId == id }
     }
+
+    public var sourceLanguage: String { originalLanguage ?? language }
+    public var availableLanguages: [String] { languages ?? [language] }
+    public var isTranslation: Bool { language != sourceLanguage }
+    /// The `language` query/body value for this presentation: nil for the original recording.
+    var translationLanguage: String? { isTranslation ? language : nil }
 
     public func segmentIndex(at time: Double) -> Int {
         segments.lastIndex { ($0.startSeconds ?? 0) <= time } ?? 0
@@ -112,6 +123,12 @@ private struct PodcastRequest: Encodable {
     var regenerate: Bool
     var chipIds: [String]?
     var library: Bool
+    var includeVideo: Bool
+    var summaryId: String?
+}
+private struct PodcastTranslationRequest: Encodable {
+    var day: PodcastDay
+    var language: String
     var includeVideo: Bool
 }
 
@@ -180,10 +197,13 @@ extension SummaryAPIClient {
         return envelope.podcast
     }
 
-    public func generateDailyPodcast(date: Date, language: SummaryLanguage, regenerate: Bool, chipIds: [String]? = nil, library: Bool = false, includeVideo: Bool = true, calendar: Calendar = .current,
+    /// `summaryID` regenerates that library podcast chip as a new version instead of creating another chip.
+    public func generateDailyPodcast(date: Date, language: SummaryLanguage, regenerate: Bool, chipIds: [String]? = nil, library: Bool = false, includeVideo: Bool = true,
+                                     summaryID: String? = nil, calendar: Calendar = .current,
                                      onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
         var request = try json("/api/v1/daily-podcasts", method: "POST", body: PodcastRequest(
-            day: podcastDay(date, calendar: calendar), language: language.rawValue, regenerate: regenerate, chipIds: chipIds, library: library, includeVideo: includeVideo
+            day: podcastDay(date, calendar: calendar), language: language.rawValue, regenerate: regenerate, chipIds: chipIds, library: library, includeVideo: includeVideo,
+            summaryId: summaryID
         ))
         request.timeoutInterval = 300
         if let onProgress {
@@ -249,6 +269,11 @@ extension SummaryAPIClient {
         ]))
         return result.items
     }
+    /// A library podcast chip's versions, newest first.
+    public func podcastVersions(summaryID: String) async throws -> [PodcastVersion] {
+        let result: PodcastVersions = try await send(request("/api/v1/daily-podcasts/versions", query: [.init(name: "summaryId", value: summaryID)]))
+        return result.items
+    }
     public func podcastChips(date: Date) async throws -> [PodcastChip] {
         let day = podcastDay(date, calendar: .current)
         let result: PodcastChips = try await send(request("/api/v1/daily-podcasts/versions", query: [
@@ -261,10 +286,58 @@ extension SummaryAPIClient {
     }
     public func removePodcast(_ podcast: DailyPodcast, date: Date) async throws {
         _ = try await podcastVersionAction(podcast, date: date, method: "DELETE")
-        if let path = podcast.audioPath, let components = URLComponents(string: path),
-           let url = request(components.path, query: components.queryItems ?? []).url {
-            podcastAudioCache.remove(url.absoluteString)
+        for language in podcast.availableLanguages { evictPodcastAudio(podcast, language: language) }
+    }
+
+    /// Removes a language's cached recording, e.g. after its version or translation is removed.
+    private func evictPodcastAudio(_ podcast: DailyPodcast, language: String) {
+        guard let path = podcast.audioPath, var components = URLComponents(string: path) else { return }
+        var items = (components.queryItems ?? []).filter { $0.name != "language" }
+        if language != podcast.sourceLanguage { items.append(URLQueryItem(name: "language", value: language)) }
+        components.queryItems = items
+        if let url = request(components.path, query: items).url { podcastAudioCache.remove(url.absoluteString) }
+    }
+
+    // MARK: Translations
+
+    /// The episode in another of its languages. Never calls a model or spends points.
+    public func podcastEpisode(_ podcast: DailyPodcast, language: String) async throws -> DailyPodcast {
+        let day = try podcastDayBounds(podcast)
+        var query = [URLQueryItem(name: "start", value: day.start), URLQueryItem(name: "end", value: day.end)]
+        if language != podcast.sourceLanguage { query.append(URLQueryItem(name: "language", value: language)) }
+        let result: PodcastEnvelope = try await send(request("/api/v1/daily-podcasts/\(podcast.key.urlPathEscaped)", query: query))
+        guard let episode = result.podcast else { throw SummaryAPIError.invalidResponse }
+        return episode
+    }
+
+    /// Speaks the episode in `language` (spends points; an existing translation is free) and returns it in that language.
+    public func translatePodcast(_ podcast: DailyPodcast, language: SummaryLanguage, includeVideo: Bool = true,
+                                 onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
+        let day = try podcastDayBounds(podcast)
+        var request = try json("/api/v1/daily-podcasts/\(podcast.key.urlPathEscaped)/translations", method: "POST", body: PodcastTranslationRequest(
+            day: PodcastDay(start: day.start, end: day.end), language: language.rawValue, includeVideo: includeVideo
+        ))
+        request.timeoutInterval = 300
+        if let onProgress {
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+            return try await receivePodcast(request, onProgress: onProgress)
         }
+        let envelope: PodcastEnvelope = try await send(request)
+        guard let episode = envelope.podcast else { throw SummaryAPIError.invalidResponse }
+        return episode
+    }
+
+    /// Removes one translation and returns the episode in its original language.
+    public func removePodcastTranslation(_ podcast: DailyPodcast, language: String) async throws -> DailyPodcast {
+        let day = try podcastDayBounds(podcast)
+        var remove = request("/api/v1/daily-podcasts/\(podcast.key.urlPathEscaped)/translations/\(language.urlPathEscaped)", query: [
+            URLQueryItem(name: "start", value: day.start), URLQueryItem(name: "end", value: day.end)
+        ])
+        remove.httpMethod = "DELETE"
+        let envelope = try SummaryJSON.decoder().decode(PodcastEnvelope.self, from: try await sendRaw(remove))
+        evictPodcastAudio(podcast, language: language)
+        guard let episode = envelope.podcast else { throw SummaryAPIError.invalidResponse }
+        return episode
     }
     private func podcastVersionAction(_ podcast: DailyPodcast, date: Date, method: String) async throws -> Data {
         let fallback = podcastDay(date, calendar: .current)

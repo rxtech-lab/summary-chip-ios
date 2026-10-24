@@ -32,10 +32,10 @@ struct DailyPodcastPresentation: ViewModifier {
             }
             .sheet(isPresented: $player.isPresented, onDismiss: openPendingChip) {
                 if let date = player.date {
-                    DailyPodcastSheet(api: environment.api, date: date, player: player) { id in
+                    DailyPodcastSheet(api: environment.api, date: date, player: player, onOpenChip: { id in
                         pendingChipID = id
                         player.isPresented = false
-                    }
+                    }, onChipUpdated: { environment.library.upsert($0) })
                 }
             }
             .overlay {

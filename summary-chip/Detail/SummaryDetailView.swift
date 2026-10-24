@@ -469,6 +469,8 @@ private struct LibraryPodcastDetail: View {
     @State private var podcast: DailyPodcast?
     @State private var loading = true
     @State private var openingChip = false
+    @State private var showsRegeneration = false
+    @State private var regenerations = 0
     @State private var error: String?
     var body: some View {
         Group {
@@ -497,13 +499,31 @@ private struct LibraryPodcastDetail: View {
                     .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
         }
-        .navigationTitle(summary.title)
+        .navigationTitle(podcast?.title ?? summary.title)
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Regenerate Podcast", systemImage: "arrow.clockwise") { showsRegeneration = true }
+                    .help("Regenerate Podcast")
+                    .disabled(podcast == nil)
+                    .accessibilityIdentifier("library-podcast-regenerate")
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button("Podcast Options", systemImage: "ellipsis") { environment.podcastPlayer.isPresented = true }
                     .disabled(podcast == nil)
             }
         }
+        .sheet(isPresented: $showsRegeneration) {
+            if let podcast {
+                // Adds a new version to this chip; earlier versions stay in Manage Versions.
+                DailyPodcastGenerationSheet(api: environment.api, date: environment.podcastPlayer.date ?? Date(), existing: podcast, library: true) { regenerated in
+                    regenerations += 1
+                    show(regenerated)
+                    // The chip's title and cover are redrawn with the new version.
+                    Task { if let chip = try? await environment.api.summary(id: summary.id) { environment.library.upsert(chip) } }
+                }
+            }
+        }
+        .sensoryFeedback(.success, trigger: regenerations)
         .task { await load() }
         .onDisappear {
             if environment.podcastPlayer.inlinePodcastKey == podcast?.key { environment.podcastPlayer.inlinePodcastKey = nil }
@@ -518,12 +538,15 @@ private struct LibraryPodcastDetail: View {
         do {
             let saved = try await environment.api.libraryPodcast(summaryID: summary.id)
             try Task.checkCancellation()
-            podcast = saved
-            environment.podcastPlayer.inlinePodcastKey = saved.key
-            if environment.podcastPlayer.podcast?.key != saved.key || environment.podcastPlayer.podcast?.video?.id != saved.video?.id {
-                environment.podcastPlayer.replace(saved)
-                environment.podcastPlayer.date = saved.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
-            }
+            show(saved)
         } catch is CancellationError {} catch { self.error = error.localizedDescription }
+    }
+    private func show(_ saved: DailyPodcast) {
+        podcast = saved
+        environment.podcastPlayer.inlinePodcastKey = saved.key
+        if environment.podcastPlayer.podcast?.key != saved.key || environment.podcastPlayer.podcast?.video?.id != saved.video?.id {
+            environment.podcastPlayer.replace(saved)
+            environment.podcastPlayer.date = saved.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
+        }
     }
 }

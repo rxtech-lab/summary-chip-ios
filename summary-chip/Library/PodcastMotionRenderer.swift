@@ -21,9 +21,14 @@ import UIKit
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appending(path: "podcast-videos", directoryHint: .isDirectory)
     }
 
+    /// Renders are kept per episode and language; the original keeps its earlier file names.
+    private static func prefix(for podcast: DailyPodcast) -> String {
+        podcast.isTranslation ? "\(podcast.key)~\(podcast.language)-" : "\(podcast.key)-"
+    }
+
     static func cachedURL(for podcast: DailyPodcast) -> URL? {
         guard let video = podcast.video else { return nil }
-        let url = cache.appending(path: "\(podcast.key)-\(video.id)-subtitles-v2.mp4")
+        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v2.mp4")
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
@@ -63,11 +68,11 @@ import UIKit
         onProgress(Progress(stage: .encoding, fraction: 0.98))
         try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast)
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
-        // Keep only the current composition's render of this episode.
-        for old in (try? fm.contentsOfDirectory(at: cache, includingPropertiesForKeys: nil)) ?? [] where old.lastPathComponent.hasPrefix("\(podcast.key)-") {
+        // Keep only the current composition's render of this episode in this language.
+        for old in (try? fm.contentsOfDirectory(at: cache, includingPropertiesForKeys: nil)) ?? [] where old.lastPathComponent.hasPrefix(prefix(for: podcast)) {
             try? fm.removeItem(at: old)
         }
-        let destination = cache.appending(path: "\(podcast.key)-\(video.id)-subtitles-v2.mp4")
+        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v2.mp4")
         try fm.moveItem(at: output, to: destination)
         return destination
     }

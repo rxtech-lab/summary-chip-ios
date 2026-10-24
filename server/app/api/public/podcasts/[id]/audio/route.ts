@@ -5,8 +5,8 @@ import { dailyPodcastRecording } from "@/lib/services/daily-podcast";
 export const runtime = "nodejs";
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   return withPublicApi(request, async ({ db }) => {
-    const { link } = await publicPodcast(db, (await context.params).id);
-    const audio = await dailyPodcastRecording(db, link.ownerId, link.day, link.episodeKey);
+    const { link, podcast } = await publicPodcast(db, (await context.params).id, undefined, new URL(request.url).searchParams.get("language"));
+    const audio = await dailyPodcastRecording(db, link.ownerId, link.day, link.episodeKey, undefined, podcast.language);
     const size = audio.bytes.length;
     const headers = new Headers({ "content-type": "audio/mpeg", "cache-control": "private, no-store",
       "accept-ranges": "bytes", "content-length": String(size), "x-content-type-options": "nosniff" });

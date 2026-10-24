@@ -1,5 +1,6 @@
 import type { PodcastInput } from "./podcast-agent";
 import type { PodcastVideoInput } from "./podcast-video-agent";
+import type { PodcastTranslationInput } from "./podcast-translation";
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import type { TranslationLanguage } from "@/lib/contracts/api";
@@ -38,6 +39,8 @@ export class MockAiProvider implements AiProvider {
     speak: string[];
     composeMusic: string[];
     writePodcastVideo: PodcastVideoInput[];
+    translatePodcast: PodcastTranslationInput[];
+    translatePodcastVideo: { files: Record<string, string>; language: string }[];
   } = {
     isSharedLink: [],
     summarize: [],
@@ -58,6 +61,8 @@ export class MockAiProvider implements AiProvider {
     speak: [],
     composeMusic: [],
     writePodcastVideo: [],
+    translatePodcast: [],
+    translatePodcastVideo: [],
   };
 
   /** A share snippet is a URL with under 200 characters of accompanying text. */
@@ -249,6 +254,20 @@ export class MockAiProvider implements AiProvider {
   async writePodcast(input: PodcastInput) {
     return { title: "Your daily podcast", mood: "calm" as const, speakers: [{ name: "Alex", voice: input.voices[0] }],
       segments: input.chips.map((chip) => ({ speaker: 0, chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
+  }
+
+  async translatePodcast(input: PodcastTranslationInput, options: TourNarrationOptions = {}) {
+    this.calls.translatePodcast.push(input);
+    options.onUsage?.(MOCK_STEP_USAGE);
+    if (!this.translates) throw new Error("mock translation failed");
+    return { title: `[${input.language}] ${input.title}`, chipTitles: input.chips.map((chip) => `[${input.language}] ${chip.title}`),
+      captions: input.segments.map((segment) => `[${input.language}] ${segment.caption}`.slice(0, 500)) };
+  }
+
+  async translatePodcastVideo(files: Record<string, string>, language: string, options: TourNarrationOptions = {}) {
+    this.calls.translatePodcastVideo.push({ files, language });
+    options.onUsage?.(MOCK_STEP_USAGE);
+    return this.translates ? Object.fromEntries(Object.entries(files).map(([path, source]) => [path, `// ${language}\n${source}`])) : null;
   }
 
   /** Videos are off unless a test opts in, like music. */

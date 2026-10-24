@@ -4904,6 +4904,22 @@
     "Translating into your language…" : {
 
     },
+    "Translating script…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻译脚本…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在翻譯腳本…"
+          }
+        }
+      }
+    },
     "Translating…" : {
 
     },

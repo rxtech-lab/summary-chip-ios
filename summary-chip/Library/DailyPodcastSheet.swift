@@ -9,9 +9,14 @@ struct DailyPodcastSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var player: DailyPodcastPlayer
     let onOpenChip: (String) -> Void
+    /// A library podcast's chip after its cover was redrawn, for the library card.
+    var onChipUpdated: ((Summary) -> Void)? = nil
     @State private var loading = true
+    @State private var generatingCover = false
+    @State private var coverUpdates = 0
     @State private var showsGeneration = false
     @State private var showsVersions = false
+    @State private var showsLanguages = false
     @State private var showsDownload = false
     @State private var showsSharing = false
     @State private var showsVideoPublication = false
@@ -22,8 +27,8 @@ struct DailyPodcastSheet: View {
     var body: some View {
         playerLayout
             .overlay {
-                if loading || (player.buffering && player.podcast?.video == nil) {
-                    ProgressView(loading ? "Loading podcast…" : "Loading audio…")
+                if generatingCover || loading || player.switchingLanguage != nil || (player.buffering && player.podcast?.video == nil) {
+                    ProgressView(generatingCover ? "Generating cover…" : loading ? "Loading podcast…" : player.switchingLanguage != nil ? "Loading language…" : "Loading audio…")
                         .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                 }
             }
@@ -32,10 +37,17 @@ struct DailyPodcastSheet: View {
                     guard player.date == date else { return }
                     player.replace(podcast)
                     player.toggle()
+                    // A regenerated library podcast redraws its chip's title and cover.
+                    if let id = podcast.summaryId, let onChipUpdated {
+                        Task { if let chip = try? await api.summary(id: id) { onChipUpdated(chip) } }
+                    }
                 }
             }
             .sheet(isPresented: $showsVersions) {
-                PodcastVersionsSheet(api: api, date: date, player: player)
+                PodcastVersionsSheet(api: api, date: date, summaryID: player.podcast?.summaryId, player: player)
+            }
+            .sheet(isPresented: $showsLanguages) {
+                PodcastLanguagesSheet(api: api, player: player)
             }
             .sheet(isPresented: $showsDownload) {
                 if let podcast = player.podcast {
@@ -68,7 +80,9 @@ struct DailyPodcastSheet: View {
                 }
                 loading = false
             }
+            .task(id: player.podcast?.key) { await player.applyPreferredLanguage() }
             .sensoryFeedback(.selection, trigger: taps)
+            .sensoryFeedback(.success, trigger: coverUpdates)
         #if os(macOS)
         .frame(minWidth: 600, idealWidth: 760, minHeight: 480, maxHeight: .infinity)
         #else
@@ -154,15 +168,34 @@ struct DailyPodcastSheet: View {
                     Label("Publish Video", systemImage: "film")
                 }
             }
+            Divider()
+            if let podcast = player.podcast, podcast.availableLanguages.count > 1 {
+                Picker(selection: Binding(get: { podcast.language }, set: { language in
+                    taps += 1
+                    Task { await player.switchLanguage(to: language) }
+                })) {
+                    ForEach(podcast.availableLanguages, id: \.self) { Text(PodcastLanguagesSheet.title(for: $0)).tag($0) }
+                } label: {
+                    Label("Language", systemImage: "globe")
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("podcast-language-picker")
+            }
+            Button { taps += 1; showsLanguages = true } label: {
+                Label("Translate…", systemImage: "translate")
+            }.accessibilityIdentifier("podcast-languages")
+            Divider()
             Button { taps += 1; generateVideoOnly = false; showsGeneration = true } label: {
                 Label("Regenerate Podcast", systemImage: "arrow.clockwise")
             }.accessibilityIdentifier("podcast-regenerate")
-            if player.podcast?.summaryId == nil {
-                Divider()
-                Button { taps += 1; showsVersions = true } label: {
-                    Label("Manage Versions", systemImage: "square.stack")
-                }.accessibilityIdentifier("podcast-versions")
+            if let summaryID = player.podcast?.summaryId {
+                Button { taps += 1; Task { await generateCover(summaryID: summaryID) } } label: {
+                    Label("Generate Cover", systemImage: "photo")
+                }.accessibilityIdentifier("podcast-generate-cover")
             }
+            Button { taps += 1; showsVersions = true } label: {
+                Label("Manage Versions", systemImage: "square.stack")
+            }.accessibilityIdentifier("podcast-versions")
             Divider()
             Button { showsDownload = true } label: {
                 Label("Download Podcast", systemImage: "arrow.down.to.line")
@@ -172,12 +205,25 @@ struct DailyPodcastSheet: View {
         }
         .labelStyle(.iconOnly)
         .accessibilityIdentifier("podcast-more")
-        .disabled(player.buffering)
+        .disabled(player.buffering || player.switchingLanguage != nil || generatingCover)
+    }
+
+    /// Draws a new illustrated cover for the podcast's library chip.
+    private func generateCover(summaryID: String) async {
+        generatingCover = true
+        defer { generatingCover = false }
+        do {
+            let chip = try await api.regenerateImage(id: summaryID, style: .illustration)
+            onChipUpdated?(chip)
+            coverUpdates += 1
+        } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
 
     @ViewBuilder
     private var content: some View {
-        if let podcast = player.podcast, player.segment != nil {
+        // Not `player.segment`: it reads `currentTime`, so the sheet (and its open
+        // menus) would re-render on every playback tick, closing the language submenu on macOS.
+        if let podcast = player.podcast, !podcast.segments.isEmpty {
             DailyPodcastPlaybackView(api: api, podcast: podcast, player: player, onOpenChip: onOpenChip)
         } else if !loading {
             ContentUnavailableView {
@@ -267,7 +313,7 @@ struct DailyPodcastGenerationSheet: View {
                     .accessibilityIdentifier("podcast-select-chips")
                     .disabled(loading)
                 } footer: {
-                    Text(isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default, across feed filters. You can choose which to include.")
+                    Text(existing?.summaryId != nil ? "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default, across feed filters. You can choose which to include.")
                 }
                 }
                 Section {
@@ -383,9 +429,10 @@ struct DailyPodcastGenerationSheet: View {
                 } else if regenerateVideoOnly, let existing {
                     podcast = try await api.composePodcastVideo(existing, onProgress: { generationProgress = $0 })
                 } else {
+                    // Regenerating a library podcast adds a version to the same chip.
                     podcast = try await api.generateDailyPodcast(date: date, language: language, regenerate: true,
                         chipIds: selected.keys.sorted(), library: isLibrary,
-                        includeVideo: includeVideo, onProgress: { generationProgress = $0 })
+                        includeVideo: includeVideo, summaryID: existing?.summaryId, onProgress: { generationProgress = $0 })
                 }
                 // Preserve the paid episode if local rendering fails. Retry never regenerates audio or design.
                 pendingEpisode = podcast
@@ -510,6 +557,8 @@ private struct PodcastChipPicker: View {
 private struct PodcastVersionsSheet: View {
     let api: SummaryAPIClient
     let date: Date
+    /// A library podcast chip's versions instead of the day's.
+    let summaryID: String?
     @Bindable var player: DailyPodcastPlayer
     @Environment(\.dismiss) private var dismiss
     @State private var versions: [PodcastVersion] = []
@@ -535,8 +584,11 @@ private struct PodcastVersionsSheet: View {
                                 .font(.caption).fixedSize()
                         }
                         Spacer()
-                        Button("Remove", systemImage: "trash", role: .destructive) { removing = version.podcast }
-                            .labelStyle(.iconOnly)
+                        // A podcast chip always keeps one version; deleting the chip removes it.
+                        if summaryID == nil || versions.count > 1 {
+                            Button("Remove", systemImage: "trash", role: .destructive) { removing = version.podcast }
+                                .labelStyle(.iconOnly)
+                        }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -562,7 +614,7 @@ private struct PodcastVersionsSheet: View {
                     if let removing { update(removing, remove: true) }
                     removing = nil
                 }
-            } message: { Text("Its share links will stop working. If it is the default, another version will become the default.") }
+            } message: { Text("Its share links and translations will stop working. If it is the default, another version will become the default.") }
             .alert("Couldn't Update Podcasts", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
@@ -582,8 +634,12 @@ private struct PodcastVersionsSheet: View {
         .presentationDetents([.large])
     }
     private func reload() async {
-        do { versions = try await api.podcastVersions(date: date) }
+        do { versions = try await loadVersions() }
         catch { self.error = error.localizedDescription }
+    }
+    private func loadVersions() async throws -> [PodcastVersion] {
+        if let summaryID { return try await api.podcastVersions(summaryID: summaryID) }
+        return try await api.podcastVersions(date: date)
     }
     private func update(_ podcast: DailyPodcast, remove: Bool) {
         busy = true
@@ -592,7 +648,7 @@ private struct PodcastVersionsSheet: View {
             do {
                 if remove { try await api.removePodcast(podcast, date: date) }
                 else { try await api.selectPodcast(podcast, date: date) }
-                versions = try await api.podcastVersions(date: date)
+                versions = try await loadVersions()
                 if !remove {
                     player.replace(podcast); player.toggle()
                 } else if player.podcast?.key == podcast.key {

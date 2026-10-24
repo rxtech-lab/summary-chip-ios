@@ -31,7 +31,9 @@ export const createDailyPodcastSchema = z.object({
   library: z.boolean().default(false),
   /** Video design runs alongside speech unless the caller chooses audio only. */
   includeVideo: z.boolean().optional(),
-});
+  /** Regenerates this library podcast chip as a new version instead of creating another chip. */
+  summaryId: z.string().min(1).optional(),
+}).refine((input) => !input.summaryId || input.library, { message: "summaryId requires library", path: ["summaryId"] });
 /** Moods of the shared intro/background/outro music library; the agent picks one per episode. */
 export const PODCAST_MUSIC_MOODS = ["bright", "calm", "focused", "warm", "reflective"] as const;
 export type PodcastMusicMood = (typeof PODCAST_MUSIC_MOODS)[number];
@@ -47,10 +49,31 @@ export const podcastScriptSchema = z.object({
 });
 export type PodcastScript = z.infer<typeof podcastScriptSchema>;
 export type PodcastDay = z.infer<typeof podcastDaySchema>;
+/** One spoken language of an episode. Segments match the original's one to one (speaker, chip, order). */
+export interface PodcastTranslation {
+  language: string;
+  title: string;
+  createdAt: string;
+  speakers: PodcastScript["speakers"];
+  segments: DailyPodcast["segments"];
+  audioPath?: string;
+  durationSeconds?: number;
+  music?: boolean;
+  /** Translated source chip titles by chip id, used for the video's section headings. */
+  chipTitles?: Record<string, string>;
+  /** The original composition with translated labels; `sourceId` is the original video it was made from. */
+  video?: PodcastVideoSummary & { sourceId?: string };
+}
 export interface DailyPodcast extends PodcastScript {
   key: string;
   summaryId?: string;
+  /** The language this document is presented in; `originalLanguage` is the one it was generated in. */
   language: string;
+  originalLanguage?: string;
+  /** Every language the episode can play in, the original first. Only set on API responses. */
+  languages?: string[];
+  /** Stored translations by language. Never sent to clients: they request one language at a time. */
+  translations?: Record<string, PodcastTranslation>;
   createdAt: string;
   day: PodcastDay;
   chipIds: string[];
@@ -88,21 +111,37 @@ export interface PodcastVideoSource {
   /** Project files, scaffold included, keyed by path (src/index.ts is the entry point). */
   files: Record<string, string>;
 }
-/** `POST /api/v1/daily-podcasts/:key/video`: writes a new composition, replacing the previous one. */
-export const createPodcastVideoSchema = z.object({ day: podcastDaySchema }).strict();
+/** A language query/body field: omitted or the original language selects the original recording. */
+export const podcastLanguageSchema = z.enum(TRANSLATION_LANGUAGES);
+/** The optional `?language=` of episode, audio and video reads. */
+export function podcastLanguageQuery(query: URLSearchParams) {
+  const language = query.get("language");
+  return language ? podcastLanguageSchema.parse(language) : undefined;
+}
+/** `POST /api/v1/daily-podcasts/:key/translations`: speaks the episode in another language (spends points). */
+export const createPodcastTranslationSchema = z.object({
+  day: podcastDaySchema,
+  language: podcastLanguageSchema,
+  /** Translate the video's labels too when the episode has a video (default true). */
+  includeVideo: z.boolean().optional(),
+}).strict();
+/** `POST /api/v1/daily-podcasts/:key/video`: writes a new composition, replacing the previous one.
+ * With a translation `language`, that translation gets the current composition with translated labels. */
+export const createPodcastVideoSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema.optional() }).strict();
 /** `POST /api/v1/daily-podcasts/:key/video/upload`: a presigned PUT for the rendered MP4. */
 export const podcastVideoUploadSchema = z.object({
   day: podcastDaySchema,
   videoId: z.uuid(),
   byteSize: z.number().int().min(1).max(MAX_PODCAST_VIDEO_BYTES),
+  language: podcastLanguageSchema.optional(),
 }).strict();
 /** `POST /api/v1/daily-podcasts/:key/video/publication`: confirms the upload finished. */
-export const podcastVideoPublicationSchema = z.object({ day: podcastDaySchema, videoId: z.uuid() }).strict();
+export const podcastVideoPublicationSchema = z.object({ day: podcastDaySchema, videoId: z.uuid(), language: podcastLanguageSchema.optional() }).strict();
 
 /** SSE progress is work-weighted, not remaining time. Video design uses decision-model estimates
  * from streamed implementation and validation evidence, mapped into the stage budget. */
 export interface PodcastProgress {
-  stage: "preparing" | "script" | "speech" | "music" | "mixing" | "video" | "saving" | "complete" | "video-design";
+  stage: "preparing" | "script" | "translating" | "speech" | "music" | "mixing" | "video" | "saving" | "complete" | "video-design";
   percent: number;
   completedSteps?: number;
   completedSegments?: number;

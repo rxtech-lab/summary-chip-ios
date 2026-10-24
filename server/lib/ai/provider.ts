@@ -1,5 +1,6 @@
 import { transcribePodcastAudio } from "./podcast-transcription";
 import { writePodcast, type PodcastInput } from "./podcast-agent";
+import { translatePodcast, translatePodcastVideo, type PodcastTranslationInput, type PodcastTranslationOutput } from "./podcast-translation";
 import { writePodcastVideo, type PodcastVideoInput, type PodcastVideoOptions } from "./podcast-video-agent";
 import { composeMusic, musicModelId, musicUsdPerClip } from "./music";
 import type { PodcastScript } from "@/lib/contracts/daily-podcast";
@@ -182,6 +183,10 @@ export interface AiProvider {
   chatPricing(): Promise<ModelPricing | null>;
   /** Narration for every scene of a trip tour, in order, from the tour model. Throws when it failed. */
   writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript>;
+  /** A podcast script in another language, turn for turn, from the tour model. Throws when it failed. */
+  translatePodcast(input: PodcastTranslationInput, options?: TourNarrationOptions): Promise<PodcastTranslationOutput>;
+  /** A composition's visible labels translated (tour model), or null when it couldn't be done safely. */
+  translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null>;
   /** Gateway id of the podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); null when videos are off. */
   podcastVideoModelId(): string | null;
   /** The video model's API list price, or null when the catalog has none. */
@@ -593,6 +598,14 @@ export class GatewayAiProvider implements AiProvider {
     return writePodcast(tourModel(), input, options);
   }
 
+  translatePodcast(input: PodcastTranslationInput, options?: TourNarrationOptions): Promise<PodcastTranslationOutput> {
+    return translatePodcast(tourModel(), input, options);
+  }
+
+  translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null> {
+    return translatePodcastVideo(tourModel(), files, language, options);
+  }
+
   podcastVideoModelId(): string | null {
     return podcastVideoModelId();
   }
@@ -672,6 +685,7 @@ export function illustrationInstruction(input: DesignInput): string {
   if (input.kind === "trip") return tripIllustrationInstruction(input);
   if (input.kind === "paper") return paperIllustrationInstruction(input);
   if (input.kind === "mini_app") return miniAppIllustrationInstruction(input);
+  if (input.kind === "podcast") return podcastIllustrationInstruction(input);
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
     "Create a 16:9 text-free editorial illustration to be used as the background artwork of a social preview card for this article.",
@@ -682,6 +696,22 @@ export function illustrationInstruction(input: DesignInput): string {
     "Fill the entire canvas edge to edge: a designed background with layered geometric shapes, flowing curves, fine line work (thin rings, grid lines, dotted paths, hairlines), soft light and depth, plus an illustrated subject that represents the article. No blank or plain white areas, no frame or border.",
     "Place the illustrated subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
     "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, pages, books, signs, posters or labels in the scene must be blank or abstract.",
+    "Reminder: a purely visual image with zero text, typography or lettering.",
+  ].join(" ");
+}
+
+/** A podcast's cover: a studio scene built around the episode's topics, still text-free. */
+function podcastIllustrationInstruction(input: DesignInput): string {
+  const light = input.mode === "dark" ? "a dim studio glowing with warm lamp light and soft neon" : "a bright, airy studio in soft daylight";
+  return [
+    "Create a 16:9 text-free editorial illustration to be used as the cover artwork of a podcast episode.",
+    "ABSOLUTE RULE: never include any text in the image. The episode details below are context for choosing what to draw only; do not write the title, topics or any other words anywhere in the picture.",
+    `Episode: "${input.headline}". Topics: ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: polished modern editorial illustration of ${light} — a studio microphone, headphones and flowing sound waves or audio rings, surrounded by illustrated objects and scenes that represent the episode's topics.`,
+    `Palette: ${input.colors.join(", ")}. Make these colors dominant across the background and subject.`,
+    "Fill the entire canvas edge to edge with layered shapes, flowing curves, fine line work and soft light and depth. No frame, border or plain blank areas.",
+    "Place the main subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
+    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, mixing-desk displays or signs must be blank or abstract.",
     "Reminder: a purely visual image with zero text, typography or lettering.",
   ].join(" ");
 }

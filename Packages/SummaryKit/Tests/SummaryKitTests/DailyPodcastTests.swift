@@ -120,6 +120,38 @@ import Testing
         #expect(body["regenerate"] as? Bool == true)
     }
 
+    @Test func translationsAndLibraryVersionsUseEpisodeDayAndLanguage() async throws {
+        PodcastProtocol.recorder.clear()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PodcastProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
+                                   session: URLSession(configuration: config))
+        let podcast = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true, library: true, summaryID: "podcast-chip")
+        #expect(!podcast.isTranslation)
+        #expect(podcast.availableLanguages == ["zh-Hant"])
+        _ = try await api.translatePodcast(podcast, language: .ja, includeVideo: false)
+        _ = try await api.podcastEpisode(podcast, language: "ja")
+        var translated = podcast
+        translated.originalLanguage = "zh-Hant"
+        translated.language = "ja"
+        #expect(translated.isTranslation)
+        _ = try await api.composePodcastVideo(podcast)
+        _ = try await api.composePodcastVideo(translated)
+        let requests = PodcastProtocol.recorder.values
+        let body = { (index: Int) in try JSONSerialization.jsonObject(with: requests[index].httpBody!) as! [String: Any] }
+        #expect(try body(0)["summaryId"] as? String == "podcast-chip")
+        #expect(requests[1].url?.path == "/api/v1/daily-podcasts/key/translations")
+        #expect(try body(1)["language"] as? String == "ja")
+        #expect(try body(1)["includeVideo"] as? Bool == false)
+        #expect((try body(1)["day"] as? [String: String])?["start"] == "2030-03-10T05:00:00Z")
+        let query = URLComponents(url: requests[2].url!, resolvingAgainstBaseURL: false)!.queryItems!
+        #expect(requests[2].url?.path == "/api/v1/daily-podcasts/key")
+        #expect(query.first { $0.name == "language" }?.value == "ja")
+        // The original's video requests are unchanged; a translation names its language.
+        #expect(try body(3)["language"] == nil)
+        #expect(try body(4)["language"] as? String == "ja")
+    }
+
     @Test func shareLinksUseEpisodeDayAndSendOnlyNameAndLifetime() async throws {
         PodcastProtocol.recorder.clear()
         let config = URLSessionConfiguration.ephemeral
@@ -192,7 +224,7 @@ private final class PodcastProtocol: URLProtocol, @unchecked Sendable {
             default: body = link
             }
         } else if request.url!.path.hasSuffix("/audio") { body = "audio" }
-        else if request.httpMethod == "POST" {
+        else if request.httpMethod == "POST" || request.url!.path == "/api/v1/daily-podcasts/key" {
             body = #"{"podcast":{"key":"key","title":"Daily","language":"zh-Hant","createdAt":"2030-03-10T05:00:00Z","durationSeconds":2,"audioPath":"/api/v1/daily-podcasts/key/audio?start=2030-03-10T05%3A00%3A00Z&end=2030-03-11T04%3A00%3A00Z","speakers":[{"name":"Alex","voice":"voice"}],"segments":[{"speaker":0,"chipId":"one","caption":"Hello","audioPath":"/api/v1/daily-podcasts/key/audio?start=2030-03-10T05%3A00%3A00Z&end=2030-03-11T04%3A00%3A00Z","imagePath":null,"icon":"🎙️"}]}}"#
         } else { body = #"{"podcast":null}"# }
         var payload = body
