@@ -366,3 +366,22 @@ for everyone with access.
 `{id, url, name, contentType, size, width?, height?}`. Keep it in a `json` record field
 or `initialState`, and show images with an `Image` element whose `url` is the
 reference's `url`.
+
+## Connected clients in the app
+
+In Settings → MCP Server → Connected Clients, the app lists the signed-in account's
+active OAuth authorizations. Selecting an app opens its permissions and access expiry.
+Each authorization is listed separately, including multiple authorizations for the same
+registered client. API-key clients remain under API Keys.
+
+`GET /api/v1/mcp/clients` requires the app's bearer token and returns an uncached
+`{ "items": [{ "id": "<grant ID>", "clientId": "<registered client ID>", "name": "Claude",
+"scope": "chippy:read chippy:write", "expiresAt": "2027-01-15T08:00:00.000Z" }] }`.
+Only the caller's unrevoked grants whose expiry is in the future are included, ordered
+by expiry descending and then grant ID descending. No grants returns `items: []`.
+Unauthenticated requests and personal API keys receive `401`. Tokens, redirect URIs
+and other accounts' grants are never returned.
+
+These are authorization records, not online sessions: the stateless MCP server does
+not track whether an agent is currently connected. The app reloads when the sheet
+opens, when it becomes active, on pull-to-refresh and through the Refresh button.

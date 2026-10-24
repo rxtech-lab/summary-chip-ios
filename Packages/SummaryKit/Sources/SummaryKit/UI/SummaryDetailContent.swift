@@ -1,6 +1,11 @@
 #if os(iOS) || os(macOS)
 import QuickLook
 import SwiftUI
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 
 /// Read-only body of a summary, in the feed's tile language: OG image hero, a large title,
 /// the owner's sharing status, then the summary, key points, tags and source as soft cards.
@@ -15,6 +20,9 @@ public struct SummaryDetailContent: View {
     @State private var previewFile: URL?
     @State private var isOpeningSource = false
     @State private var sourceError: String?
+    @State private var isCopyingImage = false
+    @State private var copiedImage = false
+    @State private var copyImageError: String?
 
     /// - Parameters:
     ///   - onEditSharing: When set, the owner's sharing card becomes a button that
@@ -33,6 +41,28 @@ public struct SummaryDetailContent: View {
                 .clipShape(DetailTile.shape)
                 .overlay { DetailTile.shape.strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5) }
                 .shadow(color: .black.opacity(0.1), radius: 16, y: 6)
+                .contextMenu {
+                    Button {
+                        Task { await copyCoverImage() }
+                    } label: {
+                        Label {
+                            Text("Copy Image", bundle: .module)
+                        } icon: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                    }
+                    .disabled(isCopyingImage || copiedImage || summary.ogImageUrl == nil)
+                    .accessibilityIdentifier("copy-cover-image")
+                }
+                .overlay {
+                    if isCopyingImage {
+                        ActionStatusOverlay(String(localized: "Copying image…", bundle: .module))
+                    } else if copiedImage {
+                        ActionStatusOverlay(String(localized: "Image copied", bundle: .module), isWorking: false)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .accessibilityIdentifier("summary-cover-image")
 
             header
                 .padding(.horizontal, 6)
@@ -65,6 +95,15 @@ public struct SummaryDetailContent: View {
             if summary.originalURL != nil { sourceCard }
         }
         .quickLookPreview($previewFile)
+        .statusAlert(Text("Couldn't copy image", bundle: .module), message: copyImageError) { copyImageError = nil }
+        .sensoryFeedback(.impact(weight: .light), trigger: isCopyingImage) { _, new in new }
+        .sensoryFeedback(.success, trigger: copiedImage) { _, new in new }
+        .sensoryFeedback(.error, trigger: copyImageError) { _, new in new != nil }
+        .task(id: copiedImage) {
+            guard copiedImage else { return }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            copiedImage = false
+        }
     }
 
     // MARK: - Sections
@@ -228,6 +267,29 @@ public struct SummaryDetailContent: View {
                     .foregroundStyle(.red)
                     .padding(.horizontal, 6)
             }
+        }
+    }
+
+    @MainActor
+    private func copyCoverImage() async {
+        guard !isCopyingImage else { return }
+        isCopyingImage = true
+        copyImageError = nil
+        defer { isCopyingImage = false }
+        do {
+            let file = try await loader.downloadOGImage(for: summary)
+            // Decode before touching the clipboard so a failed download cannot replace its contents.
+            #if os(iOS)
+            guard let image = UIImage(contentsOfFile: file.path) else { throw SummaryAPIError.invalidResponse }
+            UIPasteboard.general.image = image
+            #else
+            guard let image = NSImage(contentsOf: file) else { throw SummaryAPIError.invalidResponse }
+            NSPasteboard.general.clearContents()
+            guard NSPasteboard.general.writeObjects([image]) else { throw SummaryAPIError.invalidResponse }
+            #endif
+            copiedImage = true
+        } catch {
+            copyImageError = error.localizedDescription
         }
     }
 
