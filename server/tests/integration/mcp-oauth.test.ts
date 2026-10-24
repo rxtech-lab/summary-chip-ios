@@ -52,8 +52,8 @@ async function start(clientId: string, scope = "chippy:read chippy:write", overr
   return { response: await authorizeRoute.GET(new Request(url)), verifier };
 }
 
-async function login(clientId: string, scope = "chippy:read chippy:write", owner = "user-alice") {
-  const begun = await start(clientId, scope);
+async function login(clientId: string, scope = "chippy:read chippy:write", owner = "user-alice", redirectUri = CALLBACK) {
+  const begun = await start(clientId, scope, { redirect_uri: redirectUri });
   expect(begun.response.status).toBe(302);
   const upstream = new URL(begun.response.headers.get("location")!);
   const upstreamToken = await signToken(owner, { client_id: BROKER_CLIENT });
@@ -66,6 +66,7 @@ async function login(clientId: string, scope = "chippy:read chippy:write", owner
   expect(response.status).toBe(302);
   const consentUrl = response.headers.get("location")!;
   const cookie = cookieFrom(response);
+  expect(cookie).toBe(cookieFrom(begun.response));
   const requestId = new URL(consentUrl).searchParams.get("request")!;
   return { verifier: begun.verifier, cookie, requestId, consentUrl, upstream, fetchMock, upstreamToken };
 }
@@ -110,7 +111,7 @@ describe("MCP OAuth discovery and registration", () => {
 
   it("accepts HTTPS and loopback callbacks, rejects unsafe callbacks and unsupported clients", async () => {
     await register("Loopback", ["http://127.0.0.1:12345/callback", "http://[::1]:6789/callback"]);
-    for (const uri of ["http://attacker.example/callback", "javascript:alert(1)", "https://agent.example/#fragment", "https://user:password@agent.example/callback", "https://agent.example;unsafe/callback"]) {
+    for (const uri of ["http://attacker.example/callback", "javascript:alert(1)", "data:text/html,test", "file:///tmp/callback", "blob:https://agent.example/id", "rxcode://mcp/callback#fragment", "https://agent.example/#fragment", "https://user:password@agent.example/callback", "https://agent.example;unsafe/callback"]) {
       const response = await registerRoute.POST(apiRequest("POST", "/register", { body: { redirect_uris: [uri] } }));
       expect(response.status).toBe(400);
       expect((await response.json()).error).toBe("invalid_client_metadata");
@@ -145,7 +146,7 @@ describe("RxLab login, consent and PKCE code exchange", () => {
     const page = await consentRoute.GET(new Request(signedIn.consentUrl, { headers: { cookie: signedIn.cookie } }));
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(page.headers.get("referrer-policy")).toBe("same-origin");
-    expect(page.headers.get("content-security-policy")).toContain("form-action 'self' https://agent.example;");
+    expect(page.headers.get("content-security-policy")).not.toContain("form-action");
     const html = await page.text();
     expect(html).toContain("&lt;img");
     expect(html).not.toContain("<img");
@@ -155,6 +156,50 @@ describe("RxLab login, consent and PKCE code exchange", () => {
     expect(await env.handle.db.select().from(mcpOAuthCodes)).toHaveLength(0);
     expect(JSON.stringify(await env.handle.db.select().from(mcpOAuthRequests))).not.toContain(signedIn.upstreamToken);
     expect((await consentRoute.GET(new Request(signedIn.consentUrl))).status).toBe(400);
+  });
+
+  it("connects RxCode through its exact native callback and exchanges the code", async () => {
+    const redirectUri = "rxcode://mcp/oauth/callback";
+    const clientId = await register("RxCode", [redirectUri]);
+    const signedIn = await login(clientId, undefined, undefined, redirectUri);
+    const page = await consentRoute.GET(new Request(signedIn.consentUrl, { headers: { cookie: signedIn.cookie } }));
+    expect(page.status).toBe(200);
+    expect(page.headers.get("content-security-policy")).not.toContain("form-action");
+    const approved = await consentRoute.POST(formRequest("consent", {
+      request: signedIn.requestId, csrf: signedIn.cookie.split("=", 2)[1], decision: "allow",
+    }, signedIn.cookie));
+    const callback = new URL(approved.headers.get("location")!);
+    expect(callback.protocol).toBe("rxcode:");
+    expect(callback.host).toBe("mcp");
+    expect(callback.pathname).toBe("/oauth/callback");
+    const issued = await tokenRoute.POST(formRequest("token", {
+      grant_type: "authorization_code", client_id: clientId, redirect_uri: redirectUri,
+      resource: mcpResource(), code: callback.searchParams.get("code")!, code_verifier: signedIn.verifier,
+    }));
+    expect(issued.status).toBe(200);
+    expect((await rpc((await issued.json()).access_token, "tools/list")).status).toBe(200);
+    expect((await start(clientId, undefined, { redirect_uri: "rxcode://other/callback" })).response.status).toBe(400);
+  });
+
+  it("gives consent a full window after a slow login while keeping browser binding", async () => {
+    const clientId = await register();
+    const begun = await start(clientId);
+    const cookie = cookieFrom(begun.response);
+    const upstream = new URL(begun.response.headers.get("location")!);
+    const oldDeadline = new Date(Date.now() + 2_000);
+    await env.handle.db.update(mcpOAuthRequests).set({ expiresAt: oldDeadline });
+    const upstreamToken = await signToken("user-alice", { client_id: BROKER_CLIENT });
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ access_token: upstreamToken })));
+    const response = await callbackRoute.GET(new Request(`${oauthUrl("callback")}?state=${upstream.searchParams.get("state")}&code=code`, { headers: { cookie } }));
+    expect(response.status).toBe(302);
+    const consentUrl = response.headers.get("location")!;
+    const [flow] = await env.handle.db.select().from(mcpOAuthRequests);
+    expect(flow.expiresAt.getTime()).toBeGreaterThan(oldDeadline.getTime() + 590_000);
+    // The original browser cookie still works even if the redirect's renewal is lost.
+    expect((await consentRoute.GET(new Request(consentUrl, { headers: { cookie } }))).status).toBe(200);
+    expect((await consentRoute.GET(new Request(consentUrl, { headers: { cookie: cookie + "forged" } }))).status).toBe(400);
+    await env.handle.db.update(mcpOAuthRequests).set({ expiresAt: new Date(Date.now() - 1_000) });
+    expect((await consentRoute.GET(new Request(consentUrl, { headers: { cookie } }))).status).toBe(400);
   });
 
   it("rejects unregistered redirect URIs before redirecting, and returns iss on valid-client errors", async () => {

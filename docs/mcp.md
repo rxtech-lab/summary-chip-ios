@@ -47,7 +47,7 @@ or rewritten: the broker uses RxAuth's existing `/api/oauth/authorize`, `/api/oa
 | `GET /.well-known/oauth-protected-resource` | MCP audience, authorization server and supported scopes |
 | `GET /.well-known/oauth-protected-resource/api/mcp` | Path-specific resource metadata alias |
 | `GET /.well-known/oauth-authorization-server` | Chippy authorization server discovery |
-| `POST /api/mcp/oauth/register` | Public-client registration; JSON metadata, HTTPS or loopback callbacks |
+| `POST /api/mcp/oauth/register` | Public-client registration; JSON metadata, HTTPS, loopback or native app callbacks |
 | `GET /api/mcp/oauth/authorize` | Validate client, callback, scope, resource and S256 challenge; begin RxAuth login |
 | `GET /api/mcp/oauth/callback` | Verify upstream state, browser cookie and signed RxAuth identity |
 | `GET/POST /api/mcp/oauth/consent` | Show permissions and approve or deny this agent's access |
@@ -56,7 +56,8 @@ or rewritten: the broker uses RxAuth's existing `/api/oauth/authorize`, `/api/oa
 
 Authorization and token requests must include `resource` equal to `MCP_RESOURCE_URL`. Codes are
 bound to the registered client, exact callback and S256 verifier, expire after one minute, and can
-be used once. Login/consent requests expire after ten minutes and are bound to an HttpOnly,
+be used once. Login requests expire after ten minutes; successful sign-in starts a fresh ten-minute
+consent window. Both stages are bound to the same HttpOnly,
 SameSite browser cookie. The consent page shows the agent's name, callback origin and requested
 permissions; it never silently grants access based on a previous RxAuth consent.
 
@@ -93,8 +94,11 @@ interactive transactions use the same shared database across connections.
 and a real loopback agent callback, including code exchange and an authenticated profile call.
 It checks the browser-generated Origin header, callback navigation, and mobile/dark layout.
 The consent page uses `Referrer-Policy: same-origin` so native form POSTs retain their origin,
-and its CSP allows the registered agent callback origin for the post-consent redirect. Origin,
-browser-cookie and CSRF checks remain enforced.
+and deliberately omits CSP `form-action`: Chromium applies that directive to the full redirect
+chain, so restricting it to the registered callback origin blocks web agents that redirect users
+back to a different application origin. The fixed form action, exact registered callback,
+Origin, browser-cookie, CSRF and PKCE checks remain enforced. Browser regression coverage includes
+an agent callback that redirects to a second origin.
 
 ## API keys
 
