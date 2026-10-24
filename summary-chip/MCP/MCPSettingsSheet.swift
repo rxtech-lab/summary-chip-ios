@@ -380,102 +380,79 @@ private struct MCPToolDetailsSheet: View {
 /// OAuth authorizations live separately from key management and tool discovery.
 private struct MCPConnectedClientsSheet: View {
     let api: SummaryAPIClient
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var clients: [MCPConnectedClient]?
+    @State private var selectedClient: MCPConnectedClient?
     @State private var loadError: String?
     @State private var refreshError: String?
     @State private var interactionCount = 0
+    @State private var successCount = 0
+    @State private var toast: String?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let clients, !clients.isEmpty {
-                    List {
-                        Section {
-                            ForEach(clients) { client in
-                                NavigationLink {
-                                    Form {
-                                        LabeledContent("Client", value: client.name)
-                                        LabeledContent("Sign-in", value: "OAuth")
-                                        Section("Permissions") {
-                                            ForEach(client.scope.split(separator: " ").map(String.init), id: \.self) { scope in
-                                                switch scope {
-                                                case "chippy:read": Text("Read your library")
-                                                case "chippy:write": Text("Create and edit your library")
-                                                default: Text(verbatim: scope)
-                                                }
-                                            }
-                                        }
-                                        LabeledContent("Access expires") {
-                                            Text(client.expiresAt, format: .dateTime.year().month().day().hour().minute())
-                                        }
-                                    }
-                                    .navigationTitle(client.name)
-                                } label: {
-                                    Label(client.name, systemImage: "app.connected.to.app.below.fill")
-                                }
-                                .simultaneousGesture(TapGesture().onEnded { interactionCount += 1 })
-                                .accessibilityIdentifier("mcp-connected-client")
-                            }
-                        } footer: {
-                            explanation
-                        }
-                    }
-                } else if clients != nil {
-                    ContentUnavailableView {
-                        Label("No Connected Clients", systemImage: "app.connected.to.app.below.fill")
-                    } description: {
-                        Text("Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys.")
-                    }
-                } else if let loadError {
-                    ContentUnavailableView {
-                        Label("Couldn’t Load Clients", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(loadError)
-                    } actions: {
-                        Button("Try Again") {
-                            interactionCount += 1
-                            Task { await load() }
-                        }
-                    }
-                } else {
-                    ProgressView("Loading clients…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .navigationTitle("Connected Clients")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Refresh", systemImage: "arrow.clockwise") {
-                        interactionCount += 1
-                        Task { await load() }
-                    }
-                }
-            }
-            .refreshable { await load() }
-            .task(id: scenePhase) {
-                guard scenePhase == .active else { return }
-                await load()
-            }
-            .sensoryFeedback(.selection, trigger: interactionCount)
-            .sensoryFeedback(.error, trigger: loadError) { _, new in new != nil }
-            .sensoryFeedback(.error, trigger: refreshError) { _, new in new != nil }
-            .statusAlert("Connected Clients", message: refreshError) { refreshError = nil }
+        MCPClientSheetLayout(title: "Connected Clients", onRefresh: {
+            interactionCount += 1
+            Task { await load() }
+        }) {
+            content
         }
-        #if os(macOS)
-        .frame(width: 560, height: 620)
-        #endif
+        .sheet(item: $selectedClient) { client in
+            MCPClientDetailsSheet(api: api, client: client) {
+                clients?.removeAll { $0.id == client.id }
+                successCount += 1
+                toast = String(localized: "Client disconnected")
+            }
+        }
+        .overlay {
+            if let toast {
+                ActionStatusOverlay(toast, isWorking: false)
+                    .allowsHitTesting(false)
+            }
+        }
+        .task(id: toast) {
+            guard toast != nil else { return }
+            do { try await Task.sleep(for: .seconds(1.4)) } catch { return }
+            toast = nil
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await load()
+        }
+        .sensoryFeedback(.selection, trigger: interactionCount)
+        .sensoryFeedback(.success, trigger: successCount)
+        .sensoryFeedback(.error, trigger: loadError) { _, new in new != nil }
+        .sensoryFeedback(.error, trigger: refreshError) { _, new in new != nil }
+        .statusAlert("Connected Clients", message: refreshError) { refreshError = nil }
     }
 
-    private var explanation: some View {
-        Text("These apps have permission to use Chippy through OAuth. This does not indicate whether they are online. Each authorization is listed separately. Clients using an API key are listed under API Keys.")
+    @ViewBuilder
+    private var content: some View {
+        if let clients, !clients.isEmpty {
+            MCPConnectedClientsList(clients: clients) { client in
+                interactionCount += 1
+                selectedClient = client
+            }
+            .refreshable { await load() }
+        } else if clients != nil {
+            ContentUnavailableView {
+                Label("No Connected Clients", systemImage: "app.connected.to.app.below.fill")
+            } description: {
+                Text("Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys.")
+            }
+        } else if let loadError {
+            ContentUnavailableView {
+                Label("Couldn’t Load Clients", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(loadError)
+            } actions: {
+                Button("Try Again") {
+                    interactionCount += 1
+                    Task { await load() }
+                }
+            }
+        } else {
+            ProgressView("Loading clients…")
+        }
     }
 
     private func load() async {
@@ -490,5 +467,139 @@ private struct MCPConnectedClientsSheet: View {
             guard !Task.isCancelled else { return }
             if clients == nil { loadError = error.localizedDescription } else { refreshError = error.localizedDescription }
         }
+    }
+}
+
+/// Details and the destructive action have their own sheet on both platforms.
+private struct MCPClientDetailsSheet: View {
+    let api: SummaryAPIClient
+    let client: MCPConnectedClient
+    let onDisconnect: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmsDisconnect = false
+    @State private var isDisconnecting = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        MCPClientSheetLayout(title: client.name, isWorking: isDisconnecting) {
+            Form {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "app.connected.to.app.below.fill").foregroundStyle(.tint)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(client.name).font(.headline)
+                            Text("Authorized with OAuth")
+                                .font(.callout).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                Section("Permissions") {
+                    ForEach(client.scope.split(separator: " ").map(String.init), id: \.self) { scope in
+                        switch scope {
+                        case "chippy:read": Label("Read your library", systemImage: "books.vertical")
+                        case "chippy:write": Label("Create and edit your library", systemImage: "square.and.pencil")
+                        default: Text(verbatim: scope)
+                        }
+                    }
+                }
+                LabeledContent("Access expires") {
+                    Text(client.expiresAt, format: .dateTime.year().month().day().hour().minute())
+                }
+                Section {
+                    Button("Disconnect Client", systemImage: "link.badge.minus", role: .destructive) {
+                        confirmsDisconnect = true
+                    }
+                    .accessibilityIdentifier("mcp-disconnect-client")
+                } footer: {
+                    Text("Disconnecting removes this authorization’s access to Chippy. The app must be authorized again to reconnect. Other authorizations and API keys stay active.")
+                }
+            }
+            .formStyle(.grouped)
+            .disabled(isDisconnecting)
+        }
+        .interactiveDismissDisabled(isDisconnecting)
+        .confirmationDialog("Disconnect “\(client.name)”?", isPresented: $confirmsDisconnect, titleVisibility: .visible) {
+            Button("Disconnect Client", role: .destructive) { disconnect() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This authorization will no longer be able to read or change your library. You can reconnect by authorizing the app again.")
+        }
+        .overlay {
+            if isDisconnecting { ActionStatusOverlay(String(localized: "Disconnecting client…")) }
+        }
+        .sensoryFeedback(.warning, trigger: confirmsDisconnect) { _, new in new }
+        .sensoryFeedback(.error, trigger: errorMessage) { _, new in new != nil }
+        .statusAlert("Couldn’t Disconnect Client", message: errorMessage) { errorMessage = nil }
+    }
+
+    private func disconnect() {
+        guard !isDisconnecting else { return }
+        isDisconnecting = true
+        Task {
+            defer { isDisconnecting = false }
+            do {
+                try await api.disconnectMCPClient(id: client.id)
+                onDisconnect()
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+
+/// macOS uses explicit sheet chrome so navigation's intrinsic sizing cannot center the header.
+private struct MCPClientSheetLayout<Content: View>: View {
+    let title: String
+    var onRefresh: (() -> Void)?
+    var isWorking = false
+    @ViewBuilder let content: () -> Content
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            HStack {
+                Text(title).font(.headline)
+                Spacer()
+                if let onRefresh {
+                    Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
+                        .labelStyle(.iconOnly)
+                }
+            }
+            .padding(20)
+            Divider()
+            content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Divider()
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(isWorking)
+            }
+            .padding(16)
+        }
+        .frame(width: 560, height: 620)
+        #else
+        NavigationStack {
+            content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }.disabled(isWorking)
+                    }
+                    if let onRefresh {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
+                        }
+                    }
+                }
+        }
+        .presentationDetents([.large])
+        #endif
     }
 }

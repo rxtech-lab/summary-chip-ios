@@ -285,6 +285,9 @@
         }
       }
     },
+    "%lld authorizations" : {
+
+    },
     "%lld changes saved" : {
 
     },
@@ -2006,6 +2009,12 @@
     "Ask, or paste a booking or link" : {
 
     },
+    "Authorized Apps" : {
+
+    },
+    "Authorized with OAuth" : {
+
+    },
     "Automatically check for updates" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2921,7 +2930,7 @@
         }
       }
     },
-    "Client" : {
+    "Client disconnected" : {
 
     },
     "Client Secret" : {
@@ -3395,6 +3404,9 @@
         }
       }
     },
+    "Couldn’t Disconnect Client" : {
+
+    },
     "Couldn't Export Paper" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3866,6 +3878,9 @@
           }
         }
       }
+    },
+    "Custom permissions" : {
+
     },
     "Custom rendering applies to PDF and Word." : {
       "extractionState" : "manual",
@@ -4580,7 +4595,19 @@
     "Disconnect" : {
 
     },
+    "Disconnect “%@”?" : {
+
+    },
+    "Disconnect Client" : {
+
+    },
     "Disconnect this account?" : {
+
+    },
+    "Disconnecting client…" : {
+
+    },
+    "Disconnecting removes this authorization’s access to Chippy. The app must be authorized again to reconnect. Other authorizations and API keys stay active." : {
 
     },
     "Discover" : {
@@ -4726,6 +4753,9 @@
 
     },
     "Each image is limited to 10 MB." : {
+
+    },
+    "Each OAuth authorization is shown separately. These are permissions, not online sessions. Manage API-key clients under API Keys." : {
 
     },
     "Economy" : {
@@ -5172,6 +5202,9 @@
           }
         }
       }
+    },
+    "Expires %@" : {
+
     },
     "Explain this in simpler terms" : {
       "localizations" : {
@@ -10389,10 +10422,16 @@
     "Read" : {
 
     },
+    "Read and write" : {
+
+    },
     "Read and Write" : {
 
     },
     "Read more" : {
+
+    },
+    "Read only" : {
 
     },
     "Read summary" : {
@@ -11165,6 +11204,12 @@
 
     },
     "Review Changes" : {
+
+    },
+    "Review permissions and disconnect this authorization" : {
+
+    },
+    "Review what each app can access. Select an app to manage its authorization." : {
 
     },
     "Reviews" : {
@@ -12317,9 +12362,6 @@
           }
         }
       }
-    },
-    "Sign-in" : {
-
     },
     "Signed in" : {
       "localizations" : {
@@ -13519,9 +13561,6 @@
         }
       }
     },
-    "These apps have permission to use Chippy through OAuth. This does not indicate whether they are online. Each authorization is listed separately. Clients using an API key are listed under API Keys." : {
-
-    },
     "These diagrams are drawn by LaTeX." : {
 
     },
@@ -13543,6 +13582,9 @@
           }
         }
       }
+    },
+    "This authorization will no longer be able to read or change your library. You can reconnect by authorizing the app again." : {
+
     },
     "This Clip needs a newer renderer." : {
 
@@ -15274,6 +15316,9 @@
           }
         }
       }
+    },
+    "Write access" : {
+
     },
     "Write LaTeX papers with a live PDF preview. Let your AI agent research, write and edit through MCP. Chippy cross-checks references for source accuracy and support for your cited claims. Start with + → New Paper, and review issues in the References sheet." : {
       "localizations" : {

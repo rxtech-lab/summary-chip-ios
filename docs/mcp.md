@@ -382,6 +382,15 @@ by expiry descending and then grant ID descending. No grants returns `items: []`
 Unauthenticated requests and personal API keys receive `401`. Tokens, redirect URIs
 and other accounts' grants are never returned.
 
+`DELETE /api/v1/mcp/clients/{id}` requires the app's bearer token and revokes the
+specified grant owned by that account. It returns `204` with no body and no-store
+headers, including when the grant was already revoked. Unknown IDs and grants
+owned by another account both return `404`; missing or MCP credentials return
+`401`. Revocation blocks that grant's access tokens, refresh tokens and pending
+authorization-code exchanges. Other grants for the same client stay active.
+The app asks for native confirmation in the client detail sheet and shows progress,
+success and error feedback. A failed request keeps the detail sheet available.
+
 These are authorization records, not online sessions: the stateless MCP server does
 not track whether an agent is currently connected. The app reloads when the sheet
 opens, when it becomes active, on pull-to-refresh and through the Refresh button.

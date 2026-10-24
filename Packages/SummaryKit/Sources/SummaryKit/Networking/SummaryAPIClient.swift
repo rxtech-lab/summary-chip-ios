@@ -222,6 +222,13 @@ public final class SummaryAPIClient: Sendable {
         return page.items
     }
 
+    /// Revokes one OAuth authorization and its access and refresh credentials.
+    public func disconnectMCPClient(id: String) async throws {
+        var request = request("/api/v1/mcp/clients/\(id.urlPathEscaped)")
+        request.httpMethod = "DELETE"
+        _ = try await sendRaw(request)
+    }
+
     /// The hosted MCP server agents connect to with an API key.
     public var mcpEndpoint: URL { baseURL.appending(path: "/api/mcp") }
 

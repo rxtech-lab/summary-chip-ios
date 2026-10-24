@@ -3,6 +3,14 @@ import Testing
 @testable import SummaryKit
 
 struct MCPToolsTests {
+    @Test func disconnectsClientWithAppAuthenticationAndAcceptsNoContent() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MCPDisconnectProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://mcp-disconnect.test")!, tokenProvider: MCPToolsToken(),
+            session: URLSession(configuration: configuration))
+        try await api.disconnectMCPClient(id: "grant-1")
+    }
+
     @Test func loadsConnectedClientsWithAppAuthentication() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MCPClientsProtocol.self]
@@ -32,6 +40,20 @@ struct MCPToolsTests {
 
 private struct MCPToolsToken: AccessTokenProvider {
     func accessToken(forceRefresh: Bool) async throws -> String { "app-token" }
+}
+
+private final class MCPDisconnectProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "mcp-disconnect.test" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+    override func startLoading() {
+        #expect(request.url?.path == "/api/v1/mcp/clients/grant-1")
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer app-token")
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 204, httpVersion: nil,
+            headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocolDidFinishLoading(self)
+    }
 }
 
 private final class MCPToolsProtocol: URLProtocol, @unchecked Sendable {
