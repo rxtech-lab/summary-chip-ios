@@ -1,5 +1,5 @@
 import type { PodcastInput } from "./podcast-agent";
-import type { PodcastVideoInput } from "./podcast-video-agent";
+import type { PodcastVideoDraft, PodcastVideoInput, PodcastVideoTurnOptions, PodcastVideoTurnResult } from "./podcast-video-agent";
 import type { PodcastTranslationInput } from "./podcast-translation";
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
@@ -263,9 +263,22 @@ export class MockAiProvider implements AiProvider {
     return this.pricing;
   }
 
+  podcastModelId(): string {
+    return "mock/podcast";
+  }
+
+  async podcastPricing(): Promise<ModelPricing | null> {
+    return this.pricing;
+  }
+
+  async writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast) {
+    return { description: `Explore ${podcast.title}.`, sections: [{ heading: podcast.title,
+      paragraphs: ["An editorial overview of the episode’s central ideas and their implications."], segmentIndex: 0 }] };
+  }
+
   async writePodcast(input: PodcastInput) {
-    return { title: "Your daily podcast", mood: "calm" as const, speakers: [{ name: "Alex", voice: input.voices[0] }],
-      segments: input.chips.map((chip) => ({ speaker: 0, chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
+    return { title: "Your daily podcast", mood: "calm" as const, speakers: (input.speakerNames ?? ["Alex"]).map((name, index) => ({ name, voice: input.voices[index] })),
+      segments: input.chips.map((chip, index) => ({ speaker: index % (input.speakerNames?.length ?? 1), chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
   }
 
   async translatePodcast(input: PodcastTranslationInput, options: TourNarrationOptions = {}) {
@@ -297,6 +310,14 @@ export class MockAiProvider implements AiProvider {
     this.calls.writePodcastVideo.push(input);
     options.onUsage?.(MOCK_STEP_USAGE);
     return { "src/Video.tsx": MOCK_PODCAST_VIDEO };
+  }
+
+  /** A background run's turn: the whole mock design in one turn, so spies on `writePodcastVideo` shape it. */
+  async podcastVideoTurn(input: PodcastVideoInput, draft: PodcastVideoDraft, options: PodcastVideoTurnOptions = {}): Promise<PodcastVideoTurnResult> {
+    const result = await this.writePodcastVideo(input, { abortSignal: options.abortSignal, onUsage: options.onUsage });
+    // Without a result the run is over too: it spent its submissions.
+    return { draft: { ...draft, turns: draft.turns + 1, files: result ?? draft.files, result, attempts: result ? draft.attempts + 1 : 5 },
+      evidence: result ? "Validation passed" : "Validation failed" };
   }
 
   speechModelId(): string | null {

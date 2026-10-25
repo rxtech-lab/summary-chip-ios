@@ -5,6 +5,12 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const http = require("node:http");
 http.createServer(async (req, res) => {
+  if (req.headers["x-podcast-fixture-failure"] === "hang") {
+    // Longer than the regression test's client deadline; no production request uses this header.
+    const timer = setTimeout(() => { res.writeHead(504); res.end("Fixture timeout"); }, 1000);
+    res.on("close", () => clearTimeout(timer));
+    return;
+  }
   if (req.method === "POST" && req.url === "/transcription-model") {
     if (!req.body?.audio || req.body?.providerOptions?.mistral?.timestampGranularities?.[0] !== "segment") {
       res.writeHead(400); return res.end("Expected audio and segment timestamps");
@@ -27,8 +33,15 @@ http.createServer(async (req, res) => {
       res.writeHead(400, { "content-type": "application/json" });
       return res.end(JSON.stringify({ error: "Expected text, voice and MP3 output" }));
     }
-    const bytes = Buffer.alloc(417 * 4);
-    for (let at = 0; at < bytes.length; at += 417) bytes.set([255, 251, 144, 192], at);
+    // Preserve the spoken text in an ID3 title, matching the local transcription fixture.
+    const title = Buffer.from(req.body.text);
+    const tagSize = 11 + title.length;
+    const syncsafe = size => [(size >> 21) & 127, (size >> 14) & 127, (size >> 7) & 127, size & 127];
+    const bytes = Buffer.alloc(10 + tagSize + 417 * 4);
+    bytes.set([73, 68, 51, 4, 0, 0, ...syncsafe(tagSize)]);
+    bytes.set([84, 73, 84, 50, ...syncsafe(title.length + 1), 0, 0, 3], 10);
+    bytes.set(title, 21);
+    for (let at = 10 + tagSize; at < bytes.length; at += 417) bytes.set([255, 251, 144, 192], at);
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify({ audio: bytes.toString("base64"), warnings: [] }));
   }
@@ -45,17 +58,12 @@ http.createServer(async (req, res) => {
     } catch {
       res.writeHead(400); return res.end("Expected a video episode prompt");
     }
-    const storyboard = episode.segments.map((segment, segmentIndex) => ({ segmentIndex, sourceQuote: segment.caption.slice(0, 1200), visualSubject: "Fixture source", visualAction: "Fixture panel expands with the current voice progress", file: "src/Video.tsx" }));
+    const storyboard = episode.turns.map((segment, segmentIndex) => ({ segmentIndex, sourceQuote: segment.caption.slice(0, 1200), visualSubject: "Fixture source", visualAction: "Fixture panel expands with the current voice progress", phraseActions: [{ phrase: 0, action: "Panel expands" }], storyTransition: "Previous panel exits as the next panel expands", file: "src/Video.tsx" }));
     const call = { type: "tool-call", toolCallId: "video-1", toolName: "submit_video", input: JSON.stringify({ storyboard, files: [{
-      path: "src/Video.tsx", content: 'import { AbsoluteFill } from "remotion"; import { useNarration } from "./podcast"; export const PodcastVideo = () => { const { index, progress } = useNarration(); return <AbsoluteFill style={{backgroundColor: "#111"}}><div style={{width: 100 + progress * 200}}>Fixture turn {index}</div></AbsoluteFill>; };',
+      path: "src/Video.tsx", content: 'import { AbsoluteFill } from "remotion"; import { usePhrases } from "./podcast"; export const PodcastVideo = () => { const { index, progress } = usePhrases(); return <AbsoluteFill style={{backgroundColor: "#111"}}><div style={{width: 100 + progress * 200}}>Fixture turn {index}</div></AbsoluteFill>; };',
     }] }) };
     const finishReason = { unified: "tool-calls", raw: "tool_calls" };
     const usage = { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 10, text: 10, reasoning: 0 } };
-    if (body?.tools?.some((tool) => tool.name === "submit_video")) {
-      res.writeHead(200, { "content-type": "text/event-stream" });
-      for (const part of [{ type: "stream-start", warnings: [] }, call, { type: "finish", finishReason, usage }]) res.write(`data: ${JSON.stringify(part)}\n\n`);
-      return res.end();
-    }
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify({ content: [call], finishReason, usage, warnings: [] }));
   }
@@ -67,11 +75,19 @@ http.createServer(async (req, res) => {
     res.writeHead(400, { "content-type": "application/json" });
     return res.end(JSON.stringify({ error: "Expected a structured podcast prompt" }));
   }
+  if (Array.isArray(input.segments)) {
+    const article = { description: "A closer look at the episode’s discoveries.", sections: input.segments.map((segment) => ({
+      heading: `Discovery ${segment.segmentIndex + 1}`, paragraphs: ["The findings offer a useful perspective on the topic discussed in this episode."], segmentIndex: segment.segmentIndex,
+    })) };
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(article) }],
+      finishReason: { unified: "stop", raw: "stop" }, usage: { inputTokens: { total: 10 }, outputTokens: { total: 10 } }, warnings: [] }));
+  }
   const script = {
     title: "A day of discoveries",
     mood: "focused",
-    speakers: input.voices.slice(0, 2).map((voice, index) => ({ name: index ? "Sam" : "Alex", voice })),
-    segments: input.chips.map((chip, index) => ({ speaker: index % Math.min(input.voices.length, 2), chipId: chip.id, caption: chip.summary })),
+    speakers: input.voices.slice(0, input.speakerNames?.length ?? 2).map((voice, index) => ({ name: input.speakerNames?.[index] ?? (index ? "Sam" : "Alex"), voice })),
+    segments: input.chips.map((chip, index) => ({ speaker: index % Math.min(input.voices.length, input.speakerNames?.length ?? 2), chipId: chip.id, caption: chip.summary })),
   };
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify({

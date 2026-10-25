@@ -1626,6 +1626,9 @@
     "All Versions…" : {
 
     },
+    "Allow Chippy to add videos in Settings → Privacy & Security → Photos, or choose Files to save this video." : {
+
+    },
     "Allow Chippy to use your location in Settings, then try again." : {
 
     },
@@ -2114,6 +2117,9 @@
     "Authorized with OAuth" : {
 
     },
+    "Automatic" : {
+
+    },
     "Automatically check for updates" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2195,6 +2201,9 @@
       }
     },
     "Back to Current" : {
+
+    },
+    "Background Jobs" : {
 
     },
     "Balance" : {
@@ -2882,6 +2891,9 @@
     "Choose an image to replace this file." : {
 
     },
+    "Choose Automatic to let the podcast choose its hosts, or enter a name for each speaker (up to 40 characters). Available voices may limit the number of speakers. These settings are saved on this device when you generate." : {
+
+    },
     "Choose Chips" : {
 
     },
@@ -3439,6 +3451,9 @@
         }
       }
     },
+    "Continue in Background" : {
+
+    },
     "Convert Totals" : {
 
     },
@@ -3664,6 +3679,9 @@
     "Couldn’t Load Clients" : {
 
     },
+    "Couldn't Load Jobs" : {
+
+    },
     "Couldn't Load Links" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3799,6 +3817,9 @@
     "Couldn't Open Item" : {
 
     },
+    "Couldn't Open Job" : {
+
+    },
     "Couldn't Open Podcast" : {
 
     },
@@ -3822,6 +3843,9 @@
 
     },
     "Couldn't read this image. Choose a PNG, JPEG or PDF." : {
+
+    },
+    "Couldn't Render Video" : {
 
     },
     "Couldn't Save" : {
@@ -4833,6 +4857,15 @@
     "Designing a new cover…" : {
 
     },
+    "Designing video…" : {
+
+    },
+    "Designing Video…" : {
+
+    },
+    "Designing video… %lld%%" : {
+
+    },
     "Designing…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5069,6 +5102,9 @@
           }
         }
       }
+    },
+    "Downloading podcast…" : {
+
     },
     "Drag to resize the editor and preview." : {
 
@@ -5490,6 +5526,9 @@
           }
         }
       }
+    },
+    "Error" : {
+
     },
     "Error %lld of %lld · Line %lld" : {
       "localizations" : {
@@ -6602,7 +6641,7 @@
     "Generating cover…" : {
 
     },
-    "Generation uses points. Audio and video design are saved for future playback. Keep the app open while the video renders. Each version is kept until you remove it." : {
+    "Generation uses points. Audio and video design are saved for future playback. The video is designed on the server, so you can leave while it works; keep the app open while it renders on this device. Each version is kept until you remove it." : {
 
     },
     "Generation uses points. Audio is saved for future playback. Regeneration creates a new episode using the current chips and selected language." : {
@@ -7163,6 +7202,9 @@
         }
       }
     },
+    "Job Details" : {
+
+    },
     "Journey's end" : {
 
     },
@@ -7249,6 +7291,12 @@
           }
         }
       }
+    },
+    "Keep the app open during rendering. The finished video is cached on this device." : {
+
+    },
+    "Keep the app open until rendering finishes." : {
+
     },
     "Keep the image's original file extension." : {
 
@@ -7744,6 +7792,9 @@
         }
       }
     },
+    "Live Activity Log" : {
+
+    },
     "Live Status" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7834,6 +7885,12 @@
 
     },
     "Loading image…" : {
+
+    },
+    "Loading job…" : {
+
+    },
+    "Loading jobs…" : {
 
     },
     "Loading language…" : {
@@ -8779,6 +8836,9 @@
           }
         }
       }
+    },
+    "No Background Jobs" : {
+
     },
     "No categories" : {
       "localizations" : {
@@ -9835,6 +9895,9 @@
     "Open Link" : {
 
     },
+    "Open Podcast" : {
+
+    },
     "Open Review of “%@”" : {
 
     },
@@ -9853,6 +9916,9 @@
           }
         }
       }
+    },
+    "Open the podcast and choose Generate Video or Regenerate to try again." : {
+
     },
     "Open Trip" : {
       "localizations" : {
@@ -9949,6 +10015,9 @@
           }
         }
       }
+    },
+    "Opening podcast…" : {
+
     },
     "Opening summary…" : {
       "localizations" : {
@@ -10942,6 +11011,9 @@
         }
       }
     },
+    "Preparing podcast…" : {
+
+    },
     "Preparing video…" : {
 
     },
@@ -11299,6 +11371,7 @@
 
     },
     "Receive notifications for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -11313,6 +11386,9 @@
           }
         }
       }
+    },
+    "Receive notifications when video scripts are ready to render, for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen." : {
+
     },
     "Record" : {
 
@@ -11776,6 +11852,12 @@
           }
         }
       }
+    },
+    "Render on This Device" : {
+
+    },
+    "Render Video" : {
+
     },
     "Rendering Options" : {
       "extractionState" : "manual",
@@ -12271,6 +12353,9 @@
     "Save App" : {
 
     },
+    "Save To" : {
+
+    },
     "Save Version Now" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12286,6 +12371,9 @@
           }
         }
       }
+    },
+    "Save Video" : {
+
     },
     "Save your changes before exporting or changing language." : {
       "localizations" : {
@@ -12406,6 +12494,9 @@
           }
         }
       }
+    },
+    "Saving to Photos…" : {
+
     },
     "Saving version…" : {
       "localizations" : {
@@ -13462,6 +13553,12 @@
         }
       }
     },
+    "Speaker %lld" : {
+
+    },
+    "Speakers" : {
+
+    },
     "Spec (JSON)" : {
 
     },
@@ -14329,6 +14426,9 @@
     "The root “%@” isn't one of the elements." : {
 
     },
+    "The script keeps writing on the server if you leave. Open Background Jobs to view logs and render when ready." : {
+
+    },
     "The summary, key points and source text are translated the first time you pick a language. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -14574,6 +14674,9 @@
           }
         }
       }
+    },
+    "This script was replaced by a newer design. Open the latest job or the podcast to continue." : {
+
     },
     "This summary is private, its link has expired, or it was deleted." : {
       "localizations" : {
@@ -15870,6 +15973,15 @@
     "Video only" : {
 
     },
+    "Video Ready" : {
+
+    },
+    "Video Ready – Watch" : {
+
+    },
+    "Video script jobs appear here. You can close the app while the server works." : {
+
+    },
     "View" : {
 
     },
@@ -16362,6 +16474,9 @@
 
     },
     "You" : {
+
+    },
+    "You can close this sheet or quit the app. Script writing continues on the server." : {
 
     },
     "You choose which members and operations can use it after connecting." : {

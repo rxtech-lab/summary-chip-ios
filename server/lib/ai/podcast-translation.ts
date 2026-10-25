@@ -1,5 +1,6 @@
 import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod";
+import { PODCAST_SPEECH_STYLE } from "./podcast-style";
 import { validatePodcastVideo } from "@/lib/podcast-video/scaffold";
 import type { TourNarrationOptions } from "./tour-agent";
 
@@ -37,7 +38,7 @@ export async function translatePodcast(model: LanguageModel, input: PodcastTrans
     "Return one caption per turn and one title per chip, in order");
   const result = await generateText({
     model,
-    instructions: INSTRUCTIONS,
+    instructions: `${INSTRUCTIONS}\n${PODCAST_SPEECH_STYLE}`,
     prompt: `Translate into ${input.language}.\n\n<script>\n${JSON.stringify({ title: input.title, chipTitles: input.chips.map((chip) => chip.title), turns: input.segments })}\n</script>`,
     output: Output.object({ schema, name: "translated_podcast" }),
     abortSignal: options?.abortSignal,

@@ -97,7 +97,10 @@ describe("podcast translations", () => {
   it("reuses the composition with translated titles and labels, and publishes and shares each language's video", async () => {
     env.ai.video = true;
     await chip("Volcanoes");
-    const original = await generate();
+    const created = await generate();
+    // The original's video is designed in the background before a translation can reuse it.
+    await env.runPodcastVideoDesigns();
+    const original = (await (await episode(created.key)).json()).podcast as typeof created;
     const japanese = (await (await translate(original.key, "ja")).json()).podcast as DailyPodcast;
     expect(japanese.video?.id).toBeTruthy();
     expect(japanese.video!.id).not.toBe(original.video!.id);
@@ -134,6 +137,7 @@ describe("podcast translations", () => {
 
     // A new original composition replaces the translated one, which can be made again from it.
     await videoRoute.POST(apiRequest("POST", "/video", { token: env.tokens.alice, body: { day } }), params({ key: original.key }));
+    await env.runPodcastVideoDesigns();
     expect(env.store.objects.has(objectKey)).toBe(false);
     expect((await (await episode(original.key, "ja")).json()).podcast.video).toBeUndefined();
     const remade = await videoRoute.POST(apiRequest("POST", "/video", { token: env.tokens.alice, body: { day, language: "ja" } }), params({ key: original.key }));

@@ -147,18 +147,30 @@ struct LibraryView: View {
             .accessibilityLabel("Points: \(pointsTitle)")
             .accessibilityIdentifier("library-points")
         }
-        ToolbarItemGroup(placement: .summaryTrailing) {
-            filterMenu
-            if isMiniApps {
-                Button { showsNewMiniApp = true } label: {
-                    Label("New Clip", systemImage: "plus")
+        ToolbarItem(placement: .summaryTrailing) {
+            ControlGroup {
+                Button {
+                    podcastTaps += 1
+                    environment.backgroundJobsRequest = BackgroundJobsRequest()
+                } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
+                .accessibilityIdentifier("background-jobs-toolbar")
+                if isMiniApps {
+                    Button { showsNewMiniApp = true } label: {
+                        Label("New Clip", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("new-mini-app")
+                } else {
+                    newDocumentMenu
                 }
-                .accessibilityIdentifier("new-mini-app")
-            } else {
-                newDocumentMenu
             }
-            if let openSearch {
-                SummarySearchButton(action: openSearch)
+        }
+        ToolbarSpacer(.fixed, placement: .summaryTrailing)
+        ToolbarItem(placement: .summaryTrailing) {
+            ControlGroup {
+                filterMenu
+                if let openSearch {
+                    SummarySearchButton(action: openSearch)
+                }
             }
         }
         ChatPanelToolbarContent(isVisible: chatPanelVisibility)

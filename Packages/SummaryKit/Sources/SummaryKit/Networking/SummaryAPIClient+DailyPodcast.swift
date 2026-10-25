@@ -70,6 +70,28 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
     public var mood: String?
     /// The agent-written motion video, rendered on device; nil when the episode has none.
     public var video: Video?
+    /// A server run designing a new composition in the background; nil when none is working on it.
+    public var videoDesign: VideoDesign?
+
+    public struct VideoDesign: Codable, Sendable, Equatable {
+        public var id: String
+        /// When the run last made progress; a run silent for long has stopped.
+        public var updatedAt: Date
+        public var percent: Int
+        /// Set when the run failed; it stays until the next design starts.
+        public var error: APIErrorBody?
+        /// Runs that saved nothing for this long have stopped on the server (`STALE_MS`).
+        static let staleInterval: TimeInterval = 20 * 60
+        public var progress: PodcastGenerationProgress {
+            PodcastGenerationProgress(stage: "video-design", percent: percent, completedSteps: nil, completedSegments: nil, totalSegments: nil)
+        }
+    }
+
+    /// The server is designing a new video: poll the episode until `video` arrives, then render it.
+    public var isDesigningVideo: Bool {
+        guard let videoDesign, videoDesign.error == nil else { return false }
+        return Date().timeIntervalSince(videoDesign.updatedAt) < VideoDesign.staleInterval
+    }
 
     public struct Video: Codable, Sendable, Equatable {
         public struct Publication: Codable, Sendable, Equatable {
@@ -125,6 +147,7 @@ private struct PodcastRequest: Encodable {
     var library: Bool
     var includeVideo: Bool
     var summaryId: String?
+    var speakerNames: [String]?
 }
 private struct PodcastTranslationRequest: Encodable {
     var day: PodcastDay
@@ -199,11 +222,11 @@ extension SummaryAPIClient {
 
     /// `summaryID` regenerates that library podcast chip as a new version instead of creating another chip.
     public func generateDailyPodcast(date: Date, language: SummaryLanguage, regenerate: Bool, chipIds: [String]? = nil, library: Bool = false, includeVideo: Bool = true,
-                                     summaryID: String? = nil, calendar: Calendar = .current,
+                                     summaryID: String? = nil, speakerNames: [String]? = nil, calendar: Calendar = .current,
                                      onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
         var request = try json("/api/v1/daily-podcasts", method: "POST", body: PodcastRequest(
             day: podcastDay(date, calendar: calendar), language: language.rawValue, regenerate: regenerate, chipIds: chipIds, library: library, includeVideo: includeVideo,
-            summaryId: summaryID
+            summaryId: summaryID, speakerNames: speakerNames
         ))
         request.timeoutInterval = 300
         if let onProgress {
@@ -363,7 +386,7 @@ extension SummaryAPIClient {
     }
 
     /// Reuses the episode's seven-day disk cache for playback and export, downloading on a miss.
-    public func dailyPodcastAudio(_ podcast: DailyPodcast) async throws -> Data {
+    public func dailyPodcastAudio(_ podcast: DailyPodcast, onProgress: MediaTransferProgress.Handler? = nil) async throws -> Data {
         guard let path = podcast.audioPath, let components = URLComponents(string: path),
               components.path.hasPrefix("/api/v1/daily-podcasts/"), components.path.hasSuffix("/audio") else {
             throw SummaryAPIError.invalidResponse
@@ -373,9 +396,12 @@ extension SummaryAPIClient {
         download.cachePolicy = .reloadIgnoringLocalCacheData
         let audioRequest = download
         guard let url = audioRequest.url else { throw SummaryAPIError.invalidResponse }
-        return try await podcastAudioCache.data(for: url.absoluteString) {
-            try await self.sendRaw(audioRequest)
+        let data = try await podcastAudioCache.data(for: url.absoluteString) {
+            try await self.sendRaw(audioRequest, onProgress: onProgress)
         }
+        try Task.checkCancellation()
+        await onProgress?(.init(completedBytes: Int64(data.count), totalBytes: Int64(data.count)))
+        return data
     }
 
     public func dailyPodcastArtwork(_ path: String) async throws -> Data {

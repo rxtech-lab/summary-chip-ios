@@ -61,6 +61,15 @@ public struct PodcastCaptionTimeline: Sendable {
         // Short enough that one phrase fits a single caption line on a phone.
         let limit = compactScript ? 18 : 36
         let punctuation = CharacterSet(charactersIn: ".!?。！？;；,，:：\n")
+        // Linguistic word ranges also recognize words in scripts without spaces.
+        // Keep the length limit soft when a single word is longer than a line.
+        let offsets = Dictionary(uniqueKeysWithValues: text.indices.enumerated().map { ($0.element, $0.offset) })
+        var wordInteriors = Set<Int>()
+        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .byWords) { _, range, _, _ in
+            let lower = offsets[range.lowerBound] ?? characters.count
+            let upper = offsets[range.upperBound] ?? characters.count
+            if upper > lower + 1 { wordInteriors.formUnion((lower + 1)..<upper) }
+        }
         var phrases: [String] = []
         var endings: [Int] = []
         var weights: [Double] = []
@@ -74,9 +83,12 @@ public struct PodcastCaptionTimeline: Sendable {
                 characters[index].unicodeScalars.contains { punctuation.contains($0) }
             }) {
                 end = boundary + 1
-            } else if ceiling < characters.count,
-                      let space = (start..<ceiling).last(where: { characters[$0].isWhitespace }), space > start {
-                end = space + 1
+            } else if ceiling < characters.count {
+                if let boundary = ((start + 1)...ceiling).last(where: { !wordInteriors.contains($0) }) {
+                    end = boundary
+                } else {
+                    while end < characters.count && wordInteriors.contains(end) { end += 1 }
+                }
             }
             let phrase = String(characters[start..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
             total += characters[start..<end].reduce(0) { $0 + Self.weight(of: $1) }

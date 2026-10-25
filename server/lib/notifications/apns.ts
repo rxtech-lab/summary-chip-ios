@@ -4,7 +4,8 @@ import { importPKCS8, SignJWT } from "jose";
 export interface PushTarget { token: string; environment: "sandbox" | "production" }
 export interface PushPayload {
   aps: { alert: { title: string; body: string }; sound: string; "thread-id"?: string };
-  summaryId: string;
+  summaryId?: string;
+  backgroundJobId?: string;
   userId: string;
   /** Set on "Trip updated" and flight alerts (equal to `summaryId`): the app opens the trip view. */
   tripId?: string;

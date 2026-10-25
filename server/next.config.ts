@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
     "/api/v1/daily-podcasts": podcastVideoPreview,
     "/api/v1/daily-podcasts/*/video": podcastVideoPreview,
     "/api/v1/summaries/*/podcast": podcastVideoPreview,
+    // Background video design turns (`workflows/design-podcast-video.ts`) run as workflow steps.
+    "/.well-known/workflow/v1/flow": podcastVideoPreview,
+    "/.well-known/workflow/v1/step": podcastVideoPreview,
     "/api/v1/papers/*/export": ["./lib/latex/pandoc-worker.mjs", "./node_modules/pandoc-wasm/package.json", "./node_modules/pandoc-wasm/index.js", "./node_modules/pandoc-wasm/src/**", "./node_modules/@bjorn3/browser_wasi_shim/package.json", "./node_modules/@bjorn3/browser_wasi_shim/dist/*.js"],
   },
   /**

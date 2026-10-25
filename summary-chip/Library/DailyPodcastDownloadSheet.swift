@@ -1,6 +1,9 @@
 import SummaryKit
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(iOS)
+import Photos
+#endif
 
 struct DailyPodcastDownloadSheet: View {
     let api: SummaryAPIClient
@@ -8,6 +11,10 @@ struct DailyPodcastDownloadSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var format: PodcastDownloadFormat = .audio
     @State private var preparing = false
+    @State private var saveToPhotos = false
+    @State private var savingToPhotos = false
+    @State private var transfer: MediaTransferProgress?
+    @State private var taps = 0
     @State private var renderProgress: PodcastMotionRenderer.Progress?
     @State private var completed = false
     @State private var document: PodcastDownloadDocument?
@@ -30,6 +37,16 @@ struct DailyPodcastDownloadSheet: View {
                     }
                     .disabled(preparing)
                     .accessibilityIdentifier("podcast-download-format")
+                    #if os(iOS)
+                    if format == .video {
+                        Picker("Save To", selection: $saveToPhotos) {
+                            Text("Files").tag(false)
+                            Text("Photos").tag(true)
+                        }
+                        .disabled(preparing)
+                        .accessibilityIdentifier("podcast-save-destination")
+                    }
+                    #endif
                 } footer: {
                     Text("Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file.")
                 }
@@ -41,6 +58,7 @@ struct DailyPodcastDownloadSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { if preparing { preparation?.cancel() } else { dismiss() } }
+                        .disabled(savingToPhotos)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Download") { prepare() }
@@ -48,30 +66,7 @@ struct DailyPodcastDownloadSheet: View {
                         .accessibilityIdentifier("podcast-download-confirm")
                 }
             }
-            .overlay {
-                if preparing || completed {
-                    VStack(spacing: 12) {
-                        if preparing {
-                            if let fraction = renderProgress?.fraction {
-                                ProgressView(value: fraction).frame(width: 180)
-                                Text(fraction, format: .percent.precision(.fractionLength(0))).monospacedDigit()
-                            } else { ProgressView() }
-                            if let detail = renderProgress?.frameDetail {
-                                Text("Frames: \(detail)").monospacedDigit()
-                                    .accessibilityIdentifier("podcast-download-frame-progress")
-                            }
-                            if renderProgress?.stage == .rendering { Text("Rendering video…") }
-                            else if renderProgress?.stage == .encoding { Text("Encoding video…") }
-                            else { Text("Preparing download…") }
-                        } else {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Downloaded")
-                        }
-                    }
-                    .padding(24)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 20))
-                }
-            }
+            .overlay { transferOverlay }
             .task(id: completed) {
                 guard completed else { return }
                 try? await Task.sleep(for: .seconds(1.5))
@@ -82,13 +77,16 @@ struct DailyPodcastDownloadSheet: View {
                           document: document, contentType: format.contentType, defaultFilename: filename) { result in
                 switch result {
                 case .success: completed = true
-                case .failure(let failure): error = failure.localizedDescription
+                case .failure(let failure):
+                    if (failure as NSError).code != CocoaError.userCancelled.rawValue { error = failure.localizedDescription }
                 }
             }
             .alert("Couldn't Download Podcast", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
             .sensoryFeedback(.selection, trigger: format)
+            .sensoryFeedback(.selection, trigger: saveToPhotos)
+            .sensoryFeedback(.selection, trigger: taps)
             .sensoryFeedback(.success, trigger: completed)
             .sensoryFeedback(.error, trigger: error)
             .onDisappear {
@@ -101,6 +99,37 @@ struct DailyPodcastDownloadSheet: View {
         .presentationDetents([.large])
     }
 
+    @ViewBuilder private var transferOverlay: some View {
+        if preparing || completed {
+            VStack(spacing: 12) {
+                if preparing {
+                    if let fraction = transfer?.fraction ?? renderProgress?.fraction {
+                        ProgressView(value: fraction).frame(width: 180)
+                        Text(fraction, format: .percent.precision(.fractionLength(0))).monospacedDigit()
+                    } else { ProgressView() }
+                    if let transfer {
+                        Text(transfer.detail).monospacedDigit()
+                            .accessibilityIdentifier("podcast-download-byte-progress")
+                    }
+                    if let detail = renderProgress?.frameDetail {
+                        Text("Frames: \(detail)").monospacedDigit()
+                            .accessibilityIdentifier("podcast-download-frame-progress")
+                    }
+                    if savingToPhotos { Text("Saving to Photos…") }
+                    else if transfer != nil { Text("Downloading podcast…") }
+                    else if renderProgress?.stage == .rendering { Text("Rendering video…") }
+                    else if renderProgress?.stage == .encoding { Text("Encoding video…") }
+                    else { Text("Preparing download…") }
+                } else {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("Downloaded")
+                }
+            }
+            .padding(24)
+            .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        }
+    }
+
     private var filename: String {
         let safe = podcast.title.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>"))
             .joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -109,6 +138,8 @@ struct DailyPodcastDownloadSheet: View {
 
     private func prepare() {
         renderProgress = nil
+        transfer = nil
+        taps += 1
         preparing = true
         completed = false
         preparation = Task {
@@ -123,19 +154,38 @@ struct DailyPodcastDownloadSheet: View {
                     try PodcastVideoExporter.subtitleData(for: podcast).write(to: url, options: .atomic)
                 } else if format == .audio {
                     url = folder.appending(path: "podcast.mp3")
-                    let bytes = try await api.dailyPodcastAudio(podcast)
+                    let bytes = try await api.dailyPodcastAudio(podcast) { if preparing { transfer = $0 } }
                     try Task.checkCancellation()
                     try bytes.write(to: url, options: .atomic)
                 } else if podcast.video != nil {
-                    url = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { renderProgress = $0 }
+                    url = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { renderProgress = $0; transfer = $0.transfer }
                 } else {
                     throw SummaryAPIError.invalidResponse
                 }
                 try Task.checkCancellation()
+                transfer = nil
+                renderProgress = nil
+                #if os(iOS)
+                if format == .video && saveToPhotos {
+                    savingToPhotos = true
+                    let permission = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+                    guard permission == .authorized || permission == .limited else {
+                        throw PhotosSaveError.permissionDenied
+                    }
+                    try Task.checkCancellation()
+                    try await PHPhotoLibrary.shared().performChanges {
+                        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+                    }
+                    completed = true
+                } else { document = PodcastDownloadDocument(url: url) }
+                #else
                 document = PodcastDownloadDocument(url: url)
+                #endif
             } catch is CancellationError {
-            } catch { self.error = error.localizedDescription }
+            } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
             renderProgress = nil
+            transfer = nil
+            savingToPhotos = false
             preparing = false
         }
     }
@@ -174,3 +224,12 @@ struct PodcastDownloadDocument: FileDocument {
     init(configuration: ReadConfiguration) throws { throw CocoaError(.featureUnsupported) }
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { try FileWrapper(url: url, options: .immediate) }
 }
+
+#if os(iOS)
+private enum PhotosSaveError: LocalizedError {
+    case permissionDenied
+    var errorDescription: String? {
+        String(localized: "Allow Chippy to add videos in Settings → Privacy & Security → Photos, or choose Files to save this video.")
+    }
+}
+#endif

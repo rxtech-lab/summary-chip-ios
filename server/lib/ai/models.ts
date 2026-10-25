@@ -144,6 +144,17 @@ export function tourModel(): LanguageModel {
   return cachedChatModel(tourModelId());
 }
 
+/** Dedicated podcast script model, independent of the general text and trip tour models. */
+export const DEFAULT_PODCAST_MODEL = "anthropic/claude-haiku-5.5";
+
+export function podcastModelId(): string {
+  return process.env.AI_PODCAST_MODEL?.trim() || DEFAULT_PODCAST_MODEL;
+}
+
+export function podcastModel(): LanguageModel {
+  return cachedChatModel(podcastModelId());
+}
+
 /** Default narrator; MAI voices are multilingual, so one voice reads every language. */
 export const DEFAULT_TOUR_VOICE = "en-US-Harper";
 /** MAI-Voice-2.1-Flash's list price per input character (US$15 per million), when `AI_SPEECH_USD_PER_CHARACTER` isn't set. */

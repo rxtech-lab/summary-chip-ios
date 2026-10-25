@@ -20,6 +20,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     private var generation = 0
     private var acceptsRegistrations = false
     private var registrationTask: Task<Void, Never>?
+    private var pendingJob: (id: String, userId: String)?
     private var pending: (route: AppRoute, userId: String)?
     private let center = UNUserNotificationCenter.current()
     private var enabled: Bool {
@@ -113,6 +114,8 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         generation += 1
         acceptsRegistrations = false
         pending = nil
+        pendingJob = nil
+        environment?.backgroundJobsRequest = nil
         unregisterWithApple()
         center.removeAllDeliveredNotifications()
         await registrationTask?.value
@@ -192,6 +195,13 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func openPendingSummary() async {
+        if let job = pendingJob, let environment, environment.authenticationState == .signedIn {
+            pendingJob = nil
+            if (try? await environment.tokenBroker.currentBundle()?.subject) == job.userId,
+               environment.authenticationState == .signedIn {
+                environment.backgroundJobsRequest = BackgroundJobsRequest(selectedID: job.id)
+            }
+        }
         guard let pending, let environment, environment.authenticationState == .signedIn else { return }
         self.pending = nil
         guard (try? await environment.tokenBroker.currentBundle()?.subject) == pending.userId,
@@ -222,6 +232,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping @Sendable () -> Void) {
         let info = response.notification.request.content.userInfo
         let userId = info["userId"] as? String
+        let jobID = info["backgroundJobId"] as? String
         // A trip update carries both ids; the trip opens as a diary, not a summary.
         let route: AppRoute? = if let tripId = info["tripId"] as? String {
             .tripID(tripId)
@@ -231,7 +242,10 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
             nil
         }
         Task { @MainActor in
-            if let userId, let route { await self.received(route, userId: userId) }
+            if let userId, let jobID {
+                self.pendingJob = (jobID, userId)
+                await self.openPendingSummary()
+            } else if let userId, let route { await self.received(route, userId: userId) }
             completionHandler()
         }
     }

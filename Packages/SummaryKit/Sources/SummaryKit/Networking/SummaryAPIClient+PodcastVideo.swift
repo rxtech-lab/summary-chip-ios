@@ -66,21 +66,30 @@ extension SummaryAPIClient {
         return envelope.video
     }
 
-    /// Has the video model write a new composition (spends points). Returns the updated episode.
-    public func composePodcastVideo(_ podcast: DailyPodcast,
-                                    onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
-        var request = try json(videoPath(podcast), method: "POST", body: PodcastVideoCompose(day: videoDay(podcast), language: podcast.translationLanguage))
-        request.timeoutInterval = 300
-        if let onProgress {
-            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-            return try await receivePodcast(request, onProgress: onProgress)
-        }
-        let envelope: PodcastEpisodeEnvelope = try await send(request)
+    /// Starts designing a new composition on the server (spends points when it finishes). Returns at once
+    /// with the episode's `videoDesign`; the design continues while the app is in the background.
+    public func composePodcastVideo(_ podcast: DailyPodcast) async throws -> DailyPodcast {
+        let envelope: PodcastEpisodeEnvelope = try await send(json(videoPath(podcast), method: "POST",
+            body: PodcastVideoCompose(day: videoDay(podcast), language: podcast.translationLanguage)))
         return envelope.podcast
     }
 
+    /// Follows a background video design by polling the episode (free) until it ends. Returns the episode
+    /// with its new `video`, or throws the server's error when the design failed.
+    public func waitForPodcastVideoDesign(_ podcast: DailyPodcast, interval: Duration = .seconds(3),
+                                          onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
+        var current = podcast
+        while current.isDesigningVideo, let design = current.videoDesign {
+            await onProgress?(design.progress)
+            try await Task.sleep(for: interval)
+            current = try await podcastEpisode(current, language: current.language)
+        }
+        if let failure = current.videoDesign?.error { throw SummaryAPIError.server(status: 502, body: failure) }
+        return current
+    }
+
     /// Uploads an MP4 render of `videoId` straight to storage and makes share links play it.
-    public func publishPodcastVideo(_ podcast: DailyPodcast, videoId: String, fileURL: URL) async throws -> DailyPodcast {
+    public func publishPodcastVideo(_ podcast: DailyPodcast, videoId: String, fileURL: URL, onProgress: MediaTransferProgress.Handler? = nil) async throws -> DailyPodcast {
         let day = try videoDay(podcast)
         let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         let ticket: PodcastVideoTicket = try await send(json(videoPath(podcast, "/upload"), method: "POST",
@@ -90,7 +99,9 @@ extension SummaryAPIClient {
         put.timeoutInterval = 600
         for (name, value) in ticket.headers { put.setValue(value, forHTTPHeaderField: name) }
         // Streams from disk; the presigned URL carries its own authorization.
-        let (_, response) = try await session.upload(for: put, fromFile: fileURL)
+        await onProgress?(.init(completedBytes: 0, totalBytes: Int64(size)))
+        let delegate = onProgress.map { MediaTransferDelegate($0) }
+        let (_, response) = try await session.upload(for: put, fromFile: fileURL, delegate: delegate)
         guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else { throw SummaryAPIError.uploadFailed(status: http.statusCode) }
         let envelope: PodcastEpisodeEnvelope = try await send(json(videoPath(podcast, "/publication"), method: "POST",

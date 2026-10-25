@@ -61,16 +61,7 @@ struct PodcastLanguagesSheet: View {
                 }
             }
             .disabled(busy)
-            .overlay {
-                if busy || player.switchingLanguage != nil {
-                    ProgressView(busy ? "Removing translation…" : "Loading language…")
-                        .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                } else if let status {
-                    Label(status, systemImage: "checkmark.circle.fill")
-                        .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        .allowsHitTesting(false)
-                }
-            }
+            .overlay { operationOverlay }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Languages")
             .summaryInlineNavigationTitle()
@@ -110,6 +101,17 @@ struct PodcastLanguagesSheet: View {
         .frame(minWidth: 320, idealWidth: 480, minHeight: 420, maxHeight: .infinity)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+
+    @ViewBuilder private var operationOverlay: some View {
+        if busy || player.switchingLanguage != nil {
+            ProgressView(busy ? "Removing translation…" : "Loading language…")
+                .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        } else if let status {
+            Label(status, systemImage: "checkmark.circle.fill")
+                .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .allowsHitTesting(false)
+        }
     }
 
     static func title(for language: String) -> String {

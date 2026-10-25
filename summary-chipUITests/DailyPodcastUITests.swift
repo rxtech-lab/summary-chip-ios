@@ -2,6 +2,27 @@ import XCTest
 import UIKit
 
 nonisolated final class DailyPodcastUITests: XCTestCase {
+    @MainActor func testBackgroundJobsToolbarShowsPersistentJobAndLog() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let jobs = app.buttons["background-jobs-toolbar"]
+        XCTAssertTrue(jobs.waitForExistence(timeout: 15))
+        jobs.tap()
+        let row = app.buttons["background-job-preview-video-job"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        XCTAssertTrue(app.buttons["background-job-render"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Script ready. Tap Render on This Device to create the video."].exists)
+        attach(app, "background-job-ready-log")
+        app.navigationBars["Job Details"].buttons["BackButton"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(jobs.waitForExistence(timeout: 5))
+        jobs.tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+    }
+
     @MainActor func testPastingLinkAndTextIntoNewSummary() {
         continueAfterFailure = false
         let app = XCUIApplication()

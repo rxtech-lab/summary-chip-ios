@@ -1,3 +1,5 @@
+import { writePodcastArticle } from "@/lib/ai/podcast-article";
+import type { DailyPodcast } from "@/lib/contracts/daily-podcast";
 import { transcribePodcastAudio } from "@/lib/ai/podcast-transcription";
 import { alignPodcastCaptions } from "@/lib/services/podcast-captions";
 import { generateSpeech } from "ai";
@@ -8,6 +10,14 @@ import { writePodcast } from "@/lib/ai/podcast-agent";
 
 // Opt-in real SDK/HTTP test; start the committed Postman simulation first.
 describe.skipIf(!process.env.PODCAST_SIMULATION_URL)("podcast narration over HTTP", () => {
+  it("writes a structured article through the gateway HTTP contract", async () => {
+    const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
+    const article = await writePodcastArticle(gateway("fixture/podcast"), {
+      title: "Discoveries", language: "en", segments: [{ caption: "A scientific discovery." }, { caption: "A cultural observation." }],
+    } as DailyPodcast);
+    expect(article.sections.map(s => s.segmentIndex)).toEqual([0, 1]);
+    expect(article.description).toContain("discoveries");
+  });
   it("requests segment timestamps over HTTP and restores the original text", async () => {
     const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
     const segments = await transcribePodcastAudio(new Uint8Array([255, 251, 144, 192]), undefined,
@@ -20,13 +30,13 @@ describe.skipIf(!process.env.PODCAST_SIMULATION_URL)("podcast narration over HTT
   it("uses the gateway SDK and validates grounded multi-host output", async () => {
     const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
     const script = await writePodcast(gateway("fixture/podcast"), {
-      language: "English", voices: ["voice-a", "voice-b"],
+      language: "English", voices: ["voice-a", "voice-b"], speakerNames: ["小明", "Jane"],
       chips: [
         { id: "one", title: "Science", summary: "A scientific discovery.", highlights: [] },
         { id: "two", title: "Culture", summary: "A cultural observation.", highlights: [] },
       ],
     });
-    expect(script.speakers).toHaveLength(2);
+    expect(script.speakers.map((speaker) => speaker.name)).toEqual(["小明", "Jane"]);
     expect(script.segments.map((s) => [s.chipId, s.speaker])).toEqual([["one", 0], ["two", 1]]);
     const speech = await Promise.all(script.segments.map((segment) => generateSpeech({
       model: gateway.speechModel("fixture/speech"), text: segment.caption,

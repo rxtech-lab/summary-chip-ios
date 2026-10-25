@@ -1,3 +1,4 @@
+import { podcastArticle, podcastCover } from "./podcast-publication";
 import { and, asc, count, eq } from "drizzle-orm";
 import { defaultTtlDays, expiresAtFor, siteUrl } from "@/lib/config";
 import { MAX_SHARE_LINKS } from "@/lib/contracts/api";
@@ -81,7 +82,7 @@ export async function listPodcastShareLinks(db: Database, ownerId: string, key: 
 }
 
 export async function createPodcastShareLink(db: Database, ownerId: string, key: string, input: CreatePodcastShareLinkInput, now = new Date()): Promise<PodcastShareLinkJson> {
-  await publishableEpisode(db, ownerId, input.day, key);
+  const episode = await publishableEpisode(db, ownerId, input.day, key);
   const [{ total }] = await db.select({ total: count() }).from(podcastShareLinks).where(ownerEpisode(ownerId, key));
   if (total >= MAX_SHARE_LINKS) {
     throw new ApiError(409, "TOO_MANY_SHARE_LINKS", `A podcast can have at most ${MAX_SHARE_LINKS} share links`);
@@ -99,6 +100,8 @@ export async function createPodcastShareLink(db: Database, ownerId: string, key:
     createdAt: now,
     updatedAt: now,
   };
+  // Finish the original language's preview before returning a newly published URL.
+  await Promise.all([podcastArticle(episode), podcastCover(episode)]);
   await db.insert(podcastShareLinks).values(link);
   return toJson(link, now);
 }
@@ -147,7 +150,15 @@ export async function publicPodcastData(db: Database, token: string, language?: 
   const { podcast } = await publicPodcast(db, token, undefined, language);
   // Media follow the listener's language; the original keeps the plain URLs.
   const suffix = podcast.language === podcast.originalLanguage ? "" : `?language=${encodeURIComponent(podcast.language)}`;
-  return { title: podcast.title, language: podcast.language, languages: podcast.languages ?? [podcast.language], createdAt: podcast.createdAt,
+  // Older published episodes acquire the same persisted article on their first visit.
+  const article = await podcastArticle(podcast).catch(error => {
+    console.warn("[podcast] companion article unavailable", error);
+    return null;
+  });
+  return { article: article ? { ...article, sections: article.sections.map(section => ({ ...section,
+    startSeconds: podcast.segments[section.segmentIndex]?.startSeconds ?? 0 })) } : null,
+    coverPath: `/api/public/podcasts/${token}/cover${suffix}`,
+    title: podcast.title, language: podcast.language, languages: podcast.languages ?? [podcast.language], createdAt: podcast.createdAt,
     durationSeconds: podcast.durationSeconds, audioPath: `/api/public/podcasts/${token}/audio${suffix}`,
     videoPath: podcast.video?.published && podcast.video.published.videoId === podcast.video.id ? `/api/public/podcasts/${token}/video${suffix}` : null,
     segments: podcast.segments.map((segment, index) => ({ caption: segment.caption, captionCues: segment.captionCues,
