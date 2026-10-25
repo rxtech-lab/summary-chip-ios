@@ -7,9 +7,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        let jobs = app.buttons["background-jobs-toolbar"]
-        XCTAssertTrue(jobs.waitForExistence(timeout: 15))
-        jobs.tap()
+        tapToolbarItem(app, id: "background-jobs-toolbar", label: "Background Jobs")
         let row = app.buttons["background-job-preview-video-job"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
@@ -18,8 +16,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         attach(app, "background-job-ready-log")
         app.navigationBars["Job Details"].buttons["BackButton"].tap()
         app.buttons["Done"].tap()
-        XCTAssertTrue(jobs.waitForExistence(timeout: 5))
-        jobs.tap()
+        tapToolbarItem(app, id: "background-jobs-toolbar", label: "Background Jobs")
         XCTAssertTrue(row.waitForExistence(timeout: 5))
     }
 
@@ -28,9 +25,8 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        XCTAssertTrue(app.buttons["new-summary"].waitForExistence(timeout: 15))
-        app.buttons["new-summary"].tap()
-        app.buttons["new-summary-menu-summary"].tap()
+        tapToolbarItem(app, id: "new-summary", label: "New")
+        tapMenuItem(app, id: "new-summary-menu-summary", label: "New Summary")
         let field = app.textFields["new-summary-input"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         for content in ["https://example.com/news", "A substantial note about the news today."] {
@@ -135,9 +131,8 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-likes", "--preview-podcast-playback", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        XCTAssertTrue(app.buttons["new-summary"].waitForExistence(timeout: 15))
-        app.buttons["new-summary"].tap()
-        app.buttons["new-podcast"].tap()
+        tapToolbarItem(app, id: "new-summary", label: "New")
+        tapMenuItem(app, id: "new-podcast", label: "New Podcast")
         XCTAssertTrue(app.buttons["podcast-select-chips"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["podcast-generation-submit"].isEnabled)
         app.buttons["podcast-select-chips"].tap()
@@ -163,6 +158,32 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         XCTAssertTrue(app.buttons["podcast-toggle"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["podcast-mini-toggle"].exists)
         attach(app, "podcast-chip-detail")
+    }
+
+    /// Native toolbar groups can drop identifiers or move actions into overflow.
+    @MainActor private func tapToolbarItem(_ app: XCUIApplication, id: String, label: String) {
+        let button = app.buttons.matching(
+            NSPredicate(format: "identifier == %@ OR label == %@", id, label)
+        ).firstMatch
+        if button.waitForExistence(timeout: 3), button.isHittable {
+            button.tap()
+            return
+        }
+        let overflow = app.navigationBars.buttons.matching(
+            NSPredicate(format: "label IN %@", ["More", "Show More"])
+        ).firstMatch
+        XCTAssertTrue(overflow.waitForExistence(timeout: 15), "Missing toolbar overflow for \(label)")
+        overflow.tap()
+        tapMenuItem(app, id: id, label: label)
+    }
+
+    /// Native overflow menus can drop the original SwiftUI accessibility identifiers.
+    @MainActor private func tapMenuItem(_ app: XCUIApplication, id: String, label: String) {
+        let button = app.buttons.matching(
+            NSPredicate(format: "identifier == %@ OR label == %@", id, label)
+        ).firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 5), "Missing menu item: \(label)")
+        button.tap()
     }
 
     @MainActor private func selectAudioOnly(_ app: XCUIApplication) {
