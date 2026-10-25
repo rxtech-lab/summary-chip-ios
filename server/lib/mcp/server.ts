@@ -1,3 +1,4 @@
+import { registerPodcastTools } from "./podcast";
 import { registerMiniAppTools } from "@/lib/mini-app/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -55,7 +56,8 @@ export const TOOL_NAMES = {
 export const MAX_SEARCH_RESULTS = 50;
 export const MAX_LIST_RESULTS = 10;
 
-export const INSTRUCTIONS = "Chippy is the user's library of summary cards (\"chips\"). Use search_summaries to find chips by meaning "
+export const INSTRUCTIONS = "Podcast tools: list_podcasts finds episodes; create_podcast generates speech and music from chips. For agent-authored video use get_podcast_project, create_podcast_file/edit_podcast_file/delete_podcast_file, render_podcast_frame to inspect PNGs, then submit_podcast_video to save for on-device rendering. generate_podcast_speech and generate_podcast_music create standalone downloadable audio assets. "
+  + "Chippy is the user's library of summary cards (\"chips\"). Use search_summaries to find chips by meaning "
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
   + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover; add_mini_app_records fills a table with initial data (or pass records to create_mini_app), list_mini_app_records reads it back, and upload_mini_app_file stores an image or file (from create_upload's uploadKey or a public URL) and returns a file reference to keep in a json field or initialState. Never include credentials in their JSON. "
@@ -262,6 +264,7 @@ export function createMcpServer(context: McpContext): McpServer {
   }
 
   registerMiniAppTools(server, db, principal.sub, run);
+  registerPodcastTools(server, context, run);
 
   server.registerTool(TOOL_NAMES.getProfile, {
     title: "Chippy Account", description: "Return the Chippy account authenticated by this connection.", inputSchema: {},

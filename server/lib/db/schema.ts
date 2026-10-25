@@ -743,3 +743,9 @@ export const headlineRankings = sqliteTable("headline_rankings", {
   startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
   scores: text("scores", { mode: "json" }).$type<Record<string, number>>().notNull(),
 });
+
+export const podcastDrafts = sqliteTable("podcast_drafts", {
+  key: text("key").primaryKey().references(() => podcastEpisodes.key, { onDelete: "cascade" }),
+  revision: integer("revision").notNull().default(0),
+  files: text("files", { mode: "json" }).$type<Record<string, string>>().notNull(),
+});

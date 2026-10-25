@@ -394,3 +394,57 @@ success and error feedback. A failed request keeps the detail sheet available.
 These are authorization records, not online sessions: the stateless MCP server does
 not track whether an agent is currently connected. The app reloads when the sheet
 opens, when it becomes active, on pull-to-refresh and through the Refresh button.
+
+### Podcast audio and Remotion authoring
+
+Podcast tools use the same authenticated account and points billing as the app.
+Apply migration `0039_podcast_drafts` before deploying these tools.
+
+| Tool | Arguments / result |
+|---|---|
+| `list_podcasts` | `day: {start, end}` (one local day, ISO timestamps); returns saved episode records with keys |
+| `create_podcast` | The existing daily podcast creation contract: `day`, `language`, optional `chipIds`, `library`, `regenerate`, `includeVideo`, `summaryId`; returns `episode` |
+| `get_podcast_project` | `day`, `key`; initializes/reads the draft, returning `revision`, generated `files`, read-only `scaffold`, `entry`, `speakers` with voice IDs and timed episode `input` |
+| `create_podcast_file` | `day`, `key`, `revision`, `path`, `content`; creates a new generated file |
+| `edit_podcast_file` | `day`, `key`, `revision`, `path`, `oldText`, `newText`; replaces exactly one matching substring |
+| `delete_podcast_file` | `day`, `key`, `revision`, `path`; deletes a generated draft file |
+| `render_podcast_frame` | `day`, `key`, `revision`, `seconds`; returns a PNG image content block and structured layout diagnostics |
+| `submit_podcast_video` | `day`, `key`, `revision`; validates and installs the draft for the app's on-device renderer |
+| `generate_podcast_speech` | `day`, `key`, `text` (1–5000 chars), `voice` (provider voice ID); returns an MP3 asset download |
+| `generate_podcast_music` | `day`, `key`, `prompt` (1–2000 chars); returns an MP3 asset download |
+
+`list_podcasts` and `render_podcast_frame` require `chippy:read`. All other tools above
+require `chippy:write`, including `get_podcast_project` because it may initialize a draft.
+Every operation checks episode ownership and continued access to its source chips.
+API-key usage is counted through the same wrapper as the other MCP tools.
+
+To author a video, create a podcast with `includeVideo: false` (use `library: true`
+and explicit `chipIds` to use chips from any date), or list an existing day's episodes.
+Read its project and use the returned scaffold and real narration timings. Create
+`src/Video.tsx` exporting `PodcastVideo`; split helpers into additional TS, TSX or CSS
+files under `src/`. There can be at most eight generated files of 60,000 characters
+each. Scaffold files cannot be edited or deleted. Imports and execution use the
+existing restricted Remotion validation and isolated QuickJS preview runtime.
+
+Pass the latest revision on every edit, preview and submission. Successful edits
+return the next revision. Stale edits fail with `PODCAST_DRAFT_CHANGED`; reread the
+project before retrying. Duplicate creates and ambiguous substring edits fail without
+changing the draft. Drafts persist across MCP requests and do not alter playback.
+Preview several phrase endings and transitions, inspect the image and diagnostics,
+then submit. Submission compiles the project and checks sampled phrase-boundary
+frames; layout problems return `saved: false` and their times. Compilation and
+preview execution failures are tool errors. Fix the draft and try again.
+
+A successful submission stores an immutable composition, returns `saved: true` and
+an incremented revision, and invalidates the old published and translated video
+references. The app renders the new composition on device. MCP submission does not
+publish an MP4. Server previews use placeholder artwork and approximate layout;
+the returned notes describe limitations relative to the final device render.
+
+Speech and music tools generate **standalone assets**, returning `assetId`,
+`downloadUrl`, `expiresAt`, `mimeType` and `byteSize`. Download before expiry; do not
+put expiring URLs into Remotion source. These assets do not replace the episode's
+narration, timings or soundtrack. `create_podcast` generates and synchronizes the
+playable episode's speech, captions and configured theme music. Generation uses
+points and may take several minutes; do not blindly retry a timed-out paid call.
+File editing, previewing and submitting an agent-written composition use no AI points.

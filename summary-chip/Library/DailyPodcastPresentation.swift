@@ -164,12 +164,10 @@ struct DailyPodcastMiniPlayer: View {
                     .frame(width: 44, height: 44)
             }
             .accessibilityIdentifier("podcast-mini-toggle")
-            if !isCompact {
-                Button { taps += 1; player.close() } label: {
-                    Label("Close Player", systemImage: "xmark").frame(width: 44, height: 44)
-                }
-                .accessibilityIdentifier("podcast-mini-close")
+            Button { taps += 1; player.close() } label: {
+                Label("Close Player", systemImage: "xmark").frame(width: 44, height: 44)
             }
+            .accessibilityIdentifier("podcast-mini-close")
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.plain)

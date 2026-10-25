@@ -66,8 +66,8 @@ export async function storePodcastVideo(store: ObjectStore, episodePath: string,
   return { id: source.id, createdAt: source.createdAt };
 }
 
-async function readVideoSource(store: ObjectStore, path: string) {
-  const object = await store.get(`${path}/video.json`);
+async function readVideoSource(store: ObjectStore, path: string, sourceFile = "video.json") {
+  const object = await store.get(`${path}/${sourceFile}`);
   return JSON.parse(new TextDecoder().decode(object.bytes)) as PodcastVideoSource;
 }
 
@@ -78,7 +78,7 @@ export async function podcastVideoSource(db: Database, user: string, day: Podcas
   const video = translated ? podcast.translations?.[language!]?.video : podcast.video;
   if (translated && !podcast.translations?.[language!]) throw translationMissing();
   if (!video) throw new ApiError(404, "PODCAST_VIDEO_MISSING", "This podcast has no video yet.");
-  return readVideoSource(store, translated ? translationPath(user, podcast, language!) : `${dayKey(user, day)}/${key}`);
+  return readVideoSource(store, translated ? translationPath(user, podcast, language!) : `${dayKey(user, day)}/${key}`, video.sourceFile);
 }
 
 /**
@@ -87,7 +87,7 @@ export async function podcastVideoSource(db: Database, user: string, day: Podcas
  */
 export async function translatePodcastVideoSource(ai: AiProvider, store: ObjectStore, user: string, podcast: DailyPodcast, language: TranslationLanguage,
   chipTitles: Record<string, string>, abortSignal: AbortSignal, onUsage: (usage: LanguageModelUsage) => void): Promise<NonNullable<PodcastTranslation["video"]>> {
-  const original = await readVideoSource(store, `${dayKey(user, podcast.day)}/${podcast.key}`);
+  const original = await readVideoSource(store, `${dayKey(user, podcast.day)}/${podcast.key}`, podcast.video?.sourceFile);
   const generated = Object.fromEntries(Object.entries(original.files).filter(([path]) => !(path in PODCAST_VIDEO_SCAFFOLD) && path !== PODCAST_VIDEO_PHRASES));
   // Phrase timing is proportional, so the translation replays the original staging; older compositions have none.
   const phrases = original.files[PODCAST_VIDEO_PHRASES] ?? "[]";
