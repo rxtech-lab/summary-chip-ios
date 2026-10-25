@@ -281,12 +281,14 @@ public struct SummaryTileView: View {
     let date: Date
     let dateKind: SummaryCardView.DateKind
     let style: Style
+    let isEditorsPick: Bool
 
-    public init(summary: Summary, date: Date? = nil, dateKind: SummaryCardView.DateKind = .created, style: Style? = nil) {
+    public init(summary: Summary, date: Date? = nil, dateKind: SummaryCardView.DateKind = .created, style: Style? = nil, isEditorsPick: Bool = false) {
         self.summary = summary
         self.date = date ?? summary.createdAt
         self.dateKind = dateKind
         self.style = style ?? .style(for: summary)
+        self.isEditorsPick = isEditorsPick
     }
 
     private var shape: RoundedRectangle {
@@ -379,6 +381,12 @@ public struct SummaryTileView: View {
 
     private func header(ink: Color, secondary: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
+            if isEditorsPick {
+                Label(String(localized: "Editor’s Pick", bundle: .module), systemImage: "star.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(secondary)
+                    .accessibilityIdentifier("summary-editors-pick")
+            }
             HStack(spacing: 4) {
                 if let badge = KindBadge(kind: summary.kind) {
                     badge

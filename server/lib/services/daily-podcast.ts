@@ -1,3 +1,5 @@
+import { runAfter } from "@/lib/http/after";
+import { rerankHeadlines } from "./headlines";
 import { joinPodcastAudio } from "./podcast-audio";
 import { mixPodcast } from "./podcast-mixer";
 import { alignPodcastCaptions } from "./podcast-captions";
@@ -115,17 +117,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       coverTask = summaryId ? podcastCover(db, user, ai, store, summaryId, script, chips.map(({ chip }) => chip), input.language, deps.now?.() ?? new Date()) : null;
       // Theme music is shared by mood, so it's usually already stored; failures publish without music.
       const musicTask = podcastMusic(ai, store, script.mood, deadline);
-      // The motion video only needs the script; real timings reach it on device. Failures publish without video.
       const videoUsage: LanguageModelUsage[] = [];
-      let waitingForVideo = false;
-      let videoProgress = 0;
-      const videoTask = input.includeVideo === false ? Promise.resolve(null) : composePodcastVideo(ai, { ...script, language: input.language }, chips.map(({ chip }) => ({ id: chip.id, title: chip.title })),
-        AbortSignal.any([deadline, failed.signal, AbortSignal.timeout(200_000)]), (step) => {
-          videoUsage.push(step);
-        }, (percent) => {
-          videoProgress = percent;
-          if (waitingForVideo) report("video-design", 85 + Math.floor(videoProgress * 0.1));
-        });
       report("speech", 20, 0, script.segments.length);
       const voiced = await voiceSegments(ai, script.speakers, script.segments.map((segment) => {
         const chip = chips.find(({ chip }) => chip.id === segment.chipId)!.chip;
@@ -138,9 +130,13 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       const music = await musicTask;
       report("mixing", 75);
       await storeContinuousAudio(store, `${base}/${key}/audio.mp3`, episodeAudioPath(podcast), podcast, voiced.audioParts, music);
-      waitingForVideo = true;
-      if (input.includeVideo !== false) report("video-design", 85 + Math.floor(videoProgress * 0.1));
-      const video = await videoTask;
+      // The motion video is designed after transcription and mixing, so scenes can be staged on the
+      // spoken phrases at their real times. Failures publish without video.
+      if (input.includeVideo !== false) report("video-design", 78);
+      const video = input.includeVideo === false ? null : await composePodcastVideo(ai, podcast, chips.map(({ chip }) => ({ id: chip.id, title: chip.title })),
+        AbortSignal.any([deadline, failed.signal, AbortSignal.timeout(200_000)]), (step) => {
+          videoUsage.push(step);
+        }, (percent) => report("video-design", 78 + Math.floor(percent * 0.17)));
       if (video) podcast.video = await storePodcastVideo(store, `${base}/${key}`, video);
       report("saving", 95);
       await authorize(db, user, podcast);
@@ -178,6 +174,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
           visibility: "private", createdAt: now, updatedAt: now, ...cover }), episodeInsert,
           db.update(podcastEpisodes).set({ isDefault: true }).where(eq(podcastEpisodes.key, key))]);
       } else { await episodeInsert; }
+      if (podcast.summaryId) runAfter(() => rerankHeadlines(db, user));
       if (!input.library) await selectDailyPodcast(db, user, input.day, key);
       await charge?.settle(Math.max(1, pointsForCost(textCost + speechCost + musicCost + videoCost)), { segments: segments.length, textCostUsd: textCost, speechCostUsd: speechCost, musicCostUsd: musicCost, videoCostUsd: videoCost });
       report("complete", 100);

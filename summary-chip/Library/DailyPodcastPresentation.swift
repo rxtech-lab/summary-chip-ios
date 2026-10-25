@@ -15,6 +15,7 @@ struct DailyPodcastPresentation: ViewModifier {
     @State private var openingChip = false
     @State private var error: String?
     @State private var openingTask: Task<Void, Never>?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     func body(content: Content) -> some View {
         @Bindable var player = environment.podcastPlayer
@@ -22,7 +23,7 @@ struct DailyPodcastPresentation: ViewModifier {
             .environment(\.openPodcast, openPodcast)
             .sensoryFeedback(.selection, trigger: podcastTaps)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if player.podcast != nil, !player.isPresented, player.inlinePodcastKey != player.podcast?.key {
+                if player.showsMiniPlayer, !usesTabAccessory {
                     DailyPodcastMiniPlayer(player: player)
                         .frame(maxWidth: 640)
                         .padding(.horizontal, 16)
@@ -52,6 +53,14 @@ struct DailyPodcastPresentation: ViewModifier {
                 Button("OK", role: .cancel) { player.error = nil }
             } message: { Text(player.error ?? "") }
             .onDisappear { openingTask?.cancel(); podcastTask?.cancel() }
+    }
+
+    /// `MainTabView` shows the mini player in the tab bar's bottom accessory instead.
+    private var usesTabAccessory: Bool {
+        #if os(iOS)
+        if #available(iOS 27.0, *) { return horizontalSizeClass != .regular }
+        #endif
+        return false
     }
 
     private func openPodcast(_ summary: Summary) {
@@ -87,9 +96,46 @@ struct DailyPodcastPresentation: ViewModifier {
     }
 }
 
-private struct DailyPodcastMiniPlayer: View {
+extension DailyPodcastPlayer {
+    /// A podcast is loaded but neither its sheet nor an inline player is showing it.
+    var showsMiniPlayer: Bool {
+        podcast != nil && !isPresented && inlinePodcastKey != podcast?.key
+    }
+}
+
+#if os(iOS)
+extension View {
+    /// iOS 27 places the mini player above the tab bar as its bottom accessory.
+    @ViewBuilder
+    func dailyPodcastTabAccessory(player: DailyPodcastPlayer) -> some View {
+        if #available(iOS 27.0, *) {
+            tabViewBottomAccessory(isEnabled: player.showsMiniPlayer) {
+                DailyPodcastMiniPlayer(player: player, inTabAccessory: true)
+            }
+        } else {
+            self
+        }
+    }
+}
+#endif
+
+struct DailyPodcastMiniPlayer: View {
     @Bindable var player: DailyPodcastPlayer
+    /// The tab bar accessory supplies its own glass capsule, so the player drops its background.
+    var inTabAccessory = false
     @State private var taps = 0
+    #if os(iOS)
+    @Environment(\.tabViewBottomAccessoryPlacement) private var accessoryPlacement
+    #endif
+
+    /// The accessory shrinks inline beside the tab bar when it collapses on scroll.
+    private var isCompact: Bool {
+        #if os(iOS)
+        return inTabAccessory && accessoryPlacement == .inline
+        #else
+        return false
+        #endif
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -100,11 +146,13 @@ private struct DailyPodcastMiniPlayer: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(.indigo.opacity(0.15))
                     }
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .frame(width: artworkSize, height: artworkSize)
+                    .clipShape(RoundedRectangle(cornerRadius: inTabAccessory ? artworkSize / 2 : 10))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(player.podcast?.title ?? "").font(.subheadline.bold()).lineLimit(1)
-                        Text(player.segment?.caption ?? "").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        if !isCompact {
+                            Text(player.segment?.caption ?? "").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .contentShape(Rectangle())
@@ -123,8 +171,10 @@ private struct DailyPodcastMiniPlayer: View {
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.plain)
-        .padding(12)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .padding(inTabAccessory ? EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 4) : EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+        .glassEffect(inTabAccessory ? .identity : .regular, in: .rect(cornerRadius: 24))
         .sensoryFeedback(.selection, trigger: taps)
     }
+
+    private var artworkSize: CGFloat { inTabAccessory ? 32 : 44 }
 }

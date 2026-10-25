@@ -735,3 +735,17 @@ export const podcastEpisodes = sqliteTable("podcast_episodes", {
   deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
   summaryId: text("summary_id").references(() => summaries.id, { onDelete: "cascade" }),
 }, (table) => [index("podcast_episodes_day_idx").on(table.ownerId, table.dayStart, table.dayEnd)]);
+
+/** One complete, revision-fenced editorial ranking per account. */
+export const headlineRankings = sqliteTable("headline_rankings", {
+  ownerId: text("owner_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  revision: text("revision").notNull(),
+  startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+  scores: text("scores", { mode: "json" }).$type<Record<string, number>>().notNull(),
+});
+
+export const podcastDrafts = sqliteTable("podcast_drafts", {
+  key: text("key").primaryKey().references(() => podcastEpisodes.key, { onDelete: "cascade" }),
+  revision: integer("revision").notNull().default(0),
+  files: text("files", { mode: "json" }).$type<Record<string, string>>().notNull(),
+});

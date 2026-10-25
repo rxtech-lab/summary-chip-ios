@@ -14,8 +14,13 @@ struct DailyPodcastPlaybackView: View {
             ZStack(alignment: .bottom) {
                 Color.black
                 if podcast.video != nil {
+                    #if os(iOS)
+                    PodcastNativeVideoPlayer(player: player.videoPlayer)
+                        .accessibilityIdentifier("podcast-video-player")
+                    #else
                     VideoPlayer(player: player.videoPlayer)
                         .accessibilityIdentifier("podcast-video-player")
+                    #endif
                 } else {
                 if let segment = player.segment {
                     SummaryRemoteImage(url: api.dailyPodcastImageURL(segment.imagePath), authorized: true) {
@@ -66,6 +71,9 @@ struct DailyPodcastPlaybackView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
         }
+        #if os(iOS)
+        .ignoresSafeArea(.container, edges: podcast.video != nil ? .all : [])
+        #endif
         .overlay {
             if podcast.video != nil && player.buffering {
                 VStack(spacing: 12) {
@@ -115,3 +123,22 @@ struct DailyPodcastPlaybackView: View {
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 }
+
+#if os(iOS)
+/// AVKit supplies native playback controls, including fullscreen and picture in picture.
+private struct PodcastNativeVideoPlayer: UIViewControllerRepresentable {
+    let player: AVPlayer?
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.videoGravity = .resizeAspect
+        controller.showsPlaybackControls = true
+        return controller
+    }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        if controller.player !== player { controller.player = player }
+    }
+}
+#endif

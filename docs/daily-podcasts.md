@@ -113,9 +113,15 @@ Migration `0035_podcast_versions.sql` adds the owner/day episode catalogue and i
 
 ## Motion video
 
-Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design runs alongside speech. The same generation sheet continues through local rendering, with live frame progress, before opening the native video player. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
+Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design starts after speech has been transcribed and mixed, so it sees each turn's real timing and transcribed phrases. The same generation sheet continues through local rendering, with live frame progress, before opening the native video player. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
 
 Playback uses the motion MP4 whenever an episode has a video design, rendering and caching it if needed. Audio-only saved episodes expose **Generate Video** in More. **Regenerate Podcast** opens the same generation sheet with Podcast / Video only options; **Download Podcast** offers MP3 and, when a design exists, MP4. There is no separate creation sheet or static-slide export fallback.
+
+### Phrase timing and frame checks
+
+The video agent receives every turn's real turn and voice windows and its transcribed phrases (the caption cues) with their start and end times. The server stores them with the composition as `src/phrases.json`: each turn's phrases as `[start, end]` fractions of its voice window. Fractions, not seconds, so a translation replays the same staging proportionally against its own recording; compositions from before this file get `[]`, and every turn is then a single phrase. The scaffold's `usePhrases()` extends `useNarration()` with `phrase`, `at(k)` (0–1 across phrase k) and `cue(k, seconds)` (0–1 over `seconds`, starting 0.15 s before phrase k so the picture leads the voice). Validation requires `usePhrases()`, and each storyboard turn maps phrase indexes to the actions that land on them. A story is a run of turns about one chip. At every story change the composition plays a designed bridge timed by the scaffold's `useStoryTransition()`: it starts when the outgoing voice ends and finishes as the incoming voice begins, lasting 0.9–1.6 s. The helper returns `progress`, `from`/`to` segments, `story`, `storyCount` and the bridge index. The prompt asks for an exit, a full-width bridge graphic and an entrance, a chapter marker and a story progress rail. When an episode has more than one story, validation requires `useStoryTransition()` and a `storyTransition` description on the first storyboard turn of every new story.
+
+The agent can preview single frames with `render_frame` (16 per run). The server bundles the draft, runs it in a bounded QuickJS worker (`lib/podcast-video/frame-worker.mjs`) against a small React/Remotion stand-in, lays out the HTML with Satori, splices inline SVGs back at their measured boxes (Satori can't draw SVG text), and paints a PNG with Resvg. The tool returns the image plus measured text boxes. `submit_video` renders the settled end of every phrase, each turn's entrance, the title card and the outro (up to 48 frames). It rejects runtime errors and overlapping text, text over artwork, text cut off by the canvas, and text in the bottom 100 px subtitle band while a voice plays. On the last attempt only runtime errors still reject. Artwork is a crossed placeholder; CSS files are not applied; layout treats block elements as flex columns, so the preview approximates WebKit. CJK text uses Noto Sans SC/TC/JP/KR subsets fetched from Google Fonts for exactly the characters on screen (Han follows the episode language, kana and Hangul pick JP and KR) and cached in memory. If that fetch fails, CJK widths are estimated and the report says so.
 
 Narration is never supplied as visible text to new compositions. The prompt calls for topic-specific motion explanations (animated flows, progressive paths, moving objects and transformations), and validation rejects caption helpers/transcript access. The MP4 receives a selectable tx3g subtitle track timed to voice windows and pauses; captions are not rasterized into frames. Legacy caption helpers receive empty narration when re-rendered. Previously downloaded/published MP4s are unchanged until regenerated and republished.
 
@@ -139,10 +145,10 @@ Each SSE event is a single JSON `data:` line:
 - `{"type":"error","status":502,"error":{"code":"PODCAST_FAILED","message":"...","requestId":"..."}}` is a terminal failure after HTTP headers were sent.
 
 Stages are preparing (0%), script (5%), speech (20–70%, based on completed voice
-segments), music (70%), mixing/caption alignment (75%), video-design (85–94%, updated after completed agent steps), saving (95%),
+segments), music (70%), mixing/caption alignment (75%), video-design (78–95%, updated after completed agent steps), saving (95%),
 and complete (100%). These are estimated work weights, not elapsed-time estimates;
-AI calls can leave a stage unchanged for a while. Music and video start alongside
-speech; their stages indicate waiting for those results. Optional fallbacks still
+AI calls can leave a stage unchanged for a while. Music starts alongside speech;
+video design follows mixing, because it is staged on the transcribed phrases. Optional fallbacks still
 allow the recording to finish. 100% follows successful saving and billing settlement.
 Comments every ten seconds keep idle streams active. Concurrent requests within the
 same server process share generation and replay the latest progress to new observers.
@@ -173,8 +179,7 @@ raw output is never sent to the client. A failed evaluation retains the last
 estimate. No elapsed-time or step-count increment is used for video design.
 
 The composition estimate is mapped to the existing SSE `video-design` stage
-budget (10–82% for video-only generation; 85–94% while a full episode waits for
-video). These are work estimates, not time remaining. Saving and completion are
+budget (10–82% for video-only generation; 78–95% during a full episode). These are work estimates, not time remaining. Saving and completion are
 emitted only by the service; local frame rendering continues to use real frame
 counts. Evaluation requests use the existing Gateway credentials and incur
 provider usage. The existing native overlay consumes the unchanged SSE contract.

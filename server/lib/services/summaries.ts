@@ -45,6 +45,7 @@ import { canViewerRead, findGrantToken, grantTokenForViewSql, isLinkLive, readab
 import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, translationPayer, type BillingEnvironmentResolver, type TranslationStatus } from "./translations";
 import { translateTrip } from "./trip-translations";
 import { notifySummaryAdded } from "./notifications";
+import { rerankHeadlines } from "./headlines";
 import { selectCoverTheme } from "./cover-colors";
 import { redesignMiniAppCover } from "@/lib/mini-app/cover";
 
@@ -459,6 +460,9 @@ export async function insertSummary(
         ...versionStatements(db, row, content, { ...versionOptions, at: row.createdAt }),
       ]);
       await saveSummaryEmbedding(db, row.id, await embedding);
+      if (row.kind === "summary" || row.kind === "podcast") {
+        runAfter(() => rerankHeadlines(db, row.ownerId));
+      }
       return row;
     } catch (error) {
       if (isSlugConflict(error) && attempt < 3) continue;

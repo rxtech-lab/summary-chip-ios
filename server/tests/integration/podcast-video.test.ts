@@ -52,7 +52,7 @@ describe("podcast motion video", () => {
     expect((await updated.json()).podcast.video.id).toBeTruthy();
     expect(env.ai.calls.writePodcastVideo).toHaveLength(1);
   });
-  it("writes the composition alongside the recording, from the script without timings", async () => {
+  it("writes the composition alongside the recording, after transcription, from the real phrase timings", async () => {
     env.ai.video = true;
     const topic = await chip("Batteries");
     const podcast = await generate();
@@ -60,12 +60,16 @@ describe("podcast motion video", () => {
     expect(env.ai.calls.writePodcastVideo).toHaveLength(1);
     const input = env.ai.calls.writePodcastVideo[0];
     expect(input.chips).toEqual([{ id: topic.id, title: "Batteries" }]);
-    expect(input.segments[0]).not.toHaveProperty("startSeconds");
+    // Speech is transcribed and mixed first, so the agent stages scenes on the phrases at their real times.
+    const [segment] = podcast.segments;
+    expect(input.segments[0]).toMatchObject({ startSeconds: segment.startSeconds, voiceStartSeconds: segment.voiceStartSeconds,
+      phrases: segment.captionCues!.map(({ text, startSeconds, endSeconds }) => ({ text, startSeconds, endSeconds })) });
     const response = await source(podcast.key);
     expect(response.status).toBe(200);
     const video = (await response.json()).video as PodcastVideoSource;
     expect(video).toMatchObject({ id: podcast.video!.id, model: "mock/video", fps: 24, width: 1280, height: 720 });
-    expect(Object.keys(video.files).sort()).toEqual(["src/Root.tsx", "src/Video.tsx", "src/index.ts", "src/podcast.ts"]);
+    expect(Object.keys(video.files).sort()).toEqual(["src/Root.tsx", "src/Video.tsx", "src/index.ts", "src/phrases.json", "src/podcast.ts"]);
+    expect(JSON.parse(video.files["src/phrases.json"])).toHaveLength(podcast.segments.length);
     expect((await source(podcast.key, env.tokens.bob)).status).toBe(404);
   });
 

@@ -93,6 +93,8 @@ export interface DailyPodcast extends PodcastScript {
 /** Maximum size of a published podcast video render (MP4). */
 export const MAX_PODCAST_VIDEO_BYTES = 1024 * 1024 * 1024;
 export interface PodcastVideoSummary {
+  /** Immutable agent-authored source; absent for legacy video.json compositions. */
+  sourceFile?: string;
   /** Changes whenever the composition is rewritten, so renders and uploads are keyed by it. */
   id: string;
   createdAt: string;

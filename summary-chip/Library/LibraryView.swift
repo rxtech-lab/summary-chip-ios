@@ -297,7 +297,7 @@ struct LibraryView: View {
             emptyState
         } else {
             // Clips are a plain grid; only the Feed is grouped by day with a timeline.
-            SummaryCardFeed(entries: model.entries, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
+            SummaryCardFeed(entries: model.entries, editorPickID: model.editorPickID, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
                 Task { await model.loadMore() }
             }, onSelect: { summary in
                 if summary.kind == .podcast, let openPodcast { openPodcast(summary) }

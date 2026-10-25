@@ -22,6 +22,7 @@ public struct SummaryCreationFlow<Result: View>: View {
 
     @State private var session = GenerationSession()
     @State private var options = GenerationOptionsStore.load()
+    @State private var pasteCount = 0
     @State private var draft: String
     @State private var pickedDocument: SummaryInput?
     @State private var isImporting = false
@@ -439,10 +440,18 @@ private extension SummaryCreationFlow {
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("new-summary-input")
                 #if os(iOS)
-                PasteButton(payloadType: String.self) { strings in
-                    if let first = strings.first { draft = first }
+                PasteButton(payloadType: String.self) { @Sendable strings in
+                    // Transferable delivery may run off-main; never inherit a main-actor
+                    // assertion on the callback invoked by the system paste machinery.
+                    Task { @MainActor in
+                        if let first = strings.first {
+                            draft = first
+                            pasteCount += 1
+                        }
+                    }
                 }
                 .buttonBorderShape(.capsule)
+                .sensoryFeedback(.selection, trigger: pasteCount)
                 #endif
                 if allowsFilePicking {
                     Button {
