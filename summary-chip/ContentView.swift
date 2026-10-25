@@ -207,6 +207,9 @@ struct MainTabView: View {
                 ChatView(environment: environment)
             }
         }
+        #if os(iOS)
+        .dailyPodcastTabAccessory(player: environment.podcastPlayer)
+        #endif
         .summarySearchPresentation(environment: environment, onOpenSummary: openItem)
         .environment(\.openLibraryItem, openItem)
         .onChange(of: environment.pendingLibraryItem) { _, item in

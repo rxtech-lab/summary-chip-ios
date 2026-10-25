@@ -1,6 +1,28 @@
 import XCTest
+import UIKit
 
 nonisolated final class DailyPodcastUITests: XCTestCase {
+    @MainActor func testPastingLinkAndTextIntoNewSummary() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(app.buttons["new-summary"].waitForExistence(timeout: 15))
+        app.buttons["new-summary"].tap()
+        app.buttons["new-summary-menu-summary"].tap()
+        let field = app.textFields["new-summary-input"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        for content in ["https://example.com/news", "A substantial note about the news today."] {
+            UIPasteboard.general.string = content
+            app.buttons["Paste"].tap()
+            let matches = NSPredicate(format: "value == %@", content)
+            expectation(for: matches, evaluatedWith: field)
+            waitForExpectations(timeout: 5)
+            XCTAssertTrue(app.buttons["generate-summary"].isEnabled)
+        }
+        attach(app, "paste-link-and-text")
+    }
+
     @MainActor func testGeneratesPlaysRegeneratesAndReopensSavedPodcast() {
         continueAfterFailure = false
         let app = XCUIApplication()

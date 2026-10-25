@@ -6,6 +6,31 @@ import Testing
 @testable import summary_chip
 
 @MainActor @Suite struct PodcastMediaTests {
+    @Test func writesVideoFilesThroughPrivateDirectoryAlias() throws {
+        #if os(macOS) || targetEnvironment(simulator)
+        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+        #else
+        let temporary = FileManager.default.temporaryDirectory
+        #endif
+        let project = temporary.appending(path: "podcast-path-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: project) }
+        let files = ["src/index.ts": "import './Root';", "src/scenes/Scene.tsx": "export const Scene = () => null;"]
+        try PodcastMotionRenderer.writeFiles(files, to: project)
+        for (path, contents) in files {
+            #expect(try String(contentsOf: project.appending(path: path), encoding: .utf8) == contents)
+        }
+    }
+
+    @Test func rejectsVideoFilesOutsideProject() throws {
+        let project = FileManager.default.temporaryDirectory.appending(path: "podcast-path-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: project) }
+        for path in ["src/../../escape.ts", "outside.ts"] {
+            #expect(throws: SummaryAPIError.invalidResponse) {
+                try PodcastMotionRenderer.writeFiles([path: "invalid"], to: project)
+            }
+        }
+    }
+
     @Test func exportsStandaloneCaptionsWithTimestampsAndNoPunctuation() throws {
         let podcast = try SummaryJSON.decoder().decode(DailyPodcast.self, from: Data(#"""
         {"key":"test","title":"Captions","language":"en","createdAt":"2030-03-10T05:00:00Z",

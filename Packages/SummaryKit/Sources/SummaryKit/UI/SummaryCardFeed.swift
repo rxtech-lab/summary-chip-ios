@@ -12,6 +12,7 @@ private let summaryFeedContentSpace = "summary-feed-content"
 /// use it only for feeds sorted newest first.
 public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let entries: [SummaryFeedEntry]
+    let editorPickID: String?
     let onReachEnd: () -> Void
     let menuItems: (Summary) -> MenuItems
     let footer: Footer
@@ -34,6 +35,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
 
     public init(
         entries: [SummaryFeedEntry],
+        editorPickID: String? = nil,
         showsTimeline: Bool = false,
         showsDateHeaders: Bool = false,
         onReachEnd: @escaping () -> Void = {},
@@ -43,6 +45,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         @ViewBuilder footer: () -> Footer
     ) {
         self.entries = entries
+        self.editorPickID = editorPickID
         self.showsTimeline = showsTimeline
         self.showsDateHeaders = showsDateHeaders
         self.onReachEnd = onReachEnd
@@ -220,7 +223,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     /// Pushes onto the enclosing `NavigationStack`, or hands the summary to `onSelect` when set.
     @ViewBuilder
     private func tileLink(for entry: SummaryFeedEntry) -> some View {
-        let tile = SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind)
+        let tile = SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind, isEditorsPick: entry.id == editorPickID)
         if let onSelect {
             Button { onSelect(entry.summary) } label: { tile }
         } else {

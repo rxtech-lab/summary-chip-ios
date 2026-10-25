@@ -18,6 +18,7 @@ import * as publicArt from "@/app/api/public/podcasts/[id]/art/[index]/route";
 import { podcastEpisodes, podcastShareLinks, summaries, summaryViews } from "@/lib/db/schema";
 import { podcastDaySchema, type DailyPodcast } from "@/lib/contracts/daily-podcast";
 import { dayKey } from "@/lib/services/daily-podcast";
+import { getHeadlines } from "@/lib/services/headlines";
 import { createShareLink } from "@/lib/services/share-links";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -119,6 +120,10 @@ describe("podcast selection and versions", () => {
     expect(result.status).toBe(200);
     const podcast = (await result.json()).podcast as DailyPodcast;
     expect(podcast.summaryId).toBeTruthy();
+    await vi.waitFor(async () => {
+      const headlines = await getHeadlines(env.handle.db, "user-alice");
+      expect(headlines.items.find((item) => item.id === podcast.summaryId)).toMatchObject({ kind: "podcast", score: 75 });
+    });
     const library = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?kind=podcast", { token: env.tokens.alice }));
     expect((await library.json()).items.map((item: { id: string }) => item.id)).toEqual([podcast.summaryId]);
     expect((await (await saved()).json()).podcast.key).toBe(daily.key);

@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftUI
 import SummaryKit
+import WidgetKit
 
 struct LibraryFilter: Hashable {
     var scope: LibraryScope = .all
@@ -30,6 +31,8 @@ final class LibraryModel {
     static let pageSize = 20
 
     private(set) var items: [Summary] = []
+    private(set) var editorPickID: String?
+    @ObservationIgnored private var headlineTask: Task<Void, Never>?
     private(set) var nextCursor: String?
     private(set) var isLoading = false
     private(set) var isLoadingMore = false
@@ -82,6 +85,7 @@ final class LibraryModel {
             isOffline = false
             hasLoaded = true
             scheduleTranslationReload(for: page.items)
+            refreshHeadlines()
             if kind == nil && !filter.isActive {
                 RecentSummariesCache.save(page.items)
                 offline.replaceFirstPage(page.items, isComplete: page.nextCursor == nil, excludingKind: excludedKind)
@@ -136,6 +140,7 @@ final class LibraryModel {
 
     func insert(_ summary: Summary) {
         offline.upsert(summary)
+        if summary.kind == .summary || summary.kind == .podcast { refreshHeadlines() }
         guard summary.kind != excludedKind, kind == nil || summary.kind == kind else { return }
         items.removeAll { $0.id == summary.id }
         items.insert(summary, at: 0)
@@ -153,9 +158,35 @@ final class LibraryModel {
     func remove(id: String) {
         items.removeAll { $0.id == id }
         offline.remove(id: id)
+        if id == editorPickID { editorPickID = nil }
+        refreshHeadlines()
+    }
+
+    private func refreshHeadlines() {
+        guard kind == nil || kind == .summary || kind == .podcast else { return }
+        headlineTask?.cancel()
+        headlineTask = Task { [weak self] in
+            guard let self else { return }
+            for attempt in 0..<5 {
+                do {
+                    let result = try await api.headlines()
+                    try Task.checkCancellation()
+                    editorPickID = result.highlighted?.id
+                    if !result.pending {
+                        WidgetCenter.shared.reloadTimelines(ofKind: "ChippyHeadline")
+                        return
+                    }
+                    if attempt < 4 { try await Task.sleep(for: .seconds(10)) }
+                } catch { return }
+            }
+        }
     }
 
     func reset() {
+        headlineTask?.cancel()
+        headlineTask = nil
+        editorPickID = nil
+        WidgetCenter.shared.reloadTimelines(ofKind: "ChippyHeadline")
         loadGeneration += 1
         items = []
         nextCursor = nil

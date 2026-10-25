@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import type { AiProvider } from "@/lib/ai/provider";
-import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastScript, PodcastVideoSource, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
+import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoSource, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
-import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_WIDTH } from "@/lib/podcast-video/scaffold";
+import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_WIDTH, podcastPhraseWindows } from "@/lib/podcast-video/scaffold";
+import type { PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
 import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { getAiProvider } from "@/lib/ai/provider";
@@ -14,23 +15,45 @@ import type { PodcastTranslation } from "@/lib/contracts/daily-podcast";
 import { dailyPodcastEpisode, dayKey, isTranslation, jsonObject, translationMissing, translationPath, updatePodcastDocument } from "./daily-podcast";
 import { getSummaryForViewer, type ServiceDeps } from "./summaries";
 
-type Script = Pick<PodcastScript, "title" | "mood" | "speakers" | "segments"> & { language: string };
+type Episode = Pick<DailyPodcast, "title" | "mood" | "speakers" | "segments" | "durationSeconds"> & { language: string };
 
 /**
- * Asks the video agent to animate a script. Never throws: without a model, on failure or when it
+ * The voiced episode as the video agent sees it: real turn and voice windows and the transcribed
+ * phrases. Older episodes without timing get an estimate, with each turn as a single phrase.
+ */
+export function podcastVideoInput(podcast: Episode, chips: { id: string; title: string }[]): PodcastVideoInput {
+  let cursor = 0;
+  const segments = podcast.segments.map((segment) => {
+    const startSeconds = segment.startSeconds ?? cursor;
+    const endSeconds = Math.max(startSeconds + 0.5, segment.endSeconds ?? startSeconds + Math.max(2, segment.caption.length * 0.06));
+    cursor = endSeconds;
+    const voiceStartSeconds = segment.voiceStartSeconds ?? startSeconds;
+    const voiceEndSeconds = Math.max(voiceStartSeconds + 0.1, segment.voiceEndSeconds ?? endSeconds);
+    const phrases = segment.captionCues?.length
+      ? segment.captionCues.map(({ text, startSeconds, endSeconds }) => ({ text, startSeconds, endSeconds }))
+      : [{ text: segment.caption, startSeconds: voiceStartSeconds, endSeconds: voiceEndSeconds }];
+    return { speaker: segment.speaker, chipId: segment.chipId, caption: segment.caption, startSeconds, endSeconds,
+      voiceStartSeconds, voiceEndSeconds, image: segment.imagePath, icon: segment.icon, phrases };
+  });
+  return { title: podcast.title, language: podcast.language, mood: podcast.mood, speakers: podcast.speakers.map((speaker) => speaker.name), chips,
+    durationSeconds: Math.max(podcast.durationSeconds ?? 0, cursor + 1), segments };
+}
+
+/**
+ * Asks the video agent to animate a voiced episode. Never throws: without a model, on failure or when it
  * runs out of time the episode simply has no video.
  */
-export async function composePodcastVideo(ai: AiProvider, script: Script, chips: { id: string; title: string }[],
+export async function composePodcastVideo(ai: AiProvider, podcast: Episode, chips: { id: string; title: string }[],
   abortSignal: AbortSignal, onUsage: (usage: LanguageModelUsage) => void, onProgress?: (percent: number) => void): Promise<PodcastVideoSource | null> {
   const model = ai.podcastVideoModelId();
   if (!model) return null;
   try {
-    const files = await ai.writePodcastVideo({ title: script.title, language: script.language, mood: script.mood,
-      speakers: script.speakers.map((speaker) => speaker.name), chips,
-      segments: script.segments.map(({ speaker, chipId, caption }) => ({ speaker, chipId, caption })) }, { abortSignal, onUsage, onProgress });
+    const input = podcastVideoInput(podcast, chips);
+    const files = await ai.writePodcastVideo(input, { abortSignal, onUsage, onProgress });
     if (!files) return null;
     return { id: randomUUID(), model, createdAt: new Date().toISOString(), fps: PODCAST_VIDEO_FPS,
-      width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, chips, files: { ...files, ...PODCAST_VIDEO_SCAFFOLD } };
+      width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, chips,
+      files: { ...files, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(input.segments)) } };
   } catch (error) {
     console.error("[podcast] video composition failed, publishing without video", error);
     return null;
@@ -65,14 +88,16 @@ export async function podcastVideoSource(db: Database, user: string, day: Podcas
 export async function translatePodcastVideoSource(ai: AiProvider, store: ObjectStore, user: string, podcast: DailyPodcast, language: TranslationLanguage,
   chipTitles: Record<string, string>, abortSignal: AbortSignal, onUsage: (usage: LanguageModelUsage) => void): Promise<NonNullable<PodcastTranslation["video"]>> {
   const original = await readVideoSource(store, `${dayKey(user, podcast.day)}/${podcast.key}`);
-  const generated = Object.fromEntries(Object.entries(original.files).filter(([path]) => !(path in PODCAST_VIDEO_SCAFFOLD)));
+  const generated = Object.fromEntries(Object.entries(original.files).filter(([path]) => !(path in PODCAST_VIDEO_SCAFFOLD) && path !== PODCAST_VIDEO_PHRASES));
+  // Phrase timing is proportional, so the translation replays the original staging; older compositions have none.
+  const phrases = original.files[PODCAST_VIDEO_PHRASES] ?? "[]";
   const translated = await ai.translatePodcastVideo(generated, LANGUAGE_NAMES[language], { abortSignal, onUsage }).catch((error) => {
     console.error("[podcast] video label translation failed, keeping the original labels", error);
     return null;
   });
   const source: PodcastVideoSource = { ...original, id: randomUUID(), createdAt: new Date().toISOString(),
     chips: original.chips.map((chip) => ({ id: chip.id, title: chipTitles[chip.id] ?? chip.title })),
-    files: { ...(translated ?? generated), ...PODCAST_VIDEO_SCAFFOLD } };
+    files: { ...(translated ?? generated), ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: phrases } };
   await store.put(`${translationPath(user, podcast, language)}/video.json`, jsonObject(source));
   return { id: source.id, createdAt: source.createdAt, sourceId: original.id };
 }

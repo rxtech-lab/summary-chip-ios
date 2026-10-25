@@ -21,6 +21,7 @@ export const MAX_PODCAST_VIDEO_FILE_CHARS = 60_000;
  */
 const PODCAST_TS = `import { useCurrentFrame, useVideoConfig } from "remotion";
 import data from "./data.json";
+import phraseWindows from "./phrases.json";
 
 export interface PodcastSegment {
   /** Index into \`speakers\`. */
@@ -106,7 +107,66 @@ export function useNarration() {
   return { index, segment, elapsedSeconds, progress, speaking: !!segment && time >= start && time < end };
 }
 
+/** Each turn's transcribed phrases as [start, end] fractions (0…1) of its voice window, by segment index. */
+const phrases = phraseWindows as [number, number][][];
 
+/**
+ * useNarration() plus the transcribed phrases of the current turn, so each action lands on the words
+ * that describe it. \`phrase\` is the phrase being spoken (held through pauses and after the voice ends).
+ * \`at(k)\` runs 0…1 across phrase k while it is spoken: use it for actions that unfold with the sentence.
+ * \`cue(k, seconds)\` runs 0…1 over \`seconds\` (default 0.6), starting 0.15 s before phrase k so the
+ * picture leads the voice slightly: use it for entrances, highlights and state changes.
+ * Both are 0 before the phrase and hold 1 afterwards; k is clamped to the turn's phrases.
+ */
+export function usePhrases() {
+  const narration = useNarration();
+  const time = useTime();
+  const windows = (narration.index >= 0 ? phrases[narration.index] : undefined) ?? [];
+  const list: [number, number][] = windows.length ? windows : [[0, 1]];
+  const start = narration.segment?.voiceStartSeconds ?? 0;
+  const duration = Math.max(0.001, (narration.segment?.voiceEndSeconds ?? start) - start);
+  const range = (k: number) => list[Math.max(0, Math.min(list.length - 1, Math.floor(k)))];
+  const clamp = (value: number) => Math.min(1, Math.max(0, value));
+  let phrase = 0;
+  for (let i = 0; i < list.length; i += 1) if (list[i][0] <= narration.progress) phrase = i;
+  const at = (k: number) => {
+    const [from, to] = range(k);
+    return clamp((narration.progress - from) / Math.max(0.001, to - from));
+  };
+  const cue = (k: number, seconds = 0.6) => narration.segment
+    ? clamp((time - (start + range(k)[0] * duration - 0.15)) / Math.max(0.05, seconds)) : 0;
+  return { ...narration, phrase, phraseCount: list.length, phraseProgress: at(phrase), at, cue };
+}
+
+/** Turn indexes where the story (chip) changes. A chip discussed again later starts a new story. */
+const storyStarts = podcast.segments.flatMap((segment, i) => (i > 0 && segment.chipId !== podcast.segments[i - 1].chipId ? [i] : []));
+
+/**
+ * The bridge between two stories: it starts when the outgoing story's voice ends and finishes when the
+ * incoming voice begins, lasting at least \`minSeconds\` and at most \`maxSeconds\` (it may then start later).
+ * \`progress\` is 0 before the bridge, runs 0…1 across it and holds 1 afterwards. While \`active\`, the
+ * turn from useNarration() can still be the outgoing one: draw \`from\` leaving and \`to\` arriving yourself.
+ * \`story\` counts stories from 0, \`storyCount\` is their total, and \`transition\` is the bridge index (-1 before the first).
+ */
+export function useStoryTransition(minSeconds = 0.9, maxSeconds = 1.6) {
+  const time = useTime();
+  const bridge = (i: number) => {
+    const before = podcast.segments[i - 1];
+    const after = podcast.segments[i];
+    const start = Math.max(before.voiceEndSeconds, after.voiceStartSeconds - maxSeconds);
+    return { start, end: Math.max(start + minSeconds, after.voiceStartSeconds) };
+  };
+  let current = -1;
+  for (let b = 0; b < storyStarts.length; b += 1) if (bridge(storyStarts[b]).start <= time) current = b;
+  if (current < 0) {
+    return { active: false, progress: 1, from: null, to: podcast.segments[0] ?? null, story: 0, storyCount: storyStarts.length + 1, transition: -1 };
+  }
+  const i = storyStarts[current];
+  const { start, end } = bridge(i);
+  const progress = Math.min(1, Math.max(0, (time - start) / Math.max(0.001, end - start)));
+  return { active: progress > 0 && progress < 1, progress, from: podcast.segments[i - 1], to: podcast.segments[i],
+    story: current + 1, storyCount: storyStarts.length + 1, transition: current };
+}
 `;
 
 const ROOT_TSX = `import { Audio, Composition, staticFile } from "remotion";
@@ -134,6 +194,9 @@ import { RemotionRoot } from "./Root";
 registerRoot(RemotionRoot);
 `;
 
+/** Transcribed phrase timing written by the server next to the composition (see `podcastPhraseWindows`). */
+export const PODCAST_VIDEO_PHRASES = "src/phrases.json";
+
 /** Files owned by the server; the agent can't replace them. */
 export const PODCAST_VIDEO_SCAFFOLD: Readonly<Record<string, string>> = {
   "src/index.ts": INDEX_TS,
@@ -151,6 +214,66 @@ const SAMPLE_DATA = {
   segments: [{ speaker: 0, chipId: "a", chipTitle: "Sample", caption: "Hello.", startSeconds: 5, endSeconds: 9,
     voiceStartSeconds: 5.1, voiceEndSeconds: 8.8, image: null, icon: "🎙️" }],
 };
+const SAMPLE_PHRASES = [[[0, 0.5], [0.5, 1]]];
+
+/** A turn's transcribed phrases, as the device sees them in `src/phrases.json`. */
+export interface PodcastPhraseTiming { startSeconds: number; endSeconds: number }
+
+/**
+ * Each turn's phrases as [start, end] fractions of its voice window. Fractions, not seconds, so a
+ * translation (same turns, different recording) replays the same staging proportionally.
+ */
+export function podcastPhraseWindows(segments: { voiceStartSeconds: number; voiceEndSeconds: number; phrases: PodcastPhraseTiming[] }[]): [number, number][][] {
+  const round = (value: number) => Math.round(Math.min(1, Math.max(0, value)) * 1000) / 1000;
+  return segments.map(({ voiceStartSeconds, voiceEndSeconds, phrases }) => {
+    const duration = voiceEndSeconds - voiceStartSeconds;
+    if (!(duration > 0) || !phrases.length) return [[0, 1]];
+    return phrases.map(({ startSeconds, endSeconds }) => [round((startSeconds - voiceStartSeconds) / duration), round((endSeconds - voiceStartSeconds) / duration)]);
+  });
+}
+
+/**
+ * Bundles a project for the browser compiler (validation) or for the frame preview, where the
+ * bare imports resolve to `runtime` instead of staying external.
+ */
+export async function bundlePodcastProject(all: Record<string, string>, entry: string, runtime?: string) {
+  const resolveFile = (path: string) => ["", ".tsx", ".ts", ".css", ".json", "/index.tsx", "/index.ts"].map((ext) => path + ext).find((p) => p in all);
+  const normalize = (path: string) => {
+    const parts: string[] = [];
+    for (const part of path.split("/")) {
+      if (part === "..") { if (!parts.length) throw new Error("Import escapes the project"); parts.pop(); }
+      else if (part && part !== ".") parts.push(part);
+    }
+    return parts.join("/");
+  };
+  const project: Plugin = { name: "podcast-project", setup(builder) {
+    builder.onResolve({ filter: /.*/ }, (args) => {
+      if (args.kind === "entry-point") return { path: args.path, namespace: "project" };
+      if ((PODCAST_VIDEO_IMPORTS as readonly string[]).includes(args.path)) {
+        return runtime === undefined ? { path: args.path, external: true } : { path: "runtime", namespace: "preview-runtime" };
+      }
+      if (!args.path.startsWith(".")) return { errors: [{ text: `Unsupported import "${args.path}". Only ${PODCAST_VIDEO_IMPORTS.join(", ")} and project files are available.` }] };
+      const path = resolveFile(normalize(`${args.importer.split("/").slice(0, -1).join("/")}/${args.path}`));
+      return path ? { path, namespace: "project" } : { errors: [{ text: `Cannot resolve local import: ${args.path}` }] };
+    });
+    builder.onLoad({ filter: /.*/, namespace: "preview-runtime" }, () => ({ contents: runtime, loader: "js" }));
+    builder.onLoad({ filter: /.*/, namespace: "project" }, (args) => {
+      const extension = args.path.split(".").pop();
+      // The preview can't apply stylesheets; the browser compiler bundles them.
+      if (extension === "css" && runtime !== undefined) return { contents: "", loader: "empty" };
+      return { contents: all[args.path], loader: ({ ts: "ts", tsx: "tsx", css: "css", json: "json" } as const)[extension as "ts"] ?? "ts" };
+    });
+  } };
+  return build({ entryPoints: [entry], bundle: true, write: false, platform: "browser", jsx: "automatic", outdir: "/out", logLevel: "silent", plugins: [project],
+    ...(runtime === undefined ? { format: "esm", target: "safari26" } : { format: "iife", globalName: "__preview", target: "es2020" }) });
+}
+
+/** esbuild failures as validation issues. */
+export function bundleIssues(error: unknown): PodcastVideoIssue[] {
+  const errors = (error as { errors?: { text: string; location?: { file: string; line: number; column: number } | null }[] }).errors;
+  if (!errors?.length) return [{ message: error instanceof Error ? error.message : String(error) }];
+  return errors.slice(0, 12).map((e) => ({ file: e.location?.file.replace(/^project:/, ""), message: e.location ? `${e.location.line}:${e.location.column} ${e.text}` : e.text }));
+}
 
 /**
  * Source the renderer can't run deterministically or safely. Agent code is untrusted: chip content
@@ -184,41 +307,18 @@ export async function validatePodcastVideo(files: Record<string, string>): Promi
   if (paths.length > MAX_PODCAST_VIDEO_FILES) issues.push({ message: `Use at most ${MAX_PODCAST_VIDEO_FILES} files` });
   for (const [path, source] of Object.entries(files)) {
     if (!PODCAST_VIDEO_FILE_PATTERN.test(path)) issues.push({ file: path, message: "Paths must be src/…/*.tsx, *.ts or *.css" });
-    else if (path in PODCAST_VIDEO_SCAFFOLD || path === "src/data.json") issues.push({ file: path, message: "This file is provided; don't write it" });
+    else if (path in PODCAST_VIDEO_SCAFFOLD || path === "src/data.json" || path === PODCAST_VIDEO_PHRASES) issues.push({ file: path, message: "This file is provided; don't write it" });
     if (source.length > MAX_PODCAST_VIDEO_FILE_CHARS) issues.push({ file: path, message: `Keep each file under ${MAX_PODCAST_VIDEO_FILE_CHARS} characters` });
     for (const { pattern, message } of FORBIDDEN) if (pattern.test(source)) issues.push({ file: path, message });
   }
   if (issues.length) return issues;
 
   const all: Record<string, string> = { ...files, ...PODCAST_VIDEO_SCAFFOLD, "src/data.json": JSON.stringify(SAMPLE_DATA),
-    "src/__check.ts": `export { PodcastVideo } from "./Video";\nimport "./index";\n` };
-  const resolveFile = (path: string) => ["", ".tsx", ".ts", ".css", ".json", "/index.tsx", "/index.ts"].map((ext) => path + ext).find((p) => p in all);
-  const normalize = (path: string) => {
-    const parts: string[] = [];
-    for (const part of path.split("/")) {
-      if (part === "..") { if (!parts.length) throw new Error("Import escapes the project"); parts.pop(); }
-      else if (part && part !== ".") parts.push(part);
-    }
-    return parts.join("/");
-  };
-  const project: Plugin = { name: "podcast-project", setup(builder) {
-    builder.onResolve({ filter: /.*/ }, (args) => {
-      if (args.kind === "entry-point") return { path: args.path, namespace: "project" };
-      if ((PODCAST_VIDEO_IMPORTS as readonly string[]).includes(args.path)) return { path: args.path, external: true };
-      if (!args.path.startsWith(".")) return { errors: [{ text: `Unsupported import "${args.path}". Only ${PODCAST_VIDEO_IMPORTS.join(", ")} and project files are available.` }] };
-      const path = resolveFile(normalize(`${args.importer.split("/").slice(0, -1).join("/")}/${args.path}`));
-      return path ? { path, namespace: "project" } : { errors: [{ text: `Cannot resolve local import: ${args.path}` }] };
-    });
-    builder.onLoad({ filter: /.*/, namespace: "project" }, (args) => ({ contents: all[args.path],
-      loader: ({ ts: "ts", tsx: "tsx", css: "css", json: "json" } as const)[args.path.split(".").pop() as "ts"] ?? "ts" }));
-  } };
+    [PODCAST_VIDEO_PHRASES]: JSON.stringify(SAMPLE_PHRASES), "src/__check.ts": `export { PodcastVideo } from "./Video";\nimport "./index";\n` };
   try {
-    await build({ entryPoints: ["src/__check.ts"], bundle: true, write: false, format: "esm", platform: "browser",
-      target: "safari26", jsx: "automatic", outdir: "/out", logLevel: "silent", plugins: [project] });
+    await bundlePodcastProject(all, "src/__check.ts");
   } catch (error) {
-    const errors = (error as { errors?: { text: string; location?: { file: string; line: number; column: number } | null }[] }).errors;
-    if (!errors?.length) return [{ message: error instanceof Error ? error.message : String(error) }];
-    return errors.slice(0, 12).map((e) => ({ file: e.location?.file.replace(/^project:/, ""), message: e.location ? `${e.location.line}:${e.location.column} ${e.text}` : e.text }));
+    return bundleIssues(error);
   }
   const nameIssues = unresolvedNames(all, paths);
   if (nameIssues.length) return nameIssues;
@@ -244,7 +344,7 @@ function motionIssues(files: Record<string, string>): PodcastVideoIssue[] {
       if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text);
       if (bindings && ts.isNamedImports(bindings)) for (const binding of bindings.elements) {
         const name = (binding.propertyName ?? binding.name).text;
-        if (["useCurrentFrame", "useTime", "useSceneMotion", "useNarration"].includes(name)) clocks.add(binding.name.text);
+        if (["useCurrentFrame", "useTime", "useSceneMotion", "useNarration", "usePhrases", "useStoryTransition"].includes(name)) clocks.add(binding.name.text);
         if (moduleName === "remotion" && name === "random") randoms.add(binding.name.text);
       }
     }
@@ -252,7 +352,7 @@ function motionIssues(files: Record<string, string>): PodcastVideoIssue[] {
       if (ts.isCallExpression(node)) {
         const callee = node.expression;
         const member = ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && namespaces.has(callee.expression.text) ? callee.name.text : null;
-        if ((ts.isIdentifier(callee) && clocks.has(callee.text)) || (member && ["useCurrentFrame", "useTime", "useSceneMotion", "useNarration"].includes(member))) hasClock = true;
+        if ((ts.isIdentifier(callee) && clocks.has(callee.text)) || (member && ["useCurrentFrame", "useTime", "useSceneMotion", "useNarration", "usePhrases", "useStoryTransition"].includes(member))) hasClock = true;
         if ((ts.isIdentifier(callee) && randoms.has(callee.text)) || member === "random") {
           const seed = node.arguments[0];
           if (!seed || (!ts.isStringLiteral(seed) && !ts.isNumericLiteral(seed))) issues.push({ file, message: "Use a fixed string or number literal random() seed; frame-dependent seeds make shapes and edges flicker" });

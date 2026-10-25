@@ -87,12 +87,15 @@ import UIKit
         try? FileManager.default.removeItem(at: cache)
     }
 
-    private static func writeFiles(_ files: [String: String], to project: URL) throws {
+    static func writeFiles(_ files: [String: String], to project: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: project.appending(path: "public/art"), withIntermediateDirectories: true)
-        let root = project.standardizedFileURL.path + "/"
+        // Physical iOS containers use /private/var aliases. Standardizing an existing directory
+        // and a not-yet-created file can preserve different aliases; compare canonical paths.
+        let project = project.resolvingSymlinksInPath()
+        let root = project.path + "/"
         for (path, contents) in files {
-            let url = project.appending(path: path).standardizedFileURL
+            let url = project.appending(path: path).standardizedFileURL.resolvingSymlinksInPath()
             // The server owns the paths, but never let one escape the project.
             guard url.path.hasPrefix(root), path.hasPrefix("src/") else { throw SummaryAPIError.invalidResponse }
             try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
