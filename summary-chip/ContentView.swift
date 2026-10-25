@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var presentation: RootPresentation?
     /// Chosen with "Open in Feed" in a link sheet; shown in the main navigation once the sheet is gone.
     @State private var itemToOpen: Summary?
+    @State private var podcastToOpen: DailyPodcast?
     @State private var checkedLaunchEducation = false
     @State private var isDropTargeted = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -63,6 +64,12 @@ struct ContentView: View {
                     presentationBinding.wrappedValue = nil
                 }
                 .summarySheetSize()
+            case .backgroundJobs(let request):
+                BackgroundJobsSheet(api: environment.api, selectedID: request.selectedID) { podcast in
+                    podcastToOpen = podcast
+                    presentationBinding.wrappedValue = nil
+                }
+                .id(request.id)
             case .topUp:
                 SummaryCreditsSheet(environment: environment, opensTopUps: true)
             case .newSummary(let request):
@@ -75,11 +82,25 @@ struct ContentView: View {
                 presentNext()
             } else {
                 environment.podcastPlayer.close()
+                environment.backgroundJobsRequest = nil
                 presentation = nil
             }
         }
         .onChange(of: environment.pendingRoute) { _, route in
             if route != nil { presentNext() }
+        }
+        .onChange(of: environment.podcastPlayer.isPresented) { _, presented in
+            if !presented, environment.backgroundJobsRequest != nil {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    presentNext()
+                }
+            }
+        }
+        .onChange(of: environment.backgroundJobsRequest?.id) { _, requestID in
+            if case .backgroundJobs = presentation, let request = environment.backgroundJobsRequest {
+                presentation = .backgroundJobs(request)
+            } else if requestID != nil { presentNext() }
         }
         .onChange(of: environment.pendingTopUp) { _, pending in
             if pending { presentNext() }
@@ -113,12 +134,17 @@ struct ContentView: View {
             {
                 environment.pendingRoute = nil
             }
+            if value == nil, case .backgroundJobs = presentation { environment.backgroundJobsRequest = nil }
             if value == nil, case .topUp = presentation { environment.pendingTopUp = false }
             presentation = value
         })
     }
 
     private func sheetDismissed() {
+        if let podcastToOpen {
+            self.podcastToOpen = nil
+            environment.podcastPlayer.present(podcast: podcastToOpen)
+        }
         if let itemToOpen {
             self.itemToOpen = nil
             environment.pendingLibraryItem = itemToOpen
@@ -128,7 +154,10 @@ struct ContentView: View {
 
     private func presentNext() {
         guard environment.authenticationState == .signedIn, presentation == nil else { return }
-        if environment.pendingTopUp {
+        if let request = environment.backgroundJobsRequest {
+            guard !environment.podcastPlayer.isPresented else { return }
+            presentation = .backgroundJobs(request)
+        } else if environment.pendingTopUp {
             presentation = .topUp
         } else if let file = environment.takePendingFile() {
             presentation = .newSummary(NewSummaryRequest(file: file))
@@ -151,6 +180,7 @@ private enum RootPresentation: Identifiable {
     case education(EducationPresentation)
     case summary(AppRoute)
     case topUp
+    case backgroundJobs(BackgroundJobsRequest)
     case newSummary(NewSummaryRequest)
 
     var id: String {
@@ -158,6 +188,7 @@ private enum RootPresentation: Identifiable {
         case .education(let flow): "education:\(flow.id)"
         case .summary(let route): route.id
         case .topUp: "top-up"
+        case .backgroundJobs(let request): "jobs:\(request.id)"
         case .newSummary(let request): "new-summary:\(request.id)"
         }
     }

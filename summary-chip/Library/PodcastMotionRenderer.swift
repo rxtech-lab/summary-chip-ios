@@ -15,6 +15,7 @@ import UIKit
         var stage: Stage
         var fraction: Double?
         var frameDetail: String?
+        var transfer: MediaTransferProgress?
     }
 
     private static var cache: URL {
@@ -28,11 +29,11 @@ import UIKit
 
     static func cachedURL(for podcast: DailyPodcast) -> URL? {
         guard let video = podcast.video else { return nil }
-        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v2.mp4")
+        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v3.mp4")
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    static func render(api: SummaryAPIClient, podcast: DailyPodcast, onProgress: @escaping @MainActor (Progress) -> Void) async throws -> URL {
+    static func render(api: SummaryAPIClient, podcast: DailyPodcast, onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
         if let cached = cachedURL(for: podcast) { return cached }
         guard let video = podcast.video, !podcast.segments.isEmpty else { throw SummaryAPIError.invalidResponse }
         onProgress(Progress(stage: .preparing))
@@ -42,7 +43,11 @@ import UIKit
         let source = try await api.podcastVideoSource(podcast)
         guard source.id == video.id else { throw SummaryAPIError.invalidResponse }
         try writeFiles(source.files, to: project)
-        try await api.dailyPodcastAudio(podcast).write(to: project.appending(path: "public/podcast.mp3"))
+        let audio = try await api.dailyPodcastAudio(podcast) { transfer in
+            onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
+        }
+        try audio.write(to: project.appending(path: "public/podcast.mp3"))
+        onProgress(Progress(stage: .preparing))
         let images = try await downloadArtwork(api: api, podcast: podcast, to: project)
         try Task.checkCancellation()
         try data(podcast: podcast, source: source, images: images).write(to: project.appending(path: "src/data.json"))
@@ -72,7 +77,7 @@ import UIKit
         for old in (try? fm.contentsOfDirectory(at: cache, includingPropertiesForKeys: nil)) ?? [] where old.lastPathComponent.hasPrefix(prefix(for: podcast)) {
             try? fm.removeItem(at: old)
         }
-        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v2.mp4")
+        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v3.mp4")
         try fm.moveItem(at: output, to: destination)
         return destination
     }

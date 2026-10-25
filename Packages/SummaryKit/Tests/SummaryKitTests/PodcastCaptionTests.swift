@@ -2,6 +2,24 @@ import Testing
 @testable import SummaryKit
 
 @Suite struct PodcastCaptionTests {
+    @Test func wrapsChineseAtWordBoundaries() {
+        let text = "加拿大网络安全中心表示 已有攻击者在利用这个漏洞 但是仍需注意网络安全"
+        let pages = PodcastCaptionTimeline.pagedCues([.init(text: text, startSeconds: 0, endSeconds: 12)])
+        let lines = pages.flatMap { $0.text.components(separatedBy: "\n") }
+        #expect(lines.contains { $0.contains("但是") })
+        #expect(lines.contains { $0.contains("漏洞") })
+        #expect(lines.joined().filter { !$0.isWhitespace } == text.filter { !$0.isWhitespace })
+    }
+
+    @Test func keepsLongAndMixedScriptWordsWhole() {
+        let word = "supercalifragilisticexpialidociousExtraLong"
+        for text in ["Start \(word) end", "今天介绍这个 \(word) 技术"] {
+            let timeline = PodcastCaptionTimeline(text)
+            #expect(timeline.phrases.contains { $0.contains(word) })
+            #expect(timeline.phrases.joined().filter { !$0.isWhitespace } == text.filter { !$0.isWhitespace })
+        }
+    }
+
     @Test func showsTwoPhrasesAtATimeWithoutDroppingWords() {
         let text = "Welcome to the daily podcast. Here's our first story, followed by a useful takeaway."
         let timeline = PodcastCaptionTimeline(text)

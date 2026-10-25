@@ -55,7 +55,7 @@ Prompts describe only the mood and role, never chip content. Each clip is theref
 
 On iOS and macOS, playback and MP3/MP4 export share a disk cache of complete episode audio in the app's Caches directory. Each recording expires seven days after download; listening again does not extend its lifetime. Expired files are pruned when audio is requested or cache storage is measured. Cache misses download the saved recording without generating audio. Failed or cancelled downloads are not cached, and disk-write failures leave playback available. Cache storage is included in Settings; Clear Cache and sign-out remove recordings, and removing a daily version evicts its audio. The OS may reclaim cached files earlier. Locally downloaded audio remains available until expiry or clearing even if source access is subsequently revoked on the server; metadata and new downloads still require server authorization.
 
-Uses the existing private S3-compatible `ObjectStore` (R2 configuration), `AI_TOUR_MODEL`, `AI_SPEECH_MODEL`, speech pricing and points billing. `AI_PODCAST_VOICES` optionally lists up to four comma-separated voice IDs supported by the configured speech model. It defaults to `AI_TOUR_VOICE`. The agent chooses one to four hosts from the available voices, with a single narrator as the default configuration.
+Uses the existing private S3-compatible `ObjectStore` (R2 configuration), `AI_PODCAST_MODEL`, `AI_SPEECH_MODEL`, speech pricing and points billing. `AI_PODCAST_MODEL` independently selects the script and translation model (default `anthropic/claude-haiku-5.5`), including video label translation; points use that model's pricing. Scripts and spoken translations use direct statements and avoid rhetorical constructions such as “不代表……而是……” and “不是……而是……” or their equivalents in other languages. `AI_PODCAST_VOICES` optionally lists up to four comma-separated voice IDs supported by the configured speech model. It defaults to `AI_TOUR_VOICE`. The agent chooses one to four hosts from the available voices, with a single narrator as the default configuration.
 
 Each generation gets an immutable UUID and persists its complete script and one MP3. Individual speech turns are only transient inputs to assembly; new episodes do not store separate audio parts. Only after all audio succeeds does `latest.json` switch to the new episode. A failed generation leaves the previous episode available. Concurrent requests for the same day, language and chip selection in the same server process share one generation; there is no distributed cross-instance lock. Old versions remain private and are retained so an open player can finish playing during regeneration.
 
@@ -113,7 +113,7 @@ Migration `0035_podcast_versions.sql` adds the owner/day episode catalogue and i
 
 ## Motion video
 
-Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design starts after speech has been transcribed and mixed, so it sees each turn's real timing and transcribed phrases. The same generation sheet continues through local rendering, with live frame progress, before opening the native video player. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
+Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design starts after speech has been transcribed and mixed, so it sees each turn's real timing and transcribed phrases. It runs on the server in the background (see [Background video design](#background-video-design)), so the generation sheet offers **Continue in Background** while it works; if the user waits, the sheet continues through local rendering, with live frame progress, before opening the native video player. Only local rendering needs the app in the foreground. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
 
 Playback uses the motion MP4 whenever an episode has a video design, rendering and caching it if needed. Audio-only saved episodes expose **Generate Video** in More. **Regenerate Podcast** opens the same generation sheet with Podcast / Video only options; **Download Podcast** offers MP3 and, when a design exists, MP4. There is no separate creation sheet or static-slide export fallback.
 
@@ -145,8 +145,8 @@ Each SSE event is a single JSON `data:` line:
 - `{"type":"error","status":502,"error":{"code":"PODCAST_FAILED","message":"...","requestId":"..."}}` is a terminal failure after HTTP headers were sent.
 
 Stages are preparing (0%), script (5%), speech (20–70%, based on completed voice
-segments), music (70%), mixing/caption alignment (75%), video-design (78–95%, updated after completed agent steps), saving (95%),
-and complete (100%). These are estimated work weights, not elapsed-time estimates;
+segments), music (70%), mixing/caption alignment (75%), saving (95%), video-design (97%, when the background design starts)
+and complete (100%). The stream completes once the recording is saved; the episode's `videoDesign` then reports the video. These are estimated work weights, not elapsed-time estimates;
 AI calls can leave a stage unchanged for a while. Music starts alongside speech;
 video design follows mixing, because it is staged on the transcribed phrases. Optional fallbacks still
 allow the recording to finish. 100% follows successful saving and billing settlement.
@@ -159,14 +159,37 @@ The app shows live progress in the existing full-height generation sheet's overl
 with a numeric percentage and exact voice-segment count. It accepts legacy JSON from
 the same request when talking to an older server (spinner only), without resubmitting.
 
-Video design creation (`POST /api/v1/daily-podcasts/:key/video`) supports the same
-SSE envelope and legacy JSON fallback. Its progress stages are preparing (0%),
-video-design (10%, then +20 per completed agent step, capped at 80%), saving (90%),
-and complete (100%, after persistence and billing settlement). Design events include
-`completedSteps`, the actual number of finished agent steps, including validation/fix
-attempts. The percentage is estimated work progress: it can remain unchanged while
-a model step runs. Concurrent observers share the same generation and receive its
-latest progress. The shared generation sheet shows these updates in its overlay, followed by local frame and encoding progress.
+Video design creation (`POST /api/v1/daily-podcasts/:key/video`) starts a background design and
+returns `{podcast}` at once with its `videoDesign`. Current apps poll the episode (`GET /api/v1/daily-podcasts/:key`, free)
+every three seconds. Older apps that send `Accept: text/event-stream` get the same envelope: preparing (0%), then
+video-design (10–90%) read from `videoDesign` every two seconds, and complete (100%) when the design is saved. A failed design ends the stream
+with its error. The stream stops following after 270 s and returns the episode as it is; the design continues.
+
+### Background video design
+
+The design agent runs as a Vercel Workflow (`workflows/design-podcast-video.ts`), not inside the request, so it never
+hits the function timeout and the user can leave the app. Each agent turn is one workflow step that makes exactly one
+tool call: one small `write_file` (at most 16,000 characters), one `edit_file`, one `render_frame` or one
+`submit_video`. Extra tool calls in the same turn are not run and return a message asking the model to send them again.
+After every turn the step saves the draft (files, conversation, attempt and preview counts, cost) to
+`<episode>/video-design/<id>.json`, so a crash or redeploy resumes from the last turn. A turn has a 240 s timeout.
+Three failed model calls in a row end the run, as do 5 rejected submissions or 64 turns.
+
+The episode document carries `videoDesign: { id, startedAt, updatedAt, percent, language?, error? }` while a run
+works on it. Starting a design while one is running returns the running one; a run that saved nothing for 20 minutes is
+stale and can be replaced. A newer run makes the older one stop at its next turn. When the run is accepted, the
+composition replaces the previous one, as before: published renders and translation videos are removed. Then
+`videoDesign` is cleared, or kept at 92% while a requested translation's labels are translated. A failed run
+keeps `videoDesign.error` until the next design starts; the app then shows Retry Video or Generate Video.
+
+Billing: `POST /video` checks the balance with a hold it releases at once. The run's token cost is charged once, when it
+ends, with an idempotent hold and settlement (`<key>:video:<id>:charge`). A failed design is free. Designs started from
+episode creation are charged separately from the recording.
+
+The podcast sheet follows a running design with a non-blocking status capsule ("Designing video… 42%"). When the
+design finishes, the sheet switches to the video, which then renders on device. If audio is playing, it shows
+**Video Ready – Watch** instead, so listening isn't interrupted. More shows a disabled **Designing Video…** item while a
+run works.
 
 ### Decision-model video progress
 
@@ -179,7 +202,7 @@ raw output is never sent to the client. A failed evaluation retains the last
 estimate. No elapsed-time or step-count increment is used for video design.
 
 The composition estimate is mapped to the existing SSE `video-design` stage
-budget (10–82% for video-only generation; 78–95% during a full episode). These are work estimates, not time remaining. Saving and completion are
+budget (10–82%), evaluated once per background turn from that turn's tool call and outcome. These are work estimates, not time remaining. Saving and completion are
 emitted only by the service; local frame rendering continues to use real frame
 counts. Evaluation requests use the existing Gateway credentials and incur
 provider usage. The existing native overlay consumes the unchanged SSE contract.
@@ -214,7 +237,7 @@ An episode version can be spoken in more languages. **More → Translate…** op
 
 Turns are translated one for one, keeping the original's speaker, chip, artwork and order, and are then voiced with the same hosts. Each turn is transcribed for caption timing and mixed with the same theme music (only when the original had music). Switching language therefore resumes playback at the start of the same turn. The app remembers the last language chosen and opens episodes that have it in that language. The video reuses the original composition: the same scenes are driven by the translation's own timings from `data.json`, with translated chip titles, and a model pass translates on-screen labels as exact, unique text edits. Edited files must pass the same validation as a new video. Otherwise the translation keeps the original labels. Captions are never drawn into frames, so the translated subtitle track carries the narration.
 
-Translations belong to an episode version. Regenerating creates a new version with no translations, and removing a version also removes access to its translations. Writing a new original video design removes every translation's video (and its published render). A translation's **Generate Video** then rebuilds it from the current design. If the original has no video yet, it is designed first in the same request.
+Translations belong to an episode version. Regenerating creates a new version with no translations, and removing a version also removes access to its translations. Writing a new original video design removes every translation's video (and its published render). A translation's **Generate Video** then rebuilds it from the current design. If the original has no video yet, it is designed first by the same background run, which then translates the labels.
 
 ### API
 
@@ -231,3 +254,60 @@ Web share links stay tied to the episode. `/podcast/:token?language=xx` plays a 
 ## Library podcast versions
 
 Regenerating a library podcast no longer creates another podcast chip. The app sends `summaryId` with `library: true`, and the new recording becomes a version of the same chip. The chip's title, summary text and language follow the newest version, and the chip opens that version. `summaryId` must be the caller's own `kind=podcast` chip (404 otherwise; 400 without `library`). **Manage Versions** is available for library podcasts too: `GET /api/v1/daily-podcasts/versions?summaryId=<id>` lists them newest first, and `PATCH`/`DELETE /api/v1/daily-podcasts/:key?start&end` (using that version's own day) chooses the version the chip opens or removes one. A chip's last version can't be removed (422 `PODCAST_LAST_VERSION`): delete the chip instead. Library defaults are kept apart from the day's daily default. Chips created before this change open their newest version.
+
+### Background jobs and completion notifications
+
+Video script design is a durable server workflow. Feed and podcast toolbars open
+**Background Jobs**, a full-height sheet with a navigable job detail and activity
+log, refreshed every three seconds while active. Closing the app does not stop
+script writing. The device render action has its own sheet and must remain in the
+foreground; its progress is an overlay and the finished MP4 is cached locally.
+
+Authenticated, owner-only API (no billing, `Cache-Control: no-store`):
+
+- `GET /api/v1/background-jobs?cursor=<job-id>` returns `{items, nextCursor}`,
+  newest first, 50 per page. Cursor belongs to the same owner. Deleted episodes
+  are excluded. `nextCursor: null` ends pagination.
+- `GET /api/v1/background-jobs/:id` returns `{job}` or 404 for a missing/foreign
+  job. Each job has `id`, `title`, `episodeKey`, `day: {start,end}`, optional
+  `language`, `status: running|ready|failed`, `percent`, ISO timestamps, optional
+  `videoId`, and `logs: [{id, at, message}]`. Logs retain up to 200 bounded activity
+  entries; they do not include model conversations. Terminal jobs survive app
+  restarts. A running job silent for 20 minutes is displayed as needing attention.
+- `videoId` identifies the exact script. A superseded job cannot silently render
+  the newer composition. Open the latest job instead.
+
+Migration `0040_background_jobs` must run before deployment. Jobs cascade on
+account/episode deletion. Ready and failed workflows send the existing APNs
+installations a `backgroundJobId` and `userId`; tapping routes to that job only
+for the matching signed-in account. The ready alert explains **Render on This
+Device**. Delivery is claimed at most once per job, like paper notifications;
+APNs permission/configuration and OS delivery still apply. A lost push does not
+lose the durable job. Notification settings are accessible from the jobs sheet.
+
+### Remembered speaker settings
+
+The iOS/macOS generation sheet includes a dedicated Speakers sheet. Automatic lets the model choose hosts; custom mode accepts one to four ordered names (1–40 characters each). Starting generation saves speaker names, language, and audio/video preference in local app storage for the next generation. Source-chip selection remains specific to each episode. Video-only retries do not overwrite these preferences.
+
+`POST /api/v1/daily-podcasts` accepts optional `speakerNames: string[]`. Names are trimmed and validated; omission preserves automatic naming. The script must use the exact requested names and order. Requests exceeding the configured distinct voice count fail before reserving points. The names also participate in in-flight request deduplication.
+
+### Published episode previews and companion articles
+
+Creating a podcast share link prepares and persists a 1200×630 illustrated cover and
+an AI-written companion article before returning the URL. The article synthesizes the
+recording into prose rather than displaying a transcript. Each section references a
+validated segment index; the web player displays its recording timestamp and clicking
+it seeks and starts the selected audio or published video. Translated articles use the
+selected language's recording and timing. Existing links generate missing assets on
+first access. Stored assets are content-addressed sidecars, so no database migration
+is needed and concurrent video/translation saves cannot overwrite them.
+
+The page emits episode-specific title, description, Open Graph and Twitter large-card
+metadata. `GET /api/public/podcasts/:token` adds `coverPath` and nullable `article`
+(`description`, `sections` with `heading`, `paragraphs`, `segmentIndex`, `startSeconds`).
+An article-generation failure leaves playback available and retries on a later visit.
+`GET /api/public/podcasts/:token/cover?language=xx` returns the PNG. Both endpoints,
+including requests by preview crawlers, accept a live token without sign-in, even for
+a private library podcast. They recheck link expiry/deletion and source access on every
+request and send `private, no-store`; storage keys and bucket URLs are never exposed.
+The page stays `noindex` so unlisted links aren't advertised for search indexing.

@@ -407,8 +407,8 @@ public final class SummaryAPIClient: Sendable {
     }
 
     /// Adds the bearer token, retries once with a forced refresh on 401, decodes error bodies.
-    func sendRaw(_ request: URLRequest) async throws -> Data {
-        let (data, response) = try await authorizedData(for: request)
+    func sendRaw(_ request: URLRequest, onProgress: MediaTransferProgress.Handler? = nil) async throws -> Data {
+        let (data, response) = try await authorizedData(for: request, onProgress: onProgress)
         try Self.validate(data: data, response: response)
         return data
     }
@@ -430,14 +430,14 @@ public final class SummaryAPIClient: Sendable {
     }
 
     /// Performs the request with a bearer token; on 401 forces one refresh and retries.
-    func authorizedData(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let first = try await perform(request, forceRefresh: false)
+    func authorizedData(for request: URLRequest, onProgress: MediaTransferProgress.Handler? = nil) async throws -> (Data, HTTPURLResponse) {
+        let first = try await perform(request, forceRefresh: false, onProgress: onProgress)
         guard first.1.statusCode == 401 else { return first }
         SummaryLog.api.notice("401 for \(request.logDescription, privacy: .public); refreshing token and retrying")
-        return try await perform(request, forceRefresh: true)
+        return try await perform(request, forceRefresh: true, onProgress: onProgress)
     }
 
-    private func perform(_ request: URLRequest, forceRefresh: Bool) async throws -> (Data, HTTPURLResponse) {
+    private func perform(_ request: URLRequest, forceRefresh: Bool, onProgress: MediaTransferProgress.Handler?) async throws -> (Data, HTTPURLResponse) {
         var request = request
         let token: String
         do {
@@ -454,7 +454,15 @@ public final class SummaryAPIClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            if let onProgress {
+                await onProgress(.init(completedBytes: 0, totalBytes: nil))
+                let (file, downloadResponse) = try await session.download(for: request, delegate: MediaTransferDelegate(onProgress))
+                defer { try? FileManager.default.removeItem(at: file) }
+                data = try Data(contentsOf: file)
+                response = downloadResponse
+            } else {
+                (data, response) = try await session.data(for: request)
+            }
         } catch {
             SummaryLog.api.error("✗ \(label, privacy: .public) failed after \(clock.duration(to: .now), privacy: .public): \(error.logDescription, privacy: .public)")
             throw error

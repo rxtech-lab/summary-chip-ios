@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Experimental_Agent as ToolLoopAgent, stepCountIs, tool, type LanguageModel } from "ai";
+import { generateText, stepCountIs, tool, type LanguageModel, type LanguageModelUsage, type ModelMessage } from "ai";
 import { videoProgressObserver } from "./podcast-progress";
 import { PODCAST_VIDEO_STYLE } from "./podcast-video-style";
 import { z } from "zod";
@@ -71,7 +71,7 @@ export function podcastVideoData(input: PodcastVideoInput) {
 export function podcastCheckFrames(input: PodcastVideoInput, limit = 48): PreviewFrame[] {
   const frames: PreviewFrame[] = [];
   const first = input.segments[0];
-  if (first && first.startSeconds > 1) frames.push({ seconds: first.startSeconds * 0.7, speaking: false });
+  if (first && first.startSeconds > 1) frames.push({ seconds: first.startSeconds * 0.5, speaking: false });
   for (const segment of input.segments) {
     if (segment.startSeconds + 0.8 < segment.voiceEndSeconds) frames.push({ seconds: segment.startSeconds + 0.8, speaking: segment.startSeconds + 0.8 >= segment.voiceStartSeconds });
     for (const phrase of segment.phrases) frames.push({ seconds: Math.max(phrase.startSeconds, Math.min(phrase.endSeconds, segment.voiceEndSeconds) - 0.05), speaking: true });
@@ -90,15 +90,21 @@ type RenderFrameResult =
 const ATTEMPTS = 5;
 /** Frame previews the agent may request per run; each returns an image. */
 const PREVIEWS = 16;
+/** Model turns per run. Each turn makes one tool call, so a run is many short calls rather than one long one. */
+export const PODCAST_VIDEO_MAX_TURNS = 64;
+/** Characters one write_file or edit_file call may send: keeps every turn small and quick to generate. */
+const MAX_WRITE_CHARS = 6_000;
 
 const INSTRUCTIONS = `You are a senior motion designer who writes Remotion (React) compositions. Write the animated video for a podcast episode: it plays in sync with the recording, which the app adds itself.
 
-The project already contains src/index.ts, src/Root.tsx, src/data.json, src/phrases.json and src/podcast.ts (shown below). Write ${PODCAST_VIDEO_ENTRY}, exporting \`export const PodcastVideo: React.FC = () => …\`, plus optional extra components under src/ (at most ${MAX_PODCAST_VIDEO_FILES} files). Saved files are retained throughout this run, including after validation failures. Do not resend unchanged files. Split scenes across small components instead of generating one large tool call. Only a validated submission becomes the final video.
+The project already contains src/index.ts, src/Root.tsx, src/data.json, src/phrases.json and src/podcast.ts (shown below). Write ${PODCAST_VIDEO_ENTRY}, exporting \`export const PodcastVideo: React.FC = () => …\`, plus optional extra components under src/ (at most ${MAX_PODCAST_VIDEO_FILES} files). Saved files are retained throughout this run, including after validation failures. Do not resend unchanged files. Only a validated submission becomes the final video.
+
+Work in small steps: make exactly one tool call per turn and wait for its result before the next. Each write_file sends one small component (under ${MAX_WRITE_CHARS} characters); each edit_file changes one passage. Split scenes across small components instead of writing a large file; extra tool calls in the same turn are not run. Start by saving a small shared component or entry point immediately. Do not produce a complete storyboard, all scenes or a long written plan before the first write_file. Build and refine the storyboard as each scene is implemented. Submit saved files by omitting files from submit_video; do not rewrite the entire video in a submission.
 
 Workflow:
 1. Plan the storyboard against the transcribed phrases before writing code: for every turn decide what appears or changes on each phrase, and for every story change choreograph the bridge between the two stories.
 2. Build incrementally: write_file each small component as soon as it is ready; use edit_file for targeted repairs.
-3. Check single frames with render_frame (up to ${PREVIEWS} times). It renders the saved draft at an episode time and returns the picture plus measured text boxes and issues. Check at least: the title card, the settled end of a busy phrase in each topic, the middle (progress ≈ 0.5) of every story transition, and one Magic Move between turns of the same story. Look at the image, not only the issue list: fix overlapping labels and shapes, labels crossing strokes, cramped or off-centre groups, empty or lopsided areas, and anything cut off. Re-render after fixing.
+3. Check single frames with render_frame (up to ${PREVIEWS} times). It renders the saved draft at an episode time and returns the picture plus measured text boxes and issues. Check at least: the settled opening title, the middle of its Magic Move into the first scene, the ending card after its closing animation, the settled end of a busy phrase in each topic, the middle (progress ≈ 0.5) of every story transition, and one Magic Move between turns of the same story. Look at the image, not only the issue list: fix overlapping labels and shapes, labels crossing strokes, cramped or off-centre groups, empty or lopsided areas, and anything cut off. Re-render after fixing.
 4. Call submit_video with the storyboard. It compiles the project and renders the settled end of every phrase; overlapping text, text over artwork, text cut off by the canvas, text inside the subtitle band while the voice plays, and runtime errors reject the submission with the times to inspect.
 
 Timing (the recording is already voiced and transcribed):
@@ -116,7 +122,7 @@ Storyboard (required in submit_video):
 ${PODCAST_VIDEO_STYLE}
 
 Design and animation requirements:
-- A short animated title card while the intro music plays (before the first turn): the episode title assembles with staged supporting shapes. An animated outro card after the last turn ends.
+- A designed opening title while the intro music plays (before the first turn) and an ending card after the last turn, both following the Magic Move bookends above: the title's objects morph into the first scene, and the final scene's objects morph into the ending card before its closing animation.
 - A distinct subject-specific composition per chip (topic), within the shared ivory-and-teal identity; the chip title as a small section heading.
 
 Story transitions (a story is a run of turns about one chip; useStoryTransition() gives each bridge's timing):
@@ -171,8 +177,8 @@ const submitSchema = z.object({
   })).describe("One concrete narration-grounded scene per script segment, in script order"),
   files: z.array(z.object({
     path: z.string().describe(`Project path, e.g. ${PODCAST_VIDEO_ENTRY} or src/components/Diagram.tsx`),
-    content: z.string(),
-  })).min(1).max(MAX_PODCAST_VIDEO_FILES).optional().describe("Optional changed files only; prefer write_file followed by submit_video without files"),
+    content: z.string().max(MAX_WRITE_CHARS),
+  })).min(1).max(1).optional().describe("Optional single changed file; prefer write_file followed by submit_video without files"),
 });
 
 const round = (seconds: number) => Math.round(seconds * 100) / 100;
@@ -193,24 +199,75 @@ function episodePrompt(input: PodcastVideoInput) {
   });
 }
 
-/** The validated files, or null when the agent stopped without a composition that passes validation. */
-export async function writePodcastVideo(model: LanguageModel, input: PodcastVideoInput, options: PodcastVideoOptions = {}): Promise<Record<string, string> | null> {
-  let result: Record<string, string> | null = null;
-  let attempts = 0;
-  let previews = 0;
-  const draft: Record<string, string> = {};
+/**
+ * Everything a design run keeps between turns, as plain JSON, so a background run can stop after any
+ * turn and resume in another invocation (`workflows/design-podcast-video.ts`).
+ */
+export interface PodcastVideoDraft {
+  runId: string;
+  startedAt: number;
+  /** Saved generated files; retained across rejected submissions. */
+  files: Record<string, string>;
+  /** The conversation after the episode prompt: each turn's tool call and its result. */
+  messages: ModelMessage[];
+  turns: number;
+  attempts: number;
+  previews: number;
+  /** The validated files once a submission passed. */
+  result: Record<string, string> | null;
+}
+
+export function newPodcastVideoDraft(): PodcastVideoDraft {
+  return { runId: randomUUID(), startedAt: Date.now(), files: {}, messages: [], turns: 0, attempts: 0, previews: 0, result: null };
+}
+
+/** The run is over: a submission passed, or it ran out of submissions or turns. */
+export function podcastVideoDraftFinished(draft: PodcastVideoDraft) {
+  return draft.result !== null || draft.attempts >= ATTEMPTS || draft.turns >= PODCAST_VIDEO_MAX_TURNS;
+}
+
+export interface PodcastVideoTurnOptions {
+  abortSignal?: AbortSignal;
+  onUsage?: (usage: LanguageModelUsage) => void;
+}
+
+/** What the turn did, as progress evidence: the tool it ran and its outcome. */
+export interface PodcastVideoTurnResult {
+  draft: PodcastVideoDraft;
+  evidence: string;
+}
+
+/**
+ * One model turn of the design run: a single tool call (one small file, one edit, one frame preview or
+ * one submission) applied to a copy of `draft`. Throws when the model call fails; `draft` is unchanged.
+ */
+export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideoInput, current: PodcastVideoDraft,
+  options: PodcastVideoTurnOptions = {}): Promise<PodcastVideoTurnResult> {
+  options.abortSignal?.throwIfAborted();
+  const modelId = typeof model === "string" ? model : model.modelId;
+  const draft: PodcastVideoDraft = structuredClone(current);
   const data = podcastVideoData(input);
   const phrases = podcastPhraseWindows(input.segments);
   const settings: PreviewSettings = { fps: PODCAST_VIDEO_FPS, width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT,
     durationSeconds: input.durationSeconds, language: input.language };
+  const context = () => logContext(model, draft);
+  let evidence = "Writing composition";
+  // Only the turn's first tool call runs, so every turn stays one small change.
+  let ran = false;
+  const once = () => {
+    if (ran) return { ok: false as const, message: "Only one tool call runs per turn; this call was not run. Send it again on its own." };
+    ran = true;
+    return null;
+  };
   const normalizePath = (path: string) => path.replace(/^\.?\//, "");
   const saveFile = (path: string, content: string) => {
     options.abortSignal?.throwIfAborted();
     path = normalizePath(path);
     if (!PODCAST_VIDEO_FILE_PATTERN.test(path) || path in PODCAST_VIDEO_SCAFFOLD) return { ok: false, message: "Write only generated src/*.tsx, *.ts or *.css files; scaffold files are read-only" };
     if (content.length > MAX_PODCAST_VIDEO_FILE_CHARS) return { ok: false, message: "File exceeds the size limit; split it into smaller components" };
-    if (!(path in draft) && Object.keys(draft).length >= MAX_PODCAST_VIDEO_FILES) return { ok: false, message: "File count limit reached" };
-    draft[path] = content;
+    if (!(path in draft.files) && Object.keys(draft.files).length >= MAX_PODCAST_VIDEO_FILES) return { ok: false, message: "File count limit reached" };
+    draft.files[path] = content;
+    evidence = `Saved ${path} (${content.length} characters); files: ${Object.keys(draft.files).join(", ")}`;
     console.info("[podcast-video] draft file saved", { ...context(), path, chars: content.length });
     return { ok: true, path };
   };
@@ -223,151 +280,188 @@ export async function writePodcastVideo(model: LanguageModel, input: PodcastVide
     const phrase = segment.phrases.findLastIndex((p) => p.startSeconds <= seconds);
     return `turn ${index}${phrase >= 0 ? `, phrase ${phrase}` : ", before the voice"}`;
   };
-  const runId = randomUUID();
-  const startedAt = Date.now();
-  const context = () => ({ runId, model: typeof model === "string" ? model : model.modelId, attempts, previews, savedFiles: Object.keys(draft), elapsedMs: Date.now() - startedAt });
-  const progress = options.onProgress ? videoProgressObserver(JSON.stringify({ topics: input.chips.length, turns: input.segments.length, goal: "Implement phrase-timed animated scenes, transitions, intro and outro; check frames; pass compilation, layout and motion validation" }), options.onProgress, options.abortSignal) : undefined;
-  const agent = new ToolLoopAgent({
-    model,
-    instructions: INSTRUCTIONS,
-    toolChoice: "required",
-    tools: {
-      write_file: tool({
-        description: "Save one generated file in the current draft. Other files are preserved. This does not validate or publish the video.",
-        inputSchema: z.object({ path: z.string(), content: z.string().max(MAX_PODCAST_VIDEO_FILE_CHARS) }),
-        execute: async ({ path, content }) => saveFile(path, content),
-      }),
-      edit_file: tool({
-        description: "Replace one exact, unique substring in a saved draft file. Other content and files are preserved.",
-        inputSchema: z.object({ path: z.string(), oldText: z.string().min(1), newText: z.string().max(MAX_PODCAST_VIDEO_FILE_CHARS) }),
-        execute: async ({ path, oldText, newText }) => {
-          options.abortSignal?.throwIfAborted();
-          path = normalizePath(path);
-          const source = draft[path];
-          if (source === undefined) return { ok: false, message: "File has not been written yet" };
-          const index = source.indexOf(oldText);
-          if (index < 0 || source.indexOf(oldText, index + 1) >= 0) return { ok: false, message: "oldText must match exactly once; include more surrounding context" };
-          return saveFile(path, source.slice(0, index) + newText + source.slice(index + oldText.length));
-        },
-      }),
-      render_frame: tool({
-        description: `Render the saved draft at one episode time and return a PNG of the frame with its measured text boxes. Issues list overlapping text, text over artwork, text cut off by the canvas and text in the subtitle band during speech; also inspect the picture for overlapping shapes and unbalanced layout. Limited to ${PREVIEWS} calls per run; artwork appears as a crossed placeholder.`,
-        inputSchema: z.object({ seconds: z.number().min(0).describe("Episode time in seconds, e.g. just before a phrase ends or midway through a transition") }),
-        execute: async ({ seconds }): Promise<RenderFrameResult> => {
-          options.abortSignal?.throwIfAborted();
-          if (!draft[PODCAST_VIDEO_ENTRY]) return { ok: false, message: `Write ${PODCAST_VIDEO_ENTRY} first` };
-          if (previews >= PREVIEWS) return { ok: false, message: "No frame previews left; fix the known issues and submit" };
-          previews += 1;
-          seconds = Math.min(seconds, Math.max(0, input.durationSeconds - 0.05));
-          const segment = input.segments.find((s) => s.voiceStartSeconds <= seconds && seconds < s.voiceEndSeconds);
-          const preview = await previewPodcastFrames({ ...draft }, data, phrases, [{ seconds, speaking: !!segment }], settings, { png: true });
-          if ("error" in preview) return { ok: false, message: preview.error, previewsLeft: PREVIEWS - previews };
-          const [frame] = preview.frames;
-          console.info("[podcast-video] frame previewed", { ...context(), seconds, issues: frame.issues.length });
-          return { ok: true, seconds, at: locate(seconds), issues: frame.issues, notes: frame.notes, texts: frame.texts,
-            previewsLeft: PREVIEWS - previews, png: frame.png ? Buffer.from(frame.png).toString("base64") : undefined };
-        },
-        toModelOutput: ({ output }: { output: RenderFrameResult }) => {
-          if (!output.ok || !output.png) return { type: "text", value: JSON.stringify(output) };
-          const { png, ...report } = output;
-          return { type: "content", value: [
-            { type: "text", text: JSON.stringify(report) },
-            { type: "file", mediaType: "image/png", data: { type: "data", data: png } },
-          ] };
-        },
-      }),
-      submit_video: tool({
-        description: "Validate the saved draft against the storyboard, compile it and render the settled end of every phrase to check the layout. Files survive rejected submissions; repair only the affected files and submit again.",
-        inputSchema: submitSchema,
-        execute: async ({ files, storyboard }) => {
-          options.abortSignal?.throwIfAborted();
-          attempts += 1;
-          for (const file of files ?? []) {
-            const saved = saveFile(file.path, file.content);
-            if (!saved.ok) return { ...saved, attemptsLeft: ATTEMPTS - attempts };
+  const tools = {
+    write_file: tool({
+      description: `Save one small generated file (under ${MAX_WRITE_CHARS} characters) in the current draft. Other files are preserved. This does not validate or publish the video.`,
+      inputSchema: z.object({ path: z.string(), content: z.string().max(MAX_WRITE_CHARS) }),
+      execute: async ({ path, content }) => once() ?? saveFile(path, content),
+    }),
+    edit_file: tool({
+      description: "Replace one exact, unique substring in a saved draft file. Other content and files are preserved.",
+      inputSchema: z.object({ path: z.string(), oldText: z.string().min(1), newText: z.string().max(MAX_WRITE_CHARS) }),
+      execute: async ({ path, oldText, newText }) => {
+        const skipped = once();
+        if (skipped) return skipped;
+        options.abortSignal?.throwIfAborted();
+        path = normalizePath(path);
+        const source = draft.files[path];
+        if (source === undefined) return { ok: false, message: "File has not been written yet" };
+        const index = source.indexOf(oldText);
+        if (index < 0 || source.indexOf(oldText, index + 1) >= 0) return { ok: false, message: "oldText must match exactly once; include more surrounding context" };
+        return saveFile(path, source.slice(0, index) + newText + source.slice(index + oldText.length));
+      },
+    }),
+    render_frame: tool({
+      description: `Render the saved draft at one episode time and return a PNG of the frame with its measured text boxes. Issues list overlapping text, text over artwork, text cut off by the canvas and text in the subtitle band during speech; also inspect the picture for overlapping shapes and unbalanced layout. Limited to ${PREVIEWS} calls per run; artwork appears as a crossed placeholder.`,
+      inputSchema: z.object({ seconds: z.number().min(0).describe("Episode time in seconds, e.g. just before a phrase ends or midway through a transition") }),
+      execute: async ({ seconds }): Promise<RenderFrameResult> => {
+        const skipped = once();
+        if (skipped) return skipped;
+        options.abortSignal?.throwIfAborted();
+        if (!draft.files[PODCAST_VIDEO_ENTRY]) return { ok: false, message: `Write ${PODCAST_VIDEO_ENTRY} first` };
+        if (draft.previews >= PREVIEWS) return { ok: false, message: "No frame previews left; fix the known issues and submit" };
+        draft.previews += 1;
+        seconds = Math.min(seconds, Math.max(0, input.durationSeconds - 0.05));
+        const segment = input.segments.find((s) => s.voiceStartSeconds <= seconds && seconds < s.voiceEndSeconds);
+        const preview = await previewPodcastFrames({ ...draft.files }, data, phrases, [{ seconds, speaking: !!segment }], settings, { png: true });
+        if ("error" in preview) return { ok: false, message: preview.error, previewsLeft: PREVIEWS - draft.previews };
+        const [frame] = preview.frames;
+        evidence = `Checked a frame at ${seconds.toFixed(2)}s (${locate(seconds)}): ${frame.issues.length} issues`;
+        console.info("[podcast-video] frame previewed", { ...context(), seconds, issues: frame.issues.length });
+        return { ok: true, seconds, at: locate(seconds), issues: frame.issues, notes: frame.notes, texts: frame.texts,
+          previewsLeft: PREVIEWS - draft.previews, png: frame.png ? Buffer.from(frame.png).toString("base64") : undefined };
+      },
+      toModelOutput: ({ output }) => {
+        if (!output.ok || !output.png) return { type: "text", value: JSON.stringify(output) };
+        const { png, ...report } = output;
+        return { type: "content", value: [
+          { type: "text", text: JSON.stringify(report) },
+          { type: "file", mediaType: "image/png", data: { type: "data", data: png } },
+        ] };
+      },
+    }),
+    submit_video: tool({
+      description: "Validate the saved draft against the storyboard, compile it and render the settled end of every phrase to check the layout. Files survive rejected submissions; repair only the affected files and submit again.",
+      inputSchema: submitSchema,
+      execute: async ({ files, storyboard }) => {
+        const skipped = once();
+        if (skipped) return skipped;
+        options.abortSignal?.throwIfAborted();
+        draft.attempts += 1;
+        for (const file of files ?? []) {
+          const saved = saveFile(file.path, file.content);
+          if (!saved.ok) return { ...saved, attemptsLeft: ATTEMPTS - draft.attempts };
+        }
+        const map = { ...draft.files };
+        const issues: { file?: string; message: string }[] = await validatePodcastVideo(map);
+        if (storyboard.length !== input.segments.length) issues.push({ message: "Storyboard must cover every spoken turn exactly once" });
+        for (const [index, scene] of storyboard.entries()) {
+          if (scene.segmentIndex !== index || !input.segments[index]?.caption.includes(scene.sourceQuote)) {
+            issues.push({ message: `Storyboard turn ${index}: use its exact script index and a quote from that turn` });
           }
-          const map = { ...draft };
-          progress?.observe("", "Complete candidate submitted; validation pending");
-          const issues: { file?: string; message: string }[] = await validatePodcastVideo(map);
-          if (storyboard.length !== input.segments.length) issues.push({ message: "Storyboard must cover every spoken turn exactly once" });
-          for (const [index, scene] of storyboard.entries()) {
-            if (scene.segmentIndex !== index || !input.segments[index]?.caption.includes(scene.sourceQuote)) {
-              issues.push({ message: `Storyboard turn ${index}: use its exact script index and a quote from that turn` });
-            }
-            const count = Math.max(1, input.segments[index]?.phrases.length ?? 1);
-            if (scene.phraseActions.some((action, k) => action.phrase >= count || (k > 0 && action.phrase < scene.phraseActions[k - 1].phrase))) {
-              issues.push({ message: `Storyboard turn ${index}: phraseActions must use phrase indexes 0–${count - 1} in order` });
-            }
-            if (index > 0 && input.segments[index]?.chipId !== input.segments[index - 1]?.chipId && !scene.storyTransition) {
-              issues.push({ message: `Storyboard turn ${index}: a new story starts here; describe its storyTransition` });
-            }
-            if (!map[scene.file]) issues.push({ message: `Storyboard turn ${index}: implementing file ${scene.file} is missing` });
+          const count = Math.max(1, input.segments[index]?.phrases.length ?? 1);
+          if (scene.phraseActions.some((action, k) => action.phrase >= count || (k > 0 && action.phrase < scene.phraseActions[k - 1].phrase))) {
+            issues.push({ message: `Storyboard turn ${index}: phraseActions must use phrase indexes 0–${count - 1} in order` });
           }
-          // Require the phrase clock, not merely a topic clock or frame counter.
-          if (!Object.values(map).some(source => /\busePhrases\s*\(/.test(source))) {
-            issues.push({ message: "Use usePhrases() to select each spoken turn's scene and land its actions on the phrase cues" });
+          if (index > 0 && input.segments[index]?.chipId !== input.segments[index - 1]?.chipId && !scene.storyTransition) {
+            issues.push({ message: `Storyboard turn ${index}: a new story starts here; describe its storyTransition` });
           }
-          const storyChanges = input.segments.some((segment, index) => index > 0 && segment.chipId !== input.segments[index - 1].chipId);
-          if (storyChanges && !Object.values(map).some(source => /\buseStoryTransition\s*\(/.test(source))) {
-            issues.push({ message: "Use useStoryTransition() to animate a designed bridge at every story change" });
+          if (!map[scene.file]) issues.push({ message: `Storyboard turn ${index}: implementing file ${scene.file} is missing` });
+        }
+        // Require the phrase clock, not merely a topic clock or frame counter.
+        if (!Object.values(map).some(source => /\busePhrases\s*\(/.test(source))) {
+          issues.push({ message: "Use usePhrases() to select each spoken turn's scene and land its actions on the phrase cues" });
+        }
+        const storyChanges = input.segments.some((segment, index) => index > 0 && segment.chipId !== input.segments[index - 1].chipId);
+        if (storyChanges && !Object.values(map).some(source => /\buseStoryTransition\s*\(/.test(source))) {
+          issues.push({ message: "Use useStoryTransition() to animate a designed bridge at every story change" });
+        }
+        let warnings: string[] = [];
+        if (!issues.length) {
+          const preview = await previewPodcastFrames(map, data, phrases, podcastCheckFrames(input), settings);
+          if ("error" in preview) {
+            // A preview limitation is not a defect of the video; report it without rejecting.
+            warnings = [`Layout check skipped: ${preview.error.slice(0, 600)}`];
+          } else {
+            const layout = preview.frames.flatMap((frame) => frame.issues.map((message) => `At ${frame.seconds.toFixed(2)}s (${locate(frame.seconds)}): ${message}`));
+            const crashes = layout.filter((message) => message.includes("The composition throws"));
+            // Out of attempts, a small overlap is better than no video; a crash is not.
+            const blocking = draft.attempts >= ATTEMPTS ? crashes : layout;
+            issues.push(...blocking.slice(0, 14).map((message) => ({ message })));
+            warnings = layout.filter((message) => !blocking.includes(message)).slice(0, 10);
           }
-          let warnings: string[] = [];
-          if (!issues.length) {
-            const preview = await previewPodcastFrames(map, data, phrases, podcastCheckFrames(input), settings);
-            if ("error" in preview) {
-              // A preview limitation is not a defect of the video; report it without rejecting.
-              warnings = [`Layout check skipped: ${preview.error.slice(0, 600)}`];
-            } else {
-              const layout = preview.frames.flatMap((frame) => frame.issues.map((message) => `At ${frame.seconds.toFixed(2)}s (${locate(frame.seconds)}): ${message}`));
-              const crashes = layout.filter((message) => message.includes("The composition throws"));
-              // Out of attempts, a small overlap is better than no video; a crash is not.
-              const blocking = attempts >= ATTEMPTS ? crashes : layout;
-              issues.push(...blocking.slice(0, 14).map((message) => ({ message })));
-              warnings = layout.filter((message) => !blocking.includes(message)).slice(0, 10);
-            }
-          }
-          progress?.observe("", issues.length ? JSON.stringify({ validationErrors: issues }).slice(0, 4000) : "Validation passed");
-          if (!issues.length) {
-            if (warnings.length) console.warn("[podcast-video] accepted with layout warnings", { ...context(), warnings });
-            result = map;
-            return { ok: true, warnings };
-          }
-          console.warn("[podcast-video] validation rejected", {
-            ...context(), attemptsLeft: ATTEMPTS - attempts, issueCount: issues.length,
-            issues: issues.slice(0, 30).map(({ file, message }) => ({ file, message: message.slice(0, 1000) })),
-          });
-          return { ok: false, attemptsLeft: ATTEMPTS - attempts, issues };
-        },
-      }),
-    },
-    stopWhen: [stepCountIs(56), () => result !== null || attempts >= ATTEMPTS],
-  });
-  const call = {
-    prompt: `<episode>\n${episodePrompt(input)}\n</episode>`,
-    abortSignal: options.abortSignal,
-    onStepFinish: (step: { usage: import("ai").LanguageModelUsage }) => options.onUsage?.(step.usage),
+        }
+        evidence = issues.length ? JSON.stringify({ validationErrors: issues }).slice(0, 4000) : "Validation passed";
+        if (!issues.length) {
+          if (warnings.length) console.warn("[podcast-video] accepted with layout warnings", { ...context(), warnings });
+          draft.result = map;
+          return { ok: true, warnings };
+        }
+        console.warn("[podcast-video] validation rejected", {
+          ...context(), attemptsLeft: ATTEMPTS - draft.attempts, issueCount: issues.length,
+          issues: issues.slice(0, 30).map(({ file, message }) => ({ file, message: message.slice(0, 1000) })),
+        });
+        return { ok: false, attemptsLeft: ATTEMPTS - draft.attempts, issues };
+      },
+    }),
   };
+  const result = await generateText({
+    model,
+    system: INSTRUCTIONS,
+    messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
+    tools,
+    // Sonnet 5.5 does not support forced tool choice with this thinking mode.
+    toolChoice: modelId === "anthropic/claude-sonnet-5.5" ? "auto" : "required",
+    stopWhen: stepCountIs(1),
+    // Bound each durable turn rather than allowing a whole episode's code in one response.
+    maxOutputTokens: 8_192,
+    // The workflow owns retries and records each failure in the job log.
+    maxRetries: 0,
+    // Sonnet 5.5 thinks up front by default; a whole-episode plan can consume the
+    // turn before it saves any file. Keep thinking between these small tool calls.
+    ...(modelId === "anthropic/claude-sonnet-5.5" ? {
+      providerOptions: { anthropic: { thinking: { type: "between_tools" }, effort: "medium" } },
+    } : {}),
+    abortSignal: options.abortSignal,
+  });
+  if (!result.toolCalls.length) {
+    const error = new Error("The video model returned without calling a design tool.");
+    error.name = "PodcastVideoNoToolError";
+    throw error;
+  }
+  options.onUsage?.(result.usage);
+  draft.messages.push(...result.response.messages);
+  draft.turns += 1;
+  return { draft, evidence };
+}
+
+function logContext(model: LanguageModel, draft: PodcastVideoDraft) {
+  return { runId: draft.runId, model: typeof model === "string" ? model : model.modelId, turns: draft.turns, attempts: draft.attempts,
+    previews: draft.previews, savedFiles: Object.keys(draft.files), elapsedMs: Date.now() - draft.startedAt };
+}
+
+/** Logs how a finished run ended. */
+export function logPodcastVideoOutcome(model: LanguageModel, draft: PodcastVideoDraft) {
+  if (draft.result) console.info("[podcast-video] composition accepted", logContext(model, draft));
+  else console.warn("[podcast-video] generation ended without a valid composition", {
+    ...logContext(model, draft), reason: draft.attempts >= ATTEMPTS ? "validation_attempts_exhausted" : "agent_stopped_without_valid_submission",
+  });
+}
+
+/** The progress observer's context for an episode. */
+export function podcastVideoProgressContext(input: PodcastVideoInput) {
+  return JSON.stringify({ topics: input.chips.length, turns: input.segments.length, goal: "Implement phrase-timed animated scenes, transitions, intro and outro; check frames; pass compilation, layout and motion validation" });
+}
+
+/**
+ * The validated files, or null when the agent stopped without a composition that passes validation.
+ * Runs every turn in this process; background runs call `podcastVideoTurn` one step at a time instead.
+ */
+export async function writePodcastVideo(model: LanguageModel, input: PodcastVideoInput, options: PodcastVideoOptions = {}): Promise<Record<string, string> | null> {
+  let draft = newPodcastVideoDraft();
+  const progress = options.onProgress ? videoProgressObserver(podcastVideoProgressContext(input), options.onProgress, options.abortSignal) : undefined;
   try {
-    options.abortSignal?.throwIfAborted();
-    if (progress) {
-      const stream = await agent.stream(call);
-      for await (const part of stream.fullStream) {
-        if (part.type === "tool-input-delta") progress.observe(part.delta);
-        if (part.type === "text-delta") progress.observe(part.text);
-        if (part.type === "error") throw part.error;
-      }
-    } else {
-      await agent.generate(call);
+    while (!podcastVideoDraftFinished(draft)) {
+      const turn = await podcastVideoTurn(model, input, draft, { abortSignal: options.abortSignal, onUsage: options.onUsage });
+      draft = turn.draft;
+      progress?.observe(JSON.stringify(draft.messages.at(-2) ?? "").slice(-4000), turn.evidence);
     }
     options.abortSignal?.throwIfAborted();
-    if (result) console.info("[podcast-video] composition accepted", context());
-    else console.warn("[podcast-video] generation ended without a valid composition", {
-      ...context(), reason: attempts >= ATTEMPTS ? "validation_attempts_exhausted" : "agent_stopped_without_valid_submission",
-    });
-    return result;
+    logPodcastVideoOutcome(model, draft);
+    return draft.result;
   } catch (error) {
     console.error("[podcast-video] generation failed", {
-      ...context(), aborted: options.abortSignal?.aborted ?? false,
+      ...logContext(model, draft), aborted: options.abortSignal?.aborted ?? false,
       errorName: error instanceof Error ? error.name : "UnknownError",
       message: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
     });

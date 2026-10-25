@@ -21,6 +21,12 @@ struct DailyPodcastSheet: View {
     @State private var showsSharing = false
     @State private var showsVideoPublication = false
     @State private var generateVideoOnly = false
+    /// Server-side design progress of the open episode's video.
+    @State private var showsJobs = false
+    @State private var designProgress: PodcastGenerationProgress?
+    /// A finished design held back while the audio plays, so listening isn't interrupted.
+    @State private var readyVideo: DailyPodcast?
+    @State private var videoUpdates = 0
     @State private var error: String?
     @State private var taps = 0
 
@@ -30,6 +36,12 @@ struct DailyPodcastSheet: View {
                 if generatingCover || loading || player.switchingLanguage != nil || (player.buffering && player.podcast?.video == nil) {
                     ProgressView(generatingCover ? "Generating cover…" : loading ? "Loading podcast…" : player.switchingLanguage != nil ? "Loading language…" : "Loading audio…")
                         .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+            .sheet(isPresented: $showsJobs) {
+                BackgroundJobsSheet(api: api) { podcast in
+                    player.replace(podcast)
+                    showsJobs = false
                 }
             }
             .sheet(isPresented: $showsGeneration) {
@@ -81,8 +93,10 @@ struct DailyPodcastSheet: View {
                 loading = false
             }
             .task(id: player.podcast?.key) { await player.applyPreferredLanguage() }
+            .task(id: player.podcast?.videoDesign?.id) { await followVideoDesign() }
             .sensoryFeedback(.selection, trigger: taps)
             .sensoryFeedback(.success, trigger: coverUpdates)
+            .sensoryFeedback(.success, trigger: videoUpdates)
         #if os(macOS)
         .frame(minWidth: 600, idealWidth: 760, minHeight: 480, maxHeight: .infinity)
         #else
@@ -112,6 +126,9 @@ struct DailyPodcastSheet: View {
             .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showsJobs = true } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
+                }
                 if player.podcast != nil {
                     ToolbarItem(placement: .confirmationAction) { podcastActions }
                 }
@@ -125,6 +142,7 @@ struct DailyPodcastSheet: View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
                 Button("Done") { dismiss() }
+                Button { showsJobs = true } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
                 if player.podcast != nil {
                     Spacer(minLength: 8)
                     Button {
@@ -158,7 +176,11 @@ struct DailyPodcastSheet: View {
             Button { taps += 1; showsSharing = true } label: {
                 Label("Publish to Web", systemImage: "square.and.arrow.up")
             }.accessibilityIdentifier("podcast-publish")
-            if player.podcast?.video == nil {
+            if player.podcast?.isDesigningVideo == true {
+                Button {} label: { Label("Designing Video…", systemImage: "film") }
+                    .disabled(true)
+                    .accessibilityIdentifier("podcast-video-designing")
+            } else if player.podcast?.video == nil {
                 Button {
                     taps += 1; generateVideoOnly = true; showsGeneration = true
                 } label: { Label("Generate Video", systemImage: "film") }
@@ -219,8 +241,60 @@ struct DailyPodcastSheet: View {
         } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
 
+    /// Waits for the server to finish designing the open episode's video, then shows it. Free: it only reads the episode.
+    private func followVideoDesign() async {
+        guard let podcast = player.podcast, podcast.isDesigningVideo else { designProgress = nil; return }
+        designProgress = podcast.videoDesign?.progress
+        do {
+            let designed = try await api.waitForPodcastVideoDesign(podcast, onProgress: { designProgress = $0 })
+            designProgress = nil
+            guard player.podcast?.key == designed.key, player.podcast?.language == designed.language else { return }
+            videoUpdates += 1
+            if player.playing { readyVideo = designed } else { player.replace(designed) }
+        } catch is CancellationError {
+        } catch {
+            designProgress = nil
+            guard player.podcast?.key == podcast.key else { return }
+            if case SummaryAPIError.server(_, let body) = error { player.podcast?.videoDesign?.error = body }
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Non-blocking status while the server designs the video, or the switch to a finished one.
+    @ViewBuilder
+    private var videoDesignStatus: some View {
+        if let readyVideo {
+            Button {
+                taps += 1
+                self.readyVideo = nil
+                player.replace(readyVideo)
+            } label: { Label("Video Ready – Watch", systemImage: "play.rectangle.fill") }
+                .buttonStyle(.glassProminent)
+                .padding()
+                .accessibilityIdentifier("podcast-video-ready")
+        } else if let designProgress {
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text(designProgress.percent > 10 ? "Designing video… \(designProgress.percent)%" : "Designing video…")
+                    .monospacedDigit()
+            }
+            .font(.subheadline)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(.regularMaterial, in: Capsule())
+            .padding()
+            .allowsHitTesting(false)
+            .accessibilityIdentifier("podcast-video-design-status")
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
+        episodeContent
+            .overlay(alignment: .top) { videoDesignStatus }
+    }
+
+    @ViewBuilder
+    private var episodeContent: some View {
         // Not `player.segment`: it reads `currentTime`, so the sheet (and its open
         // menus) would re-render on every playback tick, closing the language submenu on macOS.
         if let podcast = player.podcast, !podcast.segments.isEmpty {
@@ -266,6 +340,11 @@ struct DailyPodcastGenerationSheet: View {
     var videoOnly = false
     let onGenerated: (DailyPodcast) -> Void
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("podcast.generation.language") private var savedLanguage = ""
+    @AppStorage("podcast.generation.includeVideo") private var savedIncludeVideo = true
+    @AppStorage("podcast.generation.speakerNames") private var savedSpeakerNames = "[]"
+    @State private var speakerNames: [String] = []
+    @State private var showsSpeakers = false
     @State private var language: SummaryLanguage = .en
     @State private var generating = false
     @State private var includeVideo = true
@@ -273,6 +352,9 @@ struct DailyPodcastGenerationSheet: View {
     @State private var pendingEpisode: DailyPodcast?
     @State private var renderProgress: PodcastMotionRenderer.Progress?
     @State private var generationProgress: PodcastGenerationProgress?
+    /// The server is designing the video; the sheet may close while it continues.
+    @State private var designingVideo = false
+    @State private var work: Task<Void, Never>?
     @State private var loading = true
     @State private var chips: [PodcastChip] = []
     @State private var selected: [String: PodcastChip] = [:]
@@ -302,6 +384,16 @@ struct DailyPodcastGenerationSheet: View {
                     Picker("Language", selection: $language) {
                         ForEach(SummaryLanguage.translations) { Text($0.title).tag($0) }
                     }
+                    Button { showsSpeakers = true } label: {
+                        HStack {
+                            Label("Speakers", systemImage: "person.2")
+                            Spacer()
+                            Text(speakerNames.isEmpty ? String(localized: "Automatic") : speakerNames.joined(separator: ", "))
+                                .foregroundStyle(.secondary).lineLimit(1)
+                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityIdentifier("podcast-generation-speakers")
                     Button { showsChips = true } label: {
                         HStack {
                             Label("Chips", systemImage: "square.stack")
@@ -317,7 +409,7 @@ struct DailyPodcastGenerationSheet: View {
                 }
                 }
                 Section {
-                    Text("Generation uses points. Audio and video design are saved for future playback. Keep the app open while the video renders. Each version is kept until you remove it.")
+                    Text("Generation uses points. Audio and video design are saved for future playback. The video is designed on the server, so you can leave while it works; keep the app open while it renders on this device. Each version is kept until you remove it.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -331,12 +423,15 @@ struct DailyPodcastGenerationSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(pendingEpisode != nil ? "Retry Video" : "Generate") { generate() }
-                        .disabled(generating || loading || (pendingEpisode == nil && !regenerateVideoOnly && selected.isEmpty))
+                        .disabled(generating || loading || (pendingEpisode == nil && !regenerateVideoOnly && (selected.isEmpty || speakerNames.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.utf16.count > 40 })))
                         .accessibilityIdentifier("podcast-generation-submit")
                 }
             }
             .disabled(generating)
             .overlay { generationOverlay }
+            .sheet(isPresented: $showsSpeakers) {
+                PodcastSpeakersSheet(names: $speakerNames)
+            }
             .sheet(isPresented: $showsChips) {
                 PodcastChipPicker(api: api, dayChips: isLibrary ? nil : chips, selected: $selected)
             }
@@ -377,6 +472,13 @@ struct DailyPodcastGenerationSheet: View {
                         Text("\(completed) of \(total) voice segments")
                             .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     }
+                    if designingVideo {
+                        Text("The script keeps writing on the server if you leave. Open Background Jobs to view logs and render when ready.")
+                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        Button("Continue in Background") { continueInBackground() }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("podcast-generation-background")
+                    }
                 } else {
                     ProgressView("Creating your podcast…")
                 }
@@ -393,7 +495,9 @@ struct DailyPodcastGenerationSheet: View {
 
     private func loadChips() async {
         regenerateVideoOnly = videoOnly
-        language = existing.flatMap { SummaryLanguage(rawValue: $0.language) }
+        includeVideo = savedIncludeVideo
+        speakerNames = (try? JSONDecoder().decode([String].self, from: Data(savedSpeakerNames.utf8))) ?? []
+        language = SummaryLanguage(rawValue: savedLanguage) ?? existing.flatMap { SummaryLanguage(rawValue: $0.language) }
             ?? SummaryLanguage(languageTag: Locale.preferredLanguages.first ?? "en") ?? .en
         if let initialChip {
             let chip = PodcastChip(id: initialChip.id, title: initialChip.title, source: initialChip.source)
@@ -416,26 +520,43 @@ struct DailyPodcastGenerationSheet: View {
     }
 
     private func generate() {
+        if pendingEpisode == nil && !regenerateVideoOnly {
+            speakerNames = speakerNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            savedLanguage = language.rawValue
+            savedIncludeVideo = includeVideo
+            if let data = try? JSONEncoder().encode(speakerNames), let value = String(data: data, encoding: .utf8) {
+                savedSpeakerNames = value
+            }
+        }
         generationProgress = nil
         renderProgress = nil
         generating = true
-        Task {
+        work = Task {
             do {
-                let podcast: DailyPodcast
+                var podcast: DailyPodcast
                 if let pendingEpisode {
-                    if pendingEpisode.video == nil {
-                        podcast = try await api.composePodcastVideo(pendingEpisode, onProgress: { generationProgress = $0 })
-                    } else { podcast = pendingEpisode }
+                    // A running design is followed; otherwise a new one starts. Audio is never regenerated.
+                    podcast = pendingEpisode.video != nil || pendingEpisode.isDesigningVideo ? pendingEpisode : try await api.composePodcastVideo(pendingEpisode)
                 } else if regenerateVideoOnly, let existing {
-                    podcast = try await api.composePodcastVideo(existing, onProgress: { generationProgress = $0 })
+                    podcast = try await api.composePodcastVideo(existing)
                 } else {
                     // Regenerating a library podcast adds a version to the same chip.
                     podcast = try await api.generateDailyPodcast(date: date, language: language, regenerate: true,
                         chipIds: selected.keys.sorted(), library: isLibrary,
-                        includeVideo: includeVideo, summaryID: existing?.summaryId, onProgress: { generationProgress = $0 })
+                        includeVideo: includeVideo, summaryID: existing?.summaryId, speakerNames: speakerNames.isEmpty ? nil : speakerNames, onProgress: { generationProgress = $0 })
                 }
-                // Preserve the paid episode if local rendering fails. Retry never regenerates audio or design.
+                // Preserve the paid episode if design or rendering fails. Retry never regenerates audio or design.
                 pendingEpisode = podcast
+                if podcast.isDesigningVideo {
+                    designingVideo = true
+                    defer { designingVideo = false }
+                    generationProgress = podcast.videoDesign?.progress
+                    onGenerated(podcast)
+                    successes += 1
+                    dismiss()
+                    generating = false
+                    return
+                }
                 if podcast.video != nil {
                     renderProgress = .init(stage: .preparing, fraction: 0)
                     _ = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { renderProgress = $0 }
@@ -446,9 +567,28 @@ struct DailyPodcastGenerationSheet: View {
                 successes += 1
                 onGenerated(podcast)
                 dismiss()
-            } catch { self.error = error.localizedDescription }
+            } catch is CancellationError {
+            } catch {
+                // A failed design shows Retry Video, which starts a new one.
+                if pendingEpisode?.videoDesign?.error == nil, case SummaryAPIError.server(_, let body) = error, body.code.hasPrefix("PODCAST_VIDEO") {
+                    pendingEpisode?.videoDesign?.error = body
+                }
+                self.error = error.localizedDescription
+            }
             generating = false
         }
+    }
+
+    /// Closes the sheet while the server keeps designing; the podcast sheet picks up the video when it's ready.
+    private func continueInBackground() {
+        guard let pendingEpisode else { return }
+        work?.cancel()
+        work = nil
+        generating = false
+        designingVideo = false
+        successes += 1
+        onGenerated(pendingEpisode)
+        dismiss()
     }
 }
 
@@ -554,119 +694,50 @@ private struct PodcastChipPicker: View {
     }
 }
 
-private struct PodcastVersionsSheet: View {
-    let api: SummaryAPIClient
-    let date: Date
-    /// A library podcast chip's versions instead of the day's.
-    let summaryID: String?
-    @Bindable var player: DailyPodcastPlayer
-    @Environment(\.dismiss) private var dismiss
-    @State private var versions: [PodcastVersion] = []
-    @State private var loading = true
-    @State private var busy = false
-    @State private var removing: DailyPodcast?
-    @State private var error: String?
-    @State private var successes = 0
-    @State private var status: String?
-    var body: some View {
-        NavigationStack {
-            List(versions) { version in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(version.podcast.title).font(.headline)
-                    Text(version.podcast.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                    if version.isDefault { Label("Default", systemImage: "checkmark.circle.fill").font(.caption) }
-                    HStack {
-                        Button("Play", systemImage: "play.fill") {
-                            player.replace(version.podcast); player.toggle(); dismiss()
-                        }
-                        if !version.isDefault {
-                            Button("Set as Default") { update(version.podcast, remove: false) }
-                                .font(.caption).fixedSize()
-                        }
-                        Spacer()
-                        // A podcast chip always keeps one version; deleting the chip removes it.
-                        if summaryID == nil || versions.count > 1 {
-                            Button("Remove", systemImage: "trash", role: .destructive) { removing = version.podcast }
-                                .labelStyle(.iconOnly)
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .font(.subheadline)
-                    .lineLimit(1)
-                }
-                .padding(.vertical, 6)
-            }
-            .disabled(busy)
-            .overlay {
-                if loading || busy {
-                    ProgressView(busy ? "Updating podcasts…" : "Loading versions…")
-                        .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                } else if versions.isEmpty { ContentUnavailableView("No Versions", systemImage: "waveform") }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Podcast Versions")
-            .summaryInlineNavigationTitle()
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(busy).accessibilityIdentifier("podcast-versions-done") } }
-            .task { await reload(); loading = false }
-            .confirmationDialog("Remove this podcast version?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
-                Button("Remove Version", role: .destructive) {
-                    if let removing { update(removing, remove: true) }
-                    removing = nil
-                }
-            } message: { Text("Its share links and translations will stop working. If it is the default, another version will become the default.") }
-            .alert("Couldn't Update Podcasts", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
-                Button("OK", role: .cancel) { error = nil }
-            } message: { Text(error ?? "") }
-            .overlay(alignment: .top) {
-                if let status {
-                    Label(status, systemImage: "checkmark.circle.fill")
-                        .padding().background(.regularMaterial, in: Capsule()).padding()
-                        .allowsHitTesting(false)
-                }
-            }
-            .interactiveDismissDisabled(busy)
-            .sensoryFeedback(.success, trigger: successes)
-            .sensoryFeedback(.error, trigger: error)
-        }
-        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
-        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
-        .presentationDetents([.large])
-    }
-    private func reload() async {
-        do { versions = try await loadVersions() }
-        catch { self.error = error.localizedDescription }
-    }
-    private func loadVersions() async throws -> [PodcastVersion] {
-        if let summaryID { return try await api.podcastVersions(summaryID: summaryID) }
-        return try await api.podcastVersions(date: date)
-    }
-    private func update(_ podcast: DailyPodcast, remove: Bool) {
-        busy = true
-        Task {
-            defer { busy = false }
-            do {
-                if remove { try await api.removePodcast(podcast, date: date) }
-                else { try await api.selectPodcast(podcast, date: date) }
-                versions = try await loadVersions()
-                if !remove {
-                    player.replace(podcast); player.toggle()
-                } else if player.podcast?.key == podcast.key {
-                    player.stop()
-                    if let next = versions.first(where: { $0.isDefault }) { player.replace(next.podcast) }
-                    else { player.podcast = nil }
-                }
-                successes += 1
-                status = remove ? "Version removed" : "Default updated"
-                Task { try? await Task.sleep(for: .seconds(2)); status = nil }
-            } catch { self.error = error.localizedDescription }
-        }
-    }
-}
-
 private enum PodcastVideoGenerationError: LocalizedError {
     case unavailable
     var errorDescription: String? {
         String(localized: "Your audio was saved, but video design was unavailable. Retry Video to generate a video for this recording.")
+    }
+}
+
+/// Dedicated host configuration; the generation sheet persists it when generation starts.
+private struct PodcastSpeakersSheet: View {
+    @Binding var names: [String]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Speakers", selection: Binding(get: { names.count }, set: { count in
+                        names = (0..<count).map { $0 < names.count ? names[$0] : "" }
+                    })) {
+                        Text("Automatic").tag(0)
+                        ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
+                    }
+                    ForEach(names.indices, id: \.self) { index in
+                        TextField("Speaker \(index + 1)", text: $names[index])
+                            .accessibilityIdentifier("podcast-speaker-name-\(index)")
+                    }
+                } footer: {
+                    Text("Choose Automatic to let the podcast choose its hosts, or enter a name for each speaker (up to 40 characters). Available voices may limit the number of speakers. These settings are saved on this device when you generate.")
+                }
+            }
+            .formStyle(.grouped)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Speakers")
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .disabled(names.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.utf16.count > 40 })
+                }
+            }
+            .sensoryFeedback(.selection, trigger: names.count)
+        }
+        .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
     }
 }

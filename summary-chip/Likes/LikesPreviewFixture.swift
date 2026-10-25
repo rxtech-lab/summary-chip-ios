@@ -131,8 +131,20 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         return routeResource(request, path: path, method: method, query: query)
     }
 
+    private func backgroundJobResponse(list: Bool) -> (Int, Data) {
+        let job: [String: Any] = ["id": "preview-video-job", "title": "Daily discoveries", "episodeKey": "preview-episode",
+            "day": ["start": "2030-04-01T00:00:00Z", "end": "2030-04-02T00:00:00Z"],
+            "status": "ready", "percent": 100, "videoId": "preview-video",
+            "createdAt": "2030-04-01T12:00:00Z", "updatedAt": "2030-04-01T12:01:00Z",
+            "logs": [["id": "ready", "at": "2030-04-01T12:01:00Z", "message": "Script ready. Tap Render on This Device to create the video."]]]
+        return list ? json(["items": [job], "nextCursor": NSNull()]) : json(["job": job])
+    }
+
     private func routeResource(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
         let id = path.count > 1 ? path[1] : ""
+        if path.first == "background-jobs", method == "GET" {
+            return backgroundJobResponse(list: path.count == 1)
+        }
         if path.first == "daily-podcasts" {
             return routePodcast(request, path: path, method: method, query: query)
         }

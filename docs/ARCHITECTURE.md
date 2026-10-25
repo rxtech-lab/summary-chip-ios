@@ -511,6 +511,7 @@ LATEX_COMPILE_URL=https://latex.ytotech.com  # latex-on-http for papers (self-ho
 LATEX_COMPILER=                       # latex-on-http (default) | mock
 AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image  # optional, enables "illustration" style
 AI_GATEWAY_API_KEY=                   # optional on Vercel (OIDC)
+AI_PODCAST_MODEL=anthropic/claude-haiku-5.5 # dedicated podcast script and translation model
 AI_TOUR_MODEL=                        # trip tour narrator (default AI_MODEL); a fast model suits it
 AI_SPEECH_MODEL=microsoft/mai-voice-2.1-flash  # reads tours aloud (required for voice; unset = subtitles only)
 AI_TOUR_VOICE=en-US-Harper

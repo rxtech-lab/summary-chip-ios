@@ -749,3 +749,13 @@ export const podcastDrafts = sqliteTable("podcast_drafts", {
   revision: integer("revision").notNull().default(0),
   files: text("files", { mode: "json" }).$type<Record<string, string>>().notNull(),
 });
+
+/** Durable history survives workflow completion and cascades with the episode/account. */
+export const backgroundJobs = sqliteTable("background_jobs", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  episodeKey: text("episode_key").notNull().references(() => podcastEpisodes.key, { onDelete: "cascade" }),
+  document: text("document", { mode: "json" }).$type<import("@/lib/contracts/background-jobs").BackgroundJob>().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  notifiedAt: integer("notified_at", { mode: "timestamp_ms" }),
+}, (table) => [index("background_jobs_owner_idx").on(table.ownerId, table.createdAt, table.id)]);

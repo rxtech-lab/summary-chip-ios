@@ -17,6 +17,8 @@ import { setFlightTrackerForTests, type FlightTracker } from "@/lib/flights/trac
 import { finishTripTranslation, runTripTranslationPass, type TripTranslationJob } from "@/lib/services/trip-translations";
 import { MemoryObjectStore, setObjectStoreForTests } from "@/lib/storage/r2";
 import { setTripTranslatorForTests } from "@/lib/trips/translator";
+import { setPodcastVideoDesignerForTests } from "@/lib/podcast-video/designer";
+import { runPodcastVideoDesignJob, type PodcastVideoJob } from "@/lib/services/podcast-video-design";
 import { setPaperNotifierForTests } from "@/lib/papers/notifier";
 import { setTripNotifierForTests } from "@/lib/trips/notifier";
 import { setTripReminderSchedulerForTests } from "@/lib/trips/reminders";
@@ -54,6 +56,9 @@ export interface TestEnv {
   tripTranslations: TripTranslationJob[];
   /** Runs the queued trip translations like `workflows/translate-trip.ts` does (one pass each). */
   runTripTranslations: () => Promise<void>;
+  /** Queued background video designs, run explicitly by tests. */
+  podcastVideoDesigns: PodcastVideoJob[];
+  runPodcastVideoDesigns: () => Promise<void>;
   tokens: Record<"alice" | "bob", string>;
   teardown: () => void;
 }
@@ -94,6 +99,12 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   const runTripTranslations = async () => {
     for (const job of tripTranslations.splice(0)) await finishTripTranslation(handle.db, job, await runTripTranslationPass(handle.db, job));
   };
+  // Background video designs wait until a test runs them, as the workflow would after the response.
+  const podcastVideoDesigns: PodcastVideoJob[] = [];
+  setPodcastVideoDesignerForTests({ start: async (job) => { podcastVideoDesigns.push(job); } });
+  const runPodcastVideoDesigns = async () => {
+    for (const job of podcastVideoDesigns.splice(0)) await runPodcastVideoDesignJob(handle.db, job);
+  };
   const tokens = { alice: await signToken("user-alice"), bob: await signToken("user-bob") };
   return {
     handle,
@@ -104,6 +115,8 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
     weatherTracker,
     tripTranslations,
     runTripTranslations,
+    podcastVideoDesigns,
+    runPodcastVideoDesigns,
     tokens,
     teardown: () => {
       setDatabaseForTests(undefined);
@@ -119,6 +132,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setWeatherProviderForTests(undefined);
       setWeatherTrackerForTests(undefined);
       setTripTranslatorForTests(undefined);
+      setPodcastVideoDesignerForTests(undefined);
       setTripNotifierForTests(undefined);
       setPaperNotifierForTests(undefined);
       setTripReminderSchedulerForTests(undefined);

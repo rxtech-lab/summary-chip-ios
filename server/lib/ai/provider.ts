@@ -1,7 +1,8 @@
+import { writePodcastArticle } from "./podcast-article";
 import { transcribePodcastAudio } from "./podcast-transcription";
 import { writePodcast, type PodcastInput } from "./podcast-agent";
 import { translatePodcast, translatePodcastVideo, type PodcastTranslationInput, type PodcastTranslationOutput } from "./podcast-translation";
-import { writePodcastVideo, type PodcastVideoInput, type PodcastVideoOptions } from "./podcast-video-agent";
+import { podcastVideoTurn, writePodcastVideo, type PodcastVideoDraft, type PodcastVideoInput, type PodcastVideoOptions, type PodcastVideoTurnOptions, type PodcastVideoTurnResult } from "./podcast-video-agent";
 import { composeMusic, musicModelId, musicUsdPerClip } from "./music";
 import type { PodcastScript } from "@/lib/contracts/daily-podcast";
 import type { SummaryKind } from "@/lib/db/schema";
@@ -20,6 +21,8 @@ import {
   imageLanguageModel,
   imageModelId,
   imageTimeoutMs,
+  podcastModel,
+  podcastModelId,
   podcastVideoModel,
   podcastVideoModelId,
   isLanguageImageModel,
@@ -186,11 +189,16 @@ export interface AiProvider {
   chatModelId(): string;
   /** The chat model's API list price, or null when the catalog has none. */
   chatPricing(): Promise<ModelPricing | null>;
-  /** Narration for every scene of a trip tour, in order, from the tour model. Throws when it failed. */
+  /** Dedicated podcast script and translation model (`AI_PODCAST_MODEL`). */
+  podcastModelId(): string;
+  /** The podcast model's API list price, or null when the catalog has none. */
+  podcastPricing(): Promise<ModelPricing | null>;
+  /** Script from the dedicated podcast model. Throws when it failed. */
+  writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast): Promise<import("@/lib/contracts/daily-podcast").PodcastArticle>;
   writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript>;
-  /** A podcast script in another language, turn for turn, from the tour model. Throws when it failed. */
+  /** A podcast script in another language, turn for turn, from the podcast model. Throws when it failed. */
   translatePodcast(input: PodcastTranslationInput, options?: TourNarrationOptions): Promise<PodcastTranslationOutput>;
-  /** A composition's visible labels translated (tour model), or null when it couldn't be done safely. */
+  /** A composition's visible labels translated (podcast model), or null when it couldn't be done safely. */
   translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null>;
   /** Gateway id of the podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); null when videos are off. */
   podcastVideoModelId(): string | null;
@@ -198,6 +206,8 @@ export interface AiProvider {
   podcastVideoPricing(): Promise<ModelPricing | null>;
   /** Validated Remotion files animating a podcast script, or null when the agent couldn't produce any. */
   writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null>;
+  /** One turn (one tool call) of a resumable video design run. Throws when the model call fails or videos are off. */
+  podcastVideoTurn(input: PodcastVideoInput, draft: PodcastVideoDraft, options?: PodcastVideoTurnOptions): Promise<PodcastVideoTurnResult>;
   narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]>;
   /** Gateway id of the tour model (`AI_TOUR_MODEL`), recorded on the points it charges. */
   tourModelId(): string;
@@ -618,16 +628,28 @@ export class GatewayAiProvider implements AiProvider {
     return textModelPricing(tourModelId());
   }
 
+  podcastModelId(): string {
+    return podcastModelId();
+  }
+
+  podcastPricing(): Promise<ModelPricing | null> {
+    return textModelPricing(podcastModelId());
+  }
+
+  writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast) {
+    return writePodcastArticle(podcastModel(), podcast);
+  }
+
   writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript> {
-    return writePodcast(tourModel(), input, options);
+    return writePodcast(podcastModel(), input, options);
   }
 
   translatePodcast(input: PodcastTranslationInput, options?: TourNarrationOptions): Promise<PodcastTranslationOutput> {
-    return translatePodcast(tourModel(), input, options);
+    return translatePodcast(podcastModel(), input, options);
   }
 
   translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null> {
-    return translatePodcastVideo(tourModel(), files, language, options);
+    return translatePodcastVideo(podcastModel(), files, language, options);
   }
 
   podcastVideoModelId(): string | null {
@@ -643,6 +665,12 @@ export class GatewayAiProvider implements AiProvider {
     const id = podcastVideoModelId();
     if (!id) return null;
     return writePodcastVideo(podcastVideoModel(id), input, options);
+  }
+
+  podcastVideoTurn(input: PodcastVideoInput, draft: PodcastVideoDraft, options?: PodcastVideoTurnOptions): Promise<PodcastVideoTurnResult> {
+    const id = podcastVideoModelId();
+    if (!id) throw new Error("Podcast videos are off");
+    return podcastVideoTurn(podcastVideoModel(id), input, draft, options);
   }
 
   speechModelId(): string | null {

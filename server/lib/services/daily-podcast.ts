@@ -4,7 +4,7 @@ import { joinPodcastAudio } from "./podcast-audio";
 import { mixPodcast } from "./podcast-mixer";
 import { alignPodcastCaptions } from "./podcast-captions";
 import { podcastMusic, type PodcastMusic } from "./podcast-music";
-import { composePodcastVideo, storePodcastVideo } from "./podcast-video";
+import { startPodcastVideoDesign } from "./podcast-video-design";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, ne, or, sql, asc } from "drizzle-orm";
 import type { LanguageModelUsage } from "ai";
@@ -63,7 +63,7 @@ const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set
 export async function createDailyPodcast(db: Database, user: string, input: z.infer<typeof createDailyPodcastSchema>, deps: ServiceDeps = {}, onProgress?: ProgressListener) {
   const store = deps.store ?? getObjectStore();
   const base = dayKey(user, input.day);
-  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.summaryId ?? null])}`;
+  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.summaryId ?? null, input.speakerNames ?? null])}`;
   // Concurrent taps share a generation, even if the second requested regeneration.
   const pending = writing.get(requestKey);
   if (pending) {
@@ -98,18 +98,20 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
     const ai = deps.ai ?? await getAiProvider();
     if (!ai.speechModelId()) throw new ApiError(503, "PODCAST_SPEECH_UNAVAILABLE", "Podcast audio is not available right now.");
     const voices = [...new Set((process.env.AI_PODCAST_VOICES || tourVoice()).split(",").map((v) => v.trim()).filter(Boolean))].slice(0, 4);
+    if (input.speakerNames && input.speakerNames.length > voices.length) {
+      throw new ApiError(400, "PODCAST_SPEAKERS_UNAVAILABLE", `Up to ${voices.length} speakers are available. Choose fewer speakers.`);
+    }
     const key = randomUUID();
-    const charge = await reservePodcastPoints(user, key, ai.tourModelId(), deps.billingEnvironment);
+    const charge = await reservePodcastPoints(user, key, ai.podcastModelId(), deps.billingEnvironment);
     const usage: LanguageModelUsage[] = [];
     const deadline = AbortSignal.timeout(270_000);
-    const failed = new AbortController();
     let coverTask: Promise<PodcastCover | null> | null = null;
     try {
       report("script", 5);
-      const script = podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices,
+      const script = podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames,
         chips: chips.map(({ chip }) => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })) },
       { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]), onUsage: (step) => usage.push(step) }));
-      if (new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id))) {
+      if ((input.speakerNames && (script.speakers.length !== input.speakerNames.length || script.speakers.some((speaker, index) => speaker.name !== input.speakerNames![index]))) || new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id))) {
         throw new Error("Invalid podcast references");
       }
       const summaryId = input.library ? input.summaryId ?? randomUUID() : undefined;
@@ -117,7 +119,6 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       coverTask = summaryId ? podcastCover(db, user, ai, store, summaryId, script, chips.map(({ chip }) => chip), input.language, deps.now?.() ?? new Date()) : null;
       // Theme music is shared by mood, so it's usually already stored; failures publish without music.
       const musicTask = podcastMusic(ai, store, script.mood, deadline);
-      const videoUsage: LanguageModelUsage[] = [];
       report("speech", 20, 0, script.segments.length);
       const voiced = await voiceSegments(ai, script.speakers, script.segments.map((segment) => {
         const chip = chips.find(({ chip }) => chip.id === segment.chipId)!.chip;
@@ -130,22 +131,12 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       const music = await musicTask;
       report("mixing", 75);
       await storeContinuousAudio(store, `${base}/${key}/audio.mp3`, episodeAudioPath(podcast), podcast, voiced.audioParts, music);
-      // The motion video is designed after transcription and mixing, so scenes can be staged on the
-      // spoken phrases at their real times. Failures publish without video.
-      if (input.includeVideo !== false) report("video-design", 78);
-      const video = input.includeVideo === false ? null : await composePodcastVideo(ai, podcast, chips.map(({ chip }) => ({ id: chip.id, title: chip.title })),
-        AbortSignal.any([deadline, failed.signal, AbortSignal.timeout(200_000)]), (step) => {
-          videoUsage.push(step);
-        }, (percent) => report("video-design", 78 + Math.floor(percent * 0.17)));
-      if (video) podcast.video = await storePodcastVideo(store, `${base}/${key}`, video);
       report("saving", 95);
       await authorize(db, user, podcast);
-      const pricing = charge ? await ai.tourPricing() : null;
+      const pricing = charge ? await ai.podcastPricing() : null;
       const textCost = pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0;
       const speechCost = segments.reduce((sum, s) => sum + s.caption.length, 0) * ai.speechUsdPerCharacter();
       const musicCost = (music?.generatedClips ?? 0) * ai.musicUsdPerClip();
-      const videoPricing = charge && videoUsage.length ? await ai.podcastVideoPricing() : null;
-      const videoCost = videoPricing ? videoUsage.reduce((sum, step) => sum + usageCostUsd(step, videoPricing), 0) : 0;
       // Publish the playable recording before making a chip visible in the library.
       if (summaryId) podcast.summaryId = summaryId;
       const cover = await coverTask;
@@ -176,11 +167,22 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       } else { await episodeInsert; }
       if (podcast.summaryId) runAfter(() => rerankHeadlines(db, user));
       if (!input.library) await selectDailyPodcast(db, user, input.day, key);
-      await charge?.settle(Math.max(1, pointsForCost(textCost + speechCost + musicCost + videoCost)), { segments: segments.length, textCostUsd: textCost, speechCostUsd: speechCost, musicCostUsd: musicCost, videoCostUsd: videoCost });
+      await charge?.settle(Math.max(1, pointsForCost(textCost + speechCost + musicCost)), { segments: segments.length, textCostUsd: textCost, speechCostUsd: speechCost, musicCostUsd: musicCost });
+      // The motion video is designed after transcription and mixing, so scenes are staged on the spoken
+      // phrases at their real times. It runs in the background and is charged on its own; the recording
+      // is already playable, so a design that can't start leaves the episode without video.
+      if (input.includeVideo !== false && ai.podcastVideoModelId()) {
+        report("video-design", 97);
+        const designing = await startPodcastVideoDesign(db, user, podcast, chips.map(({ chip }) => ({ id: chip.id, title: chip.title })),
+          { ai, store, billingEnvironment: deps.billingEnvironment, now: deps.now }, { checkPoints: false }).catch((error) => {
+          console.error("[podcast] video design could not start, publishing without video", error);
+          return null;
+        });
+        if (designing) Object.assign(podcast, designing);
+      }
       report("complete", 100);
       return podcast;
     } catch (error) {
-      failed.abort();
       await charge?.settle(0, { failed: true });
       const cover = await coverTask?.catch(() => null);
       if (cover) await deleteObjects(store, [cover.ogImageKey, cover.artImageKey]);

@@ -1,3 +1,5 @@
+import * as publicCover from "@/app/api/public/podcasts/[id]/cover/route";
+import { generateMetadata } from "@/app/podcast/[id]/page";
 import type { AiProvider } from "@/lib/ai/provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { generateSpeech } from "ai";
@@ -91,13 +93,13 @@ describe("podcast selection and versions", () => {
     const action = (method: "PATCH" | "DELETE", episode: DailyPodcast, token = env.tokens.alice) => versionRoute[method](
       apiRequest(method, `/api/v1/daily-podcasts/${episode.key}?${new URLSearchParams(day)}`, { token }), params({ key: episode.key }));
     expect((await action("PATCH", first, env.tokens.bob)).status).toBe(404);
+    const link = await linksRoute.POST(apiRequest("POST", `/api/v1/daily-podcasts/${first.key}/links`, { token: env.tokens.alice, body: { day } }), params({ key: first.key }));
+    const shared = await link.json();
+    expect(link.status).toBe(201);
     const storageCalls = ["get", "put", "delete"].map((method) =>
       vi.spyOn(env.store, method as "get").mockRejectedValue(new Error("Storage unavailable")));
     expect((await action("PATCH", first)).status).toBe(200);
     expect((await (await saved()).json()).podcast.key).toBe(first.key);
-    const link = await linksRoute.POST(apiRequest("POST", `/api/v1/daily-podcasts/${first.key}/links`, { token: env.tokens.alice, body: { day } }), params({ key: first.key }));
-    const shared = await link.json();
-    expect(link.status).toBe(201);
     const calls = env.ai.calls.speak.length;
     expect((await action("DELETE", first)).status).toBe(200);
     expect((await audio(first)).status).toBe(404);
@@ -320,6 +322,7 @@ describe("daily podcast contract", () => {
     expect(await list()).toEqual([]);
     expect((await create({ ttlDays: 2 })).status).toBe(400);
     expect((await create({ ttlDays: 7 }, env.tokens.bob)).status).toBe(404);
+    const articleWriter = vi.spyOn(env.ai, "writePodcastArticle");
     const writer = vi.spyOn(env.ai, "writePodcast");
     const response = await create({ label: "Family", ttlDays: 7 });
     expect(response.status).toBe(201);
@@ -333,6 +336,18 @@ describe("daily podcast contract", () => {
     expect(result.status).toBe(200);
     const data = await result.json();
     expect(data.title).toBe(podcast.title);
+    expect(data.article.sections[0].startSeconds).toBe(podcast.segments[0].startSeconds);
+    expect(data.article.sections[0].paragraphs[0]).not.toBe(podcast.segments[0].caption);
+    const cover = () => publicCover.GET(apiRequest("GET", data.coverPath), params({ id }));
+    const image = await cover();
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/png");
+    expect(image.headers.get("cache-control")).toBe("private, no-store");
+    expect([...new Uint8Array(await image.arrayBuffer()).slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    const metadata = await generateMetadata({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) });
+    expect(metadata.openGraph).toMatchObject({ title: podcast.title, description: data.article.description });
+    expect(metadata.twitter).toMatchObject({ card: "summary_large_image" });
+    expect(articleWriter).toHaveBeenCalledTimes(1);
     expect(data.audioPath).toBe(`/api/public/podcasts/${id}/audio`);
     expect(data.segments[0].caption).toBe(podcast.segments[0].caption);
     expect(data.segments[0].captionCues).toEqual(podcast.segments[0].captionCues);
@@ -369,6 +384,7 @@ describe("daily podcast contract", () => {
     expect((await read()).status).toBe(404);
     expect((await recording()).status).toBe(404);
     expect((await art()).status).toBe(404);
+    expect((await cover()).status).toBe(404);
     expect((await list())[0].isExpired).toBe(true);
     const never = await (await patch(link.id, { ttlDays: null })).json();
     expect(never).toMatchObject({ url: link.url, ttlDays: null, expiresAt: null, isExpired: false });
@@ -381,6 +397,7 @@ describe("daily podcast contract", () => {
     expect((await read()).status).toBe(404);
     expect((await recording()).status).toBe(404);
     expect((await art()).status).toBe(404);
+    expect((await cover()).status).toBe(404);
     // Owners can still see and delete links after their sources disappear.
     expect(await list()).toHaveLength(1);
     expect((await remove(link.id)).status).toBe(204);

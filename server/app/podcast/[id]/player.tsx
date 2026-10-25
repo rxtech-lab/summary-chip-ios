@@ -17,12 +17,13 @@ export default function PodcastWebPlayer({ podcast }: { podcast: Awaited<ReturnT
   const caption = segment?.captionCues
     ? segment.captionCues.find(cue => cue.startSeconds <= time && time < cue.endSeconds)?.text ?? ""
     : captionText(segment?.caption ?? "");
-  return <article className="flex flex-col gap-5" lang={podcast.language}>
+  return <article className={`grid items-start gap-8 lg:gap-12 ${podcast.article ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]" : "mx-auto w-full max-w-3xl"}`} lang={podcast.language}>
+    <div className="min-w-0 space-y-5 lg:sticky lg:top-6">
     {podcast.videoPath ? <video ref={audio as React.RefObject<HTMLVideoElement>} controls playsInline preload="metadata" src={podcast.videoPath}
       className="aspect-video w-full rounded-3xl bg-black" aria-label={podcast.title}
       onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onError={() => setError(true)} /> : <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-3xl bg-indigo-950 text-7xl">
       <span aria-hidden>{segment?.icon ?? "🎙️"}</span>
-      {segment?.imagePath && <div aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${segment.imagePath})` }} />}
+      {(segment?.imagePath ?? podcast.coverPath) && <div aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${segment?.imagePath ?? podcast.coverPath})` }} />}
       {segment && <div className="absolute inset-x-3 bottom-3 max-h-[65%] overflow-y-auto rounded-2xl bg-black/70 p-4 text-base text-white backdrop-blur-md">
         <p className="mb-1 text-xs text-white/70">{segment.speaker}</p>
         <p>{caption}</p>
@@ -40,20 +41,37 @@ export default function PodcastWebPlayer({ podcast }: { podcast: Awaited<ReturnT
     </div>
     {!podcast.videoPath && <audio ref={audio as React.RefObject<HTMLAudioElement>} controls preload="metadata" src={podcast.audioPath} className="w-full"
       aria-label={podcast.title} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onError={() => setError(true)} />}
+    </div>
     {error && <div role="alert" className="fixed inset-x-5 top-5 mx-auto max-w-lg rounded-2xl bg-neutral-900 p-4 text-white shadow-xl">
       {podcast.videoPath ? "Video" : "Audio"} unavailable. This link may have expired or been made private.
     </div>}
-    <details className="rounded-2xl border border-current/15 p-5">
-      <summary className="cursor-pointer font-semibold">Transcript</summary>
-      <ol className="mt-4 space-y-4">
-        {podcast.segments.map((turn, index) => <li key={index}>
-          <button className="text-left underline-offset-4 hover:underline" onClick={() => {
-            if (audio.current) { audio.current.currentTime = turn.startSeconds; setTime(turn.startSeconds); }
-          }} aria-label={`Seek to ${Math.floor(turn.startSeconds)} seconds: ${turn.speaker}`}>
-            <span className="mr-2 font-semibold">{turn.speaker}</span>{turn.caption}
-          </button>
-        </li>)}
-      </ol>
-    </details>
+    {podcast.article && <section className="min-w-0 space-y-8 border-t border-current/15 pt-8 lg:border-t-0 lg:pt-0" aria-label="About this episode">
+      <p className="text-lg leading-relaxed opacity-75">{podcast.article.description}</p>
+      {podcast.article.sections.map((section, index) => <section key={index} className="space-y-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-xl font-semibold">{section.heading}</h2>
+          <button className="shrink-0 rounded-full border border-current/20 px-3 py-1 font-mono text-sm hover:bg-current/5"
+            aria-label={`Jump to ${timestamp(section.startSeconds)}: ${section.heading}`}
+            onClick={() => {
+              if (audio.current) {
+                audio.current.currentTime = section.startSeconds;
+                setTime(section.startSeconds);
+                void audio.current.play().catch(() => setError(true));
+                if (!window.matchMedia("(min-width: 1024px)").matches) {
+                  audio.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+              }
+            }}>{timestamp(section.startSeconds)}</button>
+        </div>
+        {section.paragraphs.map((paragraph, i) => <p key={i} className="leading-relaxed opacity-85">{paragraph}</p>)}
+      </section>)}
+      <p className="text-xs opacity-50">Article written with AI from this episode.</p>
+    </section>}
+
   </article>;
+}
+
+function timestamp(seconds: number) {
+  const value = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
 }

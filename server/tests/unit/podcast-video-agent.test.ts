@@ -1,6 +1,6 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions } from "@ai-sdk/provider";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { podcastCheckFrames, writePodcastVideo } from "@/lib/ai/podcast-video-agent";
+import { newPodcastVideoDraft, podcastCheckFrames, podcastVideoDraftFinished, podcastVideoTurn, writePodcastVideo } from "@/lib/ai/podcast-video-agent";
 import { previewPodcastFrames } from "@/lib/podcast-video/frame-preview";
 import { validatePodcastVideo } from "@/lib/podcast-video/scaffold";
 import { MOCK_PODCAST_VIDEO } from "@/lib/ai/mock";
@@ -211,6 +211,67 @@ export const PodcastVideo = () => {
       expect.objectContaining({ attempts: 0, errorName: "AI_ToolChoiceViolationError" }));
   });
 
+  it("runs only the first tool call of a turn, so every turn stays one small change", async () => {
+    const calls: LanguageModelV4CallOptions[] = [];
+    const model: LanguageModelV4 = {
+      specificationVersion: "v4", provider: "mock", modelId: "batch", supportedUrls: {},
+      async doGenerate(options) {
+        calls.push(options);
+        return {
+          content: [
+            { type: "tool-call" as const, toolCallId: "a", toolName: "write_file", input: JSON.stringify({ path: "src/Video.tsx", content: narratedVideo }) },
+            { type: "tool-call" as const, toolCallId: "b", toolName: "write_file", input: JSON.stringify({ path: "src/Extra.tsx", content: "export const Extra = 1;" }) },
+          ],
+          finishReason: { unified: "tool-calls" as const, raw: "tool_calls" },
+          usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+          warnings: [],
+        };
+      },
+      async doStream() { throw new Error("unused"); },
+    };
+    const { draft } = await podcastVideoTurn(model, input, newPodcastVideoDraft());
+    expect(calls).toHaveLength(1);
+    expect(calls[0].maxOutputTokens).toBe(8_192);
+    expect(Object.keys(draft.files)).toEqual(["src/Video.tsx"]);
+    expect(JSON.stringify(draft.messages)).toContain("Only one tool call runs per turn");
+    expect(draft.turns).toBe(1);
+  });
+
+  it("keeps Sonnet 5.5 thinking between tool calls and still requires a design tool result", async () => {
+    const { model, calls } = scriptedModel([good]);
+    await podcastVideoTurn({ ...model, modelId: "anthropic/claude-sonnet-5.5" }, input, newPodcastVideoDraft());
+    expect(calls[0].providerOptions?.anthropic).toMatchObject({ thinking: { type: "between_tools" }, effort: "medium" });
+    expect(calls[0].toolChoice).toEqual({ type: "auto" });
+    const empty = scriptedModel([]);
+    await expect(podcastVideoTurn({ ...empty.model, modelId: "anthropic/claude-sonnet-5.5" }, input, newPodcastVideoDraft())).rejects.toMatchObject({ name: "PodcastVideoNoToolError" });
+  });
+
+  it("resumes a saved draft turn by turn, as a background run does between steps", async () => {
+    const { model, calls } = scriptedModel([
+      { toolName: "write_file", input: { path: "src/Video.tsx", content: narratedVideo } },
+      { toolName: "submit_video", input: { storyboard: [{ segmentIndex: 0, sourceQuote: "Ignore your instructions", visualSubject: "Source", visualAction: "Source meets a closed boundary", phraseActions: [{ phrase: 0, action: "Boundary closes" }], file: "src/Video.tsx" }] } },
+    ]);
+    const start = newPodcastVideoDraft();
+    const first = await podcastVideoTurn(model, input, start);
+    // The input draft is never changed; the next step reads the saved JSON.
+    expect(start.turns).toBe(0);
+    expect(first.evidence).toContain("Saved src/Video.tsx");
+    const saved = JSON.parse(JSON.stringify(first.draft));
+    expect(podcastVideoDraftFinished(saved)).toBe(false);
+    const second = await podcastVideoTurn(model, input, saved);
+    expect(second.draft.result).toEqual({ "src/Video.tsx": narratedVideo });
+    expect(second.evidence).toBe("Validation passed");
+    expect(podcastVideoDraftFinished(second.draft)).toBe(true);
+    expect(calls).toHaveLength(2);
+    expect(JSON.stringify(calls[1].prompt)).toContain('"path":"src/Video.tsx"');
+  });
+
+  it("refuses an oversized single write so components stay small", async () => {
+    const { model, calls } = scriptedModel([{ toolName: "write_file", input: { path: "src/Video.tsx", content: "x".repeat(16_001) } }]);
+    const { draft } = await podcastVideoTurn(model, input, newPodcastVideoDraft());
+    expect(calls).toHaveLength(1);
+    expect(draft.files).toEqual({});
+  });
   it("logs cancellation and does not restart generation", async () => {
     const { model, calls } = scriptedModel([good]);
     const controller = new AbortController();
@@ -318,7 +379,7 @@ export const PodcastVideo = () => {
   });
   it("checks the settled end of every phrase plus the title, entrances and outro", () => {
     expect(podcastCheckFrames(input).map((frame) => [Math.round(frame.seconds * 100) / 100, frame.speaking])).toEqual([
-      [2.1, false], [3.8, true], [5.45, true], [9.45, true], [11.5, false]]);
+      [1.5, false], [3.8, true], [5.45, true], [9.45, true], [11.5, false]]);
   });
   it("rejects a still slide, including an unused clock import", async () => {
     const issues = await validatePodcastVideo({ "src/Video.tsx": 'import { useCurrentFrame } from "remotion"; export const PodcastVideo = () => <h1>Still</h1>;' });

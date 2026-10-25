@@ -4,6 +4,7 @@ import { withApiAuth } from "@/lib/http/handler";
 import { createPodcastShareLink, listPodcastShareLinks } from "@/lib/services/podcast-sharing";
 
 export const runtime = "nodejs";
+export const maxDuration = 180;
 type Context = { params: Promise<{ key: string }> };
 
 /** The episode's share links, oldest first (owner only). */

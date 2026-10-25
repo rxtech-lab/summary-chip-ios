@@ -6,6 +6,58 @@ import Testing
 @testable import summary_chip
 
 @MainActor @Suite struct PodcastMediaTests {
+    @Test func resumesInterruptedPlaybackAtTheSamePosition() {
+        let player = interruptionPlayer()
+        defer { player.stop() }
+        player.duration = 100
+        player.currentTime = 42
+        player.playing = true
+        player.beginInterruption()
+        #expect(player.interrupted)
+        #expect(!player.playing)
+        // Repeated notifications must preserve the original playback intent.
+        player.beginInterruption()
+        player.endInterruption(shouldResume: true)
+        #expect(!player.interrupted)
+        #expect(player.playing)
+        #expect(player.currentTime == 42)
+    }
+
+    @Test func doesNotResumePausedPlaybackOrWhenSystemDeniesResume() {
+        let player = interruptionPlayer()
+        defer { player.stop() }
+        player.beginInterruption()
+        player.endInterruption(shouldResume: true)
+        #expect(!player.playing)
+        player.playing = true
+        player.beginInterruption()
+        player.endInterruption(shouldResume: false)
+        #expect(!player.playing)
+        player.endInterruption(shouldResume: true)
+        #expect(!player.playing)
+    }
+
+    @Test func explicitPauseOrCloseCancelsInterruptionRecovery() {
+        let player = interruptionPlayer()
+        player.playing = true
+        player.beginInterruption()
+        player.pause()
+        player.endInterruption(shouldResume: true)
+        #expect(!player.playing)
+        player.playing = true
+        player.beginInterruption()
+        player.close()
+        player.endInterruption(shouldResume: true)
+        #expect(!player.playing)
+        #expect(player.podcast == nil)
+    }
+
+    private func interruptionPlayer() -> DailyPodcastPlayer {
+        // No episode is loaded: exercise interruption intent without opening the
+        // simulator audio device or fetching media.
+        DailyPodcastPlayer(api: SummaryAPIClient(baseURL: URL(string: "https://example.invalid")!, tokenProvider: MediaTestToken()))
+    }
+
     @Test func writesVideoFilesThroughPrivateDirectoryAlias() throws {
         #if os(macOS) || targetEnvironment(simulator)
         let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)

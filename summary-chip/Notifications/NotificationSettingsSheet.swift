@@ -19,7 +19,7 @@ struct NotificationSettingsSheet: View {
                     }
                     .disabled(notifications.busy)
                 } footer: {
-                    Text("Receive notifications for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen.")
+                    Text("Receive notifications when video scripts are ready to render, for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen.")
                 }
             }
             .formStyle(.grouped)

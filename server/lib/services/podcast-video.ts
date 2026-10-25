@@ -4,7 +4,7 @@ import type { AiProvider } from "@/lib/ai/provider";
 import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoSource, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
-import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_WIDTH, podcastPhraseWindows } from "@/lib/podcast-video/scaffold";
+import { PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD } from "@/lib/podcast-video/scaffold";
 import type { PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
 import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
@@ -14,6 +14,7 @@ import type { TranslationLanguage } from "@/lib/contracts/api";
 import type { PodcastTranslation } from "@/lib/contracts/daily-podcast";
 import { dailyPodcastEpisode, dayKey, isTranslation, jsonObject, translationMissing, translationPath, updatePodcastDocument } from "./daily-podcast";
 import { getSummaryForViewer, type ServiceDeps } from "./summaries";
+import { startPodcastVideoDesign, waitForPodcastVideoDesign } from "./podcast-video-design";
 
 type Episode = Pick<DailyPodcast, "title" | "mood" | "speakers" | "segments" | "durationSeconds"> & { language: string };
 
@@ -37,27 +38,6 @@ export function podcastVideoInput(podcast: Episode, chips: { id: string; title: 
   });
   return { title: podcast.title, language: podcast.language, mood: podcast.mood, speakers: podcast.speakers.map((speaker) => speaker.name), chips,
     durationSeconds: Math.max(podcast.durationSeconds ?? 0, cursor + 1), segments };
-}
-
-/**
- * Asks the video agent to animate a voiced episode. Never throws: without a model, on failure or when it
- * runs out of time the episode simply has no video.
- */
-export async function composePodcastVideo(ai: AiProvider, podcast: Episode, chips: { id: string; title: string }[],
-  abortSignal: AbortSignal, onUsage: (usage: LanguageModelUsage) => void, onProgress?: (percent: number) => void): Promise<PodcastVideoSource | null> {
-  const model = ai.podcastVideoModelId();
-  if (!model) return null;
-  try {
-    const input = podcastVideoInput(podcast, chips);
-    const files = await ai.writePodcastVideo(input, { abortSignal, onUsage, onProgress });
-    if (!files) return null;
-    return { id: randomUUID(), model, createdAt: new Date().toISOString(), fps: PODCAST_VIDEO_FPS,
-      width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, chips,
-      files: { ...files, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(input.segments)) } };
-  } catch (error) {
-    console.error("[podcast] video composition failed, publishing without video", error);
-    return null;
-  }
 }
 
 /** Stores the composition next to the recording and returns the summary kept on the episode. */
@@ -106,8 +86,10 @@ type ProgressListener = (progress: PodcastProgress) => void;
 const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set<ProgressListener>; latest: PodcastProgress }>();
 
 /**
- * Writes a new composition for a saved episode (an older one without video, or to try another look).
- * Spends points for the model's tokens; the previous composition and published render are replaced.
+ * Designs a new composition for a saved episode (an older one without video, or to try another look).
+ * The agent works in the background (`startPodcastVideoDesign`) and the episode comes back at once with
+ * its `videoDesign` status; with `onProgress` this follows the run until it ends or the request nears its
+ * limit. A translation of an episode that already has video only gets translated labels, right away.
  */
 export async function createPodcastVideo(db: Database, user: string, day: PodcastDay, key: string, deps: ServiceDeps = {}, onProgress?: ProgressListener,
   language?: TranslationLanguage): Promise<DailyPodcast> {
@@ -137,7 +119,7 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
     if (!model) throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Podcast videos are not available right now.");
     // A translation reuses the original composition, which is designed first when there is none.
     if (translation && podcast.video) {
-      const charge = await reservePodcastPoints(user, `${key}:video:${language}:${randomUUID()}`, ai.tourModelId(), deps.billingEnvironment);
+      const charge = await reservePodcastPoints(user, `${key}:video:${language}:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
       try {
         const result = await translateVideo(ai, store, db, user, podcast, language!, translation, report);
         await charge?.settle(Math.max(1, pointsForCost(result.costUsd)), { translationCostUsd: result.costUsd });
@@ -152,45 +134,10 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
       const chip = await getSummaryForViewer(db, id, user);
       return { id: chip.id, title: chip.title };
     }));
-    const charge = await reservePodcastPoints(user, `${key}:video:${randomUUID()}`, model, deps.billingEnvironment);
-    const usage: LanguageModelUsage[] = [];
-    try {
-      report("video-design", 10, 0);
-      const source = await composePodcastVideo(ai, podcast, chips, AbortSignal.timeout(270_000), (step) => {
-        usage.push(step);
-      }, (percent) => report("video-design", 10 + Math.floor(percent * 0.8), usage.length));
-      if (!source) throw new ApiError(502, "PODCAST_VIDEO_FAILED", "The video could not be created. Please try again.");
-      report("saving", 90);
-      const video = await storePodcastVideo(store, `${dayKey(user, day)}/${key}`, source);
-      const stale: string[] = [];
-      const saved = await updatePodcastDocument(db, user, key, (latest) => {
-        if (latest.video?.published) stale.push(latest.video.published.videoId);
-        latest.video = video;
-        // Translated videos showed the replaced composition: each translation can make a new one from this.
-        for (const other of Object.values(latest.translations ?? {})) {
-          if (other.video?.published) stale.push(other.video.published.videoId);
-          delete other.video;
-        }
-      });
-      // Old renders show the replaced composition; share links fall back to audio until the new one is published.
-      for (const videoId of stale) await store.delete(renderKey(user, day, key, videoId));
-      let textCost = 0;
-      if (translation) {
-        // The translation's video follows in the same paid request.
-        report("video-design", 92);
-        const result = await translateVideo(ai, store, db, user, saved, language!, saved.translations![language!], () => {});
-        textCost = result.costUsd;
-        Object.assign(saved, result.podcast);
-      }
-      const pricing = charge ? await ai.podcastVideoPricing() : null;
-      const cost = pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0;
-      await charge?.settle(Math.max(1, pointsForCost(cost + textCost)), { videoCostUsd: cost, translationCostUsd: textCost });
-      report("complete", 100);
-      return saved;
-    } catch (error) {
-      await charge?.settle(0, { failed: true });
-      throw error;
-    }
+    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, checkPoints: true });
+    if (state.listeners.size === 0 || !started.videoDesign) return started;
+    // Streaming clients (older apps) follow the run; it continues in the background past the request.
+    return waitForPodcastVideoDesign(db, user, day, key, started.videoDesign.id, report, AbortSignal.timeout(270_000));
   })().finally(() => writing.delete(lock));
   state.promise = run;
   writing.set(lock, state);
@@ -198,7 +145,7 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
 }
 
 /** Gives a translation the current original composition with translated labels. Billing is the caller's. */
-async function translateVideo(ai: AiProvider, store: ObjectStore, db: Database, user: string, podcast: DailyPodcast, language: TranslationLanguage,
+export async function translateVideo(ai: AiProvider, store: ObjectStore, db: Database, user: string, podcast: DailyPodcast, language: TranslationLanguage,
   translation: PodcastTranslation, report: (stage: PodcastProgress["stage"], percent: number) => void) {
   const usage: LanguageModelUsage[] = [];
   report("video-design", 10);
@@ -212,11 +159,11 @@ async function translateVideo(ai: AiProvider, store: ObjectStore, db: Database, 
     current.video = video;
   });
   if (stale) await store.delete(renderKey(user, podcast.day, podcast.key, stale));
-  const pricing = usage.length ? await ai.tourPricing() : null;
+  const pricing = usage.length ? await ai.podcastPricing() : null;
   return { podcast: saved, costUsd: pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0 };
 }
 
-function renderKey(user: string, day: PodcastDay, key: string, videoId: string) {
+export function renderKey(user: string, day: PodcastDay, key: string, videoId: string) {
   return `${dayKey(user, day)}/${key}/video/${videoId}.mp4`;
 }
 /** The video record of the requested language, which publication updates. */

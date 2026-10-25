@@ -54,7 +54,7 @@ export async function translateDailyPodcast(db: Database, user: string, day: Pod
       const chip = await getSummaryForViewer(db, id, user);
       return { id: chip.id, title: chip.title };
     }));
-    const charge = await reservePodcastPoints(user, `${key}:translation:${language}:${randomUUID()}`, ai.tourModelId(), deps.billingEnvironment);
+    const charge = await reservePodcastPoints(user, `${key}:translation:${language}:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
     const usage: LanguageModelUsage[] = [];
     const deadline = AbortSignal.timeout(270_000);
     try {
@@ -89,7 +89,7 @@ export async function translateDailyPodcast(db: Database, user: string, day: Pod
       const saved = await updatePodcastDocument(db, user, key, (latest) => {
         latest.translations = { ...latest.translations, [language]: translation };
       });
-      const pricing = charge ? await ai.tourPricing() : null;
+      const pricing = charge ? await ai.podcastPricing() : null;
       const textCost = pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0;
       const speechCost = translation.segments.reduce((sum, segment) => sum + segment.caption.length, 0) * ai.speechUsdPerCharacter();
       const musicCost = (music?.generatedClips ?? 0) * ai.musicUsdPerClip();

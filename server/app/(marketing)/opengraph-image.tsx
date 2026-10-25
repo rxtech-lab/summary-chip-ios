@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { BRAND, chippyIconDataUri } from "@/lib/brand";
 
-export const alt = "Chippy — Read less. Share more.";
+export const alt = "Chippy — Your AI workspace";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -61,12 +61,12 @@ export default function OpengraphImage() {
             <img src={chippyIconDataUri()} width={84} height={84} alt="" />
             <span style={{ fontSize: 40, fontWeight: 700 }}>Chippy</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 44, fontSize: 84, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2 }}>
-            <span>Read less.</span>
-            <span style={{ color: BRAND.coral }}>Share more.</span>
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 44, fontSize: 72, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2 }}>
+            <span>Your AI</span>
+            <span style={{ color: BRAND.coral }}>workspace.</span>
           </div>
           <div style={{ marginTop: 30, fontSize: 30, lineHeight: 1.4, color: "#475069" }}>
-            Summarise any page, PDF or note into a card you can share.
+            Chips, podcasts, papers and trips. Connected to your AI agents.
           </div>
         </div>
         <Card rotate={-7} top={90} left={760} muted />

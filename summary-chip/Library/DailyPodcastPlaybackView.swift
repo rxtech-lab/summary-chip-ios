@@ -10,6 +10,7 @@ struct DailyPodcastPlaybackView: View {
     @State private var taps = 0
 
     var body: some View {
+        GeometryReader { safeArea in
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
                 Color.black
@@ -65,6 +66,7 @@ struct DailyPodcastPlaybackView: View {
                 .frame(maxWidth: 680)
                 .glassEffect(.regular.tint(.black.opacity(0.25)), in: .rect(cornerRadius: 24))
                 .padding(16)
+                .padding(.bottom, safeArea.safeAreaInsets.bottom)
                 }
             }
             .environment(\.colorScheme, .dark)
@@ -72,13 +74,18 @@ struct DailyPodcastPlaybackView: View {
             .clipped()
         }
         #if os(iOS)
-        .ignoresSafeArea(.container, edges: podcast.video != nil ? .all : [])
+        .ignoresSafeArea(.container)
         #endif
+        }
         .overlay {
-            if podcast.video != nil && player.buffering {
+            if player.buffering {
                 VStack(spacing: 12) {
-                    Text(player.videoProgress?.stage == .rendering ? "Rendering video…" : "Preparing video…")
-                    ProgressView(value: player.videoProgress?.fraction ?? 0).frame(width: 200)
+                    let transfer = podcast.video == nil ? player.transferProgress : player.videoProgress?.transfer
+                    Text(transfer != nil ? "Downloading podcast…" : (player.videoProgress?.stage == .rendering ? "Rendering video…" : "Preparing podcast…"))
+                    if let fraction = transfer?.fraction ?? player.videoProgress?.fraction {
+                        ProgressView(value: fraction).frame(width: 200)
+                    } else { ProgressView() }
+                    if let transfer { Text(transfer.detail).monospacedDigit() }
                     if let detail = player.videoProgress?.frameDetail { Text("Frames: \(detail)").monospacedDigit() }
                 }
                 .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))

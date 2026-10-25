@@ -1,9 +1,10 @@
 import { createGateway } from "@ai-sdk/gateway";
 import type { AiProvider } from "@/lib/ai/provider";
-import { writePodcastVideo } from "@/lib/ai/podcast-video-agent";
+import { podcastVideoTurn } from "@/lib/ai/podcast-video-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import * as route from "@/app/api/v1/daily-podcasts/route";
+import * as episodeRoute from "@/app/api/v1/daily-podcasts/[key]/route";
 import * as videoRoute from "@/app/api/v1/daily-podcasts/[key]/video/route";
 import * as uploadRoute from "@/app/api/v1/daily-podcasts/[key]/video/upload/route";
 import * as publicationRoute from "@/app/api/v1/daily-podcasts/[key]/video/publication/route";
@@ -40,22 +41,39 @@ const compose = (key: string, token = env.tokens.alice) => videoRoute.POST(apiRe
 const upload = (key: string, body: object) => uploadRoute.POST(apiRequest("POST", "/upload", { token: env.tokens.alice, body: { day, ...body } }), params({ key }));
 const publish = (key: string, videoId: string) => publicationRoute.POST(apiRequest("POST", "/publication", { token: env.tokens.alice, body: { day, videoId } }), params({ key }));
 
+const episode = async (key: string) => (await (await episodeRoute.GET(apiRequest("GET", `/podcast${query}`, { token: env.tokens.alice }), params({ key }))).json()).podcast as DailyPodcast;
+/** Runs the queued background designs, as the workflow would after the response, and reads the episode again. */
+async function designed(key: string) {
+  await env.runPodcastVideoDesigns();
+  return episode(key);
+}
+
 describe("podcast motion video", () => {
   it("honors audio-only selection even when video generation is configured", async () => {
     env.ai.video = true;
     await chip("Audio only");
-    const episode = await generate(false);
-    expect(episode.video).toBeUndefined();
-    expect(env.ai.calls.writePodcastVideo).toHaveLength(0);
-    const updated = await compose(episode.key);
+    const audioOnly = await generate(false);
+    expect(audioOnly.video).toBeUndefined();
+    expect(audioOnly.videoDesign).toBeUndefined();
+    expect(env.podcastVideoDesigns).toHaveLength(0);
+    const updated = await compose(audioOnly.key);
     expect(updated.status).toBe(200);
-    expect((await updated.json()).podcast.video.id).toBeTruthy();
+    expect((await updated.json()).podcast.videoDesign).toMatchObject({ id: expect.any(String), percent: 10 });
+    expect(env.ai.calls.writePodcastVideo).toHaveLength(0);
+    expect((await designed(audioOnly.key)).video?.id).toBeTruthy();
     expect(env.ai.calls.writePodcastVideo).toHaveLength(1);
   });
-  it("writes the composition alongside the recording, after transcription, from the real phrase timings", async () => {
+  it("designs the composition in the background after the recording is saved, from the real phrase timings", async () => {
     env.ai.video = true;
     const topic = await chip("Batteries");
-    const podcast = await generate();
+    const created = await generate();
+    // The recording is playable at once; the video follows from a background run.
+    expect(created.audioPath).toBeTruthy();
+    expect(created.video).toBeUndefined();
+    expect(created.videoDesign).toMatchObject({ id: env.podcastVideoDesigns[0].id });
+    expect(env.ai.calls.writePodcastVideo).toHaveLength(0);
+    const podcast = await designed(created.key);
+    expect(podcast.videoDesign).toBeUndefined();
     expect(podcast.video?.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(env.ai.calls.writePodcastVideo).toHaveLength(1);
     const input = env.ai.calls.writePodcastVideo[0];
@@ -71,32 +89,51 @@ describe("podcast motion video", () => {
     expect(Object.keys(video.files).sort()).toEqual(["src/Root.tsx", "src/Video.tsx", "src/index.ts", "src/phrases.json", "src/podcast.ts"]);
     expect(JSON.parse(video.files["src/phrases.json"])).toHaveLength(podcast.segments.length);
     expect((await source(podcast.key, env.tokens.bob)).status).toBe(404);
+    // The run's draft is removed once it ends.
+    expect([...env.store.objects.keys()].some((key) => key.includes("/video-design/"))).toBe(false);
+  });
+  it("reuses a running design instead of starting another", async () => {
+    env.ai.video = true;
+    await chip("Glaciers");
+    const created = await generate(false);
+    const first = (await (await compose(created.key)).json()).podcast as DailyPodcast;
+    const second = (await (await compose(created.key)).json()).podcast as DailyPodcast;
+    expect(second.videoDesign?.id).toBe(first.videoDesign?.id);
+    expect(env.podcastVideoDesigns).toHaveLength(1);
   });
 
   it("publishes episodes without video when the model is off or fails, and composes one on request", async () => {
     await chip("Rivers");
     const plain = await generate();
     expect(plain.video).toBeUndefined();
+    expect(plain.videoDesign).toBeUndefined();
     expect((await source(plain.key)).status).toBe(404);
     expect((await compose(plain.key)).status).toBe(503);
 
     env.ai.video = true;
-    vi.spyOn(env.ai, "writePodcastVideo").mockRejectedValueOnce(new Error("model down"));
-    const failed = await (await route.POST(apiRequest("POST", "/api/v1/daily-podcasts", { token: env.tokens.alice, body: { day, language: "en", regenerate: true } }))).json();
-    expect(failed.podcast.video).toBeUndefined();
+    const spy = vi.spyOn(env.ai, "writePodcastVideo").mockRejectedValue(new Error("model down"));
+    const failed = (await (await route.POST(apiRequest("POST", "/api/v1/daily-podcasts", { token: env.tokens.alice, body: { day, language: "en", regenerate: true } }))).json()).podcast as DailyPodcast;
+    const afterFailure = await designed(failed.key);
+    expect(afterFailure.video).toBeUndefined();
+    // The app shows the failure until the next design starts.
+    expect(afterFailure.videoDesign?.error).toMatchObject({ code: "PODCAST_VIDEO_FAILED" });
+    spy.mockRestore();
 
     expect((await compose(plain.key, env.tokens.bob)).status).toBe(404);
     const composed = await compose(plain.key);
     expect(composed.status).toBe(200);
-    const updated = (await composed.json()).podcast as DailyPodcast;
+    const updated = await designed(plain.key);
     expect(updated.video?.id).toBeDefined();
     expect((await source(plain.key)).status).toBe(200);
+    // Retrying a failed design starts a new run.
+    expect((await (await compose(failed.key)).json()).podcast.videoDesign).toMatchObject({ percent: 10 });
+    expect((await designed(failed.key)).video?.id).toBeDefined();
   });
 
   it("uploads the device render, plays it through share links and drops it when the composition changes", async () => {
     env.ai.video = true;
     await chip("Volcanoes");
-    const podcast = await generate();
+    const podcast = await designed((await generate()).key);
     const videoId = podcast.video!.id;
     expect((await upload(podcast.key, { videoId: crypto.randomUUID(), byteSize: 10 })).status).toBe(409);
     expect((await upload(podcast.key, { videoId, byteSize: 0 })).status).toBe(400);
@@ -122,6 +159,7 @@ describe("podcast motion video", () => {
 
     // A rewritten composition makes the old render stale until it's re-rendered and published.
     await compose(podcast.key);
+    await env.runPodcastVideoDesigns();
     expect(env.store.objects.has(objectKey)).toBe(false);
     expect((await data()).videoPath).toBeNull();
     expect((await publicVideo.GET(apiRequest("GET", "/video"), params({ id }))).status).toBe(404);
@@ -165,42 +203,48 @@ describe("video generation stream", () => {
     return req;
   }
   const events = (text: string) => text.split("\n").filter(line => line.startsWith("data: ")).map(line => JSON.parse(line.slice(6)));
-  it("streams before design completes and shares work between observers", async () => {
+  /** Reads the stream until its design has started, runs the queued design and reads the rest. */
+  async function streamDesign(response: Response) {
+    const reader = response.body!.getReader();
+    let text = "";
+    while (!events(text).some(event => event.progress?.stage === "video-design" || event.type === "error")) {
+      text += new TextDecoder().decode((await reader.read()).value);
+    }
+    await env.runPodcastVideoDesigns();
+    while (true) { const next = await reader.read(); if (next.done) break; text += new TextDecoder().decode(next.value); }
+    return events(text);
+  }
+  it("streams the background design's progress until it ends and shares it between observers", async () => {
     await chip("Video stream");
-    const episode = await generate();
+    const created = await generate();
     env.ai.video = true;
-    const original = env.ai.writePodcastVideo.bind(env.ai);
-    let release!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const spy = vi.spyOn(env.ai, "writePodcastVideo").mockImplementation(async (...args) => { await gate; const result = await original(...args); (args[1] as import("@/lib/ai/podcast-video-agent").PodcastVideoOptions)?.onProgress?.(50); return result; });
-    const first = await videoRoute.POST(request(), params({ key: episode.key }));
+    const first = await videoRoute.POST(request(), params({ key: created.key }));
     expect(first.headers.get("content-type")).toContain("text/event-stream");
     const reader = first.body!.getReader();
     let text = "";
-    try {
-      while (!events(text).some(event => event.progress?.stage === "video-design")) {
-        text += new TextDecoder().decode((await reader.read()).value);
-      }
-      expect(events(text).some(event => event.type === "complete")).toBe(false);
-      const second = await videoRoute.POST(request(), params({ key: episode.key }));
-      release();
-      while (true) { const next = await reader.read(); if (next.done) break; text += new TextDecoder().decode(next.value); }
-      const result = events(text);
-      const other = events(await second.text());
-      expect(result.filter(event => event.type === "progress").map(event => event.progress.percent)).toEqual([0, 10, 50, 90, 100]);
-      expect(result.find(event => event.progress?.completedSteps === 1).progress.stage).toBe("video-design");
-      expect(result.at(-1).podcast.video.id).toBe(other.at(-1).podcast.video.id);
-      expect(other[0].progress.stage).toBe("video-design");
-      expect(spy).toHaveBeenCalledTimes(1);
-    } finally { release(); }
-  });
+    while (!events(text).some(event => event.progress?.stage === "video-design")) {
+      text += new TextDecoder().decode((await reader.read()).value);
+    }
+    expect(events(text).some(event => event.type === "complete")).toBe(false);
+    const second = await videoRoute.POST(request(), params({ key: created.key }));
+    await env.runPodcastVideoDesigns();
+    while (true) { const next = await reader.read(); if (next.done) break; text += new TextDecoder().decode(next.value); }
+    const result = events(text);
+    const other = events(await second.text());
+    expect(result[0].progress.percent).toBe(0);
+    expect(result.find(event => event.progress?.stage === "video-design").progress.percent).toBe(10);
+    expect(result.filter(event => event.type === "progress").at(-1).progress.percent).toBe(100);
+    expect(result.at(-1).podcast.video.id).toBe(other.at(-1).podcast.video.id);
+    expect(other[0].progress.stage).toBe("video-design");
+    expect(env.ai.calls.writePodcastVideo).toHaveLength(1);
+  }, 20_000);
   it.skipIf(!process.env.PODCAST_SIMULATION_URL)("streams completed agent steps through the real SDK over HTTP", async () => {
     await chip("HTTP video");
     const episode = await generate();
     env.ai.video = true;
     const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
-    vi.spyOn(env.ai as AiProvider, "writePodcastVideo").mockImplementation((input, options) => writePodcastVideo(gateway("fixture/video"), input, options));
-    const result = events(await (await videoRoute.POST(request(), params({ key: episode.key }))).text());
+    vi.spyOn(env.ai as AiProvider, "podcastVideoTurn").mockImplementation((input, draft, options) => podcastVideoTurn(gateway("fixture/video"), input, draft, options));
+    const result = await streamDesign(await videoRoute.POST(request(), params({ key: episode.key })));
     expect(result.some(event => event.progress?.stage === "video-design")).toBe(true);
     expect(result.at(-1).type).toBe("complete");
     expect(result.at(-1).podcast.video.id).toBeTruthy();
@@ -210,8 +254,8 @@ describe("video generation stream", () => {
     const episode = await generate();
     env.ai.video = true;
     vi.spyOn(env.ai, "writePodcastVideo").mockRejectedValue(new Error("Unavailable"));
-    const result = events(await (await videoRoute.POST(request(), params({ key: episode.key }))).text());
+    const result = await streamDesign(await videoRoute.POST(request(), params({ key: episode.key })));
     expect(result.at(-1)).toMatchObject({ type: "error", status: 502, error: { code: "PODCAST_VIDEO_FAILED" } });
     expect(result.some(event => event.type === "complete" || event.progress?.percent === 100)).toBe(false);
-  });
+  }, 20_000);
 });

@@ -13,6 +13,7 @@ struct PodcastVideoPublicationSheet: View {
     @State private var status: String?
     @State private var progress: Double?
     @State private var frameDetail: String?
+    @State private var transfer: MediaTransferProgress?
     @State private var error: String?
     @State private var success: String?
     @State private var taps = 0
@@ -74,6 +75,10 @@ struct PodcastVideoPublicationSheet: View {
                 if let progress { ProgressView(value: progress).frame(width: 180) }
                 else { ProgressView() }
                 Text(status)
+                if let transfer {
+                    Text(transfer.detail).monospacedDigit()
+                        .accessibilityIdentifier("podcast-upload-byte-progress")
+                }
                 if let frameDetail {
                     Text("Frames: \(frameDetail)").monospacedDigit()
                         .accessibilityIdentifier("podcast-video-frame-progress")
@@ -92,9 +97,9 @@ struct PodcastVideoPublicationSheet: View {
 
     private func run(_ label: String, action: @escaping @MainActor () async throws -> Void) {
         guard status == nil else { return }
-        status = label; success = nil; progress = nil; frameDetail = nil; taps += 1
+        status = label; success = nil; progress = nil; frameDetail = nil; transfer = nil; taps += 1
         operation = Task {
-            defer { status = nil; progress = nil; frameDetail = nil; operation = nil }
+            defer { status = nil; progress = nil; frameDetail = nil; transfer = nil; operation = nil }
             do { try await action() }
             catch is CancellationError {} catch { self.error = error.localizedDescription }
         }
@@ -109,8 +114,9 @@ struct PodcastVideoPublicationSheet: View {
         let url = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { value in
             progress = value.fraction
             frameDetail = value.frameDetail
+            transfer = value.transfer
             switch value.stage {
-            case .preparing: status = "Preparing video…"
+            case .preparing: status = value.transfer == nil ? "Preparing video…" : "Downloading podcast…"
             case .rendering: status = "Rendering video…"
             case .encoding: status = "Encoding video…"
             }
@@ -123,8 +129,13 @@ struct PodcastVideoPublicationSheet: View {
             guard let videoID = podcast.video?.id else { return }
             let url = try await render()
             try Task.checkCancellation()
-            status = "Uploading video…"; progress = nil
-            accept(try await api.publishPodcastVideo(podcast, videoId: videoID, fileURL: url))
+            status = "Uploading video…"; progress = nil; transfer = nil; frameDetail = nil
+            accept(try await api.publishPodcastVideo(podcast, videoId: videoID, fileURL: url) { value in
+                guard status == "Uploading video…" || status == "Finishing publication…" else { return }
+                transfer = value
+                progress = value.fraction
+                if value.fraction == 1 { status = "Finishing publication…" }
+            })
             success = "Video published"
         }
     }

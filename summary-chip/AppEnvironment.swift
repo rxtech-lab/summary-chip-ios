@@ -48,6 +48,7 @@ final class AppEnvironment {
     let credits = SummaryCreditsStore()
     var pendingTopUp = false
     private(set) var authenticationState: AuthenticationPresentationState
+    var backgroundJobsRequest: BackgroundJobsRequest?
     var pendingRoute: AppRoute?
     /// An item from a link sheet to open in the main navigation (Library) once the sheet closes.
     var pendingLibraryItem: Summary?

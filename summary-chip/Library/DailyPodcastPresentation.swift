@@ -52,6 +52,9 @@ struct DailyPodcastPresentation: ViewModifier {
             .alert("Couldn't Play Podcast", isPresented: Binding(get: { !player.isPresented && player.error != nil }, set: { if !$0 { player.error = nil } })) {
                 Button("OK", role: .cancel) { player.error = nil }
             } message: { Text(player.error ?? "") }
+            .onChange(of: environment.backgroundJobsRequest?.id) { _, request in
+                if request != nil { player.isPresented = false }
+            }
             .onDisappear { openingTask?.cancel(); podcastTask?.cancel() }
     }
 
@@ -177,4 +180,114 @@ struct DailyPodcastMiniPlayer: View {
     }
 
     private var artworkSize: CGFloat { inTabAccessory ? 32 : 44 }
+}
+
+struct PodcastVersionsSheet: View {
+    let api: SummaryAPIClient
+    let date: Date
+    /// A library podcast chip's versions instead of the day's.
+    let summaryID: String?
+    @Bindable var player: DailyPodcastPlayer
+    @Environment(\.dismiss) private var dismiss
+    @State private var versions: [PodcastVersion] = []
+    @State private var loading = true
+    @State private var busy = false
+    @State private var removing: DailyPodcast?
+    @State private var error: String?
+    @State private var successes = 0
+    @State private var status: String?
+    var body: some View {
+        NavigationStack {
+            List(versions) { version in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(version.podcast.title).font(.headline)
+                    Text(version.podcast.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                    if version.isDefault { Label("Default", systemImage: "checkmark.circle.fill").font(.caption) }
+                    HStack {
+                        Button("Play", systemImage: "play.fill") {
+                            player.replace(version.podcast); player.toggle(); dismiss()
+                        }
+                        if !version.isDefault {
+                            Button("Set as Default") { update(version.podcast, remove: false) }
+                                .font(.caption).fixedSize()
+                        }
+                        Spacer()
+                        // A podcast chip always keeps one version; deleting the chip removes it.
+                        if summaryID == nil || versions.count > 1 {
+                            Button("Remove", systemImage: "trash", role: .destructive) { removing = version.podcast }
+                                .labelStyle(.iconOnly)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                }
+                .padding(.vertical, 6)
+            }
+            .disabled(busy)
+            .overlay {
+                if loading || busy {
+                    ProgressView(busy ? "Updating podcasts…" : "Loading versions…")
+                        .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                } else if versions.isEmpty { ContentUnavailableView("No Versions", systemImage: "waveform") }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Podcast Versions")
+            .summaryInlineNavigationTitle()
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(busy).accessibilityIdentifier("podcast-versions-done") } }
+            .task { await reload(); loading = false }
+            .confirmationDialog("Remove this podcast version?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
+                Button("Remove Version", role: .destructive) {
+                    if let removing { update(removing, remove: true) }
+                    removing = nil
+                }
+            } message: { Text("Its share links and translations will stop working. If it is the default, another version will become the default.") }
+            .alert("Couldn't Update Podcasts", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+                Button("OK", role: .cancel) { error = nil }
+            } message: { Text(error ?? "") }
+            .overlay(alignment: .top) {
+                if let status {
+                    Label(status, systemImage: "checkmark.circle.fill")
+                        .padding().background(.regularMaterial, in: Capsule()).padding()
+                        .allowsHitTesting(false)
+                }
+            }
+            .interactiveDismissDisabled(busy)
+            .sensoryFeedback(.success, trigger: successes)
+            .sensoryFeedback(.error, trigger: error)
+        }
+        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
+    }
+    private func reload() async {
+        do { versions = try await loadVersions() }
+        catch { self.error = error.localizedDescription }
+    }
+    private func loadVersions() async throws -> [PodcastVersion] {
+        if let summaryID { return try await api.podcastVersions(summaryID: summaryID) }
+        return try await api.podcastVersions(date: date)
+    }
+    private func update(_ podcast: DailyPodcast, remove: Bool) {
+        busy = true
+        Task {
+            defer { busy = false }
+            do {
+                if remove { try await api.removePodcast(podcast, date: date) }
+                else { try await api.selectPodcast(podcast, date: date) }
+                versions = try await loadVersions()
+                if !remove {
+                    player.replace(podcast); player.toggle()
+                } else if player.podcast?.key == podcast.key {
+                    player.stop()
+                    if let next = versions.first(where: { $0.isDefault }) { player.replace(next.podcast) }
+                    else { player.podcast = nil }
+                }
+                successes += 1
+                status = remove ? "Version removed" : "Default updated"
+                Task { try? await Task.sleep(for: .seconds(2)); status = nil }
+            } catch { self.error = error.localizedDescription }
+        }
+    }
 }

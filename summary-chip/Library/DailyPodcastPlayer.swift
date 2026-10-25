@@ -14,6 +14,7 @@ final class DailyPodcastPlayer {
     var buffering = false
     var videoPlayer: AVPlayer?
     var videoProgress: PodcastMotionRenderer.Progress?
+    var transferProgress: MediaTransferProgress?
     var currentTime = 0.0
     var duration = 0.0
     var error: String?
@@ -27,6 +28,11 @@ final class DailyPodcastPlayer {
     @ObservationIgnored private var captionTimelines: [Int: PodcastCaptionTimeline] = [:]
     @ObservationIgnored private var audio: AVAudioPlayer?
     @ObservationIgnored private var task: Task<Void, Never>?
+    private(set) var interrupted = false
+    @ObservationIgnored private var resumeAfterInterruption = false
+    #if os(iOS)
+    @ObservationIgnored nonisolated(unsafe) private var interruptionObserver: NSObjectProtocol?
+    #endif
 
     private var usesPreviewPlayback: Bool {
         #if DEBUG
@@ -37,7 +43,31 @@ final class DailyPodcastPlayer {
         #endif
     }
 
-    init(api: SummaryAPIClient) { self.api = api }
+    init(api: SummaryAPIClient) {
+        self.api = api
+        #if os(iOS)
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+            let options = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt) ?? 0
+            MainActor.assumeIsolated {
+                switch type {
+                case .began: self?.beginInterruption()
+                case .ended: self?.endInterruption(shouldResume: AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume))
+                @unknown default: break
+                }
+            }
+        }
+        #endif
+    }
+
+    deinit {
+        #if os(iOS)
+        if let interruptionObserver { NotificationCenter.default.removeObserver(interruptionObserver) }
+        #endif
+    }
     var index: Int { podcast?.segmentIndex(at: currentTime) ?? 0 }
     var progress: Double { duration > 0 ? min(1, currentTime / duration) : 0 }
     var segment: DailyPodcast.Segment? {
@@ -126,7 +156,9 @@ final class DailyPodcastPlayer {
         duration = podcast.durationSeconds ?? 0
     }
     func toggle() {
-        if playing { playing = false; audio?.pause(); videoPlayer?.pause(); return }
+        if playing { pause(); return }
+        // Do not reactivate the session while another app or a call owns it.
+        if interrupted { resumeAfterInterruption.toggle(); return }
         if usesPreviewPlayback {
             if currentTime >= duration { seek(to: 0) }
             playing = true
@@ -145,6 +177,29 @@ final class DailyPodcastPlayer {
             if task == nil { loadAndPlay() }
         } catch { self.error = error.localizedDescription }
     }
+
+    func pause() {
+        resumeAfterInterruption = false
+        playing = false
+        audio?.pause()
+        videoPlayer?.pause()
+    }
+
+    func beginInterruption() {
+        guard !interrupted else { return }
+        let shouldResume = playing || audio?.isPlaying == true || (videoPlayer?.rate ?? 0) > 0
+        pause()
+        interrupted = true
+        resumeAfterInterruption = shouldResume
+    }
+
+    func endInterruption(shouldResume: Bool) {
+        guard interrupted else { return }
+        let resume = shouldResume && resumeAfterInterruption
+        interrupted = false
+        resumeAfterInterruption = false
+        if resume { toggle() }
+    }
     /// Loads a video episode into the player without starting it, so its native controls can play it.
     func prepareVideo() {
         guard podcast?.video != nil, videoPlayer == nil, task == nil, !usesPreviewPlayback else { return }
@@ -160,6 +215,7 @@ final class DailyPodcastPlayer {
     }
     func skip(_ seconds: Double) { seek(to: currentTime + seconds) }
     func stop() {
+        resumeAfterInterruption = false
         task?.cancel()
         task = nil
         audio?.stop()
@@ -167,6 +223,7 @@ final class DailyPodcastPlayer {
         videoPlayer?.pause()
         videoPlayer = nil
         videoProgress = nil
+        transferProgress = nil
         playing = false
         buffering = false
         #if os(iOS)
@@ -203,6 +260,7 @@ final class DailyPodcastPlayer {
         let url = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { [weak self] in self?.videoProgress = $0 }
         try Task.checkCancellation()
         let movie = AVPlayer(url: url)
+        movie.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
         videoPlayer = movie
         await movie.seek(to: CMTime(seconds: currentTime, preferredTimescale: 600))
         buffering = false
@@ -214,7 +272,7 @@ final class DailyPodcastPlayer {
             let time = movie.currentTime().seconds
             if time.isFinite { currentTime = time }
             if let length = movie.currentItem?.duration.seconds, length.isFinite, length != duration { duration = length }
-            if playing != (movie.rate > 0) { playing = movie.rate > 0 }
+            if !interrupted, playing != (movie.rate > 0) { playing = movie.rate > 0 }
         }
     }
 
@@ -228,7 +286,10 @@ final class DailyPodcastPlayer {
                 }
                 if audio == nil {
                     buffering = true
-                    let data = try await api.dailyPodcastAudio(podcast)
+                    let data = try await api.dailyPodcastAudio(podcast) { [weak self] value in
+                        guard self?.buffering == true else { return }
+                        self?.transferProgress = value
+                    }
                     try Task.checkCancellation()
                     let player = try AVAudioPlayer(data: data)
                     guard player.duration > 0 else { throw SummaryAPIError.invalidResponse }

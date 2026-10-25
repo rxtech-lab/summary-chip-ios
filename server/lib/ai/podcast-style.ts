@@ -1,0 +1,2 @@
+/** Shared writing guidance for original and translated podcast speech. */
+export const PODCAST_SPEECH_STYLE = `State facts and explanations directly in natural spoken language. Avoid rhetorical negation-and-reframing constructions such as 不代表……而是……, 不是……而是……, 並非……而是……, 并非……而是……, 不只是……更是……, and equivalent "not X, but Y" or "this is not about X; it is about Y" phrasing in any language. Rewrite these as direct affirmative statements, preserving factual qualifications and uncertainty without inventing an opposing claim.`;

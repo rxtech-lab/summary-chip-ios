@@ -3,14 +3,10 @@ name: Screenshots
 # Captures the app's main screens (library, chat with a rendered view, a trip with trains, a flight,
 # days and a json-render view, Likes, a LaTeX paper with its reader and reviews, a Clip with its own tabs, the MCP server and
 # deep links), each reached in the app itself, on iPhone (portrait) and iPad (landscape) for
-# every PR, records each device's screen while it runs, uploads both as workflow artifacts, keeps
-# one PR comment listing the screenshots for review, and sends the screenshots and recordings to
-# Telegram (when the TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID secrets are set) for review on a phone. A new push flips the
-# comment back to "capturing" before the devices start, so the images on the PR are never mistaken
-# for the latest commit's.
+# manually dispatched runs, records each device's screen while it runs, uploads both as workflow
+# artifacts, and sends the screenshots and recordings to Telegram (when the TELEGRAM_BOT_TOKEN
+# and TELEGRAM_CHAT_ID secrets are set) for review on a phone.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:

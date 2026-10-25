@@ -25,6 +25,8 @@ export const createDailyPodcastSchema = z.object({
   day: podcastDaySchema,
   language: z.enum(TRANSLATION_LANGUAGES),
   regenerate: z.boolean().default(false),
+  /** Ordered host names; omission lets the model choose. */
+  speakerNames: z.array(z.string().trim().min(1).max(40)).min(1).max(4).optional(),
   /** Omitted means all eligible chips. An explicit empty selection is invalid. */
   chipIds: z.array(z.string().min(1)).min(1).optional(),
   /** Library episodes may use chips from any day and never replace a daily default. */
@@ -83,6 +85,8 @@ export interface DailyPodcast extends PodcastScript {
   music?: boolean;
   /** The agent-written motion video, rendered on device; `published` is the uploaded render shared links play. */
   video?: PodcastVideoSummary;
+  /** A background run designing a new composition; absent when none is working on the episode. */
+  videoDesign?: PodcastVideoDesign;
   segments: (PodcastScript["segments"][number] & { audioPath?: string; startSeconds?: number; endSeconds?: number;
     /** When the voice is audible within the turn, and its pauses, all in episode seconds; captions are timed against these. */
     captionCues?: { text: string; startSeconds: number; endSeconds: number }[];
@@ -99,6 +103,22 @@ export interface PodcastVideoSummary {
   id: string;
   createdAt: string;
   published?: { videoId: string; byteSize: number; publishedAt: string };
+}
+/**
+ * A background video design (`workflows/design-podcast-video.ts`). It is removed when the new composition
+ * is saved (then `video` changes) and kept with `error` when the run failed, until the next design starts.
+ * The app polls the episode while it is present and renders on device once `video` arrives.
+ */
+export interface PodcastVideoDesign {
+  id: string;
+  startedAt: string;
+  /** When the run last saved a turn; a run silent for long has stopped and can be replaced. */
+  updatedAt: string;
+  /** Work-weighted estimate within the design stage, like the streamed `video-design` progress. */
+  percent: number;
+  /** The translation that gets the new composition's labels when the design finishes. */
+  language?: string;
+  error?: { code: string; message: string };
 }
 /** `GET /api/v1/daily-podcasts/:key/video`: everything the app needs to render on device. */
 export interface PodcastVideoSource {
@@ -127,8 +147,9 @@ export const createPodcastTranslationSchema = z.object({
   /** Translate the video's labels too when the episode has a video (default true). */
   includeVideo: z.boolean().optional(),
 }).strict();
-/** `POST /api/v1/daily-podcasts/:key/video`: writes a new composition, replacing the previous one.
- * With a translation `language`, that translation gets the current composition with translated labels. */
+/** `POST /api/v1/daily-podcasts/:key/video`: designs a new composition in the background, replacing the
+ * previous one when it is saved; the response's `videoDesign` reports it. With a translation `language`,
+ * that translation gets the current composition with translated labels (designed first when there is none). */
 export const createPodcastVideoSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema.optional() }).strict();
 /** `POST /api/v1/daily-podcasts/:key/video/upload`: a presigned PUT for the rendered MP4. */
 export const podcastVideoUploadSchema = z.object({
@@ -153,3 +174,14 @@ export type PodcastGenerationEvent =
   | { type: "progress"; progress: PodcastProgress }
   | { type: "complete"; podcast: DailyPodcast }
   | { type: "error"; status: number; error: { code: string; message: string; requestId: string } };
+
+/** AI-written companion article. Segment references resolve against this language's recording. */
+export const podcastArticleSchema = z.object({
+  description: z.string().trim().min(1).max(300),
+  sections: z.array(z.object({
+    heading: z.string().trim().min(1).max(160),
+    paragraphs: z.array(z.string().trim().min(1).max(2000)).min(1).max(5),
+    segmentIndex: z.number().int().nonnegative(),
+  })).min(1).max(20),
+});
+export type PodcastArticle = z.infer<typeof podcastArticleSchema>;

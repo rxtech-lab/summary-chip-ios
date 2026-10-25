@@ -210,6 +210,7 @@ targets:
         <<: *configInfo
         SummaryChipPushEnvironment: $(SUMMARY_CHIP_PUSH_ENVIRONMENT)
         NSLocationWhenInUseUsageDescription: Chippy shows where you are on your trip map and opens the diary on the day you're at.
+        NSPhotoLibraryAddUsageDescription: Chippy saves podcast videos to your photo library when you choose Photos.
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true
         NSCalendarsFullAccessUsageDescription: Chippy adds your trip's travel and hotel stays to your calendar and keeps them up to date when the trip changes.
@@ -221,6 +222,7 @@ targets:
             CFBundleURLSchemes: [summarychip]
         LSApplicationCategoryType: public.app-category.productivity
         UILaunchScreen: {}
+        UIBackgroundModes: [audio]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
         UISupportedInterfaceOrientations:
