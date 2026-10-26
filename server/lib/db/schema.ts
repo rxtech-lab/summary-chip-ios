@@ -744,6 +744,15 @@ export const headlineRankings = sqliteTable("headline_rankings", {
   scores: text("scores", { mode: "json" }).$type<Record<string, number>>().notNull(),
 });
 
+/** Per-chip editorial decisions survive the rolling headline window. */
+export const editorialScores = sqliteTable("editorial_scores", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  score: integer("score").notNull(),
+  isEditorsPick: integer("is_editors_pick", { mode: "boolean" }).notNull(),
+  rankedAt: integer("ranked_at", { mode: "timestamp_ms" }).notNull(),
+}, (table) => [index("editorial_scores_owner_pick_idx").on(table.ownerId, table.isEditorsPick)]);
+
 export const podcastDrafts = sqliteTable("podcast_drafts", {
   key: text("key").primaryKey().references(() => podcastEpisodes.key, { onDelete: "cascade" }),
   revision: integer("revision").notNull().default(0),

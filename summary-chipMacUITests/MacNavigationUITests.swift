@@ -46,7 +46,8 @@ nonisolated final class MacNavigationUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10))
 
-        app.buttons["open-search"].click()
+        app.descendants(matching: .any)["library-actions"].firstMatch.click()
+        app.menuItems["Search"].click()
         XCTAssertTrue(app.textFields["search-input"].waitForExistence(timeout: 5))
         app.textFields["search-input"].typeText("summary")
         app.buttons["close-search"].click()
@@ -72,6 +73,48 @@ nonisolated final class MacNavigationUITests: XCTestCase {
         app.buttons["CancelButton"].click()
         app.buttons["Cancel"].click()
         XCTAssertFalse(app.textFields["new-summary-input"].exists)
+    }
+
+    @MainActor
+    func testLibraryMenuAndScrollPositionAfterDetail() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "--preview-paged-feed", "-chatPanelVisible", "NO", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        let actions = app.descendants(matching: .any)["library-actions"].firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["background-jobs-toolbar"].exists)
+        actions.click()
+        XCTAssertTrue(app.menuItems["Search"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.menuItems["Filter"].exists)
+        XCTAssertTrue(app.menuItems["Background Jobs"].exists)
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        let feed = app.scrollViews["summary-card-feed"]
+        let card = app.descendants(matching: .any)["summary-card-scroll-24"].firstMatch
+        for _ in 0..<20 {
+            if card.exists && card.isHittable { break }
+            feed.scroll(byDeltaX: 0, deltaY: -450)
+        }
+        XCTAssertTrue(card.exists && card.isHittable, app.debugDescription)
+        for _ in 0..<2 {
+            let previousY = card.frame.minY
+            card.click()
+            XCTAssertTrue(app.buttons["summary-like"].firstMatch.waitForExistence(timeout: 5))
+            let back = app.buttons.matching(NSPredicate(format: "identifier == 'BackButton' OR label IN %@", ["Back", "Go Back"])).firstMatch
+            if back.exists { back.click() } else { app.typeKey("[", modifierFlags: .command) }
+            XCTAssertTrue(actions.waitForExistence(timeout: 5))
+            let returned = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            returned.name = "mac-returned-feed"
+            returned.lifetime = .keepAlways
+            add(returned)
+            XCTAssertTrue(card.exists)
+            XCTAssertEqual(card.frame.minY, previousY, accuracy: 12, app.debugDescription)
+            XCTAssertTrue(card.isHittable)
+        }
+        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        attachment.name = "mac-feed-position-after-return"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor

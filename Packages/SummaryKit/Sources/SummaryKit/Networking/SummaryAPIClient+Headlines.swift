@@ -14,6 +14,8 @@ public struct EditorialHeadlines: Codable, Sendable {
     public let pending: Bool
     public let items: [EditorialHeadline]
     public let highlighted: EditorialHeadline?
+    /// Persisted picks across all days; optional for compatibility with older servers.
+    public let editorPickIDs: [String]?
 }
 
 extension SummaryAPIClient {

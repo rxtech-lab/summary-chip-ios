@@ -78,7 +78,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
                  highlights: ["Main-actor-by-default removes most Sendable warnings.", "`@concurrent` marks work that should leave the main actor."],
                  category: "Technology", tags: ["swift", "concurrency"], source: "github", sourceUrl: "https://github.com/swiftlang/swift", siteName: "GitHub",
                  colors: ["#BF360C", "#FF7043"], emoji: "🕊️", accent: "#ff8a65", isOwner: true,
-                 expiresAt: now.addingTimeInterval(25 * day), createdAt: now.addingTimeInterval(-26 * 3600)),
+                 expiresAt: now.addingTimeInterval(25 * day), createdAt: now.addingTimeInterval(ProcessInfo.processInfo.arguments.contains("--preview-editor-picks") ? -4 * 3600 : -26 * 3600)),
             Item(id: "s-sourdough", slug: "S0urD0ugh1", title: "The science of a better sourdough crumb",
                  summary: "Hydration, fermentation time and oven steam decide how open a loaf's crumb gets; a cold overnight proof gives bakers the most control.",
                  highlights: ["75% hydration is a forgiving starting point.", "A cold proof slows fermentation and deepens flavour."],
@@ -107,6 +107,16 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
                  colors: ["#263238", "#78909C"], emoji: "📄", accent: "#90a4ae", isOwner: true,
                  expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-5 * 3600)),
         ]
+        if ProcessInfo.processInfo.arguments.contains("--preview-paged-feed"), let template = items.first(where: { $0.id == "s-coffee" }) {
+            for index in 0..<40 {
+                var item = template
+                item.id = "scroll-\(index)"
+                item.slug = "Scroll\(index)"
+                item.title = "Scroll position chip \(index)"
+                item.createdAt = now.addingTimeInterval(-Double(index + 6) * 3600)
+                items.append(item)
+            }
+        }
         likes = ["s-solar": now.addingTimeInterval(-5 * day), "s-coffee": now.addingTimeInterval(-2 * 3600)]
     }
 
@@ -128,6 +138,10 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         guard parts.count >= 3, parts[0] == "api", parts[1] == "v1" else { return notFound }
         let path = Array(parts.dropFirst(2))
+        if path == ["summaries", "headlines"], method == "GET" {
+            let picks = ProcessInfo.processInfo.arguments.contains("--preview-editor-picks") ? ["s-coffee", "s-swift", "s-sourdough"] : []
+            return json(["generatedAt": NSNull(), "pending": false, "items": [], "highlighted": NSNull(), "editorPickIDs": picks])
+        }
         return routeResource(request, path: path, method: method, query: query)
     }
 
@@ -534,6 +548,12 @@ private extension LikesPreviewStore {
             (liked ? likes[item.id] != nil : !item.isExpired && (item.isOwner || viewed.contains(item.id)))
         }
         .sorted { sortDate($0, liked: liked) > sortDate($1, liked: liked) }
+        if ProcessInfo.processInfo.arguments.contains("--preview-paged-feed") {
+            let offset = query.first { $0.name == "cursor" }?.value.flatMap(Int.init) ?? 0
+            let page = Array(listed.dropFirst(offset).prefix(20))
+            let next = offset + page.count
+            return json(["items": page.map(summary), "nextCursor": next < listed.count ? String(next) as Any : NSNull()])
+        }
         return json(["items": listed.map(summary), "nextCursor": NSNull()])
     }
 
