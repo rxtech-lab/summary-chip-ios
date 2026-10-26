@@ -1,8 +1,11 @@
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { z } from "zod";
+import { addDays, isTimeZone, localParts, zonedTime } from "@/lib/weather/schedule";
+import { decodeCursor, encodeCursor } from "./search";
+import { and, asc, desc, eq, gte, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import type { Category, TranslationLanguage } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
+import { editorialScores, pushDevices, summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
 import { siteNameFor } from "@/lib/extract/platforms";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { embedQuery } from "./embeddings";
@@ -95,6 +98,46 @@ function toResult(row: SummaryRow, viewedAt?: Date): ChatSearchResult {
     createdAt: row.createdAt.toISOString(),
     ...(viewedAt ? { viewedAt: viewedAt.toISOString() } : {}),
   };
+}
+
+/** Calendar-day picks use creation dates, matching the Feed and widget, not ranking timestamps. */
+export const editorsPicksInputSchema = z.object({
+  date: z.union([z.iso.date(), z.enum(["today", "yesterday"])]).default("today")
+    .describe("Chip creation day: YYYY-MM-DD, today or yesterday in the requested/device time zone."),
+  timeZone: z.string().max(64).refine(isTimeZone, "Use a valid IANA time zone").optional()
+    .describe("Optional IANA time zone; defaults to the most recent device time zone, then UTC."),
+  limit: z.number().int().min(1).max(50).default(20),
+  cursor: z.string().max(200).optional().describe("nextCursor from the same date/timeZone query; omit on the first call."),
+});
+
+export async function listEditorsPicksForChat(db: Database, userId: string,
+  input: z.input<typeof editorsPicksInputSchema>, now = new Date()) {
+  const query = editorsPicksInputSchema.parse(input);
+  let timeZone = query.timeZone;
+  if (!timeZone) {
+    const [device] = await db.select({ timeZone: pushDevices.timeZone }).from(pushDevices)
+      .where(and(eq(pushDevices.ownerId, userId), isNotNull(pushDevices.timeZone)))
+      .orderBy(desc(pushDevices.updatedAt)).limit(1);
+    timeZone = device?.timeZone && isTimeZone(device.timeZone) ? device.timeZone : "UTC";
+  }
+  const today = localParts(now.getTime(), timeZone).date;
+  const date = query.date === "today" ? today : query.date === "yesterday" ? addDays(today, -1) : query.date;
+  const start = new Date(zonedTime(date, 0, timeZone));
+  const end = new Date(zonedTime(addDays(date, 1), 0, timeZone));
+  const conditions = [eq(summaries.ownerId, userId), eq(editorialScores.ownerId, userId),
+    eq(editorialScores.isEditorsPick, true), inArray(summaries.kind, ["summary", "podcast"]),
+    gte(summaries.createdAt, start), lt(summaries.createdAt, end)];
+  const cursor = decodeCursor(query.cursor);
+  if (cursor) conditions.push(or(lt(summaries.createdAt, cursor.time),
+    and(eq(summaries.createdAt, cursor.time), lt(summaries.id, cursor.id)))!);
+  const rows = await db.select({ summary: summaries, score: editorialScores.score }).from(summaries)
+    .innerJoin(editorialScores, eq(editorialScores.summaryId, summaries.id))
+    .where(and(...conditions)).orderBy(desc(summaries.createdAt), desc(summaries.id)).limit(query.limit + 1);
+  const page = rows.slice(0, query.limit);
+  const last = page.at(-1);
+  return { date, timeZone, dateBasis: "createdAt", decision: "current saved editorial picks",
+    results: page.map(({ summary, score }) => ({ ...toResult(summary), score })),
+    nextCursor: rows.length > query.limit && last ? encodeCursor(last.summary.createdAt, last.summary.id) : null };
 }
 
 /**

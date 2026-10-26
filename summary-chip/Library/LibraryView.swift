@@ -226,6 +226,11 @@ struct LibraryView: View {
             .pickerStyle(.menu)
             .accessibilityIdentifier("library-filter-source")
 
+            if model.kind == nil || model.kind == .summary || model.kind == .podcast {
+                Toggle("Editor’s Pick", isOn: filterBinding(\.editorsPick))
+                    .accessibilityIdentifier("library-filter-editors-pick")
+            }
+
             Divider()
 
             Button {

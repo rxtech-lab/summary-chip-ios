@@ -31,6 +31,14 @@ import Testing
         #expect(events[7] == .done)
     }
 
+    @Test func editorialPickToolShowsDateAndCards() throws {
+        let input = JSONValue.object(["date": .string("2026-10-25"), "timeZone": .string("Asia/Hong_Kong")])
+        #expect(ChatToolOutput.detail(toolName: "listEditorsPicks", input: input) == "2026-10-25 · Asia/Hong_Kong")
+        #expect(ChatToolOutput.activityLabel(toolName: "listEditorsPicks", input: input) == "Finding Editor’s Picks…")
+        let output = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"date":"2026-10-25","results":[{"id":"pick","slug":"p","title":"Pick","summary":"Saved pick","score":70}]}"#.utf8))
+        #expect(ChatToolOutput.references(from: output).first?.id == "pick")
+    }
+
     @Test func handlesErrorsAndOddLines() {
         #expect(parser.parse(line: #"data: {"type":"error","errorText":"boom"}"#) == .error("boom"))
         #expect(parser.parse(line: #"data:{"type":"finish"}"#) == .finish)

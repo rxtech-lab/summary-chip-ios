@@ -28,6 +28,7 @@ private struct PodcastVideoTicket: Decodable {
     var method: String
     var headers: [String: String]
 }
+private struct PodcastVideoDownload: Decodable { var videoId: String; var downloadUrl: URL }
 
 extension SummaryAPIClient {
     static func isPodcastVideoPath(_ path: String?) -> Bool {
@@ -64,6 +65,31 @@ extension SummaryAPIClient {
     public func podcastVideoSource(_ podcast: DailyPodcast) async throws -> PodcastVideoSource {
         let envelope: PodcastVideoEnvelope = try await send(request(videoPath(podcast), query: try videoQuery(podcast)))
         return envelope.video
+    }
+
+    /// Downloads the published MP4 to a temporary file. The caller moves it into its video cache.
+    /// Only the ticket request uses the account token; storage uses its short-lived signed URL.
+    public func downloadPublishedPodcastVideo(_ podcast: DailyPodcast, onProgress: MediaTransferProgress.Handler? = nil) async throws -> URL {
+        guard let video = podcast.video, video.isPublished else { throw SummaryAPIError.invalidResponse }
+        let ticket: PodcastVideoDownload = try await send(request(videoPath(podcast, "/publication"), query: try videoQuery(podcast)))
+        guard ticket.videoId == video.id else { throw SummaryAPIError.invalidResponse }
+        var download = URLRequest(url: ticket.downloadUrl)
+        download.timeoutInterval = 600
+        await onProgress?(.init(completedBytes: 0, totalBytes: video.published.map { Int64($0.byteSize) }))
+        let delegate = onProgress.map { MediaTransferDelegate($0) }
+        let (file, response) = try await session.download(for: download, delegate: delegate)
+        do {
+            guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
+            guard http.statusCode == 200 else { throw SummaryAPIError.http(status: http.statusCode) }
+            let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size > 0, size == video.published?.byteSize else { throw SummaryAPIError.invalidResponse }
+            try Task.checkCancellation()
+            await onProgress?(.init(completedBytes: Int64(size), totalBytes: Int64(size)))
+            return file
+        } catch {
+            try? FileManager.default.removeItem(at: file)
+            throw error
+        }
     }
 
     /// Starts designing a new composition on the server (spends points when it finishes). Returns at once

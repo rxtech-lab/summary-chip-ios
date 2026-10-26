@@ -89,6 +89,18 @@ struct OfflineSummaryStoreTests {
         #expect(store.summaries.map(\.id) == ["clip"])
     }
 
+    @Test func filtersSavedEditorialPicks() {
+        let store = OfflineSummaryStore(fileURL: nil)
+        store.upsert([summary("pick", daysAgo: 2, tags: ["swift"]), summary("plain", daysAgo: 1),
+                      summary("theirs", daysAgo: 3, isOwner: false)])
+        let query = SummaryListQuery(editorsPick: true)
+        #expect(query.queryItems == [URLQueryItem(name: "editorsPick", value: "true")])
+        #expect(!SummaryListQuery().queryItems.contains { $0.name == "editorsPick" })
+        #expect(store.summaries(matching: query, editorPickIDs: ["pick", "theirs"]).map(\.id) == ["pick"])
+        #expect(store.summaries(matching: query).isEmpty)
+        #expect(store.summaries(matching: .init(tag: "missing", editorsPick: true), editorPickIDs: ["pick"]).isEmpty)
+    }
+
     @Test func removeAndClear() async throws {
         let url = makeURL()
         let store = OfflineSummaryStore(fileURL: url)

@@ -37,6 +37,7 @@ async function generate(includeVideo?: boolean): Promise<DailyPodcast> {
 }
 const query = `?${new URLSearchParams(day)}`;
 const source = (key: string, token = env.tokens.alice) => videoRoute.GET(apiRequest("GET", `/video${query}`, { token }), params({ key }));
+const download = (key: string, token?: string) => publicationRoute.GET(apiRequest("GET", `/publication${query}`, { token }), params({ key }));
 const compose = (key: string, token = env.tokens.alice) => videoRoute.POST(apiRequest("POST", "/video", { token, body: { day } }), params({ key }));
 const upload = (key: string, body: object) => uploadRoute.POST(apiRequest("POST", "/upload", { token: env.tokens.alice, body: { day, ...body } }), params({ key }));
 const publish = (key: string, videoId: string) => publicationRoute.POST(apiRequest("POST", "/publication", { token: env.tokens.alice, body: { day, videoId } }), params({ key }));
@@ -135,6 +136,8 @@ describe("podcast motion video", () => {
     await chip("Volcanoes");
     const podcast = await designed((await generate()).key);
     const videoId = podcast.video!.id;
+    expect((await download(podcast.key)).status).toBe(401);
+    expect((await download(podcast.key, env.tokens.alice)).status).toBe(404);
     expect((await upload(podcast.key, { videoId: crypto.randomUUID(), byteSize: 10 })).status).toBe(409);
     expect((await upload(podcast.key, { videoId, byteSize: 0 })).status).toBe(400);
     const signed = await upload(podcast.key, { videoId, byteSize: 4 });
@@ -147,6 +150,13 @@ describe("podcast motion video", () => {
     const published = await publish(podcast.key, videoId);
     expect(published.status).toBe(200);
     expect((await published.json()).podcast.video.published).toMatchObject({ videoId, byteSize: 4 });
+
+    // Owners can reuse the published MP4 without making a public share link.
+    const ownerDownload = await download(podcast.key, env.tokens.alice);
+    expect(ownerDownload.status).toBe(200);
+    expect(ownerDownload.headers.get("cache-control")).toContain("no-store");
+    expect(await ownerDownload.json()).toMatchObject({ videoId, downloadUrl: expect.stringContaining(encodeURIComponent(objectKey)) });
+    expect((await download(podcast.key, env.tokens.bob)).status).toBe(404);
 
     const link = await (await linksRoute.POST(apiRequest("POST", "/links", { token: env.tokens.alice, body: { day } }), params({ key: podcast.key }))).json();
     const id = new URL(link.url).pathname.split("/").at(-1)!;
@@ -161,6 +171,7 @@ describe("podcast motion video", () => {
     await compose(podcast.key);
     await env.runPodcastVideoDesigns();
     expect(env.store.objects.has(objectKey)).toBe(false);
+    expect((await download(podcast.key, env.tokens.alice)).status).toBe(404);
     expect((await data()).videoPath).toBeNull();
     expect((await publicVideo.GET(apiRequest("GET", "/video"), params({ id }))).status).toBe(404);
     expect((await publish(podcast.key, videoId)).status).toBe(409);

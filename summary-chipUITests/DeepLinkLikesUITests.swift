@@ -68,15 +68,20 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         } else {
             app.tabBars.buttons["Likes"].tap()
         }
-        let expiredBadge = app.descendants(matching: .any)["expired-badge"].firstMatch
         XCTAssertTrue(app.descendants(matching: .any)["likes-feed"].waitForExistence(timeout: 10))
         sleep(2)
         capture(app, name: "06-likes-with-expired")
         XCTAssertTrue(app.staticTexts["Night trains are making a comeback across Europe"].waitForExistence(timeout: 5))
 
-        let expiredCard = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "balcony solar")).firstMatch
-        XCTAssertTrue(expiredCard.exists || expiredBadge.exists)
-        (expiredCard.exists ? expiredCard : expiredBadge).tap()
+        // Older likes are in a separate date section below the newly starred cards. Lazy
+        // sections need to scroll into view before their accessibility elements exist.
+        let expiredCard = app.buttons["summary-card-s-solar"].firstMatch
+        for _ in 0..<8 {
+            if expiredCard.exists && expiredCard.isHittable { break }
+            app.scrollViews.firstMatch.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(expiredCard.exists && expiredCard.isHittable, "Expected the expired chip in Likes")
+        expiredCard.tap()
         XCTAssertTrue(app.staticTexts["Link Expired"].waitForExistence(timeout: 5))
         capture(app, name: "07-expired-like")
     }

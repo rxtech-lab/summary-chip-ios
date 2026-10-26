@@ -121,6 +121,11 @@ describe("podcast translations", () => {
     const published = await publicationRoute.POST(apiRequest("POST", "/publication", { token: env.tokens.alice, body: { day, videoId, language: "ja" } }), params({ key: original.key }));
     expect(published.status).toBe(200);
     expect((await published.json()).podcast).toMatchObject({ language: "ja", video: { published: { videoId } } });
+    const ownerDownload = (language: string) => publicationRoute.GET(apiRequest("GET",
+      `/publication?${new URLSearchParams({ ...day, language })}`, { token: env.tokens.alice }), params({ key: original.key }));
+    expect(await (await ownerDownload("ja")).json()).toMatchObject({ videoId, downloadUrl: expect.stringContaining(encodeURIComponent(objectKey)) });
+    expect((await ownerDownload("en")).status).toBe(404);
+    expect((await ownerDownload("fr")).status).toBe(404);
     expect((await (await episode(original.key)).json()).podcast.video.published).toBeUndefined();
 
     const link = await (await linksRoute.POST(apiRequest("POST", "/links", { token: env.tokens.alice, body: { day } }), params({ key: original.key }))).json();

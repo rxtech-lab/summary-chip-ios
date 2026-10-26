@@ -392,43 +392,72 @@ public struct SummaryTileView: View {
             .accessibilityIdentifier("summary-editors-pick")
     }
 
+    private var timeRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 8) {
+                KindBadge(kind: summary.kind)
+                dateRow
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 6) {
+                KindBadge(kind: summary.kind)
+                dateRow
+            }
+        }
+        .font(.subheadline.weight(.medium))
+    }
+
+    private var dateRow: some View {
+        HStack(alignment: .top, spacing: 4) {
+            if dateKind == .viewed {
+                Image(systemName: "eye.fill").imageScale(.small)
+            } else if dateKind == .liked {
+                Image(systemName: "star.fill").imageScale(.small)
+            }
+            Text(stamp).lineLimit(1)
+                .accessibilityHidden(true)
+            TranslationBadge(summary: summary)
+                .padding(.leading, 4)
+        }
+    }
+
+    private var sourceLabel: some View {
+        Label {
+            Text(summary.sourceLabel)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            summary.source.image
+                .imageScale(.small)
+        }
+        .labelStyle(.titleAndIcon)
+        .font(.caption.weight(.medium))
+        .lineLimit(nil)
+        .multilineTextAlignment(.leading)
+        .help(summary.sourceLabel)
+        .accessibilityIdentifier("summary-tile-source")
+    }
+
     private func header(ink: Color, secondary: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if isEditorsPick {
                 editorsPickBadge
             }
-            HStack(spacing: 4) {
-                if let badge = KindBadge(kind: summary.kind) {
-                    badge
-                        .padding(.trailing, 4)
-                }
-                if dateKind == .viewed {
-                    Image(systemName: "eye.fill").imageScale(.small)
-                } else if dateKind == .liked {
-                    Image(systemName: "star.fill").imageScale(.small)
-                }
-                Text(stamp).lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityHidden(true)
-                TranslationBadge(summary: summary)
-                    .padding(.leading, 4)
-                if summary.kind == .summary {
-                    Spacer(minLength: 6)
-                    Label {
-                        Text(summary.sourceLabel)
-                            .truncationMode(.tail)
-                    } icon: {
-                        summary.source.image
-                            .imageScale(.small)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 6) {
+                    timeRow
+                    if summary.kind == .summary {
+                        Spacer(minLength: 0)
+                        sourceLabel
+                            .fixedSize(horizontal: true, vertical: true)
                     }
-                    .labelStyle(.titleAndIcon)
-                    .font(.caption.weight(.medium))
-                    .lineLimit(1)
-                    .help(summary.sourceLabel)
-                    .accessibilityIdentifier("summary-tile-source")
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    timeRow
+                    if summary.kind == .summary {
+                        sourceLabel
+                    }
                 }
             }
-            .font(.subheadline.weight(.medium))
             .foregroundStyle(secondary)
 
             Text(summary.title)

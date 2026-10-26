@@ -131,6 +131,15 @@ Publish Video renders if needed, uploads the MP4 using an authenticated presigne
 
 The owner video API is under `/api/v1/daily-podcasts/:key/video`: GET reads composition source with the saved day boundaries; POST creates a replacement; POST `/upload` issues a ticket for the current `videoId` and `byteSize`; POST `/publication` confirms it; DELETE `/publication` removes it. Stale design IDs return 409. Public video requests validate the share link and source access before issuing a storage redirect; the resulting URL remains valid for up to one hour, including after link revocation.
 
+`GET /video/publication?start&end&language=xx` authenticates the owner and returns
+`{videoId, downloadUrl}` for the current published composition, with `Cache-Control: no-store`.
+The signed URL lasts one hour. Missing publications, replaced compositions, foreign episodes
+and missing translations return 404; no public share link is required. Native playback and
+video exports reuse a cached MP4 first, otherwise download the matching published MP4 to
+that cache, and render on device only when no current publication exists. The client checks
+the video ID and downloaded byte size. Download errors are surfaced without starting a render.
+Deploy the server endpoint before releasing the updated app.
+
 Local validation for the motion-video integration includes eight server lifecycle/agent tests with deterministic providers and a native one-second render test on macOS and iOS Simulator. The native check verifies one audio track, one video track, duration, dimensions and changing frames. It caught an iOS viewport mismatch, fixed by keeping the WebView as a sized child of the window controller and declaring a mobile viewport. These checks do not establish live model quality, physical-device render performance or production uploads.
 
 ### Live generation progress
@@ -245,7 +254,7 @@ Every owner read that returns an episode presents one language. The response's `
 
 - `POST /api/v1/daily-podcasts/:key/translations` with `{day, language, includeVideo?}` translates the episode and returns `{podcast}` in that language. It supports the SSE progress envelope, with an extra `translating` stage (5%). An existing translation is returned without AI or points. Translating into the original language returns 422 `PODCAST_TRANSLATION_SAME`. Failure returns 502 `PODCAST_TRANSLATION_FAILED` and leaves the episode unchanged. Concurrent requests for the same episode and language share one translation in the server process.
 - `DELETE /api/v1/daily-podcasts/:key/translations/:language?start&end` removes the translation's recording, composition and published render, and returns the episode in its original language.
-- The video endpoints (`GET`/`POST /video`, `POST /video/upload`, `POST`/`DELETE /video/publication`) act on the requested language's composition and render. `POST /video` with a translation `language` translates the current original composition (designing one first when missing).
+- The video endpoints (`GET`/`POST /video`, `POST /video/upload`, `GET`/`POST`/`DELETE /video/publication`) act on the requested language's composition and render. `POST /video` with a translation `language` translates the current original composition (designing one first when missing).
 
 Storage is under the episode: `translations/<language>/audio.mp3` and `translations/<language>/video.json`. Translations are stored in the episode document (`translations` keyed by language). Writers merge into the latest stored document, so a translation finishing during a video design (or the other way round) is kept. No migration is required.
 

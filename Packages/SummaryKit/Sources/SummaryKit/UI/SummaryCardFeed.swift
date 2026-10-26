@@ -114,82 +114,86 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         let sections = feedSections(columnCount: columnCount)
         // Columns end at different entries, so any of the final few appearing means we're at the end.
         let tail = Set(entries.suffix(columnCount).map(\.id))
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: showsDateHeaders ? 28 : Self.spacing) {
-                ForEach(sections) { section in
-                    VStack(alignment: .leading, spacing: Self.spacing) {
-                        if showsDateHeaders {
-                            dateHeader(for: section)
+        return GeometryReader { geometry in
+            let gaps = Self.spacing * CGFloat(columnCount - 1)
+            let columnWidth = max(0, (geometry.size.width - Self.horizontalPadding * 2 - gaps) / CGFloat(columnCount))
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: showsDateHeaders ? 28 : Self.spacing) {
+                    ForEach(sections) { section in
+                        VStack(alignment: .leading, spacing: Self.spacing) {
+                            if showsDateHeaders {
+                                dateHeader(for: section)
+                            }
+                            masonryColumns(section.columns, tail: tail, columnWidth: columnWidth)
                         }
-                        masonryColumns(section.columns, tail: tail)
                     }
+                    footer.frame(maxWidth: .infinity)
                 }
-                footer.frame(maxWidth: .infinity)
+                .padding(.horizontal, Self.horizontalPadding)
+                .padding(.top, Self.topPadding)
+                .padding(.bottom, 24)
+                .coordinateSpace(.named(summaryFeedContentSpace))
             }
-            .padding(.horizontal, Self.horizontalPadding)
-            .padding(.top, Self.topPadding)
-            .padding(.bottom, 24)
-            .coordinateSpace(.named(summaryFeedContentSpace))
-        }
-        .accessibilityIdentifier("summary-card-feed")
-        .scrollPosition($scrollPosition)
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
-            if isFeedVisible && !viewport.isNavigating { viewport.offset = offset }
-        }
-        #if os(macOS)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            viewport.viewportFrame = frame
-        }
-        #endif
-        .onAppear {
-            restoreScrollPosition()
-            viewport.isNavigating = false
-            isFeedVisible = true
-        }
-        .onDisappear { isFeedVisible = false }
-        .onScrollPhaseChange { _, phase in
-            if phase == .tracking || phase == .interacting {
+            .accessibilityIdentifier("summary-card-feed")
+            .scrollPosition($scrollPosition)
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
+                if isFeedVisible && !viewport.isNavigating { viewport.offset = offset }
+            }
+            #if os(macOS)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                viewport.viewportFrame = frame
+            }
+            #endif
+            .onAppear {
+                restoreScrollPosition()
                 viewport.isNavigating = false
-                viewport.anchorID = nil
+                isFeedVisible = true
             }
-        }
-        #if os(macOS)
-        // The timeline rail replaces the system scroller.
-        .scrollIndicators(showsTimeline ? .never : .automatic)
-        .onScrollGeometryChange(for: SummaryTimelineMetrics.Value.self) { geometry in
-            let top = geometry.contentInsets.top
-            let visibleHeight = geometry.containerSize.height - top - geometry.contentInsets.bottom
-            return SummaryTimelineMetrics.Value(
-                offset: geometry.contentOffset.y + top,
-                maxOffset: max(0, geometry.contentSize.height - visibleHeight),
-                topInset: top
-            )
-        } action: { _, value in
-            if showsTimeline { timeline.value = value }
-        }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
-        .onChange(of: TimelineLayout(entries: entries, columnCount: columnCount, width: availableWidth), initial: true) { _, layout in
-            guard showsTimeline else { return }
-            let gaps = Self.spacing * CGFloat(layout.columnCount - 1)
-            timeline.setLayout(
-                groups: sections.map(\.columns),
-                columnWidth: max(0, (layout.width - Self.horizontalPadding * 2 - gaps) / CGFloat(layout.columnCount)),
-                topPadding: Self.topPadding,
-                spacing: Self.spacing,
-                headerHeight: showsDateHeaders ? (onPlayDay == nil ? 24 : 44) : 0,
-                sectionSpacing: showsDateHeaders ? 28 : Self.spacing
-            )
-        }
-        .onAppear {
-            timeline.scrollHandler = { offset in
-                scrollPosition.scrollTo(y: offset)
+            .onDisappear { isFeedVisible = false }
+            .onScrollPhaseChange { _, phase in
+                if phase == .tracking || phase == .interacting {
+                    viewport.isNavigating = false
+                    viewport.anchorID = nil
+                }
             }
-        }
-        #endif
-        // Keep card insertion, removal, and masonry layout changes immediate.
-        .transaction {
-            $0.animation = nil
-            $0.disablesAnimations = true
+            #if os(macOS)
+            // The timeline rail replaces the system scroller.
+            .scrollIndicators(showsTimeline ? .never : .automatic)
+            .onScrollGeometryChange(for: SummaryTimelineMetrics.Value.self) { geometry in
+                let top = geometry.contentInsets.top
+                let visibleHeight = geometry.containerSize.height - top - geometry.contentInsets.bottom
+                return SummaryTimelineMetrics.Value(
+                    offset: geometry.contentOffset.y + top,
+                    maxOffset: max(0, geometry.contentSize.height - visibleHeight),
+                    topInset: top
+                )
+            } action: { _, value in
+                if showsTimeline { timeline.value = value }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+            .onChange(of: TimelineLayout(entries: entries, columnCount: columnCount, width: availableWidth), initial: true) { _, layout in
+                guard showsTimeline else { return }
+                let gaps = Self.spacing * CGFloat(layout.columnCount - 1)
+                timeline.setLayout(
+                    groups: sections.map(\.columns),
+                    columnWidth: max(0, (layout.width - Self.horizontalPadding * 2 - gaps) / CGFloat(layout.columnCount)),
+                    topPadding: Self.topPadding,
+                    spacing: Self.spacing,
+                    headerHeight: showsDateHeaders ? (onPlayDay == nil ? 24 : 44) : 0,
+                    sectionSpacing: showsDateHeaders ? 28 : Self.spacing
+                )
+            }
+            .onAppear {
+                timeline.scrollHandler = { offset in
+                    scrollPosition.scrollTo(y: offset)
+                }
+            }
+            #endif
+            // Keep card insertion, removal, and masonry layout changes immediate.
+            .transaction {
+                $0.animation = nil
+                $0.disablesAnimations = true
+            }
         }
     }
 
@@ -254,7 +258,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         #endif
     }
 
-    private func masonryColumns(_ columns: [[SummaryFeedEntry]], tail: Set<String>) -> some View {
+    private func masonryColumns(_ columns: [[SummaryFeedEntry]], tail: Set<String>, columnWidth: CGFloat) -> some View {
         HStack(alignment: .top, spacing: Self.spacing) {
             ForEach(columns.indices, id: \.self) { index in
                 LazyVStack(spacing: Self.spacing) {
@@ -295,7 +299,8 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 .scrollTargetLayout()
                 #endif
                 .id(columns[index].map(\.id))
-                .frame(maxWidth: .infinity, alignment: .top)
+                // Fixed-size metadata must not widen a column into the feed's gutters.
+                .frame(width: columnWidth, alignment: .top)
             }
         }
     }

@@ -8,7 +8,7 @@ import { mockServicesEnabled } from "@/lib/storage/r2";
 import { shareUrlFor } from "./serialize";
 
 export const HEADLINE_WINDOW = 50;
-export const EDITORS_PICK_MIN_SCORE = 80;
+export const EDITORS_PICK_MIN_SCORE = 70;
 type Candidate = Pick<SummaryRow, "id" | "title" | "summary" | "kind" | "createdAt" | "updatedAt" | "slug">;
 export type HeadlineScorer = (chips: Candidate[]) => Promise<Record<string, number>>;
 

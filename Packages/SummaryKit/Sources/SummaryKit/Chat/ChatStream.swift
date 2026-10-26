@@ -267,6 +267,8 @@ public enum ChatToolOutput {
             let filters = [input["category"]?.stringValue, input["tag"]?.stringValue.map { "#\($0)" }].compactMap { $0 }
             let parts = (query.isEmpty ? [] : ["“\(query)”"]) + filters
             return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        case "listEditorsPicks":
+            return [input["date"]?.stringValue, input["timeZone"]?.stringValue].compactMap { $0 }.joined(separator: " · ")
         case "grepLocalFile":
             return input["pattern"]?.stringValue.map { "“\($0)”" }
         case "readWebPage":
@@ -326,6 +328,8 @@ public enum ChatToolOutput {
             return String(localized: "Searching summaries…", bundle: .module)
         case "getSummary":
             return String(localized: "Reading summary…", bundle: .module)
+        case "listEditorsPicks":
+            return String(localized: "Finding Editor’s Picks…", bundle: .module)
         case "listTrips":
             return String(localized: "Finding your trips…", bundle: .module)
         case "getTrip":

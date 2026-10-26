@@ -1,11 +1,6 @@
 import SummaryKit
 import SwiftUI
 
-struct BackgroundJobsRequest: Identifiable {
-    let id = UUID()
-    var selectedID: String?
-}
-
 struct BackgroundJobsSheet: View {
     let api: SummaryAPIClient
     var selectedID: String?

@@ -14,7 +14,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { documentVersions, papers, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
+import { editorialScores, documentVersions, papers, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -643,6 +643,11 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     : inArray(summaries.id, db.select({ id: summaries.id }).from(summaries).where(mine)
       .union(db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId))));
   const conditions = [candidates, scope];
+  if (query.editorsPick) {
+    conditions.push(mine, inArray(summaries.kind, ["summary", "podcast"]),
+      inArray(summaries.id, db.select({ id: editorialScores.summaryId }).from(editorialScores)
+        .where(and(eq(editorialScores.ownerId, userId), eq(editorialScores.isEditorsPick, true)))));
+  }
   if (query.category) conditions.push(eq(summaries.category, query.category));
   if (query.visibility) conditions.push(eq(summaries.visibility, query.visibility));
   if (query.source) conditions.push(eq(summaries.source, query.source));

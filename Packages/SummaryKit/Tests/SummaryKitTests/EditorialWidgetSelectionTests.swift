@@ -34,8 +34,17 @@ struct EditorialWidgetSelectionTests {
         #expect(result.widgetPicks(calendar: calendar).map(\.id) == ["latest"])
     }
 
+    @Test func legacyScoresUseSeventyPointThreshold() {
+        let below = headline("below", date: day, score: 69)
+        let boundary = headline("boundary", date: day, score: 70)
+        let above = headline("above", date: day, score: 79)
+        let result = EditorialHeadlines(generatedAt: day, pending: false,
+                                       items: [above, boundary, below], highlighted: above, editorPickIDs: nil)
+        #expect(result.widgetPicks().map(\.id) == ["above", "boundary"])
+    }
+
     @Test func emptyWhenNoPicksOrRankingPending() {
-        let low = headline("low", date: day, score: 79)
+        let low = headline("low", date: day, score: 69)
         let result = EditorialHeadlines(generatedAt: day, pending: false,
                                        items: [low], highlighted: low, editorPickIDs: nil)
         #expect(result.widgetPicks().isEmpty)
