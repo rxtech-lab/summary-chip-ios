@@ -12,9 +12,10 @@ struct LibraryFilter: Hashable {
     var source: SummaryOrigin?
     /// Restricts the library to one document kind.
     var kind: SummaryKind?
+    var editorsPick = false
 
     var isActive: Bool { activeCount > 0 }
-    var activeCount: Int { [scope != .all, category != nil, tag != nil, visibility != nil, source != nil, kind != nil].filter { $0 }.count }
+    var activeCount: Int { [scope != .all, category != nil, tag != nil, visibility != nil, source != nil, kind != nil, editorsPick].filter { $0 }.count }
 }
 
 /// The library (`GET /api/v1/summaries`): your own summaries plus others' you opened from shared
@@ -66,6 +67,7 @@ final class LibraryModel {
             source: filter.source,
             kind: kind ?? filter.kind,
             excludeKind: excludedKind,
+            editorsPick: filter.editorsPick,
             cursor: cursor,
             limit: Self.pageSize
         )
@@ -97,8 +99,8 @@ final class LibraryModel {
         } catch {
             guard generation == loadGeneration else { return }
             // Fall back to what's saved on the device, filtered locally.
-            let saved = offline.summaries(matching: query(cursor: nil))
-            if !saved.isEmpty || error.isOffline {
+            let saved = offline.summaries(matching: query(cursor: nil), editorPickIDs: editorPickIDs)
+            if !saved.isEmpty || error.isOffline || filter.editorsPick {
                 items = saved
                 nextCursor = nil
             }
@@ -142,6 +144,7 @@ final class LibraryModel {
         offline.upsert(summary)
         if summary.kind == .summary || summary.kind == .podcast { refreshHeadlines() }
         guard summary.kind != excludedKind, kind == nil || summary.kind == kind else { return }
+        guard !filter.editorsPick || editorPickIDs.contains(summary.id) else { return }
         items.removeAll { $0.id == summary.id }
         items.insert(summary, at: 0)
         if kind == nil && !filter.isActive { RecentSummariesCache.save(items) }

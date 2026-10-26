@@ -393,10 +393,12 @@ public struct SummaryListQuery: Hashable, Sendable {
     public var kind: SummaryKind?
     /// Omits one document kind, such as Clips from Feed.
     public var excludeKind: SummaryKind?
+    /// Only the current account’s saved editorial picks.
+    public var editorsPick: Bool
     public var cursor: String?
     public var limit: Int?
 
-    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, kind: SummaryKind? = nil, excludeKind: SummaryKind? = nil, cursor: String? = nil, limit: Int? = nil) {
+    public init(scope: LibraryScope = .all, q: String? = nil, category: String? = nil, tag: String? = nil, visibility: SummaryVisibility? = nil, source: SummaryOrigin? = nil, kind: SummaryKind? = nil, excludeKind: SummaryKind? = nil, editorsPick: Bool = false, cursor: String? = nil, limit: Int? = nil) {
         self.scope = scope
         self.q = q
         self.category = category
@@ -405,6 +407,7 @@ public struct SummaryListQuery: Hashable, Sendable {
         self.source = source
         self.kind = kind
         self.excludeKind = excludeKind
+        self.editorsPick = editorsPick
         self.cursor = cursor
         self.limit = limit
     }
@@ -424,6 +427,7 @@ public struct SummaryListQuery: Hashable, Sendable {
         add("source", source?.rawValue)
         add("kind", kind?.rawValue)
         add("excludeKind", excludeKind?.rawValue)
+        if editorsPick { add("editorsPick", "true") }
         add("cursor", cursor)
         add("limit", limit.map(String.init))
         return items

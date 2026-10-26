@@ -5441,6 +5441,12 @@
         }
       }
     },
+    "Editor’s Pick" : {
+
+    },
+    "Editor’s Picks" : {
+
+    },
     "Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link, Image, Gallery, Place. Or ask the trip agent to build one." : {
       "localizations" : {
         "zh-Hans" : {
@@ -6029,6 +6035,9 @@
           }
         }
       }
+    },
+    "Finding Editor’s Picks…" : {
+
     },
     "Finding your trips…" : {
       "localizations" : {
@@ -13183,6 +13192,9 @@
           }
         }
       }
+    },
+    "Show your summaries and podcasts selected as Editor’s Pick." : {
+
     },
     "Shown" : {
 

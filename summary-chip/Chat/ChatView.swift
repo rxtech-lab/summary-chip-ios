@@ -547,7 +547,7 @@ private struct ChatToolCallCard: View, Equatable {
         .accessibilityElement(children: .combine)
     }
 
-    private var isSearch: Bool { ["searchSummaries", "listTrips"].contains(tool.toolName) }
+    private var isSearch: Bool { ["searchSummaries", "listTrips", "listEditorsPicks"].contains(tool.toolName) }
 
     private var symbol: String {
         if tool.errorText != nil { return "exclamationmark.magnifyingglass" }
@@ -555,6 +555,7 @@ private struct ChatToolCallCard: View, Equatable {
         case "searchWeb": return "globe"
         case "renderUI": return "rectangle.3.group"
         case "searchSummaries": return tool.isSemantic == true ? "sparkle.magnifyingglass" : "magnifyingglass"
+        case "listEditorsPicks": return "star.circle"
         case "getSummary": return "doc.text.magnifyingglass"
         case "listTrips", "getTrip": return "suitcase"
         case "grepLocalFile": return "text.magnifyingglass"
@@ -578,6 +579,8 @@ private struct ChatToolCallCard: View, Equatable {
         case "searchSummaries":
             if tool.isRunning { return String(localized: "Searching your Feed…") }
             return tool.finished == true ? String(localized: "Searched your Feed") : String(localized: "Search stopped")
+        case "listEditorsPicks":
+            return tool.isRunning ? String(localized: "Finding Editor’s Picks…") : String(localized: "Editor’s Picks")
         case "getSummary":
             if tool.isRunning { return String(localized: "Reading summary…") }
             return tool.finished == true ? String(localized: "Read summary") : String(localized: "Reading stopped")

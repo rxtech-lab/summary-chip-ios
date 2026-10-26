@@ -1,0 +1,5 @@
+simulation: podcast-video-download
+routing: path
+mocks:
+  - routeKey: media
+    path: ../mocks/podcast-video-download/config.yaml

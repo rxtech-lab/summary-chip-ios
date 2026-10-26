@@ -59,4 +59,17 @@ describe("cover colors", () => {
     expect(prompt).toContain("NO text of any kind");
     expect(prompt).not.toContain("editorial illustration");
   });
+
+  it("never sends the headline to the image model, so it can't be drawn into the artwork", () => {
+    for (const kind of [undefined, "trip", "paper", "mini_app", "podcast"] as const) {
+      const prompt = illustrationInstruction({
+        title: "TokenGate：长上下文首 token 快至 11.3×", headline: "TokenGate：长上下文首 token 快至 11.3×",
+        summary: "Faster prefill for long contexts", category: "Technology",
+        keywords: ["long context", "prefill"], colors: [...COVER_PALETTES[0].colors], mode: "light", kind,
+      });
+      expect(prompt).not.toContain("TokenGate");
+      expect(prompt).not.toMatch(/title/i);
+      expect(prompt).toContain("NO text of any kind");
+    }
+  });
 });

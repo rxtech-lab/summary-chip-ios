@@ -36,9 +36,11 @@ public final class OfflineSummaryStore {
     }
 
     /// Saved summaries matching a library query, filtered on-device (used when offline).
-    public func summaries(matching query: SummaryListQuery) -> [Summary] {
+    public func summaries(matching query: SummaryListQuery, editorPickIDs: Set<String> = []) -> [Summary] {
         let terms = (query.q ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return summaries.filter { summary in
+            if query.editorsPick && (!summary.isOwner || !editorPickIDs.contains(summary.id)
+                || (summary.kind != .summary && summary.kind != .podcast)) { return false }
             switch query.scope {
             case .all: break
             case .mine: guard summary.isOwner else { return false }

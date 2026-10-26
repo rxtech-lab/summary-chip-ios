@@ -732,6 +732,10 @@ export class GatewayAiProvider implements AiProvider {
  * The illustration prompt: the image model draws artwork only. The headline, labels and wordmark
  * are laid out by the card template on top (image models misspell and invent glyphs, CJK
  * especially), and the same artwork is shown bare behind the app's own titles.
+ *
+ * The headline itself is never sent: image models tend to render any quoted string they are
+ * given, and naming "the title" next to it (even to forbid it) makes a ghost copy more likely.
+ * The subject is described through the category and keywords instead, and text is ruled out once.
  */
 export function illustrationInstruction(input: DesignInput): string {
   if (input.kind === "trip") return tripIllustrationInstruction(input);
@@ -740,31 +744,32 @@ export function illustrationInstruction(input: DesignInput): string {
   if (input.kind === "podcast") return podcastIllustrationInstruction(input);
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
-    "Create a 16:9 text-free editorial illustration to be used as the background artwork of a social preview card for this article.",
-    "ABSOLUTE RULE: never include any text in the image. The article details below are context for choosing the subject only; do not write the title, keywords or any other words anywhere in the picture.",
-    `Article: "${input.headline}". Category: ${input.category}. Key ideas: ${input.keywords.slice(0, 6).join(", ")}.`,
+    "Create a 16:9 purely visual editorial illustration to be used as background artwork.",
+    `Subject: a ${input.category.toLowerCase()} story about ${input.keywords.slice(0, 6).join(", ")}. Depict these ideas through objects, shapes and metaphors.`,
     `Visual style: polished modern editorial illustration, like a premium magazine or tech-blog cover. Palette: ${input.colors.join(", ")}; overall tone ${tone}.`,
     "The server assigned this palette for color variety. Make its colors dominant across the background and subject; do not substitute a generic navy or teal theme unless those colors are in the palette.",
-    "Fill the entire canvas edge to edge: a designed background with layered geometric shapes, flowing curves, fine line work (thin rings, grid lines, dotted paths, hairlines), soft light and depth, plus an illustrated subject that represents the article. No blank or plain white areas, no frame or border.",
-    "Place the illustrated subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
-    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, pages, books, signs, posters or labels in the scene must be blank or abstract.",
-    "Reminder: a purely visual image with zero text, typography or lettering.",
+    "Fill the entire canvas edge to edge: a designed background with layered geometric shapes, flowing curves, fine line work (thin rings, grid lines, dotted paths, hairlines), soft light and depth, plus an illustrated subject. No blank or plain white areas, no frame or border.",
+    CALM_LEFT_HALF,
+    NO_TEXT,
   ].join(" ");
 }
+
+/** Keeps room for the card template's overlay without describing what goes there. */
+const CALM_LEFT_HALF = "Place the main subject in the right half; the left half is soft, low-detail negative space in the same palette.";
+
+/** Text is ruled out once; repeating it keeps the idea of lettering in front of the model. */
+const NO_TEXT = "The image contains NO text of any kind (no letters, characters in any script, numbers or symbols); any screens, pages, signs or labels are blank or purely pictorial.";
 
 /** A podcast's cover: a studio scene built around the episode's topics, still text-free. */
 function podcastIllustrationInstruction(input: DesignInput): string {
   const light = input.mode === "dark" ? "a dim studio glowing with warm lamp light and soft neon" : "a bright, airy studio in soft daylight";
   return [
-    "Create a 16:9 text-free editorial illustration to be used as the cover artwork of a podcast episode.",
-    "ABSOLUTE RULE: never include any text in the image. The episode details below are context for choosing what to draw only; do not write the title, topics or any other words anywhere in the picture.",
-    `Episode: "${input.headline}". Topics: ${input.keywords.slice(0, 8).join(", ")}.`,
-    `Visual style: polished modern editorial illustration of ${light} — a studio microphone, headphones and flowing sound waves or audio rings, surrounded by illustrated objects and scenes that represent the episode's topics.`,
+    "Create a 16:9 purely visual editorial illustration to be used as podcast cover artwork.",
+    `Visual style: polished modern editorial illustration of ${light} — a studio microphone, headphones and flowing sound waves or audio rings, surrounded by illustrated objects and scenes that represent these topics: ${input.keywords.slice(0, 8).join(", ")}.`,
     `Palette: ${input.colors.join(", ")}. Make these colors dominant across the background and subject.`,
     "Fill the entire canvas edge to edge with layered shapes, flowing curves, fine line work and soft light and depth. No frame, border or plain blank areas.",
-    "Place the main subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
-    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, signs, logos, wordmarks, watermarks or UI elements. Any screens, mixing-desk displays or signs must be blank or abstract.",
-    "Reminder: a purely visual image with zero text, typography or lettering.",
+    CALM_LEFT_HALF,
+    NO_TEXT,
   ].join(" ");
 }
 
@@ -772,14 +777,12 @@ function podcastIllustrationInstruction(input: DesignInput): string {
 function tripIllustrationInstruction(input: DesignInput): string {
   const paper = input.mode === "dark" ? "dark kraft or charcoal paper with warm, glowing ink" : "warm cream sketchbook paper";
   return [
-    "Create a 16:9 text-free illustration that looks like an open page of a hand-made travel diary for this trip.",
-    "ABSOLUTE RULE: never include any text in the image. The trip details below are context for choosing what to draw only; do not write the title, place names or any other words anywhere in the picture.",
-    `Trip: "${input.headline}". Places and themes: ${input.keywords.slice(0, 8).join(", ")}.`,
-    `Visual style: a travel journal or sketchbook spread on ${paper} with visible paper texture — loose ink line sketches with watercolor washes of recognisable landmarks, scenery, local food and transport (trains, ferries, streets) from these places, a hand-drawn dotted route line winding between them, plus scrapbook touches: washi tape, paper clips, a pressed leaf, a polaroid-style photo sketch, ticket stubs and postage stamps.`,
+    "Create a 16:9 purely visual illustration that looks like an open page of a hand-made travel diary.",
+    `Draw recognisable landmarks, scenery, local food and transport from these places and themes: ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a travel journal or sketchbook spread on ${paper} with visible paper texture — loose ink line sketches with watercolor washes of the scenes above (trains, ferries, streets), a hand-drawn dotted route line winding between them, plus scrapbook touches: washi tape, paper clips, a pressed leaf, a polaroid-style photo sketch, ticket stubs and postage stamps.`,
     `Palette: ${input.colors.join(", ")}, used as the watercolor and accent colors over the paper tone.`,
     "Fill the entire canvas edge to edge with the journal page, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
-    "The image must contain NO text of any kind: no handwriting, letters, words, characters in any script, numbers, dates, labels, captions, signs, logos or watermarks. Tickets, stamps, maps, postcards and signs must be blank or purely pictorial.",
-    "Reminder: a purely visual image with zero text, typography, handwriting or lettering.",
+    "The image contains NO text of any kind (no handwriting, letters, characters in any script, numbers or dates); tickets, stamps, maps, postcards and signs are blank or purely pictorial.",
   ].join(" ");
 }
 
@@ -787,14 +790,12 @@ function tripIllustrationInstruction(input: DesignInput): string {
 function paperIllustrationInstruction(input: DesignInput): string {
   const desk = input.mode === "dark" ? "a dark slate or charcoal desk under a warm lamp, with glowing ink" : "a pale cream desk in soft daylight";
   return [
-    "Create a 16:9 text-free illustration that looks like an open research notebook on a scholar's desk, drawn for this academic paper.",
-    "ABSOLUTE RULE: never include any text in the image. The paper details below are context for choosing what to draw only; do not write the title, formulas, keywords or any other words anywhere in the picture.",
-    `Paper: "${input.headline}". Field: ${input.category}. Topics: ${input.keywords.slice(0, 8).join(", ")}.`,
-    `Visual style: a hand-made lab notebook or sketchbook spread on ${desk} with visible paper texture — loose ink line sketches with watercolor washes of the paper's subject (its apparatus, models, organisms, structures or phenomena), hand-drawn diagrams, node graphs, plotted curves and geometric constructions, plus scrapbook touches: washi tape, paper clips, a pinned printed figure, sticky tabs, a pencil, a fountain pen and a coffee cup ring.`,
+    "Create a 16:9 purely visual illustration that looks like an open research notebook on a scholar's desk.",
+    `Subject: ${input.category.toLowerCase()} research on ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a hand-made lab notebook or sketchbook spread on ${desk} with visible paper texture — loose ink line sketches with watercolor washes of the subject (its apparatus, models, organisms, structures or phenomena), hand-drawn diagrams, node graphs, plotted curves and geometric constructions, plus scrapbook touches: washi tape, paper clips, a pinned printed figure, sticky tabs, a pencil, a fountain pen and a coffee cup ring.`,
     `Palette: ${input.colors.join(", ")}, used as the watercolor and accent colors over the paper tone.`,
     "Fill the entire canvas edge to edge with the notebook and desk, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
-    "The image must contain NO text of any kind: no handwriting, letters, words, characters in any script, numbers, equations, mathematical symbols, axis labels, captions, logos or watermarks. Pages, charts, figures and sticky notes must be blank or purely pictorial; plots have bare axes and no tick labels.",
-    "Reminder: a purely visual image with zero text, typography, handwriting, equations or lettering.",
+    "The image contains NO text of any kind (no handwriting, letters, characters in any script, numbers, equations or symbols); pages, figures and sticky notes are blank or purely pictorial, and plots have bare axes.",
   ].join(" ");
 }
 
@@ -802,14 +803,12 @@ function paperIllustrationInstruction(input: DesignInput): string {
 function miniAppIllustrationInstruction(input: DesignInput): string {
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
-    "Create a 16:9 text-free illustration to be used as the cover artwork of a small interactive app (a personal tool or widget).",
-    "ABSOLUTE RULE: never include any text in the image. The app details below are context for choosing what to draw only; do not write the app name, labels or any other words anywhere in the picture.",
-    `App: "${input.headline}". What it does: ${input.summary.slice(0, 300)}. Features: ${input.keywords.slice(0, 8).join(", ")}.`,
-    `Visual style: a polished, tactile 3D scene like a premium app-store feature graphic — a glossy rounded app-icon-like object or a few floating interface cards (blank lists, toggles, charts with bare axes, buttons) combined with objects that represent what the app tracks or does. Palette: ${input.colors.join(", ")}; overall tone ${tone}.`,
+    "Create a 16:9 purely visual illustration to be used as cover artwork for a small personal tool or widget.",
+    `What the tool does: ${input.summary.slice(0, 300)} Features: ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a polished, tactile 3D scene like a premium app-store feature graphic — a glossy rounded app-icon-like object or a few floating interface cards (blank lists, toggles, charts with bare axes, buttons) combined with objects that represent what the tool tracks or does. Palette: ${input.colors.join(", ")}; overall tone ${tone}.`,
     "Fill the entire canvas edge to edge with a designed background: soft gradients, layered geometric shapes, subtle grid lines and soft light and depth. No blank or plain white areas, no frame or border.",
-    "Place the main subject in the right half; keep the left half calmer and lower in detail, because the app adds its own title there afterwards (do not draw one).",
-    "The image must contain NO text of any kind: no letters, words, characters in any script, numbers, labels, captions, logos, wordmarks or watermarks. Screens, cards, buttons and charts must be blank or purely pictorial.",
-    "Reminder: a purely visual image with zero text, typography or lettering.",
+    CALM_LEFT_HALF,
+    NO_TEXT,
   ].join(" ");
 }
 

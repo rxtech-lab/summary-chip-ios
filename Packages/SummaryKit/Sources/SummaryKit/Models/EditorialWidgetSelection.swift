@@ -7,7 +7,7 @@ extension EditorialHeadlines {
         let persisted = editorPickIDs.map(Set.init)
         let picks = items.filter {
             ($0.kind == .summary || $0.kind == .podcast)
-                && (persisted?.contains($0.id) ?? ($0.score >= 80))
+                && (persisted?.contains($0.id) ?? ($0.score >= 70))
         }
         guard limit > 0, let latest = picks.map(\.createdAt).max() else { return [] }
         var seen = Set<String>()

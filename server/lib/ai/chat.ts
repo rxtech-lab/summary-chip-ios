@@ -12,7 +12,7 @@ import { ApiError } from "@/lib/http/errors";
 import { extractSource, getSummaryForViewer } from "@/lib/services/summaries";
 import { applyChatOperations, getOwnedTrip } from "@/lib/services/trips";
 import { getObjectStore } from "@/lib/storage/r2";
-import { getSummaryForChat, getTripForChat, listTripsForChat, searchForChat } from "@/lib/services/views";
+import { editorsPicksInputSchema, listEditorsPicksForChat, getSummaryForChat, getTripForChat, listTripsForChat, searchForChat } from "@/lib/services/views";
 import { runAfter } from "@/lib/http/after";
 import { reserveChatPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
 import type { BillingEnvironment } from "@/lib/subscription/config";
@@ -75,6 +75,7 @@ export function chatInstructions(now = new Date()): string {
 You help the user find and discuss their saved summaries and trips, or summaries others shared with them.
 - When the user asks to find or list their trips (e.g. "find my trip"), use listTrips first. It lists their actual trip diaries without a semantic search. Use titles, destinations and dates to identify the requested trip; if several could fit, show the choices and ask which one. Never conclude they have no saved trip from an empty searchSummaries result; check listTrips.
 - Use getTrip with an id from listTrips to read the full itinerary, bookings, places, hotels, expenses and notes before answering detailed trip questions. The app opens trip result cards in the trip diary, where its dedicated trip agent can make changes.
+- For Editor’s Picks on a date, use listEditorsPicks, never semantic search. Pass today/yesterday directly so the tool resolves the user's local day; for other dates use YYYY-MM-DD. Omit timeZone unless the user specifies one. These are current saved picks grouped by chip creation day, not a historical snapshot of ranking decisions. Use the returned date and timeZone in your answer; do not claim no picks until you check the tool. Follow nextCursor with the returned absolute date and timeZone to retrieve all picks before giving a complete list or count. Read getSummary before discussing a pick in depth.
 - Use searchSummaries to find relevant items before answering questions about their content. It matches by meaning, so pass a short natural-language description of what the user wants (e.g. "ways to sleep better", "the PDF about solar panel costs"); if nothing comes back, rephrase or broaden it once or twice.
 - Use getSummary to read an item's details and excerpt before discussing it in depth.
 - Only rely on what the tools return; if nothing relevant is found, say so plainly. Never invent summaries or links.
@@ -186,6 +187,11 @@ export function chatWebTools(db: Database, userId: string, ai: AiProvider) {
 
 export function chatTools(db: Database, userId: string, ai?: AiProvider) {
   return {
+    listEditorsPicks: tool({
+      description: "List the user's saved Editor’s Picks for a calendar day, including older summary/podcast chips and private picks. No semantic search. Returns library cards, scores, resolved date/timeZone and nextCursor; continue paging for a complete answer.",
+      inputSchema: editorsPicksInputSchema,
+      execute: async (input) => listEditorsPicksForChat(db, userId, input),
+    }),
     listTrips: tool({
       description: "List the user's own trip diaries, including private trips, with titles, dates, ids and library cards. Ongoing and upcoming trips come first, then past trips. Use this to find my trip or browse trips, even when summary search has no matches.",
       inputSchema: z.object({}),

@@ -5,6 +5,12 @@ import SummaryKit
 
 nonisolated enum AuthenticationPresentationState: Sendable, Equatable { case checking, signedOut, signedIn }
 
+/// Presentation state shared by notification routing and the background jobs sheet.
+struct BackgroundJobsRequest: Identifiable {
+    let id = UUID()
+    var selectedID: String?
+}
+
 /// Something opened from outside the app: a shared summary link or "Open in app".
 enum AppRoute: Identifiable, Hashable {
     case slug(String)

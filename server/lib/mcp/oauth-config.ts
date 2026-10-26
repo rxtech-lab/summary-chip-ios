@@ -67,7 +67,7 @@ export function authChallenge(scope: string = MCP_SCOPES.join(" "), error?: "inv
 
 export function toolScope(name: string): McpScope | undefined {
   if (name === "get_profile") return undefined;
-  return ["list_podcasts", "render_podcast_frame", "get_mini_app_catalog", "validate_mini_app", "get_mini_app", "list_mini_apps", "list_mini_app_records", "search_summaries", "list_summaries", "list_trips", "get_trip", "get_upload", "list_versions", "get_version", "list_papers", "get_paper", "compile_paper", "get_paper_reviews"].includes(name) ? "chippy:read" : "chippy:write";
+  return ["list_podcasts", "render_podcast_frame", "get_mini_app_catalog", "validate_mini_app", "get_mini_app", "list_mini_apps", "list_mini_app_records", "search_summaries", "list_summaries", "list_editors_picks", "list_trips", "get_trip", "get_upload", "list_versions", "get_version", "list_papers", "get_paper", "compile_paper", "get_paper_reviews"].includes(name) ? "chippy:read" : "chippy:write";
 }
 
 export function securitySchemes(name: string) {

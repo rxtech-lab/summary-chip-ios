@@ -20,6 +20,15 @@ struct LibraryFilterSheet: View {
             Form {
                 scopeSection
 
+                if model.kind == nil || model.kind == .summary || model.kind == .podcast {
+                    Section {
+                        Toggle("Editor’s Pick", isOn: $draft.editorsPick)
+                            .accessibilityIdentifier("library-filter-editors-pick")
+                    } footer: {
+                        Text("Show your summaries and podcasts selected as Editor’s Pick.")
+                    }
+                }
+
                 Section {
                     Picker("Source", selection: $draft.source) {
                         Text("Any source").tag(SummaryOrigin?.none)
@@ -78,6 +87,7 @@ struct LibraryFilterSheet: View {
                 }
             }
         }
+        .sensoryFeedback(.selection, trigger: draft)
         .summarySheetSize()
     }
 

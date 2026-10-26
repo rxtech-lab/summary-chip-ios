@@ -8,7 +8,8 @@ import UIKit
 
 /// Renders an episode's agent-written Remotion composition on device: the server sends the source,
 /// the app adds the recording, artwork and real timings, then WebKit draws each frame and AVFoundation
-/// encodes the MP4. Renders are cached per composition, so watching, saving and publishing reuse one file.
+/// encodes the MP4. Published videos are downloaded instead. Both are cached per composition,
+/// so watching, saving and publishing reuse one file.
 @MainActor enum PodcastMotionRenderer {
     struct Progress: Equatable {
         enum Stage { case preparing, rendering, encoding }
@@ -35,6 +36,20 @@ import UIKit
 
     static func render(api: SummaryAPIClient, podcast: DailyPodcast, onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
         if let cached = cachedURL(for: podcast) { return cached }
+        if podcast.video?.isPublished == true {
+            onProgress(Progress(stage: .preparing))
+            let file = try await api.downloadPublishedPodcastVideo(podcast) { transfer in
+                onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
+            }
+            defer { try? FileManager.default.removeItem(at: file) }
+            try Task.checkCancellation()
+            try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+            let destination = cache.appending(path: "\(prefix(for: podcast))\(podcast.video!.id)-subtitles-v3.mp4")
+            // Another consumer may have finished downloading while this one was suspended.
+            if FileManager.default.fileExists(atPath: destination.path) { return destination }
+            try FileManager.default.moveItem(at: file, to: destination)
+            return destination
+        }
         guard let video = podcast.video, !podcast.segments.isEmpty else { throw SummaryAPIError.invalidResponse }
         onProgress(Progress(stage: .preparing))
         let fm = FileManager.default

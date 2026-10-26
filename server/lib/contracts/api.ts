@@ -203,6 +203,8 @@ export const listQuerySchema = z.object({
   kind: z.enum(SUMMARY_KINDS).optional(),
   /** Exclude a document kind before pagination, such as Clips from Feed. */
   excludeKind: z.enum(SUMMARY_KINDS).optional(),
+  /** Only the caller’s saved editorial picks (summary/podcast), before pagination. */
+  editorsPick: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
   cursor: optionalString(200),
   limit: limitSchema,
 });

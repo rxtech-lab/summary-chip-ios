@@ -1,0 +1,9 @@
+version: 1
+name: Published podcast download contract fixture
+slug: podcast-video-download
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
