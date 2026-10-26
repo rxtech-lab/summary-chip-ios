@@ -99,7 +99,7 @@ const INSTRUCTIONS = `You are a senior motion designer who writes Remotion (Reac
 
 The project already contains src/index.ts, src/Root.tsx, src/data.json, src/phrases.json and src/podcast.ts (shown below). Write ${PODCAST_VIDEO_ENTRY}, exporting \`export const PodcastVideo: React.FC = () => …\`, plus optional extra components under src/ (at most ${MAX_PODCAST_VIDEO_FILES} files). Saved files are retained throughout this run, including after validation failures. Do not resend unchanged files. Only a validated submission becomes the final video.
 
-Work in small steps: make exactly one tool call per turn and wait for its result before the next. Each write_file sends one small component (under ${MAX_WRITE_CHARS} characters); each edit_file changes one passage. Split scenes across small components instead of writing a large file; extra tool calls in the same turn are not run. Start by saving a small shared component or entry point immediately. Do not produce a complete storyboard, all scenes or a long written plan before the first write_file. Build and refine the storyboard as each scene is implemented. Submit saved files by omitting files from submit_video; do not rewrite the entire video in a submission.
+Work in small steps: make exactly one tool call per turn and wait for its result before the next. Every reply must be a tool call; a reply with only text saves nothing. Each write_file sends one small component (under ${MAX_WRITE_CHARS} characters); each edit_file changes one passage. Split scenes across small components instead of writing a large file; extra tool calls in the same turn are not run. Start by saving a small shared component or entry point immediately. Do not produce a complete storyboard, all scenes or a long written plan before the first write_file. Build and refine the storyboard as each scene is implemented. Submit saved files by omitting files from submit_video; do not rewrite the entire video in a submission.
 
 Workflow:
 1. Plan the storyboard against the transcribed phrases before writing code: for every turn decide what appears or changes on each phrase, and for every story change choreograph the bridge between the two stories.
@@ -215,6 +215,8 @@ export interface PodcastVideoDraft {
   previews: number;
   /** The validated files once a submission passed. */
   result: Record<string, string> | null;
+  /** Index of the model running the design; a model that fails a turn hands the run to the next one. */
+  modelIndex?: number;
 }
 
 export function newPodcastVideoDraft(): PodcastVideoDraft {
@@ -228,7 +230,8 @@ export function podcastVideoDraftFinished(draft: PodcastVideoDraft) {
 
 export interface PodcastVideoTurnOptions {
   abortSignal?: AbortSignal;
-  onUsage?: (usage: LanguageModelUsage) => void;
+  /** Receives each model call's usage and the gateway id of the model that ran it. */
+  onUsage?: (usage: LanguageModelUsage, modelId?: string) => void;
 }
 
 /** What the turn did, as progress evidence: the tool it ran and its outcome. */
@@ -237,23 +240,51 @@ export interface PodcastVideoTurnResult {
   evidence: string;
 }
 
+/** Starts the reminder appended after a turn without a tool call. */
+const NUDGE = "Your previous reply did not call a tool";
+
+/**
+ * The turn ended without a tool call (with `auto` tool choice Opus 5.5 sometimes ends on text or runs out
+ * of output while thinking). `draft` carries a reminder for the retry, so it doesn't resend the same prompt.
+ */
+export class PodcastVideoNoToolError extends Error {
+  override name = "PodcastVideoNoToolError";
+  constructor(readonly draft: PodcastVideoDraft) { super("The video model returned without calling a design tool."); }
+}
+
+/** `draft` with one reminder at the end (replacing an earlier one), quoting what the model said instead. */
+function nudgedDraft(current: PodcastVideoDraft, text: string, truncated: boolean): PodcastVideoDraft {
+  const draft: PodcastVideoDraft = structuredClone(current);
+  const last = draft.messages.at(-1);
+  if (last?.role === "user" && typeof last.content === "string" && last.content.startsWith(NUDGE)) draft.messages.pop();
+  const said = text.trim().slice(0, 2_000);
+  draft.messages.push({ role: "user", content: `${NUDGE}${truncated ? " and ran out of output before calling one" : ""}, so nothing was saved.${
+    said ? `\nIt said:\n<previous_reply>\n${said}\n</previous_reply>` : ""}\nReply now with exactly one tool call (write_file, edit_file, render_frame or submit_video) and keep it small; plan as you go instead of planning everything first.` });
+  return draft;
+}
+
 /** Models that return a 400 for forced tool choice (`tool_choice` any/tool). */
 const AUTO_TOOL_CHOICE_MODELS = new Set(["anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5"]);
 
+const modelName = (model: LanguageModel) => typeof model === "string" ? model : model.modelId;
+
 /**
  * One model turn of the design run: a single tool call (one small file, one edit, one frame preview or
- * one submission) applied to a copy of `draft`. Throws when the model call fails; `draft` is unchanged.
+ * one submission) applied to a copy of `draft`. With several `models`, one that fails the turn (an error
+ * or a safety-classifier refusal) hands it, and the rest of the run, to the next. Throws when the last
+ * model fails; `draft` is unchanged.
  */
-export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideoInput, current: PodcastVideoDraft,
+export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], input: PodcastVideoInput, current: PodcastVideoDraft,
   options: PodcastVideoTurnOptions = {}): Promise<PodcastVideoTurnResult> {
   options.abortSignal?.throwIfAborted();
-  const modelId = typeof model === "string" ? model : model.modelId;
   const draft: PodcastVideoDraft = structuredClone(current);
   const data = podcastVideoData(input);
   const phrases = podcastPhraseWindows(input.segments);
   const settings: PreviewSettings = { fps: PODCAST_VIDEO_FPS, width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT,
     durationSeconds: input.durationSeconds, language: input.language };
-  const context = () => logContext(model, draft);
+  const list = Array.isArray(models) ? models : [models];
+  let index = Math.min(draft.modelIndex ?? 0, list.length - 1);
+  const context = () => logContext(list[index], draft);
   let evidence = "Writing composition";
   // Only the turn's first tool call runs, so every turn stays one small change.
   let ran = false;
@@ -398,36 +429,58 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
       },
     }),
   };
-  const result = await generateText({
-    model,
-    system: INSTRUCTIONS,
-    messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
-    tools,
-    // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the
-    // no-tool check below keep each turn to one tool call.
-    toolChoice: AUTO_TOOL_CHOICE_MODELS.has(modelId) ? "auto" : "required",
-    stopWhen: stepCountIs(1),
-    // Bound each durable turn rather than allowing a whole episode's code in one response.
-    // Opus 5.5 always thinks, so leave room for that before the tool call.
-    maxOutputTokens: modelId === "anthropic/claude-opus-5.5" ? 16_384 : 8_192,
-    // The workflow owns retries and records each failure in the job log.
-    maxRetries: 0,
-    // Sonnet 5.5 thinks up front by default; a whole-episode plan can consume the
-    // turn before it saves any file. Keep thinking between these small tool calls.
-    ...(modelId === "anthropic/claude-sonnet-5.5" ? {
-      providerOptions: { anthropic: { thinking: { type: "between_tools" }, effort: "medium" } },
-    } : modelId === "anthropic/claude-opus-5.5" ? {
-      // Opus 5.5 cannot disable thinking or use between_tools; effort is the only control.
-      providerOptions: { anthropic: { effort: "medium" } },
-    } : {}),
-    abortSignal: options.abortSignal,
-  });
-  if (!result.toolCalls.length) {
-    const error = new Error("The video model returned without calling a design tool.");
-    error.name = "PodcastVideoNoToolError";
-    throw error;
+  const call = async (model: LanguageModel) => {
+    const modelId = modelName(model);
+    const result = await generateText({
+      model,
+      system: INSTRUCTIONS,
+      messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
+      tools,
+      // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the
+      // no-tool check below keep each turn to one tool call.
+      toolChoice: AUTO_TOOL_CHOICE_MODELS.has(modelId) ? "auto" : "required",
+      stopWhen: stepCountIs(1),
+      // Bound each durable turn rather than allowing a whole episode's code in one response.
+      // Opus 5.5 always thinks, so leave room for that before the tool call.
+      maxOutputTokens: modelId === "anthropic/claude-opus-5.5" ? 16_384 : 8_192,
+      // The workflow owns retries and records each failure in the job log.
+      maxRetries: 0,
+      // Sonnet 5.5 thinks up front by default; a whole-episode plan can consume the
+      // turn before it saves any file. Keep thinking between these small tool calls.
+      ...(modelId === "anthropic/claude-sonnet-5.5" ? {
+        providerOptions: { anthropic: { thinking: { type: "between_tools" }, effort: "medium" } },
+      } : modelId === "anthropic/claude-opus-5.5" ? {
+        // Opus 5.5 cannot disable thinking or use between_tools; effort is the only control.
+        providerOptions: { anthropic: { effort: "medium" } },
+      } : {}),
+      abortSignal: options.abortSignal,
+    });
+    // A declined call is billed too.
+    options.onUsage?.(result.usage, modelId);
+    return result;
+  };
+  let result: Awaited<ReturnType<typeof call>>;
+  for (;;) {
+    const next = index + 1 < list.length && !ran && !options.abortSignal?.aborted ? list[index + 1] : null;
+    let failure: string;
+    try {
+      result = await call(list[index]);
+      // A safety-classifier refusal (often a false positive on security topics) declines the same prompt again.
+      if (result.finishReason !== "content-filter" || !next) break;
+      failure = "declined by the model's safety classifier";
+    } catch (error) {
+      if (!next) throw error;
+      failure = `failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 300)}`;
+    }
+    console.warn(`[podcast-video] turn ${failure}; switching to the next model`, { ...context(), next: modelName(next) });
+    index += 1;
+    draft.modelIndex = index;
   }
-  options.onUsage?.(result.usage);
+  if (!result.toolCalls.length) {
+    console.warn("[podcast-video] turn returned without a tool call", { ...context(), finishReason: result.finishReason,
+      textChars: result.text.length, outputTokens: result.usage.outputTokens });
+    throw new PodcastVideoNoToolError(nudgedDraft(draft, result.text, result.finishReason === "length"));
+  }
   draft.messages.push(...result.response.messages);
   draft.turns += 1;
   return { draft, evidence };
@@ -455,21 +508,23 @@ export function podcastVideoProgressContext(input: PodcastVideoInput) {
  * The validated files, or null when the agent stopped without a composition that passes validation.
  * Runs every turn in this process; background runs call `podcastVideoTurn` one step at a time instead.
  */
-export async function writePodcastVideo(model: LanguageModel, input: PodcastVideoInput, options: PodcastVideoOptions = {}): Promise<Record<string, string> | null> {
+export async function writePodcastVideo(models: LanguageModel | LanguageModel[], input: PodcastVideoInput, options: PodcastVideoOptions = {}): Promise<Record<string, string> | null> {
   let draft = newPodcastVideoDraft();
+  const list = Array.isArray(models) ? models : [models];
+  const model = () => list[Math.min(draft.modelIndex ?? 0, list.length - 1)];
   const progress = options.onProgress ? videoProgressObserver(podcastVideoProgressContext(input), options.onProgress, options.abortSignal) : undefined;
   try {
     while (!podcastVideoDraftFinished(draft)) {
-      const turn = await podcastVideoTurn(model, input, draft, { abortSignal: options.abortSignal, onUsage: options.onUsage });
+      const turn = await podcastVideoTurn(models, input, draft, { abortSignal: options.abortSignal, onUsage: options.onUsage });
       draft = turn.draft;
       progress?.observe(JSON.stringify(draft.messages.at(-2) ?? "").slice(-4000), turn.evidence);
     }
     options.abortSignal?.throwIfAborted();
-    logPodcastVideoOutcome(model, draft);
+    logPodcastVideoOutcome(model(), draft);
     return draft.result;
   } catch (error) {
     console.error("[podcast-video] generation failed", {
-      ...logContext(model, draft), aborted: options.abortSignal?.aborted ?? false,
+      ...logContext(model(), draft), aborted: options.abortSignal?.aborted ?? false,
       errorName: error instanceof Error ? error.name : "UnknownError",
       message: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
     });

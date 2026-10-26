@@ -2,6 +2,29 @@ import XCTest
 import UIKit
 
 nonisolated final class DailyPodcastUITests: XCTestCase {
+    @MainActor func testSwipeDeletesBackgroundJobHistoryAfterConfirmation() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        tapToolbarItem(app, id: "background-jobs-toolbar", label: "Background Jobs")
+        let row = app.buttons["background-job-preview-video-job"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.swipeLeft()
+        app.buttons["Delete"].tap()
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(row.exists)
+        row.swipeLeft()
+        app.buttons["Delete"].tap()
+        app.buttons["Delete Job Log"].tap()
+        XCTAssertTrue(app.staticTexts["No Background Jobs"].waitForExistence(timeout: 5))
+        XCTAssertFalse(row.exists)
+        app.buttons["Done"].tap()
+        tapToolbarItem(app, id: "background-jobs-toolbar", label: "Background Jobs")
+        XCTAssertTrue(app.staticTexts["No Background Jobs"].waitForExistence(timeout: 5))
+        XCTAssertFalse(row.exists)
+    }
+
     @MainActor func testBackgroundJobsToolbarShowsPersistentJobAndLog() {
         continueAfterFailure = false
         let app = XCUIApplication()

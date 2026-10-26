@@ -73,9 +73,27 @@
 
 /* ---------- Section rhythm ---------- */
 
-#features, #how-it-works, #connect { padding-block: clamp(96px, 14svh, 168px); }
+#features, #how-it-works, #connect, #pricing { padding-block: clamp(96px, 14svh, 168px); }
 .chapter-head h2 { text-wrap: balance; }
 .landing-page a:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 5px; }
+
+/* ---------- Pricing ---------- */
+
+.pricing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.pricing-card { display: flex; flex-direction: column; min-width: 0; padding: clamp(24px, 4vw, 48px); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 32px; background: var(--md-sys-color-surface-container-lowest); }
+.pricing-free { background: var(--lavender); }
+.pricing-amount { margin-block: 28px; font-size: 56px; line-height: 1.1; letter-spacing: -2px; }
+.pricing-amount span { display: block; margin-top: 12px; font-size: 14px; letter-spacing: 0; color: var(--md-sys-color-on-surface-variant); }
+.pricing-benefits { display: grid; gap: 16px; margin-block: 32px; }
+.pricing-benefits li { display: flex; gap: 12px; }
+.pricing-benefits li::before { content: "✓"; color: var(--md-sys-color-primary); }
+.pricing-packs { display: grid; gap: 20px; margin-block: 32px; }
+.pricing-pack { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-block: 20px; border-block: 1px solid var(--md-sys-color-outline-variant); overflow-wrap: anywhere; }
+.pricing-pack > div:first-child { flex: 1 1 140px; }
+.pricing-pack-price { display: flex; flex-direction: column; }
+.pricing-notice { margin-block: 32px; padding: 20px; border-radius: 16px; background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface-variant); }
+.pricing-action { margin-top: auto; align-self: flex-start; }
+@media (max-width: 767px) { .pricing-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- Hero ---------- */
 

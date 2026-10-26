@@ -30,6 +30,15 @@ values live in RxSubscription and can be changed without an app release.
 Production, sandbox and Xcode return the same catalog and allowance policy;
 their user balances and usage remain isolated.
 
+The landing page's Pricing section reads `GET /api/v1/catalog?platform=web`
+on the server using the production API key and displays active `points` packs.
+The key needs `catalog.read`; credentials and user billing data are never sent
+to the page. Prices are requested fresh, with a five-second timeout and an
+unavailable message on failure. The Free card describes the included allowance
+without embedding a numeric limit: the anonymous catalog does not expose usage
+policy. Purchases open through the app's dedicated top-up view. Local HTTP
+verification instructions are in `postman/simulations/landing-pricing.context.md`.
+
 **Apple purchases still require setup:** this application currently has no App Store
 integration or Apple product mapping. Its catalog advertises Stripe checkout only.
 Connect the Chippy app in RxSubscription's **Settings → App Store**, create

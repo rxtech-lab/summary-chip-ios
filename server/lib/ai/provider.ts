@@ -24,6 +24,7 @@ import {
   podcastModel,
   podcastModelId,
   podcastVideoModel,
+  podcastVideoModelIds,
   podcastVideoModelId,
   isLanguageImageModel,
   speechModel,
@@ -200,10 +201,10 @@ export interface AiProvider {
   translatePodcast(input: PodcastTranslationInput, options?: TourNarrationOptions): Promise<PodcastTranslationOutput>;
   /** A composition's visible labels translated (podcast model), or null when it couldn't be done safely. */
   translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null>;
-  /** Gateway id of the podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); null when videos are off. */
+  /** Gateway id of the first podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); null when videos are off. */
   podcastVideoModelId(): string | null;
-  /** The video model's API list price, or null when the catalog has none. */
-  podcastVideoPricing(): Promise<ModelPricing | null>;
+  /** The video model's (or `modelId`'s, e.g. the fallback's) API list price, or null when the catalog has none. */
+  podcastVideoPricing(modelId?: string): Promise<ModelPricing | null>;
   /** Validated Remotion files animating a podcast script, or null when the agent couldn't produce any. */
   writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null>;
   /** One turn (one tool call) of a resumable video design run. Throws when the model call fails or videos are off. */
@@ -656,21 +657,21 @@ export class GatewayAiProvider implements AiProvider {
     return podcastVideoModelId();
   }
 
-  async podcastVideoPricing(): Promise<ModelPricing | null> {
-    const id = podcastVideoModelId();
+  async podcastVideoPricing(modelId?: string): Promise<ModelPricing | null> {
+    const id = modelId ?? podcastVideoModelId();
     return id ? textModelPricing(id) : null;
   }
 
   async writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null> {
     const id = podcastVideoModelId();
     if (!id) return null;
-    return writePodcastVideo(podcastVideoModel(id), input, options);
+    return writePodcastVideo(podcastVideoModelIds().map(podcastVideoModel), input, options);
   }
 
   podcastVideoTurn(input: PodcastVideoInput, draft: PodcastVideoDraft, options?: PodcastVideoTurnOptions): Promise<PodcastVideoTurnResult> {
     const id = podcastVideoModelId();
     if (!id) throw new Error("Podcast videos are off");
-    return podcastVideoTurn(podcastVideoModel(id), input, draft, options);
+    return podcastVideoTurn(podcastVideoModelIds().map(podcastVideoModel), input, draft, options);
   }
 
   speechModelId(): string | null {

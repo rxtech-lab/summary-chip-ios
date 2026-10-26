@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { estimateVideoProgress } from "@/lib/ai/podcast-progress";
-import { newPodcastVideoDraft, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
+import { newPodcastVideoDraft, PodcastVideoNoToolError, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
   type PodcastVideoDraft, type PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign } from "@/lib/contracts/daily-podcast";
@@ -141,15 +141,17 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
   if (!state) return { status: "failed", code: "PODCAST_VIDEO_FAILED" };
   if (podcastVideoDraftFinished(state.draft)) return state.draft.result ? { status: "accepted" } : { status: "failed", code: "PODCAST_VIDEO_FAILED" };
   const ai = deps.ai ?? await getAiProvider();
-  const usage: LanguageModelUsage[] = [];
+  const usage: { step: LanguageModelUsage; modelId?: string }[] = [];
   let evidence: string;
   try {
-    const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS), onUsage: (step) => usage.push(step) });
+    const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS), onUsage: (step, modelId) => usage.push({ step, modelId }) });
     state.draft = turn.draft;
     state.failures = 0;
     delete state.lastError;
     evidence = turn.evidence;
   } catch (error) {
+    // Keep the reminder (and a switch to the fallback model), so the retry doesn't repeat the prompt that failed.
+    if (error instanceof PodcastVideoNoToolError) state.draft = error.draft;
     state.failures += 1;
     state.lastError = podcastVideoError(error);
     console.error(`[podcast-video] design turn failed ${JSON.stringify({ job: job.id, failures: state.failures,
@@ -157,8 +159,11 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
       message: (error instanceof Error ? error.message : String(error)).slice(0, 1000) })}`);
     evidence = `${state.lastError.message} Attempt ${state.failures} of ${MAX_FAILED_TURNS} failed.${state.failures < MAX_FAILED_TURNS ? " Retrying…" : ""}`;
   }
-  const pricing = usage.length ? await ai.podcastVideoPricing() : null;
-  if (pricing) state.costUsd += usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0);
+  // Priced per model: a declined turn re-runs on the fallback model at its own rates.
+  for (const { step, modelId } of usage) {
+    const pricing = await ai.podcastVideoPricing(modelId);
+    if (pricing) state.costUsd += usageCostUsd(step, pricing);
+  }
   if (state.draft.result) state.progress = 90;
   else if (!state.lastError && Object.keys(state.draft.files).length > 0) {
     const recent = JSON.stringify(state.draft.messages.at(-2) ?? "").slice(-4000);

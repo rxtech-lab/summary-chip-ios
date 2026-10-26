@@ -1,0 +1,9 @@
+version: 1
+name: RxSubscription pricing catalog contract fixture
+slug: landing-pricing
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

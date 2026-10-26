@@ -7,6 +7,7 @@ import { BrandIntro } from "./brand-intro";
 import { SectionTimeline } from "./section-timeline";
 import { CopyLink } from "./copy-link";
 import { FeatureArtwork, featureTiming } from "./feature-artwork";
+import { PricingSection } from "./pricing-section";
 import "./landing.css";
 
 export const metadata: Metadata = {
@@ -177,6 +178,7 @@ export default function Home() {
           <nav className="flex items-center gap-2" aria-label="Main navigation">
             <a href="#features" className="md-button md-button-text md-nav-secondary">Features</a>
             <a href="#connect" className="md-button md-button-text md-nav-secondary">Connect your AI</a>
+            <a href="#pricing" className="md-button md-button-text md-nav-secondary">Pricing</a>
             <Link href="/download" className="md-button md-button-filled">Download</Link>
           </nav>
         </div>
@@ -361,6 +363,8 @@ export default function Home() {
           </div>
         </section>
 
+        <PricingSection />
+
         {/* Call to action */}
         <section id="get-chippy" tabIndex={-1} className="scroll-mt-20 cta-section mx-auto max-w-6xl px-6">
           <div className="reveal-scale cta-surface relative overflow-hidden px-8 text-center">
@@ -388,6 +392,7 @@ export default function Home() {
             <a href="#features">Features</a>
             <a href="#how-it-works">How it works</a>
             <a href="#connect">Connect your AI</a>
+            <a href="#pricing">Pricing</a>
             <Link href="/download">Download</Link>
           </nav>
           <span className="md-text-secondary text-sm">© {new Date().getFullYear()} RxLab</span>

@@ -12,6 +12,7 @@ const sections = [
   ["trip", "Trips"],
   ["how-it-works", "How it works"],
   ["connect", "Connect your AI"],
+  ["pricing", "Pricing"],
   ["get-chippy", "Get Chippy"],
 ] as const;
 

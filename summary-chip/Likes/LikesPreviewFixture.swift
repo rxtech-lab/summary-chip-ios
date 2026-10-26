@@ -53,6 +53,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     /// The paper's figure (also drawn TikZ figures) and its compiled PDF, made on the main actor.
     private var dailyPodcasts: [String: [String: Any]] = [:]
     private var podcastVersions: [String: [[String: Any]]] = [:]
+    private var backgroundJobDeleted = false
     private var paperImage = Data()
     private var paperPDF = Data()
     private var items: [Item]
@@ -146,6 +147,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     }
 
     private func backgroundJobResponse(list: Bool) -> (Int, Data) {
+        if backgroundJobDeleted { return list ? json(["items": [], "nextCursor": NSNull()]) : notFound }
         let job: [String: Any] = ["id": "preview-video-job", "title": "Daily discoveries", "episodeKey": "preview-episode",
             "day": ["start": "2030-04-01T00:00:00Z", "end": "2030-04-02T00:00:00Z"],
             "status": "ready", "percent": 100, "videoId": "preview-video",
@@ -156,9 +158,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 
     private func routeResource(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
         let id = path.count > 1 ? path[1] : ""
-        if path.first == "background-jobs", method == "GET" {
-            return backgroundJobResponse(list: path.count == 1)
-        }
+        if path.first == "background-jobs" { return routeBackgroundJob(path: path, method: method) }
         if path.first == "daily-podcasts" {
             return routePodcast(request, path: path, method: method, query: query)
         }
@@ -536,6 +536,14 @@ nonisolated enum LikesPreviewPaper {
 }
 
 private extension LikesPreviewStore {
+    nonisolated func routeBackgroundJob(path: [String], method: String) -> (Int, Data) {
+        if path == ["background-jobs", "preview-video-job"], method == "DELETE" {
+            backgroundJobDeleted = true
+            return (204, Data())
+        }
+        return method == "GET" ? backgroundJobResponse(list: path.count == 1) : notFound
+    }
+
     nonisolated func libraryResponse(query: [URLQueryItem]) -> (Int, Data) {
         let liked = query.first { $0.name == "scope" }?.value == "liked"
         let kind = query.first { $0.name == "kind" }?.value
