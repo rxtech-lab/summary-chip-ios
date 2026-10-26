@@ -38,7 +38,7 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
 
     static func cachedURL(for podcast: DailyPodcast, resolution: PodcastVideoResolution = .hd720) async throws -> URL? {
         guard let video = podcast.video else { return nil }
-        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v4.mp4")
+        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v5.mp4")
         return try await reusableVideo(at: url) ? url : nil
     }
 
@@ -84,7 +84,7 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
         try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast, width: resolution.width, height: resolution.height)
         try await validateVideo(at: output)
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
-        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v4.mp4")
+        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v5.mp4")
         if try await reusableVideo(at: destination) { return destination }
         try fm.moveItem(at: output, to: destination)
         return destination
@@ -105,7 +105,7 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
             let size = try await track?.load(.naturalSize)
             if size == CGSize(width: resolution.width, height: resolution.height) {
                 try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-                let destination = cache.appending(path: "\(prefix(for: podcast))\(podcast.video!.id)-\(resolution.rawValue)p-subtitles-v4.mp4")
+                let destination = cache.appending(path: "\(prefix(for: podcast))\(podcast.video!.id)-\(resolution.rawValue)p-subtitles-v5.mp4")
                 // Another consumer may have finished downloading while this one was suspended.
                 if try await reusableVideo(at: destination) { return destination }
                 try FileManager.default.moveItem(at: file, to: destination)

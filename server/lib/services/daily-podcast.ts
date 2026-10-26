@@ -421,3 +421,16 @@ export async function libraryPodcast(db: Database, user: string, summaryId: stri
 export async function savePodcastDocument(db: Database, user: string, podcast: DailyPodcast) {
   await db.update(podcastEpisodes).set({ document: podcast }).where(and(eq(podcastEpisodes.key, podcast.key), eq(podcastEpisodes.ownerId, user)));
 }
+
+/** Saved video episodes referencing a source chip, restricted to this viewer's library. */
+export async function linkedVideoPodcasts(db: Database, user: string, chipId: string) {
+  await getSummaryForViewer(db, chipId, user);
+  const rows = await db.select().from(podcastEpisodes).where(and(
+    eq(podcastEpisodes.ownerId, user), eq(podcastEpisodes.deleted, false),
+    sql`EXISTS (SELECT 1 FROM json_each(${podcastEpisodes.document}, '$.chipIds') WHERE value = ${chipId})`,
+  ));
+  const readable = await readableSources(db, user, rows.map(row => row.document));
+  return rows.filter(row => row.document.video && sourceIds(row.document).every(id => readable.has(id)))
+    .sort((a, b) => b.document.createdAt.localeCompare(a.document.createdAt))
+    .map(row => podcastInLanguage(row.document));
+}

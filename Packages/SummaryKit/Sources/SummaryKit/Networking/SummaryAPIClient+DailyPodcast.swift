@@ -52,6 +52,12 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
         public var imagePath: String?
         public var icon: String
     }
+    /// Source chips in episode order, with repeated speaking turns collapsed.
+    public var sourceChipIDs: [String] {
+        var seen = Set<String>()
+        return segments.map(\.chipId).filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
     public var summaryId: String?
     public var day: PodcastDayBounds?
     public var key: String
@@ -371,6 +377,12 @@ extension SummaryAPIClient {
         action.httpMethod = method
         return try await sendRaw(action)
     }
+    public func linkedVideoPodcasts(summaryID: String) async throws -> [DailyPodcast] {
+        struct Response: Decodable { let items: [DailyPodcast] }
+        let result: Response = try await send(request("/api/v1/summaries/\(summaryID.urlPathEscaped)/podcasts"))
+        return result.items
+    }
+
     public func libraryPodcast(summaryID: String) async throws -> DailyPodcast {
         let result: PodcastEnvelope = try await send(request("/api/v1/summaries/\(summaryID.urlPathEscaped)/podcast"))
         guard let podcast = result.podcast else { throw SummaryAPIError.invalidResponse }

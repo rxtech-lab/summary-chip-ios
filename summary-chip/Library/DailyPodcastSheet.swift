@@ -16,6 +16,8 @@ struct DailyPodcastSheet: View {
     @State private var coverUpdates = 0
     @State private var showsGeneration = false
     @State private var showsVersions = false
+    @State private var showsLinkedChips = false
+    @State private var pendingLinkedChipID: String?
     @State private var showsLanguages = false
     @State private var showsDownload = false
     @State private var showsSharing = false
@@ -53,6 +55,17 @@ struct DailyPodcastSheet: View {
                     if let id = podcast.summaryId, let onChipUpdated {
                         Task { if let chip = try? await api.summary(id: id) { onChipUpdated(chip) } }
                     }
+                }
+            }
+            .sheet(isPresented: $showsLinkedChips, onDismiss: {
+                if let id = pendingLinkedChipID {
+                    pendingLinkedChipID = nil
+                    onOpenChip(id)
+                }
+            }) {
+                PodcastLinkedChipsSheet(api: api, chipIDs: linkedChipIDs) { id in
+                    pendingLinkedChipID = id
+                    showsLinkedChips = false
                 }
             }
             .sheet(isPresented: $showsVersions) {
@@ -129,6 +142,9 @@ struct DailyPodcastSheet: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showsJobs = true } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
                 }
+                if !linkedChipIDs.isEmpty {
+                    ToolbarItem(placement: .primaryAction) { linkedChipsButton }
+                }
                 if player.podcast != nil {
                     ToolbarItem(placement: .confirmationAction) { podcastActions }
                 }
@@ -145,11 +161,7 @@ struct DailyPodcastSheet: View {
                 Button { showsJobs = true } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
                 if player.podcast != nil {
                     Spacer(minLength: 8)
-                    Button {
-                        guard let id = player.segment?.chipId else { return }
-                        onOpenChip(id)
-                    } label: { Label("Open Chip", systemImage: "doc.text.magnifyingglass") }
-                    .accessibilityIdentifier("podcast-open-chip")
+                    if !linkedChipIDs.isEmpty { linkedChipsButton }
                     podcastActions
                         .menuStyle(.button)
                         .menuIndicator(.hidden)
@@ -165,14 +177,19 @@ struct DailyPodcastSheet: View {
     }
     #endif
 
+    private var linkedChipIDs: [String] {
+        player.podcast?.sourceChipIDs ?? []
+    }
+
+    private var linkedChipsButton: some View {
+        Button { taps += 1; showsLinkedChips = true } label: {
+            Label("Linked Chips", systemImage: "doc.on.doc")
+        }
+        .accessibilityIdentifier("podcast-linked-chips")
+    }
+
     private var podcastActions: some View {
         Menu {
-            #if os(iOS)
-            Button {
-                guard let id = player.segment?.chipId else { return }
-                taps += 1; onOpenChip(id)
-            } label: { Label("Open Chip", systemImage: "doc.text.magnifyingglass") }
-            #endif
             Button { taps += 1; showsSharing = true } label: {
                 Label("Publish to Web", systemImage: "square.and.arrow.up")
             }.accessibilityIdentifier("podcast-publish")

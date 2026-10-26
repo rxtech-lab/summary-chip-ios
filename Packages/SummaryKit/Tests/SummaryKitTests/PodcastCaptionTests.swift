@@ -64,6 +64,21 @@ import Testing
         }
     }
 
+    @Test func preservesNumericDotsInCleanupPagingAndLegacyCaptions() {
+        let text = "Growth is 1.5 percent. Version 2.0.1!"
+        #expect(PodcastCaptionTimeline.withoutPunctuation(text) == "Growth is 1.5 percent Version 2.0.1")
+        #expect(PodcastCaptionTimeline.withoutPunctuation("Wait... 3. 4.") == "Wait 3 4")
+        let timeline = PodcastCaptionTimeline(text)
+        #expect(timeline.phrases == ["Growth is 1.5 percent.", "Version 2.0.1!"])
+        #expect(timeline.lines(at: 0) == ["Growth is 1.5 percent", "Version 2.0.1"])
+        let pages = PodcastCaptionTimeline.pagedCues([.init(text: text, startSeconds: 1, endSeconds: 5)])
+        let rendered = pages.map(\.text).joined(separator: " ")
+        #expect(rendered.contains("1.5"))
+        #expect(rendered.contains("2.0.1"))
+        #expect(pages.first?.startSeconds == 1)
+        #expect(pages.last?.endSeconds == 5)
+    }
+
     @Test func replacesPunctuationWithSpaces() {
         #expect(PodcastCaptionTimeline.withoutPunctuation("大家好，今天「AI」新闻。") == "大家好 今天 AI 新闻")
         #expect(PodcastCaptionTimeline.withoutPunctuation("Wait... what's e-mail?!") == "Wait whats e mail")
