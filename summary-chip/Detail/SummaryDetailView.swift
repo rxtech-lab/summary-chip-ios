@@ -12,6 +12,9 @@ struct SummaryDetailView: View {
     @State private var showsShare = false
     @State private var showsEditSharing = false
     @State private var showsNewPodcast = false
+    @State private var linkedPodcasts: [DailyPodcast] = []
+    @State private var showsLinkedPodcasts = false
+    @State private var selectedPodcast: DailyPodcast?
     @State private var showsRegenerate = false
     @State private var showsLanguage = false
     @State private var showsLocalFile = false
@@ -70,7 +73,14 @@ struct SummaryDetailView: View {
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar {
-            // Only Like stays in the bar; everything else, including Share and Versions, waits in "More".
+            if !linkedPodcasts.isEmpty {
+                ToolbarItem(placement: .summaryTrailing) {
+                    Button { showsLinkedPodcasts = true } label: {
+                        Label("Watch Podcast", systemImage: "play.rectangle")
+                    }
+                    .accessibilityIdentifier("summary-linked-podcasts")
+                }
+            }
             ToolbarItem(placement: .summaryTrailing) {
                 Button {
                     Task { await toggleLike() }
@@ -82,6 +92,17 @@ struct SummaryDetailView: View {
                 .accessibilityIdentifier("summary-like")
             }
             moreToolbarActions
+        }
+        .sheet(isPresented: $showsLinkedPodcasts, onDismiss: {
+            if let podcast = selectedPodcast {
+                selectedPodcast = nil
+                environment.podcastPlayer.present(podcast: podcast)
+            }
+        }) {
+            LinkedPodcastsSheet(podcasts: linkedPodcasts) { podcast in
+                selectedPodcast = podcast
+                showsLinkedPodcasts = false
+            }
         }
         .sheet(isPresented: $showsChat) {
             ChatView(environment: environment, summary: summary)
@@ -128,7 +149,15 @@ struct SummaryDetailView: View {
                 dismiss()
             }
         }
+        .sensoryFeedback(.selection, trigger: showsLinkedPodcasts)
         .sensoryFeedback(.selection, trigger: showsNewPodcast)
+        .task(id: summary.id) { await reloadLinkedPodcasts() }
+        .onChange(of: showsNewPodcast) { _, shown in
+            if !shown { Task { await reloadLinkedPodcasts() } }
+        }
+        .onChange(of: environment.podcastPlayer.isPresented) { _, shown in
+            if !shown { Task { await reloadLinkedPodcasts() } }
+        }
         .sensoryFeedback(.impact(weight: .light), trigger: showsSourceText) { _, new in new }
         .sensoryFeedback(.success, trigger: savedCount)
         .sensoryFeedback(.success, trigger: didDelete) { _, new in new }
@@ -234,6 +263,11 @@ struct SummaryDetailView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+    }
+
+    private func reloadLinkedPodcasts() async {
+        do { linkedPodcasts = try await environment.api.linkedVideoPodcasts(summaryID: summary.id) }
+        catch { linkedPodcasts = [] }
     }
 
     private func apply(_ updated: Summary) {
@@ -470,20 +504,15 @@ private struct LibraryPodcastDetail: View {
     @State private var loading = true
     @State private var openingChip = false
     @State private var showsRegeneration = false
+    @State private var showsLinkedChips = false
+    @State private var pendingChipID: String?
     @State private var regenerations = 0
     @State private var error: String?
     var body: some View {
         Group {
             if let podcast {
                 DailyPodcastPlaybackView(api: environment.api, podcast: podcast,
-                    player: environment.podcastPlayer, onOpenChip: { id in
-                        openingChip = true
-                        Task {
-                            defer { openingChip = false }
-                            do { environment.pendingLibraryItem = try await environment.api.summary(id: id) }
-                            catch { self.error = error.localizedDescription }
-                        }
-                    })
+                    player: environment.podcastPlayer, onOpenChip: openChip)
             } else if !loading {
                 ContentUnavailableView {
                     Label("Podcast Unavailable", systemImage: "waveform")
@@ -501,6 +530,12 @@ private struct LibraryPodcastDetail: View {
         }
         .navigationTitle(podcast?.title ?? summary.title)
         .toolbar {
+            if let podcast, !podcast.sourceChipIDs.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Linked Chips", systemImage: "doc.on.doc") { showsLinkedChips = true }
+                        .accessibilityIdentifier("podcast-linked-chips")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button("Regenerate Podcast", systemImage: "arrow.clockwise") { showsRegeneration = true }
                     .help("Regenerate Podcast")
@@ -512,6 +547,15 @@ private struct LibraryPodcastDetail: View {
                     .disabled(podcast == nil)
             }
         }
+        .sheet(isPresented: $showsLinkedChips, onDismiss: {
+            if let id = pendingChipID { pendingChipID = nil; openChip(id) }
+        }) {
+            PodcastLinkedChipsSheet(api: environment.api, chipIDs: podcast?.sourceChipIDs ?? []) { id in
+                pendingChipID = id
+                showsLinkedChips = false
+            }
+        }
+        .sensoryFeedback(.selection, trigger: showsLinkedChips)
         .sheet(isPresented: $showsRegeneration) {
             if let podcast {
                 // Adds a new version to this chip; earlier versions stay in Manage Versions.
@@ -532,6 +576,15 @@ private struct LibraryPodcastDetail: View {
             Button("OK", role: .cancel) { error = nil }
         } message: { Text(error ?? "") }
     }
+    private func openChip(_ id: String) {
+        openingChip = true
+        Task {
+            defer { openingChip = false }
+            do { environment.pendingLibraryItem = try await environment.api.summary(id: id) }
+            catch { self.error = error.localizedDescription }
+        }
+    }
+
     private func load() async {
         loading = true
         defer { loading = false }
@@ -548,5 +601,41 @@ private struct LibraryPodcastDetail: View {
             environment.podcastPlayer.replace(saved)
             environment.podcastPlayer.date = saved.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
         }
+    }
+}
+
+
+private struct LinkedPodcastsSheet: View {
+    let podcasts: [DailyPodcast]
+    let onSelect: (DailyPodcast) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var taps = 0
+
+    var body: some View {
+        NavigationStack {
+            List(podcasts, id: \.key) { podcast in
+                Button { taps += 1; onSelect(podcast) } label: {
+                    HStack {
+                        Image(systemName: "play.rectangle")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(podcast.title).font(.headline)
+                            Text(podcast.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                    }.padding(.vertical, 8)
+                }
+                .accessibilityIdentifier("linked-podcast-\(podcast.key)")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Watch Podcast")
+            .summaryInlineNavigationTitle()
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .sensoryFeedback(.selection, trigger: taps)
+        }
+        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
     }
 }

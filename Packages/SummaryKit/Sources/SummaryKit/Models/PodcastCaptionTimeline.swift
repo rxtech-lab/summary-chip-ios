@@ -80,7 +80,8 @@ public struct PodcastCaptionTimeline: Sendable {
             let ceiling = min(start + limit, characters.count)
             var end = ceiling
             if let boundary = (start..<ceiling).first(where: { index in
-                characters[index].unicodeScalars.contains { punctuation.contains($0) }
+                !Self.isNumericDot(characters, at: index)
+                    && characters[index].unicodeScalars.contains { punctuation.contains($0) }
             }) {
                 end = boundary + 1
             } else if ceiling < characters.count {
@@ -96,7 +97,8 @@ public struct PodcastCaptionTimeline: Sendable {
                 phrases.append(phrase)
                 endings.append(end)
                 weights.append(total)
-                punctuated.append(characters[end - 1].unicodeScalars.contains { punctuation.contains($0) })
+                punctuated.append(!Self.isNumericDot(characters, at: end - 1)
+                    && characters[end - 1].unicodeScalars.contains { punctuation.contains($0) })
             }
             start = end
         }
@@ -170,11 +172,22 @@ public struct PodcastCaptionTimeline: Sendable {
         lines(at: progress).joined(separator: "\n")
     }
 
-    /// Caption display never includes punctuation, including apostrophes and hyphens.
+    private static func isNumericDot(_ characters: [Character], at index: Int) -> Bool {
+        guard characters[index] == ".", index > 0, index + 1 < characters.count else { return false }
+        return [characters[index - 1], characters[index + 1]].allSatisfy {
+            $0.unicodeScalars.allSatisfy { CharacterSet.decimalDigits.contains($0) }
+        }
+    }
+
+    /// Remove sentence punctuation, preserving dots between digits (for example, 1.5).
     public static func withoutPunctuation(_ phrase: String) -> String {
-        let mapped = phrase.unicodeScalars.compactMap { scalar -> String? in
-            if "'’".unicodeScalars.contains(scalar) { return nil }
-            return CharacterSet.punctuationCharacters.contains(scalar) ? " " : String(scalar)
+        let characters = Array(phrase)
+        let mapped = characters.indices.map { index in
+            if Self.isNumericDot(characters, at: index) { return "." }
+            return characters[index].unicodeScalars.compactMap { scalar -> String? in
+                if "'’".unicodeScalars.contains(scalar) { return nil }
+                return CharacterSet.punctuationCharacters.contains(scalar) ? " " : String(scalar)
+            }.joined()
         }.joined()
         return mapped.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }

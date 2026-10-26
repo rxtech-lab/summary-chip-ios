@@ -4,7 +4,8 @@ export interface TranscribedCaption { text: string; startSecond: number; endSeco
 export interface PodcastCaptionCue { text: string; startSeconds: number; endSeconds: number }
 
 export function captionText(text: string): string {
-  return text.replace(/['’]/gu, "").replace(/\p{P}/gu, " ").replace(/\s+/gu, " ").trim();
+  // Keep dots between decimal digits; sentence punctuation still becomes whitespace.
+  return text.replace(/['’]/gu, "").replace(/(?<!\p{Nd})\.|\.(?!\p{Nd})|[^.\P{P}]/gu, " ").replace(/\s+/gu, " ").trim();
 }
 const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
 const simplified = Converter({ from: "tw", to: "cn" });

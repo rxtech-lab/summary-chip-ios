@@ -324,3 +324,9 @@ The page stays `noindex` so unlisted links aren't advertised for search indexing
 ### Video download resolution
 
 The native Download Podcast sheet defaults video exports to 720p and offers 1080p, 1440p, and 4K (3840 × 2160). The selected resolution applies to both Files and Photos. Higher resolutions render the animation source at the selected pixel density while preserving its layout and timing; selectable subtitles scale with the output. A published MP4 is reused only when its dimensions match. Each resolution is cached separately. Higher resolutions require more rendering time and storage.
+
+### Source chip navigation
+
+The player toolbar opens a Linked Chips sheet listing each distinct source chip. Opening a chip leaves audio playback with the shared player. A source chip's Watch Podcast toolbar action opens a dedicated list of its saved video episodes, including older versions, and opens the selected episode in the existing video player.
+
+`GET /api/v1/summaries/:id/podcasts` requires bearer authentication and returns `{ items: DailyPodcast[] }`, newest first, with `Cache-Control: private, no-store`. Only the caller's nondeleted episodes with a saved video and this source ID are returned. All source chips and the podcast chip must still be readable. Missing/inaccessible source chips return 404; a readable chip with no matching video returns an empty list. This lookup performs no generation and needs no migration.

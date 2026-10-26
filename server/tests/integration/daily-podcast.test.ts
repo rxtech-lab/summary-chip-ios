@@ -1,3 +1,4 @@
+import * as linkedPodcastsRoute from "@/app/api/v1/summaries/[id]/podcasts/route";
 import * as publicCover from "@/app/api/public/podcasts/[id]/cover/route";
 import { generateMetadata } from "@/app/podcast/[id]/page";
 import type { AiProvider } from "@/lib/ai/provider";
@@ -139,6 +140,29 @@ describe("podcast selection and versions", () => {
     expect((await generate({ library: true, chipIds: [podcast.summaryId], regenerate: true })).status).toBe(422);
     await env.handle.db.delete(summaries).where(eq(summaries.id, podcast.summaryId!));
     expect((await audio(podcast)).status).toBe(404);
+  });
+});
+
+describe("source chip video links", () => {
+  it("returns only this viewer's readable saved videos, including older versions", async () => {
+    const source = await chip("Source");
+    const other = await chip("Other source", env.tokens.bob);
+    const episode = (await (await generate({ library: true, chipIds: [source.id, other.id], includeVideo: false })).json()).podcast as DailyPodcast;
+    const videoEpisode = { ...episode, video: { id: "video-1", createdAt: episode.createdAt } };
+    await env.handle.db.update(podcastEpisodes).set({ document: videoEpisode }).where(eq(podcastEpisodes.key, episode.key));
+    // A newer audio-only version must not hide an earlier watchable version.
+    await generate({ library: true, summaryId: episode.summaryId, chipIds: [source.id], includeVideo: false, regenerate: true });
+    const list = (token: string | undefined = env.tokens.alice, id = source.id) => linkedPodcastsRoute.GET(
+      apiRequest("GET", `/api/v1/summaries/${id}/podcasts`, { token }), params({ id }));
+    expect((await (await list()).json()).items.map((p: DailyPodcast) => p.key)).toEqual([episode.key]);
+    expect((await (await list(env.tokens.bob)).json()).items).toEqual([]);
+    expect((await linkedPodcastsRoute.GET(apiRequest("GET", `/api/v1/summaries/${source.id}/podcasts`), params({ id: source.id }))).status).toBe(401);
+    expect((await list(env.tokens.alice, "missing")).status).toBe(404);
+    await env.handle.db.update(summaries).set({ visibility: "private" }).where(eq(summaries.id, other.id));
+    expect((await (await list()).json()).items).toEqual([]);
+    await env.handle.db.update(summaries).set({ visibility: "public" }).where(eq(summaries.id, other.id));
+    await env.handle.db.update(podcastEpisodes).set({ deleted: true }).where(eq(podcastEpisodes.key, episode.key));
+    expect((await (await list()).json()).items).toEqual([]);
   });
 });
 

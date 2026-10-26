@@ -11,12 +11,23 @@ describe("transcribed podcast captions", () => {
       { text: "Heres the news", startSeconds: 5.7, endSeconds: 6.5 },
     ]);
   });
-  it("supports Chinese and strips all punctuation", () => {
+  it("supports Chinese and strips sentence punctuation", () => {
     expect(alignPodcastCaptions("大家好，今天有新闻！", [
       { text: "大家好", startSecond: 1, endSecond: 2 },
       { text: "今天有新闻", startSecond: 3, endSecond: 6 },
     ]).map(c => c.text)).toEqual(["大家好", "今天有新闻"]);
     expect(captionText("Here's ‘AI’—e-mail，新闻！")).toBe("Heres AI e mail 新闻");
+  });
+  it("preserves decimal and version dots while removing sentence punctuation", () => {
+    expect(captionText("Up 1.5. Version 2.0.1! Wait... 3. 4."))
+      .toBe("Up 1.5 Version 2.0.1 Wait 3 4");
+    expect(alignPodcastCaptions("Growth is 1.5 percent. Next story!", [
+      { text: "Growth is 1.5 percent", startSecond: 0, endSecond: 2 },
+      { text: "Next story", startSecond: 3, endSecond: 4 },
+    ])).toEqual([
+      { text: "Growth is 1.5 percent", startSeconds: 0, endSeconds: 2 },
+      { text: "Next story", startSeconds: 3, endSeconds: 4 },
+    ]);
   });
   it("matches Simplified recognition to Traditional captions without changing text or timing", () => {
     expect(alignPodcastCaptions("軟體開發與資料處理。學習語言與閱讀新聞。", [

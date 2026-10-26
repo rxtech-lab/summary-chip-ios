@@ -291,3 +291,48 @@ struct PodcastVersionsSheet: View {
         }
     }
 }
+
+
+struct PodcastLinkedChipsSheet: View {
+    let api: SummaryAPIClient
+    let chipIDs: [String]
+    let onOpenChip: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var chips: [Summary] = []
+    @State private var loading = true
+    @State private var error: String?
+    @State private var taps = 0
+
+    var body: some View {
+        NavigationStack {
+            List(chips) { chip in
+                Button { taps += 1; onOpenChip(chip.id) } label: {
+                    Label(chip.title, systemImage: "doc.text")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                }
+                .accessibilityIdentifier("podcast-linked-chip-\(chip.id)")
+            }
+            .overlay { if loading { ProgressView("Loading chips…") } }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Linked Chips")
+            .summaryInlineNavigationTitle()
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .task {
+                defer { loading = false }
+                do {
+                    var loaded: [Summary] = []
+                    for id in chipIDs { loaded.append(try await api.summary(id: id)) }
+                    chips = loaded
+                } catch is CancellationError {} catch { self.error = error.localizedDescription }
+            }
+            .alert("Couldn't Load Chips", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+                Button("OK", role: .cancel) { error = nil }
+            } message: { Text(error ?? "") }
+            .sensoryFeedback(.selection, trigger: taps)
+        }
+        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
+    }
+}
