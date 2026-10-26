@@ -6,6 +6,15 @@ import Testing
 @testable import summary_chip
 
 @MainActor @Suite struct PodcastMediaTests {
+    @Test func removesUnreadableCachedVideo() async throws {
+        let file = FileManager.default.temporaryDirectory.appending(path: "broken-\(UUID().uuidString).mp4")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try Data("truncated movie".utf8).write(to: file)
+        #expect(try await !PodcastMotionRenderer.reusableVideo(at: file))
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+        #expect(try await !PodcastMotionRenderer.reusableVideo(at: file))
+    }
+
     @Test func resumesInterruptedPlaybackAtTheSamePosition() {
         let player = interruptionPlayer()
         defer { player.stop() }
@@ -60,7 +69,11 @@ import Testing
 
     @Test func writesVideoFilesThroughPrivateDirectoryAlias() throws {
         #if os(macOS) || targetEnvironment(simulator)
-        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+        // Use the app's writable temporary directory while still exercising /var's
+        // /private/var alias; sandboxed macOS tests cannot write to /private/tmp.
+        let canonical = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().path
+        let temporary = URL(fileURLWithPath: canonical.hasPrefix("/private/") ? String(canonical.dropFirst(8)) : canonical,
+                            isDirectory: true)
         #else
         let temporary = FileManager.default.temporaryDirectory
         #endif
@@ -95,7 +108,8 @@ import Testing
         #expect(text == "1\n00:00:01,250 --> 00:00:02,500\nHello 世界\n\n2\n01:01:01,001 --> 01:01:03,125\nHeres news\n")
     }
 
-    @Test func rendersMotionCompositionWithRecordedAudio() async throws {
+    @Test(arguments: PodcastVideoResolution.allCases)
+    func rendersMotionCompositionWithRecordedAudio(resolution: PodcastVideoResolution) async throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: "motion-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder.appending(path: "src"), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: folder.appending(path: "public"), withIntermediateDirectories: true)
@@ -110,20 +124,21 @@ import Testing
             <Audio src={staticFile('voice.wav')} />
           </AbsoluteFill>;
         };
-        registerRoot(() => <Composition id="Main" component={Clip} durationInFrames={12} fps={12} width={320} height={180} />);
+        registerRoot(() => <Composition id="Main" component={Clip} durationInFrames={12} fps={12} width={1280} height={720} />);
         """#
         try Data(source.utf8).write(to: folder.appending(path: "src/index.tsx"))
         let engine = RemotionEngine()
         defer { engine.closeAll() }
         let project = try await engine.prepare(projectURL: folder, entryPoint: "src/index.tsx")
         let output = folder.appending(path: "motion.mp4")
-        try await engine.renderMovie(project: project, to: output, settings: .init(codec: .h264))
+        try await engine.renderMovie(project: project, to: output, settings: .init(codec: .h264, concurrency: 1, captureScale: Double(resolution.height) / 720))
         let podcast = try SummaryJSON.decoder().decode(DailyPodcast.self, from: Data(#"""
         {"key":"test","title":"Motion","language":"en","createdAt":"2030-03-10T05:00:00Z",
         "durationSeconds":1,"speakers":[{"name":"Alex","voice":"fixture"}],
         "segments":[{"speaker":0,"chipId":"one","caption":"Hello 世界.","icon":"☕️","startSeconds":0,"endSeconds":1,"voiceStartSeconds":0.2,"voiceEndSeconds":0.8,"captionCues":[{"text":"Hello 世界","startSeconds":0.2,"endSeconds":0.8}]}]}
         """#.utf8))
-        try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast)
+        try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast, width: resolution.width, height: resolution.height)
+        #expect(try await PodcastMotionRenderer.reusableVideo(at: output))
         let asset = AVURLAsset(url: output)
         #expect(try await asset.loadTracks(withMediaType: .subtitle).count == 1)
         let group = try await asset.loadMediaSelectionGroup(for: .legible)
@@ -141,7 +156,7 @@ import Testing
         images.requestedTimeToleranceAfter = .zero
         let first = try await images.image(at: CMTime(seconds: 0.25, preferredTimescale: 12)).image
         let last = try await images.image(at: CMTime(seconds: 0.75, preferredTimescale: 12)).image
-        #expect(first.width == 320 && first.height == 180)
+        #expect(first.width == resolution.width && first.height == resolution.height)
         #expect(first.dataProvider?.data != last.dataProvider?.data)
     }
 

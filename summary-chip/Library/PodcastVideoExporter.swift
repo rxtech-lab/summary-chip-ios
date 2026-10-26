@@ -39,7 +39,7 @@ import SummaryKit
         return Data(text.utf8)
     }
 
-    static func embedCaptions(in url: URL, podcast: DailyPodcast) throws {
+    static func embedCaptions(in url: URL, podcast: DailyPodcast, width: Int = 1280, height: Int = 720) throws {
         let file = try FileHandle(forUpdating: url)
         defer { try? file.close() }
         let length = try file.seekToEnd()
@@ -74,7 +74,7 @@ import SummaryKit
         guard !samples.isEmpty else { return }
         let payload = samples.reduce(into: Data()) { $0.append($1.bytes) }
         let track = subtitleTrack(id: trackID, duration: end, movieDuration: UInt32((duration * Double(timescale)).rounded()),
-                                  language: podcast.language, samples: samples, chunkOffset: length + 8)
+                                  language: podcast.language, width: width, height: height, samples: samples, chunkOffset: length + 8)
         let newMovie = atom("moov", Data(movie.dropFirst(8)) + track)
         try file.seekToEnd()
         try file.write(contentsOf: atom("mdat", payload))
@@ -113,12 +113,12 @@ import SummaryKit
         return (movie, movieOffset)
     }
 
-    private static func subtitleTrack(id: UInt32, duration: UInt32, movieDuration: UInt32, language: String,
+    private static func subtitleTrack(id: UInt32, duration: UInt32, movieDuration: UInt32, language: String, width: Int, height: Int,
                                       samples: [(duration: UInt32, bytes: Data)], chunkOffset: UInt64) -> Data {
         let matrix = [UInt32(0x10000), 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000].reduce(into: Data()) { $0 += u32($1) }
         var header = zeros(8) + u32(id) + zeros(4) + u32(movieDuration) + zeros(8)
         header += u16(0) + u16(2) + zeros(4)
-        header += matrix + u32(1280 << 16) + u32(720 << 16)
+        header += matrix + u32(UInt32(width) << 16) + u32(UInt32(height) << 16)
         let tkhd = full("tkhd", flags: 3, header)
         let codes = ["en": "eng", "zh": "zho", "ja": "jpn", "ko": "kor", "fr": "fra", "de": "deu", "es": "spa", "it": "ita", "pt": "por", "ru": "rus", "ar": "ara"]
         let code = codes[String(language.prefix(2))] ?? "und"
@@ -126,9 +126,9 @@ import SummaryKit
         let mdhd = full("mdhd", zeros(8) + u32(1000) + u32(duration) + u16(packed) + zeros(2))
         let hdlr = full("hdlr", zeros(4) + Data("sbtl".utf8) + zeros(12) + Data("Subtitles\0".utf8))
         let font = atom("ftab", u16(1) + u16(1) + Data([5]) + Data("Arial".utf8))
-        let style = zeros(4) + u16(1) + Data([0, 28, 255, 255, 255, 255])
+        let style = zeros(4) + u16(1) + Data([0, UInt8(28 * height / 720), 255, 255, 255, 255])
         var description = zeros(6) + u16(1) + zeros(4) + Data([1, 255]) + zeros(4)
-        description += u16(600) + u16(40) + u16(700) + u16(1240)
+        description += u16(UInt16(600 * height / 720)) + u16(UInt16(40 * width / 1280)) + u16(UInt16(700 * height / 720)) + u16(UInt16(1240 * width / 1280))
         description += style + font
         let entry = atom("tx3g", description)
         let stsd = full("stsd", u32(1) + entry)

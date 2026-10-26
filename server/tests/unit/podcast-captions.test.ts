@@ -18,6 +18,29 @@ describe("transcribed podcast captions", () => {
     ]).map(c => c.text)).toEqual(["大家好", "今天有新闻"]);
     expect(captionText("Here's ‘AI’—e-mail，新闻！")).toBe("Heres AI e mail 新闻");
   });
+  it("matches Simplified recognition to Traditional captions without changing text or timing", () => {
+    expect(alignPodcastCaptions("軟體開發與資料處理。學習語言與閱讀新聞。", [
+      { text: "软体开发与资料处理", startSecond: 0.2, endSecond: 3.7 },
+      { text: "学习语言与阅读新闻", startSecond: 4.5, endSecond: 8.1 },
+    ])).toEqual([
+      { text: "軟體開發與資料處理", startSeconds: 0.2, endSeconds: 3.7 },
+      { text: "學習語言與閱讀新聞", startSeconds: 4.5, endSeconds: 8.1 },
+    ]);
+  });
+  it("aligns Chinese even when recognition divides words differently across segments", () => {
+    expect(alignPodcastCaptions("模型處理模糊情境", [
+      { text: "模型处", startSecond: 0, endSecond: 1 },
+      { text: "理模糊情境", startSecond: 1.5, endSecond: 3 },
+    ])).toEqual([
+      { text: "模型處", startSeconds: 0, endSeconds: 1 },
+      { text: "理模糊情境", startSeconds: 1.5, endSeconds: 3 },
+    ]);
+  });
+  it("still rejects unrelated Chinese recognition", () => {
+    expect(() => alignPodcastCaptions("軟體開發與資料處理", [
+      { text: "今天晴天我要吃苹果", startSecond: 0, endSecond: 3 },
+    ])).toThrow("Transcript does not match podcast script");
+  });
   it("restores omitted words and removes hallucinated text", () => {
     const cues = alignPodcastCaptions("This is the original script. Next story.", [
       { text: "This is original script", startSecond: 0, endSecond: 2 },

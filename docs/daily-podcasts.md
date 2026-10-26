@@ -320,3 +320,7 @@ including requests by preview crawlers, accept a live token without sign-in, eve
 a private library podcast. They recheck link expiry/deletion and source access on every
 request and send `private, no-store`; storage keys and bucket URLs are never exposed.
 The page stays `noindex` so unlisted links aren't advertised for search indexing.
+
+### Video download resolution
+
+The native Download Podcast sheet defaults video exports to 720p and offers 1080p, 1440p, and 4K (3840 × 2160). The selected resolution applies to both Files and Photos. Higher resolutions render the animation source at the selected pixel density while preserving its layout and timing; selectable subtitles scale with the output. A published MP4 is reused only when its dimensions match. Each resolution is cached separately. Higher resolutions require more rendering time and storage.

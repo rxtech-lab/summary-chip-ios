@@ -26,10 +26,13 @@ extension RemotionEngine {
         guard let c = first.compositions.first, c.width > 0, c.height > 0, c.width <= 8192, c.height <= 8192,
               c.fps > 0, c.fps <= 240, c.durationInFrames > 0 else { throw RemotionError.rendering("Invalid render dimensions or timing") }
         let captured = settings.capturedComposition(c)
+        guard captured.width <= 8192, captured.height <= 8192 else {
+            throw RemotionError.rendering("Captured dimensions exceed 8192 pixels")
+        }
         if settings.codec == .h264, captured.width % 2 != 0 || captured.height % 2 != 0 {
             throw RemotionError.rendering("H.264 export requires even pixel dimensions")
         }
-        let count = settings.workerCount(for: c)
+        let count = settings.workerCount(for: captured)
         for index in 1..<count {
             let page = try await RemotionWebPage(project: project, mode: "render", compositionID: compositionID,
                                                 inputProps: inputProps, settings: settings)

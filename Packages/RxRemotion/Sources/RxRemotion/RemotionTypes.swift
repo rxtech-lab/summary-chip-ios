@@ -66,7 +66,7 @@ public struct RemotionRenderSettings: Codable, Equatable, Sendable {
     /// Nil scales with CPU cores, memory and resolution, up to eight workers. Set 1 for serial rendering.
     public var concurrency: Int?
     /// Scale captured pixels without changing the composition's logical viewport or timing.
-    /// Nil keeps full resolution. Preview intermediates can use a value greater than zero and at most one.
+    /// Nil keeps full resolution. Values up to eight support higher resolution exports.
     public var captureScale: Double?
     public init(width: Int? = nil, height: Int? = nil, fps: Double? = nil, codec: Codec = .h264, concurrency: Int? = nil,
                 captureScale: Double? = nil) {
