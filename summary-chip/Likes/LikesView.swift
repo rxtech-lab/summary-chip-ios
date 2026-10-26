@@ -4,6 +4,8 @@ import SwiftUI
 /// Summaries the user starred, most recently starred first. Opening one shows its detail page.
 struct LikesView: View {
     @Bindable var environment: AppEnvironment
+    @State private var feedScroll = SummaryFeedScrollState()
+    @State private var didLoadInitially = false
     @State private var sharingSummary: Summary?
     @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
@@ -28,7 +30,6 @@ struct LikesView: View {
                         SummaryDestination(environment: environment, summary: summary)
                     }
                 }
-                .task { await model.reload() }
                 .refreshable { await model.reload() }
                 .onChange(of: scenePhase) { _, phase in
                     // Pick up stars made on other devices whenever the app is reopened.
@@ -51,6 +52,12 @@ struct LikesView: View {
                 }
                 .likeStatusOverlay($likeStatus)
         }
+        // Load with the navigation container, rather than reloading page one when detail is popped.
+        .task {
+            guard !didLoadInitially else { return }
+            await model.reload()
+            didLoadInitially = model.hasLoaded
+        }
     }
 
     @ViewBuilder
@@ -61,7 +68,7 @@ struct LikesView: View {
         } else if model.items.isEmpty {
             emptyState
         } else {
-            SummaryCardFeed(entries: model.entries, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
+            SummaryCardFeed(entries: model.entries, scrollState: feedScroll, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
                 Task { await model.loadMore() }
             }, onSelect: { summary in
                 if summary.kind == .podcast, !summary.isExpired, let openPodcast { openPodcast(summary) }

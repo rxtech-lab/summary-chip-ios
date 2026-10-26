@@ -31,7 +31,7 @@ final class LibraryModel {
     static let pageSize = 20
 
     private(set) var items: [Summary] = []
-    private(set) var editorPickID: String?
+    private(set) var editorPickIDs: Set<String> = []
     @ObservationIgnored private var headlineTask: Task<Void, Never>?
     private(set) var nextCursor: String?
     private(set) var isLoading = false
@@ -158,7 +158,7 @@ final class LibraryModel {
     func remove(id: String) {
         items.removeAll { $0.id == id }
         offline.remove(id: id)
-        if id == editorPickID { editorPickID = nil }
+        editorPickIDs.remove(id)
         refreshHeadlines()
     }
 
@@ -171,7 +171,7 @@ final class LibraryModel {
                 do {
                     let result = try await api.headlines()
                     try Task.checkCancellation()
-                    editorPickID = result.highlighted?.id
+                    editorPickIDs = Set(result.editorPickIDs ?? result.highlighted.map { [$0.id] } ?? [])
                     if !result.pending {
                         WidgetCenter.shared.reloadTimelines(ofKind: "ChippyHeadline")
                         return
@@ -185,7 +185,7 @@ final class LibraryModel {
     func reset() {
         headlineTask?.cancel()
         headlineTask = nil
-        editorPickID = nil
+        editorPickIDs = []
         WidgetCenter.shared.reloadTimelines(ofKind: "ChippyHeadline")
         loadGeneration += 1
         items = []

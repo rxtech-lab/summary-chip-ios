@@ -3,6 +3,8 @@ import SwiftUI
 
 struct LibraryView: View {
     @Bindable var environment: AppEnvironment
+    @State private var feedScroll = SummaryFeedScrollState()
+    @State private var didLoadInitially = false
     @State private var podcastTaps = 0
     @State private var showsFilters = false
     @State private var showsNewSummary = false
@@ -34,6 +36,14 @@ struct LibraryView: View {
         ))
     }
 
+    private var isPhone: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
     private var isMiniApps: Bool { model.kind == .miniApp }
     /// Clips open full screen (or in their own window) rather than on this stack.
     private var stackPath: Binding<[Summary]> { (path ?? $localPath).presentingMiniApps(with: openMiniApp) }
@@ -49,7 +59,6 @@ struct LibraryView: View {
                 .navigationDestination(for: Summary.self) { summary in
                     SummaryDestination(environment: environment, summary: summary)
                 }
-                .task { await model.reload() }
                 .refreshable { await model.reload() }
                 .onChange(of: scenePhase) { _, phase in
                     // Pick up summaries made elsewhere (share extension, web) whenever the app is reopened.
@@ -128,52 +137,12 @@ struct LibraryView: View {
                 .sensoryFeedback(.selection, trigger: model.filter)
                 .likeStatusOverlay($likeStatus)
         }
-    }
-
-    @ToolbarContentBuilder
-    private var libraryToolbar: some ToolbarContent {
-        ToolbarItem(placement: .summaryLeading) {
-            Button {
-                showsCredits = true
-            } label: {
-                // Toolbars collapse `Label` to its icon, so lay out the count explicitly.
-                HStack(spacing: 4) {
-                    Image(systemName: "sparkles")
-                    Text("\(pointsTitle) pts")
-                        .monospacedDigit()
-                        .fixedSize()
-                }
-            }
-            .accessibilityLabel("Points: \(pointsTitle)")
-            .accessibilityIdentifier("library-points")
+        // Load with the navigation container, rather than reloading page one when detail is popped.
+        .task {
+            guard !didLoadInitially else { return }
+            await model.reload()
+            didLoadInitially = model.hasLoaded
         }
-        ToolbarItem(placement: .summaryTrailing) {
-            ControlGroup {
-                Button {
-                    podcastTaps += 1
-                    environment.backgroundJobsRequest = BackgroundJobsRequest()
-                } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
-                .accessibilityIdentifier("background-jobs-toolbar")
-                if isMiniApps {
-                    Button { showsNewMiniApp = true } label: {
-                        Label("New Clip", systemImage: "plus")
-                    }
-                    .accessibilityIdentifier("new-mini-app")
-                } else {
-                    newDocumentMenu
-                }
-            }
-        }
-        ToolbarSpacer(.fixed, placement: .summaryTrailing)
-        ToolbarItem(placement: .summaryTrailing) {
-            ControlGroup {
-                filterMenu
-                if let openSearch {
-                    SummarySearchButton(action: openSearch)
-                }
-            }
-        }
-        ChatPanelToolbarContent(isVisible: chatPanelVisibility)
     }
 
     private var newDocumentMenu: some View {
@@ -260,6 +229,7 @@ struct LibraryView: View {
             Divider()
 
             Button {
+                podcastTaps += 1
                 showsFilters = true
             } label: {
                 Label("More Filters…", systemImage: "slider.horizontal.3")
@@ -296,6 +266,7 @@ struct LibraryView: View {
 
     private func applyFilter(_ filter: LibraryFilter) {
         guard filter != model.filter else { return }
+        feedScroll.reset()
         model.filter = filter
         Task { await model.reload() }
     }
@@ -309,7 +280,7 @@ struct LibraryView: View {
             emptyState
         } else {
             // Clips are a plain grid; only the Feed is grouped by day with a timeline.
-            SummaryCardFeed(entries: model.entries, editorPickID: model.editorPickID, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
+            SummaryCardFeed(entries: model.entries, scrollState: feedScroll, editorPickIDs: model.editorPickIDs, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
                 Task { await model.loadMore() }
             }, onSelect: { summary in
                 if summary.kind == .podcast, let openPodcast { openPodcast(summary) }
@@ -403,4 +374,70 @@ struct LibraryView: View {
             }
         }
     }
+}
+
+private extension LibraryView {
+    @ToolbarContentBuilder
+    var libraryToolbar: some ToolbarContent {
+        if !isPhone {
+            ToolbarItem(placement: .summaryLeading) {
+                Button { showsCredits = true } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                        Text("\(pointsTitle) pts")
+                            .monospacedDigit()
+                            .fixedSize()
+                    }
+                }
+                .accessibilityLabel("Points: \(pointsTitle)")
+                .accessibilityIdentifier("library-points")
+            }
+        }
+        ToolbarItemGroup(placement: .summaryTrailing) {
+            createButton
+            Menu {
+                if let openSearch {
+                    Button {
+                        podcastTaps += 1
+                        openSearch()
+                    } label: { Label("Search", systemImage: "magnifyingglass") }
+                    .accessibilityIdentifier("summary-search")
+                }
+                filterMenu
+                backgroundJobsButton
+            } label: {
+                VStack(spacing: 3) {
+                    ForEach(0..<3) { _ in
+                        Circle().frame(width: 3, height: 3)
+                    }
+                }
+                .frame(width: 22, height: 22)
+                .foregroundStyle(.primary)
+            }
+            .accessibilityLabel("Library Actions")
+            .accessibilityIdentifier("library-actions")
+        }
+        ChatPanelToolbarContent(isVisible: chatPanelVisibility)
+    }
+
+    var backgroundJobsButton: some View {
+        Button {
+            podcastTaps += 1
+            environment.backgroundJobsRequest = BackgroundJobsRequest()
+        } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
+        .accessibilityIdentifier("background-jobs-toolbar")
+    }
+
+    @ViewBuilder
+    var createButton: some View {
+        if isMiniApps {
+            Button { podcastTaps += 1; showsNewMiniApp = true } label: {
+                Label("New Clip", systemImage: "plus")
+            }
+            .accessibilityIdentifier("new-mini-app")
+        } else {
+            newDocumentMenu
+        }
+    }
+
 }

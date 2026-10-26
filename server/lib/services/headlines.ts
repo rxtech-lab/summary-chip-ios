@@ -3,11 +3,12 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { experimental_evaluate as evaluate } from "ai";
 import { evaluationModel, evaluationModelId } from "@/lib/ai/models";
 import type { Database } from "@/lib/db/client";
-import { headlineRankings, summaries, type SummaryRow } from "@/lib/db/schema";
+import { editorialScores, headlineRankings, summaries, type SummaryRow } from "@/lib/db/schema";
 import { mockServicesEnabled } from "@/lib/storage/r2";
 import { shareUrlFor } from "./serialize";
 
 export const HEADLINE_WINDOW = 50;
+export const EDITORS_PICK_MIN_SCORE = 80;
 type Candidate = Pick<SummaryRow, "id" | "title" | "summary" | "kind" | "createdAt" | "updatedAt" | "slug">;
 export type HeadlineScorer = (chips: Candidate[]) => Promise<Record<string, number>>;
 
@@ -50,9 +51,20 @@ export async function rerankHeadlines(db: Database, ownerId: string, scorer: Hea
   }
   // Do not publish a result computed before a concurrent addition, edit or deletion.
   if (revision(await headlineCandidates(db, ownerId)) !== fingerprint) return;
-  await db.insert(headlineRankings).values({ ownerId, revision: fingerprint, startedAt, scores })
+  const rankingWrite = db.insert(headlineRankings).values({ ownerId, revision: fingerprint, startedAt, scores })
     .onConflictDoUpdate({ target: headlineRankings.ownerId, set: { revision: fingerprint, startedAt, scores },
       setWhere: sql`${headlineRankings.startedAt} <= ${startedAt.getTime()}` });
+  if (!chips.length) {
+    await rankingWrite;
+    return;
+  }
+  // Atomic writes, with the same monotonic fence on each persisted chip decision.
+  await db.batch([rankingWrite, db.insert(editorialScores).values(chips.map((chip) => ({
+    summaryId: chip.id, ownerId, score: scores[chip.id],
+    isEditorsPick: scores[chip.id] >= EDITORS_PICK_MIN_SCORE, rankedAt: startedAt,
+  }))).onConflictDoUpdate({ target: editorialScores.summaryId, set: {
+    score: sql`excluded.score`, isEditorsPick: sql`excluded.is_editors_pick`, rankedAt: sql`excluded.ranked_at`,
+  }, setWhere: sql`${editorialScores.rankedAt} <= ${startedAt.getTime()}` })]);
 }
 
 /** A 24-hour half-life keeps a strong older chip in contention while favouring fresh news. */
@@ -64,10 +76,15 @@ export async function getHeadlines(db: Database, ownerId: string, now = new Date
   const chips = await headlineCandidates(db, ownerId);
   const [ranking] = await db.select().from(headlineRankings).where(eq(headlineRankings.ownerId, ownerId));
   const ready = ranking?.revision === revision(chips);
+  const picks = await db.select({ id: editorialScores.summaryId }).from(editorialScores)
+    .innerJoin(summaries, eq(summaries.id, editorialScores.summaryId))
+    .where(and(eq(editorialScores.ownerId, ownerId), eq(summaries.ownerId, ownerId),
+      eq(editorialScores.isEditorsPick, true), inArray(summaries.kind, ["summary", "podcast"])))
+    .orderBy(desc(summaries.createdAt), desc(summaries.id));
   const items = ready ? chips.map((chip) => ({ id: chip.id, title: chip.title, kind: chip.kind,
     shareUrl: shareUrlFor(chip.slug), createdAt: chip.createdAt.toISOString(), score: ranking.scores[chip.id] }))
     .sort((a, b) => headlineWeight(b.score, new Date(b.createdAt), now) - headlineWeight(a.score, new Date(a.createdAt), now)
       || b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)) : [];
   return { generatedAt: ranking?.startedAt.toISOString() ?? null, pending: !ready && chips.length > 0,
-    items, highlighted: items[0] ?? null };
+    items, highlighted: items[0] ?? null, editorPickIDs: picks.map((pick) => pick.id) };
 }

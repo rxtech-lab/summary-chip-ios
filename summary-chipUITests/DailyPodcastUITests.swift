@@ -20,6 +20,28 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5))
     }
 
+    @MainActor func testPhoneLibraryActionsAndMultipleEditorsPicks() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .phone)
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "--preview-editor-picks", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let actions = app.buttons["library-actions"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["library-points"].exists)
+        XCTAssertFalse(app.buttons["background-jobs-toolbar"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Editor’s Pick")).firstMatch.waitForExistence(timeout: 5))
+        attach(app, "multiple-editors-picks")
+        actions.tap()
+        XCTAssertTrue(app.buttons["Search"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Filter"].exists)
+        XCTAssertTrue(app.buttons["Background Jobs"].exists)
+        attach(app, "phone-library-actions")
+        tapMenuItem(app, id: "library-filter", label: "Filter")
+        tapMenuItem(app, id: "library-filter-more", label: "More Filters…")
+        XCTAssertTrue(app.navigationBars["Filter"].waitForExistence(timeout: 5))
+    }
+
     @MainActor func testPastingLinkAndTextIntoNewSummary() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -167,6 +189,12 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         ).firstMatch
         if button.waitForExistence(timeout: 3), button.isHittable {
             button.tap()
+            return
+        }
+        let actions = app.buttons["library-actions"]
+        if actions.exists, actions.isHittable {
+            actions.tap()
+            tapMenuItem(app, id: id, label: label)
             return
         }
         let overflow = app.navigationBars.buttons.matching(

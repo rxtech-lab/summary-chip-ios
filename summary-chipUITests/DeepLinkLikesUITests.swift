@@ -81,6 +81,38 @@ nonisolated final class DeepLinkLikesUITests: XCTestCase {
         capture(app, name: "07-expired-like")
     }
 
+    @MainActor func testReturningFromChipPreservesLoadedPagesAndScrollPosition() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "--preview-paged-feed", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let card = app.descendants(matching: .any)["summary-card-scroll-24"].firstMatch
+        XCTAssertTrue(app.buttons["library-actions"].waitForExistence(timeout: 10))
+        for _ in 0..<20 {
+            if card.exists && card.isHittable { break }
+            app.scrollViews.firstMatch.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(card.exists && card.isHittable, "Expected a chip from a later page: \(app.debugDescription)")
+        for _ in 0..<2 {
+            let previousY = card.frame.minY
+            card.tap()
+            XCTAssertTrue(app.buttons["summary-like"].firstMatch.waitForExistence(timeout: 5))
+            app.navigationBars.buttons["BackButton"].firstMatch.tap()
+            XCTAssertTrue(app.buttons["library-actions"].waitForExistence(timeout: 5))
+            let returned = XCTAttachment(screenshot: app.screenshot())
+            returned.name = "returned-feed"
+            returned.lifetime = .keepAlways
+            add(returned)
+            XCTAssertTrue(card.exists, "Returning should retain the loaded page")
+            XCTAssertEqual(card.frame.minY, previousY, accuracy: 12, "Returning should retain the viewing position")
+            XCTAssertTrue(card.isHittable)
+        }
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "feed-position-after-return"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// iPhone folds trailing toolbar items into an overflow menu when the bar is full.
     @MainActor private func tapToolbarItem(_ app: XCUIApplication, id: String) {
         let button = app.buttons[id].firstMatch

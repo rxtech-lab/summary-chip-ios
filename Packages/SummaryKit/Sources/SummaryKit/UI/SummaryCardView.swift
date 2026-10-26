@@ -305,7 +305,9 @@ public struct SummaryTileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.summaryCardBackground, in: shape)
         .clipShape(shape)
-        .overlay { shape.strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5) }
+        .overlay {
+            shape.strokeBorder(isEditorsPick ? Color.orange : Color.primary.opacity(0.06), lineWidth: isEditorsPick ? 2 : 0.5)
+        }
         .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
         .contentShape(shape)
         .accessibilityElement(children: .combine)
@@ -379,13 +381,21 @@ public struct SummaryTileView: View {
         }
     }
 
+    private var editorsPickBadge: some View {
+        Label(String(localized: "Editor’s Pick", bundle: .module), systemImage: "star.fill")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.yellow, in: Capsule())
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("summary-editors-pick")
+    }
+
     private func header(ink: Color, secondary: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if isEditorsPick {
-                Label(String(localized: "Editor’s Pick", bundle: .module), systemImage: "star.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(secondary)
-                    .accessibilityIdentifier("summary-editors-pick")
+                editorsPickBadge
             }
             HStack(spacing: 4) {
                 if let badge = KindBadge(kind: summary.kind) {
