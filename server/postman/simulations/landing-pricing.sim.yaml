@@ -1,0 +1,5 @@
+simulation: landing-pricing
+routing: path
+mocks:
+  - routeKey: subscription
+    path: ../mocks/landing-pricing/config.yaml

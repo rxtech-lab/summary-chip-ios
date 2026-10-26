@@ -23,6 +23,13 @@ export async function backgroundJob(db: Database, ownerId: string, id: string): 
   return visibleJob(row.document);
 }
 
+/** Removes history only; the episode and its generation workflow remain intact. */
+export async function deleteBackgroundJob(db: Database, ownerId: string, id: string) {
+  const removed = await db.delete(backgroundJobs)
+    .where(and(eq(backgroundJobs.id, id), eq(backgroundJobs.ownerId, ownerId))).returning({ id: backgroundJobs.id });
+  if (!removed.length) throw new ApiError(404, "NOT_FOUND", "Background job not found.");
+}
+
 export async function listBackgroundJobs(db: Database, ownerId: string, cursor?: string) {
   const [after] = cursor ? await db.select().from(backgroundJobs)
     .where(and(eq(backgroundJobs.id, cursor), eq(backgroundJobs.ownerId, ownerId))) : [];

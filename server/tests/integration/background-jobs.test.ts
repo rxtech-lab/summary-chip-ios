@@ -18,6 +18,7 @@ beforeEach(async () => { env = await setupTestEnv(); });
 afterEach(() => { vi.restoreAllMocks(); env.teardown(); });
 const list = (token = env.tokens.alice, cursor?: string) => listRoute.GET(apiRequest("GET", `/api/v1/background-jobs${cursor ? `?cursor=${cursor}` : ""}`, { token }));
 const detail = (id: string, token = env.tokens.alice) => detailRoute.GET(apiRequest("GET", `/api/v1/background-jobs/${id}`, { token }), params({ id }));
+const remove = (id: string, token = env.tokens.alice) => detailRoute.DELETE(apiRequest("DELETE", `/api/v1/background-jobs/${id}`, { token }), params({ id }));
 async function start() {
   env.ai.video = true;
   const added = await summariesRoute.POST(apiRequest("POST", "/api/v1/summaries", { token: env.tokens.alice,
@@ -30,6 +31,37 @@ async function start() {
 }
 
 describe("durable background jobs", () => {
+  it("deletes only the owner's history and lets running generation finish without recreating logs", async () => {
+    const job = await start();
+    expect((await remove(job.id, env.tokens.bob)).status).toBe(404);
+    expect((await detail(job.id)).status).toBe(200);
+    const response = await remove(job.id);
+    expect(response.status).toBe(204);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect((await detail(job.id)).status).toBe(404);
+    expect((await (await list()).json()).items).toEqual([]);
+    expect((await remove(job.id)).status).toBe(404);
+    const sent = vi.spyOn(notifications, "deliver").mockResolvedValue();
+    await env.runPodcastVideoDesigns();
+    expect((await (await list()).json()).items).toEqual([]);
+    expect(await env.handle.db.select().from(backgroundJobs)).toHaveLength(0);
+    const [episode] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, job.key));
+    expect(episode.deleted).toBe(false);
+    expect(episode.document.video).toMatchObject({ id: job.id });
+    expect(episode.document.videoDesign).toBeUndefined();
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it("deletes completed history without removing the saved video", async () => {
+    const job = await start();
+    await env.runPodcastVideoDesigns();
+    expect((await remove(job.id)).status).toBe(204);
+    expect((await detail(job.id)).status).toBe(404);
+    const [episode] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, job.key));
+    expect(episode.document.video).toMatchObject({ id: job.id });
+    expect(episode.document.videoDesign).toBeUndefined();
+  });
+
   it("lists queued work, persists completion and logs, and fences other accounts", async () => {
     const job = await start();
     const queued = await list();

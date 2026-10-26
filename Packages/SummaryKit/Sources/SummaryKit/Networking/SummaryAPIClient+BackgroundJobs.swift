@@ -41,6 +41,12 @@ extension SummaryAPIClient {
         return result.job
     }
 
+    public func deleteBackgroundJob(id: String) async throws {
+        var request = request("/api/v1/background-jobs/\(id.urlPathEscaped)")
+        request.httpMethod = "DELETE"
+        _ = try await sendRaw(request)
+    }
+
     public func backgroundJobPodcast(_ job: BackgroundJob) async throws -> DailyPodcast {
         var query = [URLQueryItem(name: "start", value: job.day.start), URLQueryItem(name: "end", value: job.day.end)]
         if let language = job.language { query.append(URLQueryItem(name: "language", value: language)) }

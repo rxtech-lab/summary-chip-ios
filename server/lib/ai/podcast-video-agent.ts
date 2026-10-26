@@ -215,8 +215,8 @@ export interface PodcastVideoDraft {
   previews: number;
   /** The validated files once a submission passed. */
   result: Record<string, string> | null;
-  /** The model declined a turn, so the fallback model runs the rest of the design. */
-  fallback?: boolean;
+  /** Index of the model running the design; a model that fails a turn hands the run to the next one. */
+  modelIndex?: number;
 }
 
 export function newPodcastVideoDraft(): PodcastVideoDraft {
@@ -232,8 +232,6 @@ export interface PodcastVideoTurnOptions {
   abortSignal?: AbortSignal;
   /** Receives each model call's usage and the gateway id of the model that ran it. */
   onUsage?: (usage: LanguageModelUsage, modelId?: string) => void;
-  /** Runs a turn the model's safety classifier declined (`content-filter`), and every later turn of the run. */
-  fallbackModel?: LanguageModel;
 }
 
 /** What the turn did, as progress evidence: the tool it ran and its outcome. */
@@ -268,11 +266,15 @@ function nudgedDraft(current: PodcastVideoDraft, text: string, truncated: boolea
 /** Models that return a 400 for forced tool choice (`tool_choice` any/tool). */
 const AUTO_TOOL_CHOICE_MODELS = new Set(["anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5"]);
 
+const modelName = (model: LanguageModel) => typeof model === "string" ? model : model.modelId;
+
 /**
  * One model turn of the design run: a single tool call (one small file, one edit, one frame preview or
- * one submission) applied to a copy of `draft`. Throws when the model call fails; `draft` is unchanged.
+ * one submission) applied to a copy of `draft`. With several `models`, one that fails the turn (an error
+ * or a safety-classifier refusal) hands it, and the rest of the run, to the next. Throws when the last
+ * model fails; `draft` is unchanged.
  */
-export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideoInput, current: PodcastVideoDraft,
+export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], input: PodcastVideoInput, current: PodcastVideoDraft,
   options: PodcastVideoTurnOptions = {}): Promise<PodcastVideoTurnResult> {
   options.abortSignal?.throwIfAborted();
   const draft: PodcastVideoDraft = structuredClone(current);
@@ -280,7 +282,9 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
   const phrases = podcastPhraseWindows(input.segments);
   const settings: PreviewSettings = { fps: PODCAST_VIDEO_FPS, width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT,
     durationSeconds: input.durationSeconds, language: input.language };
-  const context = () => logContext(model, draft);
+  const list = Array.isArray(models) ? models : [models];
+  let index = Math.min(draft.modelIndex ?? 0, list.length - 1);
+  const context = () => logContext(list[index], draft);
   let evidence = "Writing composition";
   // Only the turn's first tool call runs, so every turn stays one small change.
   let ran = false;
@@ -426,7 +430,7 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
     }),
   };
   const call = async (model: LanguageModel) => {
-    const modelId = typeof model === "string" ? model : model.modelId;
+    const modelId = modelName(model);
     const result = await generateText({
       model,
       system: INSTRUCTIONS,
@@ -455,19 +459,25 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
     options.onUsage?.(result.usage, modelId);
     return result;
   };
-  let active = draft.fallback && options.fallbackModel ? options.fallbackModel : model;
-  let result = await call(active);
-  // A safety-classifier refusal (often a false positive on security topics): the same prompt would be
-  // declined again, so run the turn on the fallback model and keep it for the rest of the run.
-  if (result.finishReason === "content-filter" && options.fallbackModel && active !== options.fallbackModel) {
-    console.warn("[podcast-video] turn declined by the model's safety classifier; switching to the fallback model", {
-      ...context(), fallback: typeof options.fallbackModel === "string" ? options.fallbackModel : options.fallbackModel.modelId });
-    active = options.fallbackModel;
-    draft.fallback = true;
-    result = await call(active);
+  let result: Awaited<ReturnType<typeof call>>;
+  for (;;) {
+    const next = index + 1 < list.length && !ran && !options.abortSignal?.aborted ? list[index + 1] : null;
+    let failure: string;
+    try {
+      result = await call(list[index]);
+      // A safety-classifier refusal (often a false positive on security topics) declines the same prompt again.
+      if (result.finishReason !== "content-filter" || !next) break;
+      failure = "declined by the model's safety classifier";
+    } catch (error) {
+      if (!next) throw error;
+      failure = `failed: ${(error instanceof Error ? error.message : String(error)).slice(0, 300)}`;
+    }
+    console.warn(`[podcast-video] turn ${failure}; switching to the next model`, { ...context(), next: modelName(next) });
+    index += 1;
+    draft.modelIndex = index;
   }
   if (!result.toolCalls.length) {
-    console.warn("[podcast-video] turn returned without a tool call", { ...logContext(active, draft), finishReason: result.finishReason,
+    console.warn("[podcast-video] turn returned without a tool call", { ...context(), finishReason: result.finishReason,
       textChars: result.text.length, outputTokens: result.usage.outputTokens });
     throw new PodcastVideoNoToolError(nudgedDraft(draft, result.text, result.finishReason === "length"));
   }
@@ -498,21 +508,23 @@ export function podcastVideoProgressContext(input: PodcastVideoInput) {
  * The validated files, or null when the agent stopped without a composition that passes validation.
  * Runs every turn in this process; background runs call `podcastVideoTurn` one step at a time instead.
  */
-export async function writePodcastVideo(model: LanguageModel, input: PodcastVideoInput, options: PodcastVideoOptions = {}): Promise<Record<string, string> | null> {
+export async function writePodcastVideo(models: LanguageModel | LanguageModel[], input: PodcastVideoInput, options: PodcastVideoOptions = {}): Promise<Record<string, string> | null> {
   let draft = newPodcastVideoDraft();
+  const list = Array.isArray(models) ? models : [models];
+  const model = () => list[Math.min(draft.modelIndex ?? 0, list.length - 1)];
   const progress = options.onProgress ? videoProgressObserver(podcastVideoProgressContext(input), options.onProgress, options.abortSignal) : undefined;
   try {
     while (!podcastVideoDraftFinished(draft)) {
-      const turn = await podcastVideoTurn(model, input, draft, { abortSignal: options.abortSignal, onUsage: options.onUsage });
+      const turn = await podcastVideoTurn(models, input, draft, { abortSignal: options.abortSignal, onUsage: options.onUsage });
       draft = turn.draft;
       progress?.observe(JSON.stringify(draft.messages.at(-2) ?? "").slice(-4000), turn.evidence);
     }
     options.abortSignal?.throwIfAborted();
-    logPodcastVideoOutcome(model, draft);
+    logPodcastVideoOutcome(model(), draft);
     return draft.result;
   } catch (error) {
     console.error("[podcast-video] generation failed", {
-      ...logContext(model, draft), aborted: options.abortSignal?.aborted ?? false,
+      ...logContext(model(), draft), aborted: options.abortSignal?.aborted ?? false,
       errorName: error instanceof Error ? error.name : "UnknownError",
       message: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
     });

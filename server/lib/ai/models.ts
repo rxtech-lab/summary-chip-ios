@@ -183,22 +183,20 @@ export function speechUsdPerCharacter(): number {
 /** Default model that writes podcast motion videos (Remotion code): a strong coding model. */
 export const DEFAULT_PODCAST_VIDEO_MODEL = "anthropic/claude-sonnet-5.5";
 
-/** Podcast motion video model (`AI_PODCAST_VIDEO_MODEL`); `off` publishes podcasts without a video. */
-export function podcastVideoModelId(): string | null {
+/**
+ * Podcast motion video models in order (`AI_PODCAST_VIDEO_MODEL`, one id or a comma-separated list): when a
+ * model fails a design turn the next one takes over the run. `off` publishes podcasts without a video.
+ */
+export function podcastVideoModelIds(): string[] {
   const configured = process.env.AI_PODCAST_VIDEO_MODEL?.trim();
-  if (configured && /^(off|none|false)$/i.test(configured)) return null;
-  return configured || DEFAULT_PODCAST_VIDEO_MODEL;
+  if (configured && /^(off|none|false)$/i.test(configured)) return [];
+  const ids = [...new Set((configured || DEFAULT_PODCAST_VIDEO_MODEL).split(",").map((id) => id.trim()).filter(Boolean))];
+  return ids.length ? ids : [DEFAULT_PODCAST_VIDEO_MODEL];
 }
 
-/** Anthropic's recommended fallback for cyber-category safety refusals; it runs the turns the video model declines. */
-export const DEFAULT_PODCAST_VIDEO_FALLBACK_MODEL = "anthropic/claude-opus-4.8";
-
-/** Model for declined video design turns (`AI_PODCAST_VIDEO_FALLBACK_MODEL`); `off` disables the fallback. */
-export function podcastVideoFallbackModelId(): string | null {
-  const configured = process.env.AI_PODCAST_VIDEO_FALLBACK_MODEL?.trim();
-  if (configured && /^(off|none|false)$/i.test(configured)) return null;
-  const id = configured || DEFAULT_PODCAST_VIDEO_FALLBACK_MODEL;
-  return id === podcastVideoModelId() ? null : id;
+/** The first podcast video model, which points are reserved and recorded against; null when videos are off. */
+export function podcastVideoModelId(): string | null {
+  return podcastVideoModelIds()[0] ?? null;
 }
 
 export function podcastVideoModel(id: string): LanguageModel {

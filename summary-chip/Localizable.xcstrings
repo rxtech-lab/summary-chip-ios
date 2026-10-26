@@ -3581,6 +3581,9 @@
         }
       }
     },
+    "Couldn't Delete Job Log" : {
+
+    },
     "Couldn’t Disconnect Client" : {
 
     },
@@ -4551,6 +4554,12 @@
         }
       }
     },
+    "Delete Job Log" : {
+
+    },
+    "Delete Job Log?" : {
+
+    },
     "Delete My Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4757,6 +4766,9 @@
           }
         }
       }
+    },
+    "Deleting job log…" : {
+
     },
     "Deleting trip…" : {
       "localizations" : {
@@ -7212,6 +7224,9 @@
       }
     },
     "Job Details" : {
+
+    },
+    "Job log deleted" : {
 
     },
     "Journey's end" : {
@@ -14671,6 +14686,9 @@
       }
     },
     "This paper can't be edited." : {
+
+    },
+    "This permanently removes this job's history and logs. Your podcast is kept, and any generation in progress continues." : {
 
     },
     "This restores the LaTeX layout after you save. Your source and translations stay unchanged." : {

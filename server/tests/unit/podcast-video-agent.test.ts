@@ -259,7 +259,7 @@ export const PodcastVideo = () => {
     expect(second.draft.messages).toHaveLength(1);
   });
 
-  it("runs a turn the safety classifier declined on the fallback model, and keeps it for later turns", async () => {
+  it("hands a declined or failed turn to the next model, which keeps the run", async () => {
     const declined: LanguageModelV4CallOptions[] = [];
     const refusing: LanguageModelV4 = {
       specificationVersion: "v4", provider: "mock", modelId: "anthropic/claude-opus-5.5", supportedUrls: {},
@@ -272,13 +272,18 @@ export const PodcastVideo = () => {
     };
     const fallback = scriptedModel([{ toolName: "write_file", input: { path: "src/Video.tsx", content: narratedVideo } }, good]);
     const usedBy: (string | undefined)[] = [];
-    const first = await podcastVideoTurn(refusing, input, newPodcastVideoDraft(), { fallbackModel: fallback.model, onUsage: (_, modelId) => usedBy.push(modelId) });
+    const first = await podcastVideoTurn([refusing, fallback.model], input, newPodcastVideoDraft(), { onUsage: (_, modelId) => usedBy.push(modelId) });
     expect(Object.keys(first.draft.files)).toEqual(["src/Video.tsx"]);
-    expect(first.draft.fallback).toBe(true);
+    expect(first.draft.modelIndex).toBe(1);
     expect(usedBy).toEqual(["anthropic/claude-opus-5.5", "scripted"]);
-    await podcastVideoTurn(refusing, input, first.draft, { fallbackModel: fallback.model });
+    await podcastVideoTurn([refusing, fallback.model], input, first.draft);
     expect(declined).toHaveLength(1);
     expect(fallback.calls).toHaveLength(2);
+    // An error moves on too; the last model's error is thrown.
+    const broken: LanguageModelV4 = { ...refusing, async doGenerate() { throw new Error("overloaded"); } };
+    const next = scriptedModel([good]);
+    expect((await podcastVideoTurn([broken, next.model], input, newPodcastVideoDraft())).draft.modelIndex).toBe(1);
+    await expect(podcastVideoTurn(broken, input, newPodcastVideoDraft())).rejects.toThrow("overloaded");
   });
 
   it("resumes a saved draft turn by turn, as a background run does between steps", async () => {

@@ -1,6 +1,34 @@
 import XCTest
 
 nonisolated final class MacNavigationUITests: XCTestCase {
+    @MainActor func testContextMenuDeletesBackgroundJobHistoryAfterConfirmation() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "-chatPanelVisible", "NO", "-ApplePersistenceIgnoreState", "YES",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let actions = app.descendants(matching: .any)["library-actions"].firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 10))
+        actions.click()
+        app.menuItems["Background Jobs"].click()
+        let row = app.descendants(matching: .any)["background-job-preview-video-job"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.rightClick()
+        app.menuItems["Delete Job Log"].click()
+        app.buttons["Cancel"].click()
+        XCTAssertTrue(row.exists)
+        row.rightClick()
+        app.menuItems["Delete Job Log"].click()
+        app.buttons["Delete Job Log"].click()
+        XCTAssertTrue(app.staticTexts["No Background Jobs"].waitForExistence(timeout: 5))
+        XCTAssertFalse(row.exists)
+        app.buttons["Done"].click()
+        actions.click()
+        app.menuItems["Background Jobs"].click()
+        XCTAssertTrue(app.staticTexts["No Background Jobs"].waitForExistence(timeout: 5))
+        XCTAssertFalse(row.exists)
+    }
+
     @MainActor
     func testSettingsReopensWelcomeAndNewFeatures() {
         let app = XCUIApplication()
