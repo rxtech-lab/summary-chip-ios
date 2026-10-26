@@ -237,6 +237,9 @@ export interface PodcastVideoTurnResult {
   evidence: string;
 }
 
+/** Models that return a 400 for forced tool choice (`tool_choice` any/tool). */
+const AUTO_TOOL_CHOICE_MODELS = new Set(["anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5"]);
+
 /**
  * One model turn of the design run: a single tool call (one small file, one edit, one frame preview or
  * one submission) applied to a copy of `draft`. Throws when the model call fails; `draft` is unchanged.
@@ -400,17 +403,22 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
     system: INSTRUCTIONS,
     messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
     tools,
-    // Sonnet 5.5 does not support forced tool choice with this thinking mode.
-    toolChoice: modelId === "anthropic/claude-sonnet-5.5" ? "auto" : "required",
+    // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the
+    // no-tool check below keep each turn to one tool call.
+    toolChoice: AUTO_TOOL_CHOICE_MODELS.has(modelId) ? "auto" : "required",
     stopWhen: stepCountIs(1),
     // Bound each durable turn rather than allowing a whole episode's code in one response.
-    maxOutputTokens: 8_192,
+    // Opus 5.5 always thinks, so leave room for that before the tool call.
+    maxOutputTokens: modelId === "anthropic/claude-opus-5.5" ? 16_384 : 8_192,
     // The workflow owns retries and records each failure in the job log.
     maxRetries: 0,
     // Sonnet 5.5 thinks up front by default; a whole-episode plan can consume the
     // turn before it saves any file. Keep thinking between these small tool calls.
     ...(modelId === "anthropic/claude-sonnet-5.5" ? {
       providerOptions: { anthropic: { thinking: { type: "between_tools" }, effort: "medium" } },
+    } : modelId === "anthropic/claude-opus-5.5" ? {
+      // Opus 5.5 cannot disable thinking or use between_tools; effort is the only control.
+      providerOptions: { anthropic: { effort: "medium" } },
     } : {}),
     abortSignal: options.abortSignal,
   });
