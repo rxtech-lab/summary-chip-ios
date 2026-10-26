@@ -10,6 +10,7 @@ struct DailyPodcastDownloadSheet: View {
     let podcast: DailyPodcast
     @Environment(\.dismiss) private var dismiss
     @State private var format: PodcastDownloadFormat = .audio
+    @State private var resolution: PodcastVideoResolution = .hd720
     @State private var preparing = false
     @State private var saveToPhotos = false
     @State private var savingToPhotos = false
@@ -37,6 +38,15 @@ struct DailyPodcastDownloadSheet: View {
                     }
                     .disabled(preparing)
                     .accessibilityIdentifier("podcast-download-format")
+                    if format == .video {
+                        Picker("Resolution", selection: $resolution) {
+                            ForEach(PodcastVideoResolution.allCases) { Text($0.title).tag($0) }
+                        }
+                        .disabled(preparing)
+                        .accessibilityIdentifier("podcast-download-resolution")
+                        Text("Higher resolutions take longer to render and use more storage.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     #if os(iOS)
                     if format == .video {
                         Picker("Save To", selection: $saveToPhotos) {
@@ -85,6 +95,7 @@ struct DailyPodcastDownloadSheet: View {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
             .sensoryFeedback(.selection, trigger: format)
+            .sensoryFeedback(.selection, trigger: resolution)
             .sensoryFeedback(.selection, trigger: saveToPhotos)
             .sensoryFeedback(.selection, trigger: taps)
             .sensoryFeedback(.success, trigger: completed)
@@ -158,7 +169,7 @@ struct DailyPodcastDownloadSheet: View {
                     try Task.checkCancellation()
                     try bytes.write(to: url, options: .atomic)
                 } else if podcast.video != nil {
-                    url = try await PodcastMotionRenderer.render(api: api, podcast: podcast) { renderProgress = $0; transfer = $0.transfer }
+                    url = try await PodcastMotionRenderer.render(api: api, podcast: podcast, resolution: resolution) { renderProgress = $0; transfer = $0.transfer }
                 } else {
                     throw SummaryAPIError.invalidResponse
                 }

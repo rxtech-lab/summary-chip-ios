@@ -38,7 +38,7 @@ it("advertises tools and denies writing without the OAuth write scope", async ()
   const c = await client("alice", ["chippy:read"]);
   const tools = await c.listTools();
   expect(tools.tools.map(t => t.name)).toEqual(expect.arrayContaining([...PODCAST_TOOL_NAMES]));
-  for (const name of PODCAST_TOOL_NAMES.filter(n => !["list_podcasts", "render_podcast_frame"].includes(n))) {
+  for (const name of PODCAST_TOOL_NAMES.filter(n => !["get_podcast", "list_podcasts", "render_podcast_frame"].includes(n))) {
     expect(tools.tools.find(t => t.name === name)?._meta?.securitySchemes).toEqual([{ type: "oauth2", scopes: ["chippy:write"] }]);
   }
   const denied = await call(c, "get_podcast_project");

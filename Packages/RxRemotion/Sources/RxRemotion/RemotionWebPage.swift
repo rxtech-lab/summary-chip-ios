@@ -26,7 +26,7 @@ final class RemotionWebPage: NSObject, WKNavigationDelegate {
          inputProps: [String: RemotionJSON], settings: RemotionRenderSettings) async throws {
         guard (1...8192).contains(settings.width ?? 1920), (1...8192).contains(settings.height ?? 1080),
               (settings.fps ?? 30).isFinite, (settings.fps ?? 30) > 0, (settings.fps ?? 30) <= 240,
-              (settings.captureScale ?? 1).isFinite, (settings.captureScale ?? 1) > 0, (settings.captureScale ?? 1) <= 1,
+              (settings.captureScale ?? 1).isFinite, (settings.captureScale ?? 1) > 0, (settings.captureScale ?? 1) <= 8,
               project.configuration.frameTimeout.isFinite, project.configuration.frameTimeout > 0 else {
             throw RemotionError.rendering("Invalid render size, capture scale, frame rate, or resource timeout")
         }

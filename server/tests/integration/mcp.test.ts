@@ -178,7 +178,7 @@ describe("/api/mcp", () => {
 
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
-      "create_podcast", "create_podcast_file", "delete_podcast_file", "edit_podcast_file", "generate_podcast_music", "generate_podcast_speech", "get_podcast_project", "list_podcasts", "render_podcast_frame", "submit_podcast_video",
+      "get_podcast", "create_podcast_version", "translate_podcast", "create_podcast", "create_podcast_file", "delete_podcast_file", "edit_podcast_file", "generate_podcast_music", "generate_podcast_speech", "get_podcast_project", "list_podcasts", "render_podcast_frame", "submit_podcast_video",
       "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_trip", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_paper_reviews", "get_profile", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_trips", "list_versions", "regenerate_mini_app_cover", "restore_version", "search_summaries", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
     ].sort());
     expect(initBody.result.instructions).toContain("update_trip");

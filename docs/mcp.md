@@ -402,7 +402,10 @@ Apply migration `0039_podcast_drafts` before deploying these tools.
 
 | Tool | Arguments / result |
 |---|---|
-| `list_podcasts` | `day: {start, end}` (one local day, ISO timestamps); returns saved episode records with keys |
+| `list_podcasts` | `summaryId` for a library podcast's versions, or `day: {start, end}` for daily versions; returns keys, days, default flags and available languages |
+| `get_podcast` | `day`, `key`, optional `language`; reads one existing version without generating |
+| `create_podcast_version` | `day`, `key`; copies the recording, captions, translations and saved composition into a new episode key under the same chip/history; no AI points |
+| `translate_podcast` | `day`, `key`, `language`, optional `includeVideo` (default true); adds a language to the same key and reuses its composition |
 | `create_podcast` | The existing daily podcast creation contract: `day`, `language`, optional `chipIds`, `library`, `regenerate`, `includeVideo`, `summaryId`; returns `episode` |
 | `get_podcast_project` | `day`, `key`; initializes/reads the draft, returning `revision`, generated `files`, read-only `scaffold`, `entry`, `speakers` with voice IDs and timed episode `input` |
 | `create_podcast_file` | `day`, `key`, `revision`, `path`, `content`; creates a new generated file |
@@ -413,10 +416,27 @@ Apply migration `0039_podcast_drafts` before deploying these tools.
 | `generate_podcast_speech` | `day`, `key`, `text` (1–5000 chars), `voice` (provider voice ID); returns an MP3 asset download |
 | `generate_podcast_music` | `day`, `key`, `prompt` (1–2000 chars); returns an MP3 asset download |
 
-`list_podcasts` and `render_podcast_frame` require `chippy:read`. All other tools above
+`get_podcast`, `list_podcasts` and `render_podcast_frame` require `chippy:read`. All other tools above
 require `chippy:write`, including `get_podcast_project` because it may initialize a draft.
 Every operation checks episode ownership and continued access to its source chips.
 API-key usage is counted through the same wrapper as the other MCP tools.
+
+For an existing podcast, find its chip with `search_summaries(kind="podcast")`, then
+call `list_podcasts(summaryId=...)`. Do not call `create_podcast` for a new language
+or a video edit. To preserve two video versions, call `create_podcast_version` once
+and edit/submit the returned key. It copies saved content, not an unpublished draft;
+the old version and its published render stay intact. The copy becomes the default
+version and needs its own on-device MP4 render/publication. No new chip is created.
+
+After submitting the original composition, call `translate_podcast` on the desired
+version key for each language. Languages live on that episode, not as separate chips
+or version keys. If a later video edit invalidates translated video, call translation
+again: it reuses existing translated speech and refreshes the composition's labels.
+If no original video exists, translation creates audio/captions only; submit the video
+then translate again to add video. `get_podcast` reports available languages and video
+status. Two versions with two languages use two episode keys under one `summaryId`,
+each with both languages. Never repeat a timed-out version-creation call blindly;
+read the version history first.
 
 To author a video, create a podcast with `includeVideo: false` (use `library: true`
 and explicit `chipIds` to use chips from any date), or list an existing day's episodes.

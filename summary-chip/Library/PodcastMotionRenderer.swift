@@ -6,9 +6,17 @@ import SummaryKit
 import UIKit
 #endif
 
+enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
+    case hd720 = 720, fullHD1080 = 1080, qhd1440 = 1440, ultraHD4K = 2160
+    var id: Int { rawValue }
+    var width: Int { rawValue * 16 / 9 }
+    var height: Int { rawValue }
+    var title: String { self == .ultraHD4K ? "4K (3840 × 2160)" : "\(rawValue)p (\(width) × \(height))" }
+}
+
 /// Renders an episode's agent-written Remotion composition on device: the server sends the source,
 /// the app adds the recording, artwork and real timings, then WebKit draws each frame and AVFoundation
-/// encodes the MP4. Published videos are downloaded instead. Both are cached per composition,
+/// encodes the MP4. Matching published videos are downloaded instead. Files are cached per resolution and composition,
 /// so watching, saving and publishing reuse one file.
 @MainActor enum PodcastMotionRenderer {
     struct Progress: Equatable {
@@ -28,28 +36,15 @@ import UIKit
         podcast.isTranslation ? "\(podcast.key)~\(podcast.language)-" : "\(podcast.key)-"
     }
 
-    static func cachedURL(for podcast: DailyPodcast) -> URL? {
+    static func cachedURL(for podcast: DailyPodcast, resolution: PodcastVideoResolution = .hd720) async throws -> URL? {
         guard let video = podcast.video else { return nil }
-        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v3.mp4")
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v4.mp4")
+        return try await reusableVideo(at: url) ? url : nil
     }
 
-    static func render(api: SummaryAPIClient, podcast: DailyPodcast, onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
-        if let cached = cachedURL(for: podcast) { return cached }
-        if podcast.video?.isPublished == true {
-            onProgress(Progress(stage: .preparing))
-            let file = try await api.downloadPublishedPodcastVideo(podcast) { transfer in
-                onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
-            }
-            defer { try? FileManager.default.removeItem(at: file) }
-            try Task.checkCancellation()
-            try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-            let destination = cache.appending(path: "\(prefix(for: podcast))\(podcast.video!.id)-subtitles-v3.mp4")
-            // Another consumer may have finished downloading while this one was suspended.
-            if FileManager.default.fileExists(atPath: destination.path) { return destination }
-            try FileManager.default.moveItem(at: file, to: destination)
-            return destination
-        }
+    static func render(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution = .hd720, onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
+        if let cached = try await cachedURL(for: podcast, resolution: resolution) { return cached }
+        if let published = try await publishedVideo(api: api, podcast: podcast, resolution: resolution, onProgress: onProgress) { return published }
         guard let video = podcast.video, !podcast.segments.isEmpty else { throw SummaryAPIError.invalidResponse }
         onProgress(Progress(stage: .preparing))
         let fm = FileManager.default
@@ -77,7 +72,7 @@ import UIKit
         defer { engine.closeAll() }
         let prepared = try await engine.prepare(projectURL: project)
         let output = project.appending(path: "render.mp4")
-        try await engine.renderMovie(project: prepared, to: output, settings: .init(codec: .h264)) { progress in
+        try await engine.renderMovie(project: prepared, to: output, settings: .init(width: source.width, height: source.height, codec: .h264, captureScale: Double(resolution.height) / Double(source.height))) { progress in
             switch progress.stage {
             case .preparing, .compiling: onProgress(Progress(stage: .preparing))
             case .rendering: onProgress(Progress(stage: .rendering, fraction: progress.fraction, frameDetail: progress.detail))
@@ -86,15 +81,68 @@ import UIKit
         }
         try Task.checkCancellation()
         onProgress(Progress(stage: .encoding, fraction: 0.98))
-        try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast)
+        try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast, width: resolution.width, height: resolution.height)
+        try await validateVideo(at: output)
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
-        // Keep only the current composition's render of this episode in this language.
-        for old in (try? fm.contentsOfDirectory(at: cache, includingPropertiesForKeys: nil)) ?? [] where old.lastPathComponent.hasPrefix(prefix(for: podcast)) {
-            try? fm.removeItem(at: old)
-        }
-        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-subtitles-v3.mp4")
+        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v4.mp4")
+        if try await reusableVideo(at: destination) { return destination }
         try fm.moveItem(at: output, to: destination)
         return destination
+    }
+
+    private static func publishedVideo(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution,
+                                       onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL? {
+        if podcast.video?.isPublished == true {
+            onProgress(Progress(stage: .preparing))
+            let file = try await api.downloadPublishedPodcastVideo(podcast) { transfer in
+                onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
+            }
+            defer { try? FileManager.default.removeItem(at: file) }
+            try Task.checkCancellation()
+            let asset = AVURLAsset(url: file)
+            let valid = try await reusableVideo(at: file)
+            let track = valid ? try await asset.loadTracks(withMediaType: .video).first : nil
+            let size = try await track?.load(.naturalSize)
+            if size == CGSize(width: resolution.width, height: resolution.height) {
+                try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+                let destination = cache.appending(path: "\(prefix(for: podcast))\(podcast.video!.id)-\(resolution.rawValue)p-subtitles-v4.mp4")
+                // Another consumer may have finished downloading while this one was suspended.
+                if try await reusableVideo(at: destination) { return destination }
+                try FileManager.default.moveItem(at: file, to: destination)
+                return destination
+            }
+        }
+        return nil
+    }
+
+    /// File existence alone is insufficient: interrupted writes and older exports can leave
+    /// an MP4 that AVPlayer cannot open. Evict only that file and rebuild from saved source.
+    static func reusableVideo(at url: URL) async throws -> Bool {
+        try Task.checkCancellation()
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        do {
+            try await validateVideo(at: url)
+            return true
+        } catch {
+            // Cancellation must never delete a healthy cache entry.
+            try Task.checkCancellation()
+            if error is CancellationError { throw error }
+            try FileManager.default.removeItem(at: url)
+            return false
+        }
+    }
+
+    static func validateVideo(at url: URL) async throws {
+        let asset = AVURLAsset(url: url)
+        guard try await asset.load(.isPlayable),
+              try await asset.load(.duration).seconds > 0,
+              try await !asset.loadTracks(withMediaType: .video).isEmpty else {
+            throw SummaryAPIError.invalidResponse
+        }
+        // Reading metadata can succeed even when the encoded media is truncated.
+        let images = AVAssetImageGenerator(asset: asset)
+        _ = try await images.image(at: .zero)
+        try Task.checkCancellation()
     }
 
     static var cacheSize: Int {
