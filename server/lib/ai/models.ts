@@ -190,6 +190,17 @@ export function podcastVideoModelId(): string | null {
   return configured || DEFAULT_PODCAST_VIDEO_MODEL;
 }
 
+/** Anthropic's recommended fallback for cyber-category safety refusals; it runs the turns the video model declines. */
+export const DEFAULT_PODCAST_VIDEO_FALLBACK_MODEL = "anthropic/claude-opus-4.8";
+
+/** Model for declined video design turns (`AI_PODCAST_VIDEO_FALLBACK_MODEL`); `off` disables the fallback. */
+export function podcastVideoFallbackModelId(): string | null {
+  const configured = process.env.AI_PODCAST_VIDEO_FALLBACK_MODEL?.trim();
+  if (configured && /^(off|none|false)$/i.test(configured)) return null;
+  const id = configured || DEFAULT_PODCAST_VIDEO_FALLBACK_MODEL;
+  return id === podcastVideoModelId() ? null : id;
+}
+
 export function podcastVideoModel(id: string): LanguageModel {
   return cachedChatModel(id);
 }

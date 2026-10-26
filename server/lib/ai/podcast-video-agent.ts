@@ -215,6 +215,8 @@ export interface PodcastVideoDraft {
   previews: number;
   /** The validated files once a submission passed. */
   result: Record<string, string> | null;
+  /** The model declined a turn, so the fallback model runs the rest of the design. */
+  fallback?: boolean;
 }
 
 export function newPodcastVideoDraft(): PodcastVideoDraft {
@@ -228,7 +230,10 @@ export function podcastVideoDraftFinished(draft: PodcastVideoDraft) {
 
 export interface PodcastVideoTurnOptions {
   abortSignal?: AbortSignal;
-  onUsage?: (usage: LanguageModelUsage) => void;
+  /** Receives each model call's usage and the gateway id of the model that ran it. */
+  onUsage?: (usage: LanguageModelUsage, modelId?: string) => void;
+  /** Runs a turn the model's safety classifier declined (`content-filter`), and every later turn of the run. */
+  fallbackModel?: LanguageModel;
 }
 
 /** What the turn did, as progress evidence: the tool it ran and its outcome. */
@@ -270,7 +275,6 @@ const AUTO_TOOL_CHOICE_MODELS = new Set(["anthropic/claude-sonnet-5.5", "anthrop
 export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideoInput, current: PodcastVideoDraft,
   options: PodcastVideoTurnOptions = {}): Promise<PodcastVideoTurnResult> {
   options.abortSignal?.throwIfAborted();
-  const modelId = typeof model === "string" ? model : model.modelId;
   const draft: PodcastVideoDraft = structuredClone(current);
   const data = podcastVideoData(input);
   const phrases = podcastPhraseWindows(input.segments);
@@ -421,36 +425,52 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
       },
     }),
   };
-  const result = await generateText({
-    model,
-    system: INSTRUCTIONS,
-    messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
-    tools,
-    // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the
-    // no-tool check below keep each turn to one tool call.
-    toolChoice: AUTO_TOOL_CHOICE_MODELS.has(modelId) ? "auto" : "required",
-    stopWhen: stepCountIs(1),
-    // Bound each durable turn rather than allowing a whole episode's code in one response.
-    // Opus 5.5 always thinks, so leave room for that before the tool call.
-    maxOutputTokens: modelId === "anthropic/claude-opus-5.5" ? 16_384 : 8_192,
-    // The workflow owns retries and records each failure in the job log.
-    maxRetries: 0,
-    // Sonnet 5.5 thinks up front by default; a whole-episode plan can consume the
-    // turn before it saves any file. Keep thinking between these small tool calls.
-    ...(modelId === "anthropic/claude-sonnet-5.5" ? {
-      providerOptions: { anthropic: { thinking: { type: "between_tools" }, effort: "medium" } },
-    } : modelId === "anthropic/claude-opus-5.5" ? {
-      // Opus 5.5 cannot disable thinking or use between_tools; effort is the only control.
-      providerOptions: { anthropic: { effort: "medium" } },
-    } : {}),
-    abortSignal: options.abortSignal,
-  });
-  if (!result.toolCalls.length) {
-    console.warn("[podcast-video] turn returned without a tool call", { ...context(), finishReason: result.finishReason,
-      textChars: result.text.length, outputTokens: result.usage.outputTokens });
-    throw new PodcastVideoNoToolError(nudgedDraft(current, result.text, result.finishReason === "length"));
+  const call = async (model: LanguageModel) => {
+    const modelId = typeof model === "string" ? model : model.modelId;
+    const result = await generateText({
+      model,
+      system: INSTRUCTIONS,
+      messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
+      tools,
+      // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the
+      // no-tool check below keep each turn to one tool call.
+      toolChoice: AUTO_TOOL_CHOICE_MODELS.has(modelId) ? "auto" : "required",
+      stopWhen: stepCountIs(1),
+      // Bound each durable turn rather than allowing a whole episode's code in one response.
+      // Opus 5.5 always thinks, so leave room for that before the tool call.
+      maxOutputTokens: modelId === "anthropic/claude-opus-5.5" ? 16_384 : 8_192,
+      // The workflow owns retries and records each failure in the job log.
+      maxRetries: 0,
+      // Sonnet 5.5 thinks up front by default; a whole-episode plan can consume the
+      // turn before it saves any file. Keep thinking between these small tool calls.
+      ...(modelId === "anthropic/claude-sonnet-5.5" ? {
+        providerOptions: { anthropic: { thinking: { type: "between_tools" }, effort: "medium" } },
+      } : modelId === "anthropic/claude-opus-5.5" ? {
+        // Opus 5.5 cannot disable thinking or use between_tools; effort is the only control.
+        providerOptions: { anthropic: { effort: "medium" } },
+      } : {}),
+      abortSignal: options.abortSignal,
+    });
+    // A declined call is billed too.
+    options.onUsage?.(result.usage, modelId);
+    return result;
+  };
+  let active = draft.fallback && options.fallbackModel ? options.fallbackModel : model;
+  let result = await call(active);
+  // A safety-classifier refusal (often a false positive on security topics): the same prompt would be
+  // declined again, so run the turn on the fallback model and keep it for the rest of the run.
+  if (result.finishReason === "content-filter" && options.fallbackModel && active !== options.fallbackModel) {
+    console.warn("[podcast-video] turn declined by the model's safety classifier; switching to the fallback model", {
+      ...context(), fallback: typeof options.fallbackModel === "string" ? options.fallbackModel : options.fallbackModel.modelId });
+    active = options.fallbackModel;
+    draft.fallback = true;
+    result = await call(active);
   }
-  options.onUsage?.(result.usage);
+  if (!result.toolCalls.length) {
+    console.warn("[podcast-video] turn returned without a tool call", { ...logContext(active, draft), finishReason: result.finishReason,
+      textChars: result.text.length, outputTokens: result.usage.outputTokens });
+    throw new PodcastVideoNoToolError(nudgedDraft(draft, result.text, result.finishReason === "length"));
+  }
   draft.messages.push(...result.response.messages);
   draft.turns += 1;
   return { draft, evidence };

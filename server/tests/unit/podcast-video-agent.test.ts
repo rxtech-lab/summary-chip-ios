@@ -259,6 +259,28 @@ export const PodcastVideo = () => {
     expect(second.draft.messages).toHaveLength(1);
   });
 
+  it("runs a turn the safety classifier declined on the fallback model, and keeps it for later turns", async () => {
+    const declined: LanguageModelV4CallOptions[] = [];
+    const refusing: LanguageModelV4 = {
+      specificationVersion: "v4", provider: "mock", modelId: "anthropic/claude-opus-5.5", supportedUrls: {},
+      async doGenerate(options) {
+        declined.push(options);
+        return { content: [], finishReason: { unified: "content-filter" as const, raw: "refusal" },
+          usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }, warnings: [] };
+      },
+      async doStream() { throw new Error("unused"); },
+    };
+    const fallback = scriptedModel([{ toolName: "write_file", input: { path: "src/Video.tsx", content: narratedVideo } }, good]);
+    const usedBy: (string | undefined)[] = [];
+    const first = await podcastVideoTurn(refusing, input, newPodcastVideoDraft(), { fallbackModel: fallback.model, onUsage: (_, modelId) => usedBy.push(modelId) });
+    expect(Object.keys(first.draft.files)).toEqual(["src/Video.tsx"]);
+    expect(first.draft.fallback).toBe(true);
+    expect(usedBy).toEqual(["anthropic/claude-opus-5.5", "scripted"]);
+    await podcastVideoTurn(refusing, input, first.draft, { fallbackModel: fallback.model });
+    expect(declined).toHaveLength(1);
+    expect(fallback.calls).toHaveLength(2);
+  });
+
   it("resumes a saved draft turn by turn, as a background run does between steps", async () => {
     const { model, calls } = scriptedModel([
       { toolName: "write_file", input: { path: "src/Video.tsx", content: narratedVideo } },
