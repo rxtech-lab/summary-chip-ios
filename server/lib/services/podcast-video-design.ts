@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { estimateVideoProgress } from "@/lib/ai/podcast-progress";
-import { newPodcastVideoDraft, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
+import { newPodcastVideoDraft, PodcastVideoNoToolError, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
   type PodcastVideoDraft, type PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign } from "@/lib/contracts/daily-podcast";
@@ -150,6 +150,8 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
     delete state.lastError;
     evidence = turn.evidence;
   } catch (error) {
+    // Keep the reminder, so the retry asks again rather than repeating the prompt that produced no tool call.
+    if (error instanceof PodcastVideoNoToolError) state.draft = error.draft;
     state.failures += 1;
     state.lastError = podcastVideoError(error);
     console.error(`[podcast-video] design turn failed ${JSON.stringify({ job: job.id, failures: state.failures,

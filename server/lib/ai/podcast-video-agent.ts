@@ -99,7 +99,7 @@ const INSTRUCTIONS = `You are a senior motion designer who writes Remotion (Reac
 
 The project already contains src/index.ts, src/Root.tsx, src/data.json, src/phrases.json and src/podcast.ts (shown below). Write ${PODCAST_VIDEO_ENTRY}, exporting \`export const PodcastVideo: React.FC = () => …\`, plus optional extra components under src/ (at most ${MAX_PODCAST_VIDEO_FILES} files). Saved files are retained throughout this run, including after validation failures. Do not resend unchanged files. Only a validated submission becomes the final video.
 
-Work in small steps: make exactly one tool call per turn and wait for its result before the next. Each write_file sends one small component (under ${MAX_WRITE_CHARS} characters); each edit_file changes one passage. Split scenes across small components instead of writing a large file; extra tool calls in the same turn are not run. Start by saving a small shared component or entry point immediately. Do not produce a complete storyboard, all scenes or a long written plan before the first write_file. Build and refine the storyboard as each scene is implemented. Submit saved files by omitting files from submit_video; do not rewrite the entire video in a submission.
+Work in small steps: make exactly one tool call per turn and wait for its result before the next. Every reply must be a tool call; a reply with only text saves nothing. Each write_file sends one small component (under ${MAX_WRITE_CHARS} characters); each edit_file changes one passage. Split scenes across small components instead of writing a large file; extra tool calls in the same turn are not run. Start by saving a small shared component or entry point immediately. Do not produce a complete storyboard, all scenes or a long written plan before the first write_file. Build and refine the storyboard as each scene is implemented. Submit saved files by omitting files from submit_video; do not rewrite the entire video in a submission.
 
 Workflow:
 1. Plan the storyboard against the transcribed phrases before writing code: for every turn decide what appears or changes on each phrase, and for every story change choreograph the bridge between the two stories.
@@ -235,6 +235,29 @@ export interface PodcastVideoTurnOptions {
 export interface PodcastVideoTurnResult {
   draft: PodcastVideoDraft;
   evidence: string;
+}
+
+/** Starts the reminder appended after a turn without a tool call. */
+const NUDGE = "Your previous reply did not call a tool";
+
+/**
+ * The turn ended without a tool call (with `auto` tool choice Opus 5.5 sometimes ends on text or runs out
+ * of output while thinking). `draft` carries a reminder for the retry, so it doesn't resend the same prompt.
+ */
+export class PodcastVideoNoToolError extends Error {
+  override name = "PodcastVideoNoToolError";
+  constructor(readonly draft: PodcastVideoDraft) { super("The video model returned without calling a design tool."); }
+}
+
+/** `draft` with one reminder at the end (replacing an earlier one), quoting what the model said instead. */
+function nudgedDraft(current: PodcastVideoDraft, text: string, truncated: boolean): PodcastVideoDraft {
+  const draft: PodcastVideoDraft = structuredClone(current);
+  const last = draft.messages.at(-1);
+  if (last?.role === "user" && typeof last.content === "string" && last.content.startsWith(NUDGE)) draft.messages.pop();
+  const said = text.trim().slice(0, 2_000);
+  draft.messages.push({ role: "user", content: `${NUDGE}${truncated ? " and ran out of output before calling one" : ""}, so nothing was saved.${
+    said ? `\nIt said:\n<previous_reply>\n${said}\n</previous_reply>` : ""}\nReply now with exactly one tool call (write_file, edit_file, render_frame or submit_video) and keep it small; plan as you go instead of planning everything first.` });
+  return draft;
 }
 
 /** Models that return a 400 for forced tool choice (`tool_choice` any/tool). */
@@ -423,9 +446,9 @@ export async function podcastVideoTurn(model: LanguageModel, input: PodcastVideo
     abortSignal: options.abortSignal,
   });
   if (!result.toolCalls.length) {
-    const error = new Error("The video model returned without calling a design tool.");
-    error.name = "PodcastVideoNoToolError";
-    throw error;
+    console.warn("[podcast-video] turn returned without a tool call", { ...context(), finishReason: result.finishReason,
+      textChars: result.text.length, outputTokens: result.usage.outputTokens });
+    throw new PodcastVideoNoToolError(nudgedDraft(current, result.text, result.finishReason === "length"));
   }
   options.onUsage?.(result.usage);
   draft.messages.push(...result.response.messages);

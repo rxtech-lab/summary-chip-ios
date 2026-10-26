@@ -1,6 +1,6 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions } from "@ai-sdk/provider";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { newPodcastVideoDraft, podcastCheckFrames, podcastVideoDraftFinished, podcastVideoTurn, writePodcastVideo } from "@/lib/ai/podcast-video-agent";
+import { newPodcastVideoDraft, podcastCheckFrames, podcastVideoDraftFinished, PodcastVideoNoToolError, podcastVideoTurn, writePodcastVideo } from "@/lib/ai/podcast-video-agent";
 import { previewPodcastFrames } from "@/lib/podcast-video/frame-preview";
 import { validatePodcastVideo } from "@/lib/podcast-video/scaffold";
 import { MOCK_PODCAST_VIDEO } from "@/lib/ai/mock";
@@ -244,6 +244,19 @@ export const PodcastVideo = () => {
     expect(calls[0].toolChoice).toEqual({ type: "auto" });
     const empty = scriptedModel([]);
     await expect(podcastVideoTurn({ ...empty.model, modelId: "anthropic/claude-sonnet-5.5" }, input, newPodcastVideoDraft())).rejects.toMatchObject({ name: "PodcastVideoNoToolError" });
+  });
+
+  it("carries a single reminder into the retry after a turn without a tool call", async () => {
+    const { model, calls } = scriptedModel([]);
+    const opus = { ...model, modelId: "anthropic/claude-opus-5.5" };
+    const first = await podcastVideoTurn(opus, input, newPodcastVideoDraft()).catch((error: unknown) => error);
+    expect(first).toBeInstanceOf(PodcastVideoNoToolError);
+    const draft = (first as PodcastVideoNoToolError).draft;
+    expect(draft.turns).toBe(0);
+    expect(JSON.stringify(draft.messages)).toContain("<previous_reply>\\nDone.\\n</previous_reply>");
+    const second = await podcastVideoTurn(opus, input, draft).catch((error: unknown) => error) as PodcastVideoNoToolError;
+    expect(JSON.stringify(calls[1].prompt)).toContain("Your previous reply did not call a tool");
+    expect(second.draft.messages).toHaveLength(1);
   });
 
   it("resumes a saved draft turn by turn, as a background run does between steps", async () => {
