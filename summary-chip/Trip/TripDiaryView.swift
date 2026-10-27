@@ -244,15 +244,23 @@ struct TripDaySnapBehavior: ScrollTargetBehavior {
     func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
         let metrics = tracker.metrics
         guard metrics.height > 0 else { return }
+        let reach = metrics.height * Self.reach
+        // A scroll that ends near the bottom stays there, so the end of the diary can be read.
+        guard context.contentSize.height - target.rect.maxY > reach else { return }
         // Offsets start below the diary bar: 0 is the top of the content.
         let visibleTop = target.rect.minY + Self.gap
         // The trip's header, then every measured day.
         let tops = [Self.gap] + tracker.frames.values.map(\.minY)
         guard let nearest = tops.min(by: { abs($0 - visibleTop) < abs($1 - visibleTop) }),
-              abs(nearest - visibleTop) < metrics.height * Self.reach else { return }
+              abs(nearest - visibleTop) < reach else { return }
         let offset = nearest - Self.gap
         // Near the end the content can't scroll a card to the top; leave the end where it is.
         guard offset <= metrics.maxOffset else { return }
+        // Only snap the way the scroll is going. Snapping back past where it started would undo
+        // short scrolls (a mouse wheel's ticks) and pin the diary to a card's top.
+        let start = metrics.top
+        let moved = target.rect.minY - start
+        guard moved > 0 ? offset > start : offset < start else { return }
         target.rect.origin.y = offset
     }
 }
