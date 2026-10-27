@@ -55,7 +55,7 @@ export async function startPodcastRender(db: Database, userId: string, day: Podc
   if (job) {
     try { await getPodcastRenderStarter().start(job); }
     catch (error) {
-      await finishPodcastRender(db, job, undefined);
+      await finishPodcastRender(db, job, undefined, podcastRenderError(error));
       console.error("[podcast-render] workflow could not start", error);
       throw new ApiError(503, "PODCAST_RENDER_UNAVAILABLE", "Cloud rendering could not start. Please try again.");
     }
@@ -74,8 +74,16 @@ export async function podcastRenderStatus(db: Database, userId: string, day: Pod
     ...(render?.status === "ready" && job ? { downloadUrl: (await getObjectStore().signedGet(podcastRenderKey(job), { filename: `podcast-${resolution}p.mp4`, expiresInSeconds: 600 })).url } : {}) };
 }
 
-export async function finishPodcastRender(db: Database, job: PodcastRenderJob, byteSize: number | undefined) {
-  const error = { code: "PODCAST_RENDER_FAILED", message: "Cloud video rendering failed. Please retry from the podcast." };
+export function podcastRenderError(failure?: unknown) {
+  // Only known application codes may cross into owner-visible job history.
+  const code = (failure as { code?: string } | undefined)?.code;
+  if (code === "PODCAST_RENDER_UNAVAILABLE") return { code, message: "The cloud video renderer is unavailable. Check the server's renderer snapshot configuration." };
+  if (code === "PODCAST_VIDEO_CHANGED") return { code, message: "The composition was replaced. Start a new render." };
+  return { code: "PODCAST_RENDER_FAILED", message: "Cloud video rendering failed. Please retry from the podcast." };
+}
+
+export async function finishPodcastRender(db: Database, job: PodcastRenderJob, byteSize: number | undefined, failure?: { code: string }) {
+  const error = podcastRenderError(failure);
   let accepted = false;
   try {
     await renderTransaction(db, async tx => {
@@ -93,8 +101,8 @@ export async function finishPodcastRender(db: Database, job: PodcastRenderJob, b
     if (!(failure instanceof ApiError && failure.status === 404)) throw failure;
   }
   await recordJobActivity(db, job.userId, job.id, "finished", accepted && byteSize ? "Video ready in R2. Open the podcast to watch or download."
-    : "The render failed or its composition was replaced. Open the podcast to retry.",
-    { status: accepted && byteSize ? "ready" : "failed", percent: 100 });
+    : error.message,
+    { status: accepted && byteSize ? "ready" : "failed", percent: 100, ...(!accepted || !byteSize ? { error } : {}) });
   if (!accepted || !byteSize) await getObjectStore().delete(podcastRenderKey(job));
 }
 

@@ -9,6 +9,8 @@ import { dailyPodcastEpisode, updatePodcastDocument } from "@/lib/services/daily
 import { setPodcastRenderStarterForTests } from "@/lib/podcast-video/render-workflow";
 import * as renderRoute from "@/app/api/v1/daily-podcasts/[key]/video/render/route";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
+import { ApiError } from "@/lib/http/errors";
+import { backgroundJob } from "@/lib/services/background-jobs";
 let env: TestEnv;
 let key: string;
 const day = { start: "2030-04-01T00:00:00Z", end: "2030-04-02T00:00:00Z" };
@@ -136,6 +138,28 @@ it("records renderer failure and stops the container without a download", async 
     expect(state.downloadUrl).toBeUndefined();
     expect(upload).not.toHaveBeenCalled();
     expect(stop).toHaveBeenCalledOnce();
+  } finally { setCloudPodcastRendererForTests(undefined); }
+});
+
+it("preserves a safe configuration error in render status and background job history", async () => {
+  const { renderPodcastVideo } = await import("@/workflows/render-podcast-video");
+  const { setCloudPodcastRendererForTests } = await import("@/lib/podcast-video/sandbox-renderer");
+  await start(); const job = env.podcastRenders[0];
+  const poll = vi.fn(); const stop = vi.fn(); const upload = vi.fn();
+  setCloudPodcastRendererForTests({ launch: async () => {
+    throw new ApiError(503, "PODCAST_RENDER_UNAVAILABLE", "secret provider response");
+  }, poll, stop, upload });
+  try {
+    await renderPodcastVideo(job);
+    const state = await podcastRenderStatus(env.handle.db, "user-alice", day, key);
+    const history = await backgroundJob(env.handle.db, "user-alice", job.id);
+    expect(state.render).toMatchObject({ status: "failed", error: { code: "PODCAST_RENDER_UNAVAILABLE" } });
+    expect(history.error).toEqual(state.render?.error);
+    expect(history.logs.at(-1)?.message).toContain("snapshot configuration");
+    expect(JSON.stringify({ state, history })).not.toContain("secret");
+    expect(poll).not.toHaveBeenCalled();
+    expect(stop).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
   } finally { setCloudPodcastRendererForTests(undefined); }
 });
 
