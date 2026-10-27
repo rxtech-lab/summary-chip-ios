@@ -118,13 +118,16 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             let gaps = Self.spacing * CGFloat(columnCount - 1)
             let columnWidth = max(0, (geometry.size.width - Self.horizontalPadding * 2 - gaps) / CGFloat(columnCount))
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: showsDateHeaders ? 28 : Self.spacing) {
+                // Headers and bands are flat rows of one lazy stack, so a long day loads band by
+                // band instead of as one giant row of nested lazy columns.
+                LazyVStack(alignment: .leading, spacing: Self.spacing) {
                     ForEach(sections) { section in
-                        VStack(alignment: .leading, spacing: Self.spacing) {
-                            if showsDateHeaders {
-                                dateHeader(for: section)
-                            }
-                            masonryColumns(section.columns, tail: tail, columnWidth: columnWidth)
+                        if showsDateHeaders {
+                            dateHeader(for: section)
+                                .padding(.top, section.id == sections.first?.id ? 0 : 28 - Self.spacing)
+                        }
+                        ForEach(section.bands) { band in
+                            masonryColumns(band.columns, tail: tail, columnWidth: columnWidth)
                         }
                     }
                     footer.frame(maxWidth: .infinity)
@@ -212,18 +215,28 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     private struct FeedSection: Identifiable {
         var id: Date
         var entries: [SummaryFeedEntry]
+        var bands: [FeedBand]
+        /// Each column's entries across all bands, for the timeline's position estimates.
+        var columns: [[SummaryFeedEntry]] {
+            guard let count = bands.first?.columns.count else { return [] }
+            return (0..<count).map { index in bands.flatMap { $0.columns[index] } }
+        }
+
+    }
+
+    /// A short masonry block; the feed stacks these lazily.
+    private struct FeedBand: Identifiable {
         var columns: [[SummaryFeedEntry]]
+        var id: String { columns.lazy.compactMap(\.first?.id).first ?? "" }
     }
 
     private func feedSections(columnCount: Int) -> [FeedSection] {
-        guard showsDateHeaders else {
-            return [FeedSection(id: .distantPast, entries: entries, columns: Self.distribute(entries, into: columnCount))]
+        func section(_ id: Date, _ items: [SummaryFeedEntry]) -> FeedSection {
+            FeedSection(id: id, entries: items, bands: Self.bands(items, into: columnCount).map(FeedBand.init))
         }
+        guard showsDateHeaders else { return [section(.distantPast, entries)] }
         let grouped = Dictionary(grouping: entries) { Calendar.current.startOfDay(for: $0.date) }
-        return grouped.keys.sorted(by: >).map { day in
-            let items = grouped[day] ?? []
-            return FeedSection(id: day, entries: items, columns: Self.distribute(items, into: columnCount))
-        }
+        return grouped.keys.sorted(by: >).map { day in section(day, grouped[day] ?? []) }
     }
 
     private func dateHeader(for section: FeedSection) -> some View {
@@ -261,7 +274,8 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     private func masonryColumns(_ columns: [[SummaryFeedEntry]], tail: Set<String>, columnWidth: CGFloat) -> some View {
         HStack(alignment: .top, spacing: Self.spacing) {
             ForEach(columns.indices, id: \.self) { index in
-                LazyVStack(spacing: Self.spacing) {
+                // Eager within a band: bands are short, and the outer stack provides laziness.
+                VStack(spacing: Self.spacing) {
                     ForEach(columns[index]) { entry in
                         tileLink(for: entry)
                         .accessibilityIdentifier("summary-card-\(entry.id)")
@@ -292,13 +306,9 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                         #endif
                     }
                 }
-                // On iOS a LazyVStack nested in the feed's LazyVStack can keep a stale visible
-                // range when its entries change (e.g. applying a filter), leaving cards blank.
-                // A new identity per column contents makes it lay out fresh.
                 #if os(macOS)
                 .scrollTargetLayout()
                 #endif
-                .id(columns[index].map(\.id))
                 // Fixed-size metadata must not widen a column into the feed's gutters.
                 .frame(width: columnWidth, alignment: .top)
             }
@@ -326,16 +336,30 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     #endif
 
     /// Greedy masonry: each entry goes to the currently shortest column, preserving feed order
-    /// row by row.
-    static func distribute(_ entries: [SummaryFeedEntry], into count: Int) -> [[SummaryFeedEntry]] {
+    /// row by row. The result is cut into bands, each closed once its columns are nearly level
+    /// (or at most `maxRows` deep), so stacked bands read as one continuous waterfall.
+    static func bands(_ entries: [SummaryFeedEntry], into count: Int) -> [[[SummaryFeedEntry]]] {
+        let minRows = 3, maxRows = 8
+        let levelTolerance: CGFloat = 0.25
+        var bands: [[[SummaryFeedEntry]]] = []
         var columns = Array(repeating: [SummaryFeedEntry](), count: count)
         var heights = Array(repeating: CGFloat(0), count: count)
+        var placed = 0
         for entry in entries {
             let target = heights.indices.min { heights[$0] < heights[$1] } ?? 0
             columns[target].append(entry)
             heights[target] += SummaryTileView.Style.style(for: entry.summary).estimatedHeight(title: entry.summary.title) + 0.08
+            placed += 1
+            let spread = (heights.max() ?? 0) - (heights.min() ?? 0)
+            if placed >= count * maxRows || (placed >= count * minRows && spread < levelTolerance) {
+                bands.append(columns)
+                columns = Array(repeating: [], count: count)
+                heights = Array(repeating: 0, count: count)
+                placed = 0
+            }
         }
-        return columns
+        if placed > 0 { bands.append(columns) }
+        return bands
     }
 }
 
