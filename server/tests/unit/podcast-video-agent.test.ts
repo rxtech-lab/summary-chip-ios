@@ -259,6 +259,17 @@ export const PodcastVideo = () => {
     expect(second.draft.messages).toHaveLength(1);
   });
 
+  it("falls back when the configured model returns text instead of the required tool", async () => {
+    const primary = scriptedModel([]);
+    const primaryModel = { ...primary.model, modelId: "vmc/motion-video-generation-model" };
+    const fallback = scriptedModel([{ toolName: "write_file", input: { path: "src/Video.tsx", content: narratedVideo } }]);
+    const result = await podcastVideoTurn([primaryModel, fallback.model], input, newPodcastVideoDraft());
+    expect(result.draft.files).toHaveProperty("src/Video.tsx", narratedVideo);
+    expect(result.draft.modelIndex).toBe(1);
+    expect(primary.calls).toHaveLength(1);
+    expect(fallback.calls).toHaveLength(1);
+  });
+
   it("hands a declined or failed turn to the next model, which keeps the run", async () => {
     const declined: LanguageModelV4CallOptions[] = [];
     const refusing: LanguageModelV4 = {

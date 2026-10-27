@@ -1,6 +1,6 @@
 import { sleep } from "workflow";
 import { getDatabase } from "@/lib/db/client";
-import { currentPodcastRender, finishPodcastRender, type PodcastRenderJob } from "@/lib/services/podcast-render";
+import { currentPodcastRender, finishPodcastRender, podcastRenderError, type PodcastRenderJob } from "@/lib/services/podcast-render";
 import { getCloudPodcastRenderer, type RenderSession } from "@/lib/podcast-video/sandbox-renderer";
 import { notifyBackgroundJob, recordJobActivity } from "@/lib/services/background-jobs";
 
@@ -9,7 +9,12 @@ export async function renderPodcastVideo(job: PodcastRenderJob) {
   "use workflow";
   let session: RenderSession | undefined;
   try {
-    session = await launch(job);
+    const launched = await launch(job);
+    if ("error" in launched) {
+      await finish(job, undefined, launched.error);
+      return;
+    }
+    session = launched.session;
     for (let attempt = 0; attempt < 350; attempt++) {
       await sleep("10s");
       const result = await poll(job, session);
@@ -30,7 +35,12 @@ export async function renderPodcastVideo(job: PodcastRenderJob) {
 }
 async function launch(job: PodcastRenderJob) {
   "use step";
-  return getCloudPodcastRenderer().launch(getDatabase(), job);
+  try {
+    return { session: await getCloudPodcastRenderer().launch(getDatabase(), job) };
+  } catch (error) {
+    console.error("[podcast-render] launch failed", { job: job.id }, error);
+    return { error: podcastRenderError(error) };
+  }
 }
 // Never automatically start another billable sandbox when a launch response is lost.
 launch.maxRetries = 0;
@@ -45,9 +55,9 @@ async function upload(job: PodcastRenderJob, session: RenderSession, bytes: numb
   await currentPodcastRender(getDatabase(), job);
   await getCloudPodcastRenderer().upload(session, job, bytes);
 }
-async function finish(job: PodcastRenderJob, bytes?: number) {
+async function finish(job: PodcastRenderJob, bytes?: number, error?: { code: string }) {
   "use step";
-  await finishPodcastRender(getDatabase(), job, bytes);
+  await finishPodcastRender(getDatabase(), job, bytes, error);
 }
 async function stop(session: RenderSession) {
   "use step";

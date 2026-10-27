@@ -366,6 +366,17 @@ a reusable snapshot. Set the printed `PODCAST_RENDER_SNAPSHOT_ID` in Vercel. An 
 is `server/podcast-renderer/Dockerfile`. Rebuild the snapshot for renderer updates.
 R2 uses the existing server configuration. The feature needs no database migration.
 
+Set `PODCAST_RENDER_SNAPSHOT_ID` on the **Production** environment, then redeploy
+the production revision to activate it. A value in a local `.env` does not configure
+deployed workflows. If a render fails within seconds without a `rendering` job log,
+check Vercel workflow launch logs and the snapshot setting first. Keep a tool-capable
+fallback in `AI_PODCAST_VIDEO_MODEL` (a comma-separated list) when a configured model
+returns text without calling the design tools.
+
+After repairing production configuration, retry the existing composition with
+`render_podcast_video`; redesigning the episode is unnecessary. Existing failed job
+history is retained.
+
 Local evidence: server lifecycle/authorization tests, a real one-second 1080p
 Remotion/FFmpeg render, iOS Simulator compilation, and native-client download tests
 against the Postman fixture. This does not establish a live Sandbox render, R2
