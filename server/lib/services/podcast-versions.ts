@@ -31,6 +31,7 @@ export async function createPodcastVersion(db: Database, user: string, day: Podc
     if (episode.video) {
       await copy(episode.video.sourceFile ?? "video.json");
       delete episode.video.published;
+      delete episode.video.renders;
     }
     for (const [language, translation] of Object.entries(episode.translations ?? {})) {
       await copy(`translations/${language}/audio.mp3`);
@@ -38,6 +39,7 @@ export async function createPodcastVersion(db: Database, user: string, day: Podc
       if (translation.video) {
         await copy(`translations/${language}/${translation.video.sourceFile ?? "video.json"}`);
         delete translation.video.published;
+        delete translation.video.renders;
       }
     }
     await dailyPodcastEpisode(db, user, day, key);

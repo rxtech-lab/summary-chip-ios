@@ -426,7 +426,7 @@ call `list_podcasts(summaryId=...)`. Do not call `create_podcast` for a new lang
 or a video edit. To preserve two video versions, call `create_podcast_version` once
 and edit/submit the returned key. It copies saved content, not an unpublished draft;
 the old version and its published render stay intact. The copy becomes the default
-version and needs its own on-device MP4 render/publication. No new chip is created.
+version and needs its own cloud MP4 render/publication. No new chip is created.
 
 After submitting the original composition, call `translate_podcast` on the desired
 version key for each language. Languages live on that episode, not as separate chips
@@ -457,9 +457,9 @@ preview execution failures are tool errors. Fix the draft and try again.
 
 A successful submission stores an immutable composition, returns `saved: true` and
 an incremented revision, and invalidates the old published and translated video
-references. The app renders the new composition on device. MCP submission does not
+references. Submission queues a private 1080p cloud render. MCP submission does not
 publish an MP4. Server previews use placeholder artwork and approximate layout;
-the returned notes describe limitations relative to the final device render.
+the returned notes describe limitations relative to the final Chromium or native render.
 
 Speech and music tools generate **standalone assets**, returning `assetId`,
 `downloadUrl`, `expiresAt`, `mimeType` and `byteSize`. Download before expiry; do not
@@ -468,3 +468,14 @@ narration, timings or soundtrack. `create_podcast` generates and synchronizes th
 playable episode's speech, captions and configured theme music. Generation uses
 points and may take several minutes; do not blindly retry a timed-out paid call.
 File editing, previewing and submitting an agent-written composition use no AI points.
+
+#### Cloud podcast MP4 tools
+
+`render_podcast_video` requires `chippy:write` and accepts `{day, key, language?,
+resolution?}` (720 or 1080; default 1080). It starts or reuses the current composition's
+private R2 export. `get_podcast_video_render` requires `chippy:read`, takes the same
+reference, and never starts work. Poll until `render.status` is ready or failed.
+Ready results include byte size and `downloadUrl` (valid for ten minutes). Failed
+renders can be retried with `render_podcast_video`. `submit_podcast_video` queues the
+1080p render automatically; poll after successful submission. Rendering leaves web
+publication unchanged. The native app renders 4K exports on device.

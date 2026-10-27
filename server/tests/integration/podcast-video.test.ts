@@ -75,6 +75,7 @@ describe("podcast motion video", () => {
     expect(env.ai.calls.writePodcastVideo).toHaveLength(0);
     const podcast = await designed(created.key);
     expect(podcast.videoDesign).toBeUndefined();
+    expect(env.podcastRenders).toMatchObject([{ videoId: podcast.video?.id, resolution: 1080 }]);
     expect(podcast.video?.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(env.ai.calls.writePodcastVideo).toHaveLength(1);
     const input = env.ai.calls.writePodcastVideo[0];

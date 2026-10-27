@@ -1,3 +1,5 @@
+import { splitPodcastCaptions } from "./podcast-caption-splitting";
+import type { CaptionCue } from "@/lib/podcast-video/captions";
 import type { PodcastInput } from "./podcast-agent";
 import type { PodcastVideoDraft, PodcastVideoInput, PodcastVideoTurnOptions, PodcastVideoTurnResult } from "./podcast-video-agent";
 import type { PodcastTranslationInput } from "./podcast-translation";
@@ -271,13 +273,18 @@ export class MockAiProvider implements AiProvider {
     return this.pricing;
   }
 
+  async writePodcastSummary(_podcast: import("@/lib/contracts/daily-podcast").DailyPodcast, options?: TourNarrationOptions) {
+    options?.onUsage?.(MOCK_STEP_USAGE);
+    return "A roundup of the recorded stories and their main takeaways.";
+  }
+
   async writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast) {
     return { description: `Explore ${podcast.title}.`, sections: [{ heading: podcast.title,
       paragraphs: ["An editorial overview of the episode’s central ideas and their implications."], segmentIndex: 0 }] };
   }
 
   async writePodcast(input: PodcastInput) {
-    return { title: "Your daily podcast", mood: "calm" as const, speakers: (input.speakerNames ?? ["Alex"]).map((name, index) => ({ name, voice: input.voices[index] })),
+    return { title: "Your daily podcast", summary: "A roundup of the selected stories and their main takeaways.", mood: "calm" as const, speakers: (input.speakerNames ?? ["Alex"]).map((name, index) => ({ name, voice: input.voices[index] })),
       segments: input.chips.map((chip, index) => ({ speaker: index % (input.speakerNames?.length ?? 1), chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
   }
 
@@ -327,6 +334,10 @@ export class MockAiProvider implements AiProvider {
   /** $0.01 per character, so a mock narration's cost is easy to read in points. */
   speechUsdPerCharacter(): number {
     return 0.01;
+  }
+
+  async splitPodcastCaptions(cues: CaptionCue[], options?: { abortSignal?: AbortSignal }) {
+    return splitPodcastCaptions(cues, options?.abortSignal, async () => null);
   }
 
   async transcribePodcast(audio: Uint8Array) {

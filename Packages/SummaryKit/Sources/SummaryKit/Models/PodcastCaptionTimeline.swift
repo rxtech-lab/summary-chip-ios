@@ -6,7 +6,9 @@ public struct PodcastCaptionTimeline: Sendable {
         public var text: String
         public var startSeconds: Double
         public var endSeconds: Double
-        public init(text: String, startSeconds: Double, endSeconds: Double) {
+        public var paged: Bool?
+        public init(text: String, startSeconds: Double, endSeconds: Double, paged: Bool? = nil) {
+            self.paged = paged
             self.text = text; self.startSeconds = startSeconds; self.endSeconds = endSeconds
         }
     }
@@ -17,6 +19,7 @@ public struct PodcastCaptionTimeline: Sendable {
         cues.flatMap { cue -> [Cue] in
             guard cue.startSeconds.isFinite, cue.endSeconds.isFinite,
                   cue.startSeconds >= 0, cue.endSeconds > cue.startSeconds else { return [] }
+            if cue.paged == true { return [cue] }
             let timeline = PodcastCaptionTimeline(withoutPunctuation(cue.text))
             let ends = timeline.phraseEnds(.init(start: cue.startSeconds, end: cue.endSeconds))
             return stride(from: 0, to: timeline.phrases.count, by: 2).map { index in

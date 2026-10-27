@@ -1,3 +1,6 @@
+import { writePodcastSummary } from "./podcast-summary";
+import { splitPodcastCaptions } from "./podcast-caption-splitting";
+import type { CaptionCue } from "@/lib/podcast-video/captions";
 import { writePodcastArticle } from "./podcast-article";
 import { transcribePodcastAudio } from "./podcast-transcription";
 import { writePodcast, type PodcastInput } from "./podcast-agent";
@@ -195,6 +198,7 @@ export interface AiProvider {
   /** The podcast model's API list price, or null when the catalog has none. */
   podcastPricing(): Promise<ModelPricing | null>;
   /** Script from the dedicated podcast model. Throws when it failed. */
+  writePodcastSummary(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast, options?: TourNarrationOptions): Promise<string>;
   writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast): Promise<import("@/lib/contracts/daily-podcast").PodcastArticle>;
   writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript>;
   /** A podcast script in another language, turn for turn, from the podcast model. Throws when it failed. */
@@ -220,6 +224,7 @@ export interface AiProvider {
   speechUsdPerCharacter(): number;
   /** `text` read aloud by `voice`, as MP3 audio. Throws when it failed. */
   speak(text: string, voice: string, options?: { abortSignal?: AbortSignal }): Promise<{ bytes: Uint8Array; mediaType: string }>;
+  splitPodcastCaptions(cues: CaptionCue[], options?: { abortSignal?: AbortSignal }): Promise<CaptionCue[]>;
   transcribePodcast(audio: Uint8Array, options?: { abortSignal?: AbortSignal }): Promise<{ text: string; startSecond: number; endSecond: number }[]>;
   /** Id of the Lyria model that writes podcast theme music (`AI_MUSIC_MODEL`); null when music is disabled. */
   musicModelId(): string | null;
@@ -637,6 +642,10 @@ export class GatewayAiProvider implements AiProvider {
     return textModelPricing(podcastModelId());
   }
 
+  writePodcastSummary(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast, options?: TourNarrationOptions) {
+    return writePodcastSummary(podcastModel(), podcast, options);
+  }
+
   writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast) {
     return writePodcastArticle(podcastModel(), podcast);
   }
@@ -680,6 +689,10 @@ export class GatewayAiProvider implements AiProvider {
 
   speechUsdPerCharacter(): number {
     return speechUsdPerCharacter();
+  }
+
+  async splitPodcastCaptions(cues: CaptionCue[], options?: { abortSignal?: AbortSignal }) {
+    return splitPodcastCaptions(cues, options?.abortSignal);
   }
 
   async transcribePodcast(audio: Uint8Array, options?: { abortSignal?: AbortSignal }) {

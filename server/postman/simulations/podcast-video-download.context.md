@@ -20,3 +20,11 @@ tokens, and the success path passed. No member was silent.
 The initial fixture used `listen(0)`, which left the simulation forwarding to an unused
 port (502). It must listen on `process.env.PORT`, as Postman assigns the member port.
 Live R2, playback of an actual MP4, deployment and physical-device behavior are unverified.
+
+2026-10-27: Extended the same fixture for cloud render POST/poll/download. Both native
+client tests pass. The new path checks translated day/resolution, running-to-ready
+polling, no bearer token on storage, exact byte progress, stale composition rejection,
+failed-render propagation, truncated file rejection, and a local rejection of cloud
+4K requests. Postman logs showed render POSTs, status GETs and storage GETs. The CLI
+passes parsed JSON in `req.body`; reading its already-consumed stream yields empty
+JSON and a fixture 500. The four-byte fixture proves transport contracts only.

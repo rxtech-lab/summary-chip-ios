@@ -173,6 +173,19 @@ struct EducationSheet: View {
     }
 
     private func macPage(_ page: EducationPage) -> some View {
+        ScrollView(.vertical) {
+            macPageContent(page)
+                .frame(maxWidth: 520)
+                .padding(.horizontal, 32)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(page.id)
+    }
+
+    private func macPageContent(_ page: EducationPage) -> some View {
         VStack(spacing: 0) {
             Image(page.imageName)
                 .resizable()
@@ -210,13 +223,7 @@ struct EducationSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)
 
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: 520)
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(page.id)
     }
 
     private var macControls: some View {

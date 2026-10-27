@@ -78,7 +78,7 @@ export async function textModelPricing(id: string): Promise<ModelPricing | null>
   return pricingCache.prices.get(id) ?? null;
 }
 
-/** Default evaluation model that decides whether shared text is really a link (AI Gateway id). */
+/** Default decision model for link detection, language, progress, and natural caption boundaries (AI Gateway id). */
 export const DEFAULT_EVALUATION_MODEL = "typesafe-ai/jev";
 
 /** Evaluation model id (`AI_EVALUATION_MODEL`); `off` disables it, so text that mixes prose and a URL is summarised as text. */
@@ -168,6 +168,16 @@ export function speechModelId(): string | null {
 /** Narrator voice (`AI_TOUR_VOICE`). */
 export function tourVoice(): string {
   return process.env.AI_TOUR_VOICE?.trim() || DEFAULT_TOUR_VOICE;
+}
+
+/** Distinct podcast hosts for MAI; other providers must configure their own supported voices. */
+export function podcastVoices(modelId: string): string[] {
+  const configured = process.env.AI_PODCAST_VOICES?.split(",").map(voice => voice.trim()).filter(Boolean) ?? [];
+  if (configured.length) return [...new Set(configured)].slice(0, 4);
+  // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/mai-voices
+  const defaults = /^microsoft\/mai-voice-2\.1(?:-flash)?$/.test(modelId)
+    ? ["en-US-Harper", "en-US-Ethan", "en-US-Olivia", "en-US-Grant"] : [];
+  return [...new Set([tourVoice(), ...defaults])].slice(0, 4);
 }
 
 export function speechModel(id: string): SpeechModel {

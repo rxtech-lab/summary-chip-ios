@@ -75,6 +75,12 @@ http.createServer(async (req, res) => {
     res.writeHead(400, { "content-type": "application/json" });
     return res.end(JSON.stringify({ error: "Expected a structured podcast prompt" }));
   }
+  if (Array.isArray(input.transcript)) {
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ content: [{ type: "text", text: JSON.stringify({ summary: "A concise overview of the recorded discoveries and their implications." }) }],
+      finishReason: { unified: "stop", raw: "stop" }, warnings: [],
+      usage: { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 10, text: 10, reasoning: 0 } } }));
+  }
   if (Array.isArray(input.segments)) {
     const article = { description: "A closer look at the episode’s discoveries.", sections: input.segments.map((segment) => ({
       heading: `Discovery ${segment.segmentIndex + 1}`, paragraphs: ["The findings offer a useful perspective on the topic discussed in this episode."], segmentIndex: segment.segmentIndex,
@@ -85,6 +91,8 @@ http.createServer(async (req, res) => {
   }
   const script = {
     title: "A day of discoveries",
+    summary: "A roundup of the recorded discoveries and their key takeaways.",
+    ...(input.recap ? { rankedChipIds: input.chips.map(chip => chip.id) } : {}),
     mood: "focused",
     speakers: input.voices.slice(0, input.speakerNames?.length ?? 2).map((voice, index) => ({ name: input.speakerNames?.[index] ?? (index ? "Sam" : "Alex"), voice })),
     segments: input.chips.map((chip, index) => ({ speaker: index % Math.min(input.voices.length, input.speakerNames?.length ?? 2), chipId: chip.id, caption: chip.summary })),

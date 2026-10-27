@@ -43,8 +43,8 @@ describe("durable background jobs", () => {
     expect((await remove(job.id)).status).toBe(404);
     const sent = vi.spyOn(notifications, "deliver").mockResolvedValue();
     await env.runPodcastVideoDesigns();
-    expect((await (await list()).json()).items).toEqual([]);
-    expect(await env.handle.db.select().from(backgroundJobs)).toHaveLength(0);
+    expect((await (await list()).json()).items).toMatchObject([{ kind: "render", status: "running" }]);
+    expect(await env.handle.db.select().from(backgroundJobs)).toHaveLength(1);
     const [episode] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, job.key));
     expect(episode.deleted).toBe(false);
     expect(episode.document.video).toMatchObject({ id: job.id });
@@ -74,7 +74,7 @@ describe("durable background jobs", () => {
     const ready = (await (await detail(job.id)).json()).job;
     expect(ready).toMatchObject({ status: "ready", percent: 100, videoId: job.id });
     expect(ready.logs.length).toBeGreaterThan(1);
-    expect(ready.logs.at(-1).message).toContain("Render on This Device");
+    expect(ready.logs.at(-1).message).toContain("render in the cloud");
     // A workflow finish replay after draft cleanup preserves success.
     await finishPodcastVideoDesign(env.handle.db, job, { status: "accepted" });
     expect((await (await detail(job.id)).json()).job.status).toBe("ready");
@@ -121,7 +121,7 @@ describe("durable background jobs", () => {
     await env.runPodcastVideoDesigns();
     await notifyBackgroundJob(env.handle.db, job.userId, job.id);
     expect(sent).toHaveBeenCalledTimes(1);
-    expect(sent.mock.calls[0][2].aps.alert.body).toContain("Render on This Device");
+    expect(sent.mock.calls[0][2].aps.alert.body).toContain("rendering continues in the cloud");
   });
 
   it.skipIf(!process.env.PODCAST_SIMULATION_URL)("exposes real SDK HTTP timeouts in the job and clears them after recovery", async () => {

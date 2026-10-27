@@ -14,7 +14,7 @@ const MAX_TURNS = 100;
 /**
  * Designs an episode's motion video in the background, so the owner can leave the app while the agent
  * works. Every agent turn (one small file, edit, preview or submission) is its own step that saves the
- * draft, so no invocation runs long and a crash resumes from the last turn. Only rendering needs the app.
+ * draft, so no invocation runs long and a crash resumes from the last turn. The accepted composition queues a cloud HD render.
  */
 export async function designPodcastVideo(job: PodcastVideoJob) {
   "use workflow";

@@ -33,6 +33,13 @@ struct PodcastGenerationEvent: Decodable {
 }
 
 public struct DailyPodcast: Codable, Sendable, Equatable {
+    public enum PodcastType: String, Codable, Sendable {
+        case daily, regular
+    }
+    /// Older servers and cached documents omit this field.
+    public var type: PodcastType?
+    public var resolvedType: PodcastType { type ?? (summaryId == nil ? .daily : .regular) }
+
     public struct Speaker: Codable, Sendable, Equatable {
         public var name: String
         public var voice: String
@@ -61,6 +68,8 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
     public var summaryId: String?
     public var day: PodcastDayBounds?
     public var key: String
+    /// A short overview in the original episode language; absent on older episodes.
+    public var summary: String?
     public var title: String
     /// The language this episode is presented in; a translation shares the original's key and day.
     public var language: String
@@ -325,6 +334,17 @@ extension SummaryAPIClient {
         if language != podcast.sourceLanguage { items.append(URLQueryItem(name: "language", value: language)) }
         components.queryItems = items
         if let url = request(components.path, query: items).url { podcastAudioCache.remove(url.absoluteString) }
+    }
+
+    public func generatePodcastSummary(_ podcast: DailyPodcast) async throws -> DailyPodcast {
+        struct Body: Encodable { let day: PodcastDayBounds; let language: String }
+        let day = try podcastDayBounds(podcast)
+        var request = try json("/api/v1/daily-podcasts/\(podcast.key.urlPathEscaped)/summary", method: "POST",
+                               body: Body(day: PodcastDayBounds(start: day.start, end: day.end), language: podcast.language))
+        request.timeoutInterval = 120
+        let envelope: PodcastEnvelope = try await send(request)
+        guard let episode = envelope.podcast else { throw SummaryAPIError.invalidResponse }
+        return episode
     }
 
     // MARK: Translations

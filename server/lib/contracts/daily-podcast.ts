@@ -25,6 +25,8 @@ export const createDailyPodcastSchema = z.object({
   day: podcastDaySchema,
   language: z.enum(TRANSLATION_LANGUAGES),
   regenerate: z.boolean().default(false),
+  /** A highlights recap with a hard measured duration limit below three minutes. */
+  recap: z.boolean().optional(),
   /** Ordered host names; omission lets the model choose. */
   speakerNames: z.array(z.string().trim().min(1).max(40)).min(1).max(4).optional(),
   /** Omitted means all eligible chips. An explicit empty selection is invalid. */
@@ -39,7 +41,15 @@ export const createDailyPodcastSchema = z.object({
 /** Moods of the shared intro/background/outro music library; the agent picks one per episode. */
 export const PODCAST_MUSIC_MOODS = ["bright", "calm", "focused", "warm", "reflective"] as const;
 export type PodcastMusicMood = (typeof PODCAST_MUSIC_MOODS)[number];
+/** Locale-aware word boundaries also enforce the limit for unspaced CJK text. */
+export const podcastSummarySchema = z.string().trim().min(1).max(1200).refine(
+  text => [...new Intl.Segmenter(undefined, { granularity: "word" }).segment(text)]
+    .filter(segment => segment.isWordLike).length < 200,
+  "Podcast summary must contain fewer than 200 words",
+);
 export const podcastScriptSchema = z.object({
+  /** Optional only for legacy episode documents; new AI scripts require it. */
+  summary: podcastSummarySchema.optional(),
   title: z.string().trim().min(1).max(120),
   mood: z.enum(PODCAST_MUSIC_MOODS),
   speakers: z.array(z.object({ name: z.string().trim().min(1).max(40), voice: z.string().min(1).max(80) })).min(1).max(4),
@@ -67,6 +77,10 @@ export interface PodcastTranslation {
   video?: PodcastVideoSummary & { sourceId?: string };
 }
 export interface DailyPodcast extends PodcastScript {
+  /** Absent only on legacy documents; library episodes are regular, others daily. */
+  type?: "daily" | "regular";
+  /** Daily summary or automated recap output may never exceed this measured duration. */
+  maxDurationSeconds?: number;
   key: string;
   summaryId?: string;
   /** The language this document is presented in; `originalLanguage` is the one it was generated in. */
@@ -83,13 +97,13 @@ export interface DailyPodcast extends PodcastScript {
   durationSeconds?: number;
   /** Whether intro, background and outro music were mixed into the recording. */
   music?: boolean;
-  /** The agent-written motion video, rendered on device; `published` is the uploaded render shared links play. */
+  /** The agent-written motion video, rendered in the cloud for HD; `published` is the uploaded render shared links play. */
   video?: PodcastVideoSummary;
   /** A background run designing a new composition; absent when none is working on the episode. */
   videoDesign?: PodcastVideoDesign;
   segments: (PodcastScript["segments"][number] & { audioPath?: string; startSeconds?: number; endSeconds?: number;
     /** When the voice is audible within the turn, and its pauses, all in episode seconds; captions are timed against these. */
-    captionCues?: { text: string; startSeconds: number; endSeconds: number }[];
+    captionCues?: { text: string; startSeconds: number; endSeconds: number; paged?: boolean }[];
     voiceStartSeconds?: number; voiceEndSeconds?: number; pauseSeconds?: number[];
     imagePath: string | null; icon: string })[];
 }
@@ -103,11 +117,13 @@ export interface PodcastVideoSummary {
   id: string;
   createdAt: string;
   published?: { videoId: string; byteSize: number; publishedAt: string };
+  /** Private R2 exports, independent of web publication. */
+  renders?: Partial<Record<string, PodcastVideoRender>>;
 }
 /**
  * A background video design (`workflows/design-podcast-video.ts`). It is removed when the new composition
  * is saved (then `video` changes) and kept with `error` when the run failed, until the next design starts.
- * The app polls the episode while it is present and renders on device once `video` arrives.
+ * The app polls the episode while it is present and downloads its cloud render once ready.
  */
 export interface PodcastVideoDesign {
   id: string;
@@ -185,3 +201,16 @@ export const podcastArticleSchema = z.object({
   })).min(1).max(20),
 });
 export type PodcastArticle = z.infer<typeof podcastArticleSchema>;
+
+/** Cloud renders are limited to HD; 4K is an explicit device export. */
+export const podcastRenderResolution = z.union([z.literal(720), z.literal(1080)]);
+export const podcastRenderSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema.optional(),
+  resolution: podcastRenderResolution.default(1080) });
+export interface PodcastVideoRender {
+  id: string;
+  status: "running" | "ready" | "failed";
+  resolution: 720 | 1080;
+  updatedAt: string;
+  byteSize?: number;
+  error?: { code: string; message: string };
+}

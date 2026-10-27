@@ -1,3 +1,4 @@
+import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-render";
 import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import type { AiProvider } from "@/lib/ai/provider";
@@ -31,7 +32,7 @@ export function podcastVideoInput(podcast: Episode, chips: { id: string; title: 
     const voiceStartSeconds = segment.voiceStartSeconds ?? startSeconds;
     const voiceEndSeconds = Math.max(voiceStartSeconds + 0.1, segment.voiceEndSeconds ?? endSeconds);
     const phrases = segment.captionCues?.length
-      ? segment.captionCues.map(({ text, startSeconds, endSeconds }) => ({ text, startSeconds, endSeconds }))
+      ? segment.captionCues.map(cue => ({ ...cue }))
       : [{ text: segment.caption, startSeconds: voiceStartSeconds, endSeconds: voiceEndSeconds }];
     return { speaker: segment.speaker, chipId: segment.chipId, caption: segment.caption, startSeconds, endSeconds,
       voiceStartSeconds, voiceEndSeconds, image: segment.imagePath, icon: segment.icon, phrases };
@@ -152,14 +153,18 @@ export async function translateVideo(ai: AiProvider, store: ObjectStore, db: Dat
   const video = await translatePodcastVideoSource(ai, store, user, podcast, language, translation.chipTitles ?? {}, AbortSignal.timeout(200_000), (step) => usage.push(step));
   report("saving", 90);
   let stale: string | undefined;
+  let retired: PodcastVideoSummary | undefined;
   const saved = await updatePodcastDocument(db, user, podcast.key, (latest) => {
     const current = latest.translations?.[language];
     if (!current) throw translationMissing();
     stale = current.video?.published?.videoId;
+    retired = current.video;
     current.video = video;
   });
   if (stale) await store.delete(renderKey(user, podcast.day, podcast.key, stale));
   const pricing = usage.length ? await ai.podcastPricing() : null;
+  await retirePodcastRenders(store, user, podcast.day, podcast.key, retired);
+  await queueDefaultPodcastRender(db, user, podcast.day, podcast.key, language);
   return { podcast: saved, costUsd: pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0 };
 }
 

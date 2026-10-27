@@ -90,8 +90,18 @@ final class DailyPodcastPlayer {
         guard let podcast, let segment, podcast.speakers.indices.contains(segment.speaker) else { return "" }
         return podcast.speakers[segment.speaker].name
     }
-    func present(date: Date) {
-        if self.date != date {
+    func present(date: Date, calendar: Calendar = .current) {
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .day, value: 1, to: start)
+        let formatter = ISO8601DateFormatter()
+        // A library episode can have the same day as a recap. Validate the
+        // loaded episode's scope and bounds, not the last presentation date.
+        let matchesDay = podcast.map {
+            $0.resolvedType == .daily
+                && $0.day.flatMap { formatter.date(from: $0.start) } == start
+                && $0.day.flatMap { formatter.date(from: $0.end) } == end
+        } ?? false
+        if !matchesDay {
             stop()
             podcast = nil
             currentTime = 0
@@ -176,6 +186,15 @@ final class DailyPodcastPlayer {
             videoPlayer?.play()
             if task == nil { loadAndPlay() }
         } catch { self.error = error.localizedDescription }
+    }
+
+    /// Reopens the current episode at the same position. Failed cloud renders are
+    /// claimed again by the render endpoint without regenerating the composition.
+    func retryPlayback() {
+        guard podcast != nil else { return }
+        stop()
+        error = nil
+        toggle()
     }
 
     func pause() {

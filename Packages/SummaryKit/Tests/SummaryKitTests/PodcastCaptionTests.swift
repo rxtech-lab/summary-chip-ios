@@ -1,7 +1,16 @@
+import Foundation
 import Testing
 @testable import SummaryKit
 
 @Suite struct PodcastCaptionTests {
+    @Test func preservesServerDecisionsWithoutRepaging() throws {
+        let json = #"{"text":"加拿大网络安全中心表示\n已有攻击者在利用这个漏洞","startSeconds":2,"endSeconds":8,"paged":true}"#
+        let cue = try JSONDecoder().decode(PodcastCaptionTimeline.Cue.self, from: Data(json.utf8))
+        #expect(PodcastCaptionTimeline.pagedCues([cue]) == [cue])
+        #expect(PodcastCaptionTimeline.lines(at: 3, cues: [cue]) == ["加拿大网络安全中心表示", "已有攻击者在利用这个漏洞"])
+        #expect(PodcastCaptionTimeline.lines(at: 8, cues: [cue]).isEmpty)
+    }
+
     @Test func wrapsChineseAtWordBoundaries() {
         let text = "加拿大网络安全中心表示 已有攻击者在利用这个漏洞 但是仍需注意网络安全"
         let pages = PodcastCaptionTimeline.pagedCues([.init(text: text, startSeconds: 0, endSeconds: 12)])

@@ -26,7 +26,7 @@ export default function PodcastWebPlayer({ podcast }: { podcast: Awaited<ReturnT
       {(segment?.imagePath ?? podcast.coverPath) && <div aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${segment?.imagePath ?? podcast.coverPath})` }} />}
       {segment && <div className="absolute inset-x-3 bottom-3 max-h-[65%] overflow-y-auto rounded-2xl bg-black/70 p-4 text-base text-white backdrop-blur-md">
         <p className="mb-1 text-xs text-white/70">{segment.speaker}</p>
-        <p>{caption}</p>
+        <p className="whitespace-pre-line">{caption}</p>
       </div>}
     </div>}
     <div className="flex flex-wrap items-center justify-between gap-3">

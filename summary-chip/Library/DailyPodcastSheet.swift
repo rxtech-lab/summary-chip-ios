@@ -16,6 +16,7 @@ struct DailyPodcastSheet: View {
     @State private var coverUpdates = 0
     @State private var showsGeneration = false
     @State private var showsVersions = false
+    @State private var showsSummary = false
     @State private var showsLinkedChips = false
     @State private var pendingLinkedChipID: String?
     @State private var showsLanguages = false
@@ -68,6 +69,13 @@ struct DailyPodcastSheet: View {
                     showsLinkedChips = false
                 }
             }
+            .sheet(isPresented: $showsSummary) {
+                if let podcast = player.podcast {
+                    PodcastSummarySheet(api: api, podcast: podcast) { updated in
+                        if player.podcast?.key == updated.key { player.podcast?.summary = updated.summary }
+                    }
+                }
+            }
             .sheet(isPresented: $showsVersions) {
                 PodcastVersionsSheet(api: api, date: date, summaryID: player.podcast?.summaryId, player: player)
             }
@@ -92,13 +100,26 @@ struct DailyPodcastSheet: View {
                 }
             }
             .alert("Couldn't Load Podcast", isPresented: Binding(get: { error != nil || player.error != nil }, set: { if !$0 { error = nil; player.error = nil } })) {
+                if player.error != nil, player.podcast != nil {
+                    Button("Retry") {
+                        error = nil
+                        taps += 1
+                        player.retryPlayback()
+                    }
+                    .accessibilityIdentifier("podcast-playback-retry")
+                }
                 Button("OK", role: .cancel) { error = nil; player.error = nil }
             } message: { Text(error ?? player.error ?? "") }
             .task {
                 if player.podcast == nil {
                     do {
-                        if let saved = try await api.dailyPodcast(date: date), !Task.isCancelled, player.date == date {
+                        let saved = try await api.dailyPodcast(date: date)
+                        try Task.checkCancellation()
+                        guard player.date == date else { return }
+                        if let saved {
                             player.replace(saved)
+                        } else {
+                            showsGeneration = true
                         }
                     }
                     catch is CancellationError {} catch { self.error = error.localizedDescription }
@@ -110,6 +131,7 @@ struct DailyPodcastSheet: View {
             .sensoryFeedback(.selection, trigger: taps)
             .sensoryFeedback(.success, trigger: coverUpdates)
             .sensoryFeedback(.success, trigger: videoUpdates)
+            .sensoryFeedback(.error, trigger: player.error)
         #if os(macOS)
         .frame(minWidth: 600, idealWidth: 760, minHeight: 480, maxHeight: .infinity)
         #else
@@ -146,6 +168,7 @@ struct DailyPodcastSheet: View {
                     ToolbarItem(placement: .primaryAction) { linkedChipsButton }
                 }
                 if player.podcast != nil {
+                    ToolbarItem(placement: .primaryAction) { summaryButton }
                     ToolbarItem(placement: .confirmationAction) { podcastActions }
                 }
             }
@@ -161,6 +184,7 @@ struct DailyPodcastSheet: View {
                 Button { showsJobs = true } label: { Label("Background Jobs", systemImage: "clock.arrow.circlepath") }
                 if player.podcast != nil {
                     Spacer(minLength: 8)
+                    summaryButton
                     if !linkedChipIDs.isEmpty { linkedChipsButton }
                     podcastActions
                         .menuStyle(.button)
@@ -179,6 +203,13 @@ struct DailyPodcastSheet: View {
 
     private var linkedChipIDs: [String] {
         player.podcast?.sourceChipIDs ?? []
+    }
+
+    private var summaryButton: some View {
+        Button { taps += 1; showsSummary = true } label: {
+            Label("Podcast Summary", systemImage: "text.alignleft")
+        }
+        .accessibilityIdentifier("podcast-summary")
     }
 
     private var linkedChipsButton: some View {
@@ -422,7 +453,7 @@ struct DailyPodcastGenerationSheet: View {
                     .accessibilityIdentifier("podcast-select-chips")
                     .disabled(loading)
                 } footer: {
-                    Text(existing?.summaryId != nil ? "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default, across feed filters. You can choose which to include.")
+                    Text(existing?.summaryId != nil ? "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary stays within 6 minutes.")
                 }
                 }
                 Section {

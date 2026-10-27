@@ -1,8 +1,10 @@
 # Daily podcasts
 
-The Feed's daily play button opens a dedicated player sheet. A separate generation sheet chooses the spoken language and source chips. All eligible chips are selected by default. An agent writes a conversational podcast from all readable summary chips on that activity day, independently of pagination and feed filters. Owned chips use their creation date; others use their last viewed date, matching the Feed. Trips, papers, clips and generated podcast chips are excluded. There is no fixed chip or spoken-turn count limit: all eligible chips are included and the agent uses as many concise turns as needed. Generation remains subject to model context/output capacity, the request timeout and server memory; longer days take more time and points.
+The Feed's daily play button opens a dedicated player sheet. A separate generation sheet chooses the spoken language and source chips. All eligible chips are selected by default. An agent considers all selected readable summary chips on that activity day, independently of pagination and feed filters, ranks stories by importance, and omits repetitive or low-value stories. Only chosen stories become linked chips and video headings. User-triggered daily summaries target five minutes with a hard six-minute video limit; the measured audio must fit within 356 seconds to leave room for video padding. Over-budget scripts or audio fail before an episode is saved. Automatic recaps retain their shorter three-minute budget. Owned chips use their creation date; others use their last viewed date, matching the Feed. Trips, papers, clips and generated podcast chips are excluded. Custom library podcasts retain their all-selected-chip behavior.
 
-The player overlays host names, exact spoken captions, a seek slider and playback controls on the cover using Liquid Glass. One continuous MP3 plays the whole episode, with timed caption and artwork changes and 15-second skip controls. A dedicated download sheet saves the original complete MP3, or renders a 1280×720 MP4 locally with the recording, timed artwork and burned-in captions. New Version opens a creation sheet and keeps previous versions. Manage Versions opens a dedicated sheet for playback, setting the default, or removal with native confirmation. Generation and buffering use overlays; mobile interactions provide haptics.
+The player overlays host names, exact spoken captions, a seek slider and playback controls on the cover using Liquid Glass. One continuous MP3 plays the whole episode, with timed caption and artwork changes and 15-second skip controls. A dedicated download sheet saves the original complete MP3, or downloads a cloud-rendered HD MP4 with the recording, timed artwork and selectable captions. 4K exports render on device. New Version opens a creation sheet and keeps previous versions. Manage Versions opens a dedicated sheet for playback, setting the default, or removal with native confirmation. Generation and buffering use overlays; mobile interactions provide haptics.
+
+New episodes include an AI-written summary of fewer than 200 words, grounded in the stories actually narrated. The player’s Podcast Summary toolbar button opens a dedicated reading sheet on iOS and macOS. The summary stays in the original episode language when playback is translated. For older episodes without a summary, opening the sheet generates and saves one from the recorded transcript, with an overlay, retry alert, and mobile feedback. Audio and video are preserved. Word limits use locale-aware segmentation, including unspaced Chinese and Japanese text.
 
 ## API contract
 
@@ -22,7 +24,7 @@ All `/api/v1` endpoints require the app's bearer token. All JSON responses use `
 
 Languages: `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`. The response envelope is `{ "podcast": DailyPodcast }`. For backward compatibility, a saved episode is returned unchanged when `regenerate` is false and `chipIds` is omitted. Supplying `chipIds` or `regenerate: true` creates another version. Generation spends points for narration and speech; saved playback is free. App Store billing proof follows the same routing as trip tours. Request timeout: 300 seconds. Do not automatically replay an ambiguous regeneration request.
 
-`DailyPodcast` contains `key`, `title`, `language`, `createdAt`, `day`, `chipIds`, `audioPath`, `durationSeconds`, `speakers: [{name, voice}]`, and caption cues in `segments: [{speaker, chipId, caption, startSeconds, endSeconds, voiceStartSeconds, voiceEndSeconds, pauseSeconds, imagePath, icon}]`. `voiceStartSeconds`/`voiceEndSeconds` bound the audible voice inside the turn and `pauseSeconds` lists its measured pauses (≥ 150 ms), all in episode seconds; they're omitted when a turn can't be analysed. `speaker` is a zero-based index. `caption` is the exact spoken turn. `imagePath` is an optional relative authenticated chip artwork URL, with `icon` as fallback.
+`DailyPodcast` contains `key`, `title`, `summary` (absent on legacy episodes), `language`, `createdAt`, `day`, `chipIds`, `audioPath`, `durationSeconds`, `speakers: [{name, voice}]`, and caption cues in `segments: [{speaker, chipId, caption, startSeconds, endSeconds, voiceStartSeconds, voiceEndSeconds, pauseSeconds, imagePath, icon}]`. `voiceStartSeconds`/`voiceEndSeconds` bound the audible voice inside the turn and `pauseSeconds` lists its measured pauses (≥ 150 ms), all in episode seconds; they're omitted when a turn can't be analysed. `speaker` is a zero-based index. `caption` is the exact spoken turn. `imagePath` is an optional relative authenticated chip artwork URL, with `icon` as fallback.
 
 `GET /api/v1/daily-podcasts/:key/audio?start=<instant>&end=<instant>` returns the complete persisted MP3 with `Content-Disposition: attachment` and `private, no-store`. It never generates speech. Audio is assembled by remuxing validated MPEG Layer III frames with a complete-file Xing seek header; all voices must use compatible sample rate and channel layout. The old per-segment route remains for legacy artifacts. Episode reads never upgrade legacy audio or read episode JSON from object storage. Storage is partitioned by the authenticated account; all source chips must still be readable for metadata or audio to be returned. Deleting or revoking a source blocks old episode access; explicit regeneration selects the remaining readable chips.
 
@@ -113,9 +115,9 @@ Migration `0035_podcast_versions.sql` adds the owner/day episode catalogue and i
 
 ## Motion video
 
-Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design starts after speech has been transcribed and mixed, so it sees each turn's real timing and transcribed phrases. It runs on the server in the background (see [Background video design](#background-video-design)), so the generation sheet offers **Continue in Background** while it works; if the user waits, the sheet continues through local rendering, with live frame progress, before opening the native video player. Only local rendering needs the app in the foreground. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
+Creation offers **Audio + video** (default) and **Audio only**. `POST /api/v1/daily-podcasts` accepts optional `includeVideo`; false skips the design model and its cost. Omission preserves the previous automatic-design behavior. Video design starts after speech has been transcribed and mixed, so it sees each turn's real timing and transcribed phrases. It runs on the server in the background (see [Background video design](#background-video-design)), so the generation sheet offers **Continue in Background** while it works; if the user waits, the sheet waits for the cloud render and downloads it before opening the native video player. HD rendering continues while the app is closed. Higher-resolution exports need the app in the foreground. Local failures retain the saved episode for Retry Video without regenerating audio/design. If design was unavailable, audio is retained and an explicit Retry Video can request a paid design.
 
-Playback uses the motion MP4 whenever an episode has a video design, rendering and caching it if needed. Audio-only saved episodes expose **Generate Video** in More. **Regenerate Podcast** opens the same generation sheet with Podcast / Video only options; **Download Podcast** offers MP3 and, when a design exists, MP4. There is no separate creation sheet or static-slide export fallback.
+Playback uses the motion MP4 whenever an episode has a video design, requesting a cloud HD render and caching its R2 download if needed. Audio-only saved episodes expose **Generate Video** in More. **Regenerate Podcast** opens the same generation sheet with Podcast / Video only options; **Download Podcast** offers MP3 and, when a design exists, MP4. There is no separate creation sheet or static-slide export fallback.
 
 ### Phrase timing and frame checks
 
@@ -125,7 +127,7 @@ The agent can preview single frames with `render_frame` (16 per run). The server
 
 Narration is never supplied as visible text to new compositions. The prompt calls for topic-specific motion explanations (animated flows, progressive paths, moving objects and transformations), and validation rejects caption helpers/transcript access. The MP4 receives a selectable tx3g subtitle track timed to voice windows and pauses; captions are not rasterized into frames. Legacy caption helpers receive empty narration when re-rendered. Previously downloaded/published MP4s are unchanged until regenerated and republished.
 
-The vendored `Packages/RxRemotion` compiles the composition in WebKit and encodes an MP4 with the saved recording through AVFoundation. The app injects actual segment timing, artwork and chip titles. Rendering requires the app to stay open; progress appears in an overlay. Completed renders are cached per episode and design, included in Settings cache storage, and removed by Clear Cache or sign-out. A failed render does not publish a partial movie.
+HD video uses Vercel Workflow and a snapshot-backed Sandbox container with Remotion/Chromium and FFmpeg. The vendored `Packages/RxRemotion` handles 1440p and 4K exports in WebKit and AVFoundation. The app injects actual segment timing, artwork and chip titles. Only on-device exports require the app to stay open; action progress appears in an overlay. Completed renders are cached per episode and design, included in Settings cache storage, and removed by Clear Cache or sign-out. A failed render does not publish a partial movie.
 
 Publish Video renders if needed, uploads the MP4 using an authenticated presigned upload ticket, then confirms publication. Existing web share links play that video. Remove Published Video asks for native confirmation and returns those links to audio. Creating a new design also removes the previous publication. The sheet updates episode metadata without resetting the audio playback position.
 
@@ -136,7 +138,7 @@ The owner video API is under `/api/v1/daily-podcasts/:key/video`: GET reads comp
 The signed URL lasts one hour. Missing publications, replaced compositions, foreign episodes
 and missing translations return 404; no public share link is required. Native playback and
 video exports reuse a cached MP4 first, otherwise download the matching published MP4 to
-that cache, and render on device only when no current publication exists. The client checks
+that cache, and request private cloud renders for HD playback/export. 4K export renders from the saved source on device. The client checks
 the video ID and downloaded byte size. Download errors are surfaced without starting a render.
 Deploy the server endpoint before releasing the updated app.
 
@@ -196,7 +198,7 @@ ends, with an idempotent hold and settlement (`<key>:video:<id>:charge`). A fail
 episode creation are charged separately from the recording.
 
 The podcast sheet follows a running design with a non-blocking status capsule ("Designing video… 42%"). When the
-design finishes, the sheet switches to the video, which then renders on device. If audio is playing, it shows
+design finishes, the sheet switches to the video and waits for its cloud HD render. If audio is playing, it shows
 **Video Ready – Watch** instead, so listening isn't interrupted. More shows a disabled **Designing Video…** item while a
 run works.
 
@@ -269,8 +271,9 @@ Regenerating a library podcast no longer creates another podcast chip. The app s
 Video script design is a durable server workflow. Feed and podcast toolbars open
 **Background Jobs**, a full-height sheet with a navigable job detail and activity
 log, refreshed every three seconds while active. Closing the app does not stop
-script writing. The device render action has its own sheet and must remain in the
-foreground; its progress is an overlay and the finished MP4 is cached locally.
+script writing or HD rendering. Watch HD Video opens a dedicated full-height sheet;
+its progress is an overlay and the finished R2 download is cached locally. 4K export
+uses the Download sheet and must remain in the foreground.
 
 Authenticated, owner-only API (no billing, `Cache-Control: no-store`):
 
@@ -289,8 +292,8 @@ Authenticated, owner-only API (no billing, `Cache-Control: no-store`):
 Migration `0040_background_jobs` must run before deployment. Jobs cascade on
 account/episode deletion. Ready and failed workflows send the existing APNs
 installations a `backgroundJobId` and `userId`; tapping routes to that job only
-for the matching signed-in account. The ready alert explains **Render on This
-Device**. Delivery is claimed at most once per job, like paper notifications;
+for the matching signed-in account. The ready alert opens the podcast for playback
+or download. Delivery is claimed at most once per job, like paper notifications;
 APNs permission/configuration and OS delivery still apply. A lost push does not
 lose the durable job. Notification settings are accessible from the jobs sheet.
 
@@ -323,10 +326,95 @@ The page stays `noindex` so unlisted links aren't advertised for search indexing
 
 ### Video download resolution
 
-The native Download Podcast sheet defaults video exports to 720p and offers 1080p, 1440p, and 4K (3840 × 2160). The selected resolution applies to both Files and Photos. Higher resolutions render the animation source at the selected pixel density while preserving its layout and timing; selectable subtitles scale with the output. A published MP4 is reused only when its dimensions match. Each resolution is cached separately. Higher resolutions require more rendering time and storage.
+The native Download Podcast sheet defaults video exports to 1080p and offers 720p, 1440p, and 4K (3840 × 2160). HD exports (720p/1080p) use cloud renders stored in R2. 1440p and 4K always render from source on device. The selected resolution applies to both Files and Photos. Higher resolutions render the animation source at the selected pixel density while preserving its layout and timing; selectable subtitles scale with the output. Private cloud HD outputs are independent of web publication; rendering does not create a share link. Each resolution is cached separately. Higher resolutions require more rendering time and storage.
 
 ### Source chip navigation
 
 The player toolbar opens a Linked Chips sheet listing each distinct source chip. Opening a chip leaves audio playback with the shared player. A source chip's Watch Podcast toolbar action opens a dedicated list of its saved video episodes, including older versions, and opens the selected episode in the existing video player.
 
 `GET /api/v1/summaries/:id/podcasts` requires bearer authentication and returns `{ items: DailyPodcast[] }`, newest first, with `Cache-Control: private, no-store`. Only the caller's nondeleted episodes with a saved video and this source ID are returned. All source chips and the podcast chip must still be readable. Missing/inaccessible source chips return 404; a readable chip with no matching video returns an empty list. This lookup performs no generation and needs no migration.
+
+### Cloud video rendering and setup
+
+New accepted compositions automatically queue a private 1080p render. This includes
+built-in designs, MCP draft submission, and translated compositions. The audio and
+source stay usable if renderer setup is missing. Render failures appear in job history
+and can be retried explicitly. Forked versions keep source but do not inherit render jobs.
+
+- `POST /api/v1/daily-podcasts/:key/video/render`: `{day, language?, resolution?}`;
+  resolution is 720 or 1080, default 1080. Starts or reuses a render of the current
+  composition. Other sizes are rejected; export 4K using the native Download sheet.
+- `GET` on the same path: `start`, `end`, optional `language` and `resolution` query.
+  Read-only; returns `{videoId, render, downloadUrl?}`. `render` is null or has an id,
+  status (`running`, `ready`, `failed`), resolution, updatedAt, optional byteSize/error.
+  Ready URLs expire in ten minutes. Both endpoints are authenticated, owner-scoped and
+  no-store. Source replacement fences stale completion and retires its uploaded output.
+- Rendering uses a detached container process. Short durable workflow steps poll it,
+  then upload the validated MP4 to R2 and check its content type and exact size.
+  Containers have a one-hour deadline and are stopped when the workflow finishes.
+  Agent compositions run without account/storage credentials and with network denied;
+  upload receives only a scoped, short-lived PUT capability. No per-episode snapshots.
+- MP4 validation checks dimensions, duration, audio, subtitles and decoding a video frame.
+  Web publication is still an explicit action in its own sheet.
+
+Before deployment, authenticate the Vercel Sandbox SDK with project OIDC (deployments)
+or `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` (local operator setup).
+From `server`, run `bun scripts/prepare-podcast-renderer.ts`. It installs pinned
+Remotion/Chromium, FFmpeg and fonts in a clean container, warms Chromium and creates
+a reusable snapshot. Set the printed `PODCAST_RENDER_SNAPSHOT_ID` in Vercel. An optional
+`PODCAST_RENDER_IMAGE` selects a prebuilt Vercel Container Registry image; the Dockerfile
+is `server/podcast-renderer/Dockerfile`. Rebuild the snapshot for renderer updates.
+R2 uses the existing server configuration. The feature needs no database migration.
+
+Local evidence: server lifecycle/authorization tests, a real one-second 1080p
+Remotion/FFmpeg render, iOS Simulator compilation, and native-client download tests
+against the Postman fixture. This does not establish a live Sandbox render, R2
+upload, deployed workflow execution, or physical-device 4K performance.
+
+
+## Automatic daily recap videos
+
+Settings → Daily Recap opens a dedicated iOS/macOS sheet. Enable the account schedule,
+choose a language and hour, and save. The default is 07:00 in the device's IANA time zone,
+covering the previous local calendar day. The saved zone remains fixed until changed in
+settings. Vercel Cron checks due schedules every five minutes; the selected hour starts
+generation, rather than promising the finished video at that instant. The app can stay closed.
+
+Every eligible summary chip is supplied as context. Recaps rank selected stories by significance, impact, usefulness and relevance, then
+narrate them in descending importance. Unimportant or repetitive chips can be omitted
+even when time remains. Only selected chips appear in the episode’s linked sources and
+video headings. Generated podcast chips are excluded from candidates. The target is
+about two minutes.
+Narration is limited to 250 words / 500 Chinese or Japanese characters before speech.
+The mixed recording must be at most 175 seconds, leaving room for video timing; the
+trusted cloud runner rejects compositions or measured MP4s longer than 179 seconds.
+Over-limit episodes are rejected rather than silently cut mid-sentence. Ordinary manual
+podcasts keep their existing full-coverage behavior.
+
+Each successful generation becomes that day's default podcast and queues the existing
+video design workflow, then a private 1080p cloud render in R2. Watch it from the selected
+day in the Feed. Progress and completion notifications use the existing Background Jobs
+and APNs flow once video design starts. Publication to the web remains explicit.
+
+`GET /api/v1/daily-recap` reads the owner's settings, next run and latest outcome.
+`PUT` saves `{enabled, timeZone, language, hour}`. The verified billing environment is
+saved with the schedule and propagated to background generation; normal podcast points
+apply. These endpoints require bearer authentication and return no-store responses.
+
+Migration `0043_daily_recaps` creates schedules and unique owner/local-date run claims.
+The secret-authenticated `/api/cron/daily-recaps` dispatches at most 20 due accounts per
+invocation, oldest schedule first. Empty days, disabled schedules, and accounts pending
+deletion skip generation. Enabling does not backfill history. Failed or ambiguous starts
+and billable generation steps are not replayed automatically; the settings sheet reports
+an outcome and the owner can generate manually from that day. An interrupted run needs
+attention after 15 minutes. The next day proceeds independently. New accounts are off
+until they enable their schedule.
+
+Deployment requires the migration, the new cron configuration and `CRON_SECRET`, the
+existing AI/points configuration, and the configured cloud renderer snapshot and R2.
+Local scheduler/mock-provider tests and app builds do not establish a completed live
+scheduled render or activate a user's account schedule.
+
+### Summary backfill
+
+`POST /api/v1/daily-podcasts/:key/summary` accepts `{ day, language? }` and returns `{ podcast }` in the requested playback language. The summary is generated in the original language and validated to fewer than 200 words. Requires owner/source access and billing proof for generation; existing summaries are returned without a model charge. Concurrent requests in the same process share generation. Failures leave the episode unchanged and may be retried explicitly.

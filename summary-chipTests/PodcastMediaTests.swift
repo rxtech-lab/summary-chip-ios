@@ -6,6 +6,68 @@ import Testing
 @testable import summary_chip
 
 @MainActor @Suite struct PodcastMediaTests {
+    @Test func dailyPlayRejectsExplicitRegularTypeWithoutLibraryID() throws {
+        let player = interruptionPlayer()
+        var episode = try dailyEpisode()
+        episode.type = .regular
+        let date = ISO8601DateFormatter().date(from: episode.day!.start)!
+        player.present(podcast: episode)
+        player.present(date: date, calendar: utcCalendar)
+        #expect(player.podcast == nil)
+    }
+
+    @Test func dailyPlayClearsLibraryEpisodeEvenWithMatchingDay() throws {
+        let player = interruptionPlayer()
+        let episode = try dailyEpisode(summaryID: "library-chip")
+        let date = ISO8601DateFormatter().date(from: episode.day!.start)!
+        player.present(podcast: episode)
+        player.present(date: date, calendar: utcCalendar)
+        #expect(player.podcast == nil)
+        #expect(player.isPresented)
+    }
+
+    @Test func dailyPlayClearsOldEpisodeEvenWithStalePresentationDate() throws {
+        let player = interruptionPlayer()
+        let episode = try dailyEpisode()
+        let tomorrow = ISO8601DateFormatter().date(from: episode.day!.end)!
+        player.present(podcast: episode)
+        player.date = tomorrow
+        player.currentTime = 42
+        player.playing = true
+        player.present(date: tomorrow, calendar: utcCalendar)
+        #expect(player.podcast == nil)
+        #expect(!player.playing)
+        #expect(player.currentTime == 0)
+        #expect(player.date == tomorrow)
+    }
+
+    @Test func dailyPlayPreservesMatchingRecapAndPlaybackPosition() throws {
+        let player = interruptionPlayer()
+        let episode = try dailyEpisode()
+        let date = ISO8601DateFormatter().date(from: episode.day!.start)!
+        player.present(podcast: episode)
+        player.currentTime = 42
+        player.present(date: date.addingTimeInterval(3600), calendar: utcCalendar)
+        #expect(player.podcast == episode)
+        #expect(player.currentTime == 42)
+    }
+
+    private var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    private func dailyEpisode(summaryID: String? = nil) throws -> DailyPodcast {
+        var episode = try SummaryJSON.decoder().decode(DailyPodcast.self, from: Data(#"""
+        {"key":"daily-test","title":"Daily recap","language":"en","createdAt":"2030-03-10T05:00:00Z",
+        "day":{"start":"2030-03-10T00:00:00Z","end":"2030-03-11T00:00:00Z"},
+        "speakers":[],"segments":[]}
+        """#.utf8))
+        episode.summaryId = summaryID
+        return episode
+    }
+
     @Test func removesUnreadableCachedVideo() async throws {
         let file = FileManager.default.temporaryDirectory.appending(path: "broken-\(UUID().uuidString).mp4")
         defer { try? FileManager.default.removeItem(at: file) }
@@ -138,8 +200,14 @@ import Testing
         "segments":[{"speaker":0,"chipId":"one","caption":"Hello 世界.","icon":"☕️","startSeconds":0,"endSeconds":1,"voiceStartSeconds":0.2,"voiceEndSeconds":0.8,"captionCues":[{"text":"Hello 世界","startSeconds":0.2,"endSeconds":0.8}]}]}
         """#.utf8))
         try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast, width: resolution.width, height: resolution.height)
-        #expect(try await PodcastMotionRenderer.reusableVideo(at: output))
-        let asset = AVURLAsset(url: output)
+        // Match URLSession's download filename before entering the playback path.
+        let downloaded = folder.appending(path: "CFNetworkDownload.tmp")
+        try FileManager.default.moveItem(at: output, to: downloaded)
+        let staged = try PodcastMotionRenderer.stageCloudDownload(at: downloaded)
+        #expect(staged.pathExtension == "mp4")
+        #expect(!FileManager.default.fileExists(atPath: downloaded.path))
+        #expect(try await PodcastMotionRenderer.reusableVideo(at: staged))
+        let asset = AVURLAsset(url: staged)
         #expect(try await asset.loadTracks(withMediaType: .subtitle).count == 1)
         let group = try await asset.loadMediaSelectionGroup(for: .legible)
         #expect(group?.options.contains { $0.mediaType == .subtitle && $0.locale?.language.languageCode?.identifier == "en" } == true)

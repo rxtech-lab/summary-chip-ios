@@ -1,3 +1,4 @@
+import { retirePodcastRenders } from "./podcast-render";
 import { runAfter } from "@/lib/http/after";
 import { rerankHeadlines } from "./headlines";
 import { joinPodcastAudio } from "./podcast-audio";
@@ -9,7 +10,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, ne, or, sql, asc } from "drizzle-orm";
 import type { LanguageModelUsage } from "ai";
 import { getAiProvider } from "@/lib/ai/provider";
-import { tourVoice } from "@/lib/ai/models";
+import { podcastVoices } from "@/lib/ai/models";
 import { LANGUAGE_NAMES, normalizeDraft } from "@/lib/ai/summary-schema";
 import { createDailyPodcastSchema, podcastScriptSchema, type DailyPodcast, type PodcastDay, type PodcastProgress, type PodcastScript } from "@/lib/contracts/daily-podcast";
 import type { AiProvider } from "@/lib/ai/provider";
@@ -62,8 +63,10 @@ const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set
 
 export async function createDailyPodcast(db: Database, user: string, input: z.infer<typeof createDailyPodcastSchema>, deps: ServiceDeps = {}, onProgress?: ProgressListener) {
   const store = deps.store ?? getObjectStore();
+  const highlights = input.recap || !input.library;
+  const maxDurationSeconds = input.recap ? 179 : !input.library ? 360 : undefined;
   const base = dayKey(user, input.day);
-  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.summaryId ?? null, input.speakerNames ?? null])}`;
+  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false])}`;
   // Concurrent taps share a generation, even if the second requested regeneration.
   const pending = writing.get(requestKey);
   if (pending) {
@@ -82,7 +85,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
   report("preparing", 0);
   const run = (async () => {
     const saved = input.regenerate || input.library || input.chipIds ? null : await savedDailyPodcast(db, user, input.day);
-    if (saved && !input.regenerate) { report("complete", 100); return saved; }
+    if (saved && !input.regenerate && !input.recap) { report("complete", 100); return saved; }
     // Regenerating a library podcast adds a version to its chip rather than creating another chip.
     const existingChip = input.summaryId ? await libraryPodcastChip(db, user, input.summaryId) : null;
     let chips = input.library
@@ -96,8 +99,9 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
     if (chips.some(({ chip }) => chip.kind !== "summary")) throw new ApiError(422, "PODCAST_SELECTION", "Select source summary chips only.");
     if (!chips.length) throw new ApiError(422, "PODCAST_EMPTY", "There are no readable chips for this day.");
     const ai = deps.ai ?? await getAiProvider();
-    if (!ai.speechModelId()) throw new ApiError(503, "PODCAST_SPEECH_UNAVAILABLE", "Podcast audio is not available right now.");
-    const voices = [...new Set((process.env.AI_PODCAST_VOICES || tourVoice()).split(",").map((v) => v.trim()).filter(Boolean))].slice(0, 4);
+    const speechModel = ai.speechModelId();
+    if (!speechModel) throw new ApiError(503, "PODCAST_SPEECH_UNAVAILABLE", "Podcast audio is not available right now.");
+    const voices = podcastVoices(speechModel);
     if (input.speakerNames && input.speakerNames.length > voices.length) {
       throw new ApiError(400, "PODCAST_SPEAKERS_UNAVAILABLE", `Up to ${voices.length} speakers are available. Choose fewer speakers.`);
     }
@@ -108,11 +112,24 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
     let coverTask: Promise<PodcastCover | null> | null = null;
     try {
       report("script", 5);
-      const script = podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames,
+      const script = podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, recap: highlights, maxDurationSeconds,
         chips: chips.map(({ chip }) => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })) },
       { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]), onUsage: (step) => usage.push(step) }));
-      if ((input.speakerNames && (script.speakers.length !== input.speakerNames.length || script.speakers.some((speaker, index) => speaker.name !== input.speakerNames![index]))) || new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id))) {
+      if ((input.speakerNames && (script.speakers.length !== input.speakerNames.length || script.speakers.some((speaker, index) => speaker.name !== input.speakerNames![index]))) || new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || (!highlights && chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id)))) {
         throw new Error("Invalid podcast references");
+      }
+      if (highlights) {
+        const text = script.segments.map(segment => segment.caption).join(" ");
+        const cjk = (text.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu) ?? []).length;
+        const budget = input.recap ? 1 : 2;
+        if (text.split(/\s+/u).length > 250 * budget || cjk > 500 * budget || text.length > 1800 * budget) {
+          throw new ApiError(422, "PODCAST_RECAP_TOO_LONG", "The recap script exceeds its short-video budget.");
+        }
+      }
+      if (highlights) {
+        // Omitted candidates are not episode sources, linked chips, or video section headings.
+        const selected = [...new Set(script.segments.map(segment => segment.chipId))];
+        chips = selected.map(id => chips.find(({ chip }) => chip.id === id)!);
       }
       const summaryId = input.library ? input.summaryId ?? randomUUID() : undefined;
       // A library chip gets a designed theme and illustrated cover, drawn alongside the voices.
@@ -125,12 +142,13 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
         return { ...segment, imagePath: chipArtPath(chip), icon: chip.theme.emoji || "🎙️" };
       }), deadline, (completed, total) => report("speech", 20 + Math.floor(50 * completed / total), completed, total));
       const segments = voiced.segments;
-      const podcast: DailyPodcast = { ...script, segments, key, language: input.language, day: input.day,
+      const podcast: DailyPodcast = { ...script, type: input.library ? "regular" : "daily", segments, key, language: input.language, day: input.day,
+        ...(maxDurationSeconds ? { maxDurationSeconds } : {}),
         chipIds: chips.map(({ chip }) => chip.id), createdAt: (deps.now?.() ?? new Date()).toISOString() };
       report("music", 70);
       const music = await musicTask;
       report("mixing", 75);
-      await storeContinuousAudio(store, `${base}/${key}/audio.mp3`, episodeAudioPath(podcast), podcast, voiced.audioParts, music);
+      await storeContinuousAudio(store, `${base}/${key}/audio.mp3`, episodeAudioPath(podcast), podcast, voiced.audioParts, music, maxDurationSeconds ? maxDurationSeconds - 4 : undefined);
       report("saving", 95);
       await authorize(db, user, podcast);
       const pricing = charge ? await ai.podcastPricing() : null;
@@ -261,7 +279,8 @@ export async function voiceSegments(ai: AiProvider, speakers: PodcastScript["spe
     const batch = await Promise.all(turns.slice(start, start + 4).map(async (segment, offset) => {
       const audio = await ai.speak(segment.caption, speakers[segment.speaker].voice, { abortSignal });
       audioParts[start + offset] = audio.bytes;
-      const captionCues = alignPodcastCaptions(segment.caption, await ai.transcribePodcast(audio.bytes, { abortSignal }));
+      const captionCues = await ai.splitPodcastCaptions(
+        alignPodcastCaptions(segment.caption, await ai.transcribePodcast(audio.bytes, { abortSignal })), { abortSignal });
       completed += 1;
       onSegment(completed, turns.length);
       return { ...segment, captionCues };
@@ -273,7 +292,7 @@ export async function voiceSegments(ai: AiProvider, speakers: PodcastScript["spe
 
 /** Mixes the turns (with music when available) into one MP3 at `objectKey` and times `target`'s segments against it. */
 export async function storeContinuousAudio(store: ObjectStore, objectKey: string, audioPath: string,
-  podcast: Pick<DailyPodcast, "segments" | "audioPath" | "durationSeconds" | "music">, parts: Uint8Array[], music: PodcastMusic | null = null) {
+  podcast: Pick<DailyPodcast, "segments" | "audioPath" | "durationSeconds" | "music">, parts: Uint8Array[], music: PodcastMusic | null = null, maxSeconds?: number) {
   let joined: { bytes: Uint8Array; cues: { startSeconds: number; endSeconds: number }[]; durationSeconds: number } | null = null;
   if (music) {
     try { joined = await mixPodcast(parts.map((bytes, index) => ({ bytes, topic: podcast.segments[index].chipId })), music); }
@@ -281,6 +300,9 @@ export async function storeContinuousAudio(store: ObjectStore, objectKey: string
   }
   podcast.music = Boolean(joined);
   joined ??= joinPodcastAudio(parts);
+  if (maxSeconds !== undefined && (!Number.isFinite(joined.durationSeconds) || joined.durationSeconds > maxSeconds)) {
+    throw new ApiError(422, "PODCAST_RECAP_TOO_LONG", "The finished summary exceeds its duration limit. No episode was saved.");
+  }
   await store.put(objectKey, { bytes: joined.bytes, contentType: "audio/mpeg", cacheControl: "private, no-store" });
   podcast.audioPath = audioPath;
   podcast.durationSeconds = joined.durationSeconds;
@@ -327,16 +349,16 @@ export function translationMissing() {
 export function podcastInLanguage(podcast: DailyPodcast, language?: string | null): DailyPodcast {
   const { translations, ...original } = podcast;
   const languages = [podcast.language, ...Object.keys(translations ?? {}).filter((code) => code !== podcast.language).sort()];
-  const shared = { originalLanguage: podcast.language, languages };
+  const shared = { type: podcast.type ?? (podcast.summaryId ? "regular" as const : "daily" as const), originalLanguage: podcast.language, languages };
   if (!isTranslation(podcast, language)) return { ...original, ...shared };
   const translation = translations?.[language!];
   if (!translation) throw translationMissing();
   const { title, speakers, segments, audioPath, durationSeconds, music, video } = translation;
   return { ...original, language: translation.language, title, speakers, segments, audioPath, durationSeconds, music,
-    video: video && { id: video.id, createdAt: video.createdAt, published: video.published }, ...shared };
+    video: video && { ...video }, ...shared };
 }
 /** Applies `change` to the latest stored document, so long-running writers don't drop each other's changes. */
-export async function updatePodcastDocument(db: Database, user: string, key: string, change: (podcast: DailyPodcast) => void) {
+export async function updatePodcastDocument(db: Pick<Database, "select" | "update">, user: string, key: string, change: (podcast: DailyPodcast) => void) {
   const [row] = await db.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.key, key), eq(podcastEpisodes.ownerId, user), eq(podcastEpisodes.deleted, false))).limit(1);
   if (!row) throw new ApiError(404, "NOT_FOUND", "Podcast not found");
   const podcast = row.document;
@@ -389,6 +411,9 @@ export async function removeDailyPodcast(db: Database, user: string, day: Podcas
   if (versions && versions.length <= 1) throw new ApiError(422, "PODCAST_LAST_VERSION", "Delete the podcast chip to remove its only version.");
   await db.update(podcastEpisodes).set({ deleted: true, isDefault: false }).where(eq(podcastEpisodes.key, key));
   await db.delete(podcastShareLinks).where(and(eq(podcastShareLinks.ownerId, user), eq(podcastShareLinks.episodeKey, key)));
+  for (const video of [row.document.video, ...Object.values(row.document.translations ?? {}).map(other => other.video)]) {
+    await retirePodcastRenders(getObjectStore(), user, day, key, video);
+  }
   const wasDefault = versions ? versions.find((version) => version.podcast.key === key)?.isDefault : row.isDefault;
   if (wasDefault) {
     const next = versions ? versions.find((version) => version.podcast.key !== key) : (await listDailyPodcasts(db, user, day))[0];
@@ -418,7 +443,7 @@ export async function libraryPodcast(db: Database, user: string, summaryId: stri
 }
 
 /** The database is the sole source of episode metadata. */
-export async function savePodcastDocument(db: Database, user: string, podcast: DailyPodcast) {
+export async function savePodcastDocument(db: Pick<Database, "update">, user: string, podcast: DailyPodcast) {
   await db.update(podcastEpisodes).set({ document: podcast }).where(and(eq(podcastEpisodes.key, podcast.key), eq(podcastEpisodes.ownerId, user)));
 }
 

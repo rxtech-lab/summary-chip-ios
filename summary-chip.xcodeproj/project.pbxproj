@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA17A0010000000000000001 /* PodcastSummarySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA17A0010000000000000002 /* PodcastSummarySheet.swift */; };
 		01C84FAA92D0AC4A323447E1 /* TripPlaceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC98060C63FA28C6A0CF920 /* TripPlaceDetailSheet.swift */; };
 		0311AC9C6C371D5C0E1F4029 /* TripWeatherViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66A3925CA5966C0444AE8E0 /* TripWeatherViews.swift */; };
 		058F8DCD1B357A98E1B3EE25 /* DailyPodcastSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DECF0C5AAA06E56429BAA6DF /* DailyPodcastSharingSheet.swift */; };
@@ -163,6 +164,7 @@
 		B1BC6022D2C4D620A1231FEC /* MacNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D792DE88E3418D7C22711EFD /* MacNavigationUITests.swift */; };
 		B2B532514F1DE0B25025608B /* PaperCompletionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF3C5B193BBAB0545DF7426 /* PaperCompletionBar.swift */; };
 		B423425FC772E617ADB76556 /* TripTourFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE2BF66C079EBDEBBF186DE /* TripTourFacts.swift */; };
+		B63E3928A1E169A6E5F0B7D7 /* DailyRecapSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2772D02D9D6E7215E61601E1 /* DailyRecapSettingsSheet.swift */; };
 		B7228302C31C36E2F2309C97 /* MiniAppPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200C2433584E3D4B1523124C /* MiniAppPreviewHost.swift */; };
 		BA0F513242EC60567C546E34 /* MiniAppPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE552EAC34453B60B9BC910 /* MiniAppPresentation.swift */; };
 		BAAAEC84F2D3164611AC1E52 /* MacSmartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 207AD4DD35A45CC6AB7F07BE /* MacSmartShare.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -319,6 +321,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		DA17A0010000000000000002 /* PodcastSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastSummarySheet.swift; sourceTree = "<group>"; };
 		039377FBF175910630ECE7A3 /* MiniAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppUITests.swift; sourceTree = "<group>"; };
 		03E324413C4AF493A86EA003 /* SourceMarkdownSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMarkdownSheet.swift; sourceTree = "<group>"; };
 		05A43C52A80A84D95466F332 /* ChippyWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChippyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -347,6 +350,7 @@
 		2442C32676D3C4DDE5359D8D /* DailyPodcastPlaybackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastPlaybackView.swift; sourceTree = "<group>"; };
 		26C7299E1F3AA9325E4A47A6 /* PaperReviewSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReviewSheets.swift; sourceTree = "<group>"; };
 		2719F635F4138E9669D90258 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
+		2772D02D9D6E7215E61601E1 /* DailyRecapSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRecapSettingsSheet.swift; sourceTree = "<group>"; };
 		27D5B0955F005049CA4144D2 /* PaperReaderPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperReaderPreviewHost.swift; sourceTree = "<group>"; };
 		284B73DB38FA13510598B0CB /* TripTourPreviewPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTourPreviewPhotos.swift; sourceTree = "<group>"; };
 		29C5DE12C6C878AEE055785D /* PointsUsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointsUsageView.swift; sourceTree = "<group>"; };
@@ -644,6 +648,7 @@
 			isa = PBXGroup;
 			children = (
 				FEDF543233DB9924493E3EB1 /* CreditsPreviewHost.swift */,
+				2772D02D9D6E7215E61601E1 /* DailyRecapSettingsSheet.swift */,
 				8990A30BA1DCA8C0ECC64696 /* DeleteAccountSheet.swift */,
 				82FF456F2C5EBA0F4D915B8D /* LegalDocumentView.swift */,
 				0B3EFE9B2794FB2ECA140DBE /* PointsTopUpView.swift */,
@@ -922,6 +927,7 @@
 				6B66DB1006CF5C4272BCDECB /* DailyPodcastPresentation.swift */,
 				DECF0C5AAA06E56429BAA6DF /* DailyPodcastSharingSheet.swift */,
 				ED2FF3660A86B756EB98D0B7 /* DailyPodcastSheet.swift */,
+				DA17A0010000000000000002 /* PodcastSummarySheet.swift */,
 				A4BDDE3E06807EAD1C9B7D3A /* LibraryFilterSheet.swift */,
 				E23C89ED2552FEF380370664 /* LibraryModel.swift */,
 				834E013F2DE722C876CEECE6 /* LibraryView.swift */,
@@ -1486,6 +1492,8 @@
 				808707F2FE1A0420781C2575 /* DailyPodcastPresentation.swift in Sources */,
 				058F8DCD1B357A98E1B3EE25 /* DailyPodcastSharingSheet.swift in Sources */,
 				419C5BE61D753A76E16E83A8 /* DailyPodcastSheet.swift in Sources */,
+				DA17A0010000000000000001 /* PodcastSummarySheet.swift in Sources */,
+				B63E3928A1E169A6E5F0B7D7 /* DailyRecapSettingsSheet.swift in Sources */,
 				1527B842A732CEAB80A0C9D3 /* DayEditorSheet.swift in Sources */,
 				50EFF8AAC646DB16E7B14324 /* DeleteAccountSheet.swift in Sources */,
 				8A5DC833C29F1812C18023E6 /* DeleteSummarySheet.swift in Sources */,
