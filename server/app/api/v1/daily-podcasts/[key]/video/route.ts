@@ -24,11 +24,11 @@ export async function GET(request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   return withApiAuth(request, async ({ db, principal, requestId }) => {
     const { key } = await context.params;
-    const { day, language } = await readJson(request, body => createPodcastVideoSchema.parse(body));
+    const { day, language, videoStyle } = await readJson(request, body => createPodcastVideoSchema.parse(body));
     const deps = { billingEnvironment: await billingEnvironment(request, principal) };
     if (request.headers.get("accept")?.split(",").some((type) => type.trim().split(";")[0] === "text/event-stream")) {
-      return podcastStream(async (report) => podcastInLanguage(await createPodcastVideo(db, principal.sub, day, key, deps, report, language), language), requestId);
+      return podcastStream(async (report) => podcastInLanguage(await createPodcastVideo(db, principal.sub, day, key, deps, report, language, videoStyle), language), requestId);
     }
-    return noStoreJson({ podcast: podcastInLanguage(await createPodcastVideo(db, principal.sub, day, key, deps, undefined, language), language) });
+    return noStoreJson({ podcast: podcastInLanguage(await createPodcastVideo(db, principal.sub, day, key, deps, undefined, language, videoStyle), language) });
   });
 }

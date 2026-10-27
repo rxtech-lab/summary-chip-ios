@@ -20,7 +20,7 @@ private struct PodcastVideoEnvelope: Decodable { var video: PodcastVideoSource }
 private struct PodcastEpisodeEnvelope: Decodable { var podcast: DailyPodcast }
 private struct PodcastVideoDay: Encodable { var start: String; var end: String }
 // `language` is only sent for a translation, so the original's requests are unchanged.
-private struct PodcastVideoCompose: Encodable { var day: PodcastVideoDay; var language: String? }
+private struct PodcastVideoCompose: Encodable { var day: PodcastVideoDay; var language: String?; var videoStyle: PodcastVideoStyle? }
 private struct PodcastVideoUpload: Encodable { var day: PodcastVideoDay; var videoId: String; var byteSize: Int; var language: String? }
 private struct PodcastVideoPublication: Encodable { var day: PodcastVideoDay; var videoId: String; var language: String? }
 private struct PodcastVideoTicket: Decodable {
@@ -138,9 +138,10 @@ extension SummaryAPIClient {
 
     /// Starts designing a new composition on the server (spends points when it finishes). Returns at once
     /// with the episode's `videoDesign`; the design continues while the app is in the background.
-    public func composePodcastVideo(_ podcast: DailyPodcast) async throws -> DailyPodcast {
+    /// `style` picks the art direction; `nil` leaves the server's default (news).
+    public func composePodcastVideo(_ podcast: DailyPodcast, style: PodcastVideoStyle? = nil) async throws -> DailyPodcast {
         let envelope: PodcastEpisodeEnvelope = try await send(json(videoPath(podcast), method: "POST",
-            body: PodcastVideoCompose(day: videoDay(podcast), language: podcast.translationLanguage)))
+            body: PodcastVideoCompose(day: videoDay(podcast), language: podcast.translationLanguage, videoStyle: style)))
         return envelope.podcast
     }
 

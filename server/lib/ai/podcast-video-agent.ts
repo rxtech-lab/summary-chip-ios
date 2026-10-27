@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { generateText, stepCountIs, tool, type LanguageModel, type LanguageModelUsage, type ModelMessage } from "ai";
 import { videoProgressObserver } from "./podcast-progress";
-import { PODCAST_VIDEO_STYLE } from "./podcast-video-style";
+import { podcastVideoStyle } from "./podcast-video-style";
+import type { PodcastVideoStyle } from "@/lib/contracts/daily-podcast";
 import { z } from "zod";
 import {
   MAX_PODCAST_VIDEO_FILES,
@@ -48,6 +49,8 @@ export interface PodcastVideoInput {
   durationSeconds: number;
   /** The voiced script: transcription runs first so scenes can be staged on the spoken phrases. */
   segments: PodcastVideoSegmentInput[];
+  /** Art direction; omitted (designs started before styles existed) means news. */
+  style?: PodcastVideoStyle;
 }
 
 /** `src/data.json` as the app writes it for this recording, so previews use the real timings. */
@@ -95,7 +98,8 @@ export const PODCAST_VIDEO_MAX_TURNS = 64;
 /** Characters one write_file or edit_file call may send: keeps every turn small and quick to generate. */
 const MAX_WRITE_CHARS = 6_000;
 
-const INSTRUCTIONS = `You are a senior motion designer who writes Remotion (React) compositions. Write the animated video for a podcast episode: it plays in sync with the recording, which the app adds itself.
+/** The designer's system prompt in the episode's art direction. */
+const instructions = (style?: PodcastVideoStyle) => `You are a senior motion designer who writes Remotion (React) compositions. Write the animated video for a podcast episode: it plays in sync with the recording, which the app adds itself.
 
 The project already contains src/index.ts, src/Root.tsx, src/data.json, src/phrases.json and src/podcast.ts (shown below). Write ${PODCAST_VIDEO_ENTRY}, exporting \`export const PodcastVideo: React.FC = () => …\`, plus optional extra components under src/ (at most ${MAX_PODCAST_VIDEO_FILES} files). Saved files are retained throughout this run, including after validation failures. Do not resend unchanged files. Only a validated submission becomes the final video.
 
@@ -119,15 +123,15 @@ Storyboard (required in submit_video):
 - Each turn needs a visible beginning, action and consequence tied to its claims. For example, IF the script discusses AI reconstructing a closed-source contract, depict compiled instruction blocks becoming a structured code diagram; IF the next turn describes a flaw, trace the relevant check and highlight the failing branch. Do not invent code, exploit details, numbers or subsequent events absent from the narration. Label conceptual illustrations as schematic when needed.
 - Generic numbered nodes, orbiting circles, floating particles, equalizers, speaker badges, changing titles or pan/zoom over artwork do not explain the narration. Never make them the main visual. Use most of the canvas for recognizable subject-specific objects and relationships, with short anchored labels; keep titles small.
 
-${PODCAST_VIDEO_STYLE}
+${podcastVideoStyle(style)}
 
 Design and animation requirements:
 - A designed opening title while the intro music plays (before the first turn) and an ending card after the last turn, both following the Magic Move bookends above: the title's objects morph into the first scene, and the final scene's objects morph into the ending card before its closing animation.
-- A distinct subject-specific composition per chip (topic), within the shared ivory-and-teal identity; the chip title as a small section heading.
+- A distinct subject-specific composition per chip (topic), within the art direction's shared visual identity; the chip title as a small section heading.
 
 Story transitions (a story is a run of turns about one chip; useStoryTransition() gives each bridge's timing):
 - Every story change gets a designed bridge of about 0.9–1.6 s, timed by useStoryTransition().progress, never a hard cut or a plain whole-slide crossfade. It plays in the gap between the two voices, so the incoming scene's first cue lands on a settled frame.
-- Choreograph it in three overlapping beats: exit (the outgoing scene collapses, sweeps or condenses into a token: its main object shrinks into a small badge or folds into a line), bridge (a full-width motion graphic carries the change: a teal panel or band wipes across with eased acceleration, an iris or circle grows from the token, stripes or blocks sweep in a staggered cascade, a line draws across and opens like a seam), and enter (the new story's heading slides in on the wipe's trailing edge, then its first object grows from where the bridge ended).
+- Choreograph it in three overlapping beats: exit (the outgoing scene collapses, sweeps or condenses into a token: its main object shrinks into a small badge or folds into a line), bridge (a full-width motion graphic carries the change: a panel or band in the main accent colour wipes across with eased acceleration, an iris or circle grows from the token, stripes or blocks sweep in a staggered cascade, a line draws across and opens like a seam), and enter (the new story's heading slides in on the wipe's trailing edge, then its first object grows from where the bridge ended).
 - Show the story's place in the episode: a compact chapter marker (for example "2 / 4" from story and storyCount, plus the incoming chip title) rides the bridge, and a small persistent progress rail of story dots, top right or along the top margin, advances its active dot with a spring on each bridge. Use only these counts and the chip titles; no invented labels.
 - Vary the bridge per story change (direction, shape, which object becomes the token) while keeping one family of shapes, easing and colours across the episode. Match energy to the mood.
 - During an active bridge, the turn from useNarration() may still be the outgoing one: render from and to explicitly from useStoryTransition(), keep the outgoing scene frozen at its final state, and hold the incoming scene at its initial layout until the bridge completes. Keep bridge text clear of other text and above the subtitle band.
@@ -138,15 +142,15 @@ Motion design craft:
 - Stagger related elements by 2–4 frames and overlap actions: the next element starts before the previous one settles. Move objects along gentle arcs rather than straight diagonals where it reads naturally.
 - Build depth with layers moving at different rates: background decoration drifts slowest, the subject moves fully, accent elements slightly overshoot. A subtle 2D camera move on the scene container (scale 1→1.03 or a few pixels of drift across a turn) is welcome, but never over artwork as the main visual and never moving text relative to its object.
 - Use masked reveals and wipes (overflow hidden containers, SVG clipPath rectangles whose width animates), progressive line draws (strokeDasharray/strokeDashoffset), shape morphs between compatible paths, and scale-from-anchor growth (transformOrigin at the connecting point) instead of plain fades.
-- Emphasis moments on cue(k): a ring ripple, a highlight sweep, a quick scale kick of the shape (1→1.08→1, not the label) or a colour shift to coral for a narrated risk.
+- Emphasis moments on cue(k): a ring ripple, a highlight sweep, a quick scale kick of the shape (1→1.08→1, not the label) or a colour shift to the risk accent for a narrated risk.
 - NEVER draw captions, subtitles, spoken sentences or transcripts into frames. The app embeds a selectable subtitle track separately. Short topic labels and diagram labels are allowed; do not copy narration onto slides.
 - Rich, layered motion. Each turn animates at least five subject elements on their own phrase cues, so the scene keeps building while the voice speaks: staggered entrances with spring overshoot and settle, paths that draw progressively, objects that travel along connectors, values or bars that fill, parts that split, merge, swap or lock into place, highlights that sweep across the element being discussed. Add secondary motion: follow-through after a move, a gentle settle, small anticipation before a big change.
 - Keep the scene alive between cues with continuous ambient motion tied to the subject: dashes flowing along connectors (strokeDashoffset), packets or tokens moving along paths, gears turning, gauges breathing, rings slowly rotating, soft pulses travelling outward from the active object. Derive loops from useSceneMotion() or the frame with sin/cos or closed paths so loop boundaries never jump.
-- Add an animated decorative layer behind the subject in every scene: slowly drifting soft blobs or circles, dotted grids or baselines that draw in, corner brackets that snap in on the first cue, sparkle or ripple accents when an emphasis cue fires, gently rotating dashed rings, light sweeps across the backing panel. Keep decorations low contrast (opacity 0.12–0.4 or pale mint), smaller than the subject, never over text and never the explanation itself. Vary them per topic.
+- Add an animated decorative layer behind the subject in every scene: slowly drifting soft blobs or circles, dotted grids or baselines that draw in, corner brackets that snap in on the first cue, sparkle or ripple accents when an emphasis cue fires, gently rotating dashed rings, light sweeps across the backing panel. Keep decorations low contrast (opacity 0.12–0.45 or the palette's palest tint), smaller than the subject, never over text and never the explanation itself. Vary them per topic.
 - Keep headings and diagram labels anchored, fully opaque and unchanged during explanatory actions; labels may move with their object during Magic Move, then settle. Changed labels may crossfade once locally. Do not pulse, blink, scale, rotate, jitter, retype or repeatedly fade text. Use fixed font sizes, weights, line heights and label boxes; animate shapes, not letters. Keep strokes at least 2px; avoid hairlines and animated stroke widths or font properties.
 - Lay out with explicit coordinates so nothing collides: give every label its own reserved box beside its object, not on top of strokes or other labels; keep at least 16px between label boxes; keep shapes from crossing text; account for the largest scale and translation an element reaches.
 - Geometry must be temporally coherent: compute each object's shape, color and starting position from a fixed seed once, then animate smooth transforms. Never resample vertices, change React keys or seed random values with frame/time/progress.
-- Adapt motion energy to the mood (bright, calm, focused, warm or reflective) with spring stiffness, stagger and ambient speed, while retaining the prescribed light palette.
+- Adapt motion energy to the mood (bright, calm, focused, warm or reflective) with spring stiffness, stagger and ambient speed, while retaining the art direction's palette.
 - Text must fit: wrap long topic labels, clamp sizes, and support CJK. Use the font stack -apple-system, "SF Pro Display", "PingFang SC", "Hiragino Sans", "Apple SD Gothic Neo", sans-serif. Keep all text above the bottom ${SUBTITLE_BAND}px while a voice plays.
 
 Rules:
@@ -433,7 +437,7 @@ export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], 
     const modelId = modelName(model);
     const result = await generateText({
       model,
-      system: INSTRUCTIONS,
+      system: instructions(input.style),
       messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
       tools,
       // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the

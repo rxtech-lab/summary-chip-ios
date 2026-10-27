@@ -21,6 +21,10 @@ export const patchPodcastShareLinkSchema = z.object({
   ttlDays: ttlDaysSchema.optional(),
 }).strict();
 export type PatchPodcastShareLinkInput = z.infer<typeof patchPodcastShareLinkSchema>;
+/** Art directions the video designer offers: an editorial TV explainer, or hand-drawn crayon. */
+export const PODCAST_VIDEO_STYLES = ["news", "crayon"] as const;
+export type PodcastVideoStyle = (typeof PODCAST_VIDEO_STYLES)[number];
+export const podcastVideoStyleSchema = z.enum(PODCAST_VIDEO_STYLES);
 export const createDailyPodcastSchema = z.object({
   day: podcastDaySchema,
   language: z.enum(TRANSLATION_LANGUAGES),
@@ -35,6 +39,8 @@ export const createDailyPodcastSchema = z.object({
   library: z.boolean().default(false),
   /** Video design runs alongside speech unless the caller chooses audio only. */
   includeVideo: z.boolean().optional(),
+  /** Art direction of the designed video; omitted means the default news style. */
+  videoStyle: podcastVideoStyleSchema.optional(),
   /** Regenerates this library podcast chip as a new version instead of creating another chip. */
   summaryId: z.string().min(1).optional(),
 }).refine((input) => !input.summaryId || input.library, { message: "summaryId requires library", path: ["summaryId"] });
@@ -166,7 +172,8 @@ export const createPodcastTranslationSchema = z.object({
 /** `POST /api/v1/daily-podcasts/:key/video`: designs a new composition in the background, replacing the
  * previous one when it is saved; the response's `videoDesign` reports it. With a translation `language`,
  * that translation gets the current composition with translated labels (designed first when there is none). */
-export const createPodcastVideoSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema.optional() }).strict();
+export const createPodcastVideoSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema.optional(),
+  videoStyle: podcastVideoStyleSchema.optional() }).strict();
 /** `POST /api/v1/daily-podcasts/:key/video/upload`: a presigned PUT for the rendered MP4. */
 export const podcastVideoUploadSchema = z.object({
   day: podcastDaySchema,

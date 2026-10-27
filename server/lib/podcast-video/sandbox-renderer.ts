@@ -60,7 +60,12 @@ const production: CloudPodcastRenderer = {
     files.push({ path: `${directory}/render.mjs`, content: Buffer.from(CLOUD_RENDER_RUNNER) });
     // No external network or account credentials while agent-authored code runs.
     const sandbox = await Sandbox.create({ ...sandboxCredentials(), source: { type: "snapshot", snapshotId }, timeout: 60 * 60_000, persistent: false,
-      resources: { vcpus: 4 }, networkPolicy: "deny-all" });
+      resources: { vcpus: 4 }, networkPolicy: "deny-all" }).catch((error: unknown) => {
+      // An expired or revoked token fails every render; retrying can't help, so report it as configuration.
+      const status = (error as { response?: { status?: number } }).response?.status;
+      if (status === 401 || status === 403) throw new ApiError(503, "PODCAST_RENDER_UNAVAILABLE", "Vercel Sandbox rejected the renderer's credentials.");
+      throw error;
+    });
     try {
       await sandbox.writeFiles(files);
       await sandbox.runCommand({ cmd: "node", args: ["render.mjs", String(job.resolution), String(podcast.maxDurationSeconds ?? 0), podcast.language], cwd: directory, detached: true });

@@ -2,7 +2,7 @@ import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-rende
 import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import type { AiProvider } from "@/lib/ai/provider";
-import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoSource, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
+import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoSource, PodcastVideoStyle, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
 import { PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD } from "@/lib/podcast-video/scaffold";
@@ -23,7 +23,7 @@ type Episode = Pick<DailyPodcast, "title" | "mood" | "speakers" | "segments" | "
  * The voiced episode as the video agent sees it: real turn and voice windows and the transcribed
  * phrases. Older episodes without timing get an estimate, with each turn as a single phrase.
  */
-export function podcastVideoInput(podcast: Episode, chips: { id: string; title: string }[]): PodcastVideoInput {
+export function podcastVideoInput(podcast: Episode, chips: { id: string; title: string }[], style?: PodcastVideoStyle): PodcastVideoInput {
   let cursor = 0;
   const segments = podcast.segments.map((segment) => {
     const startSeconds = segment.startSeconds ?? cursor;
@@ -38,7 +38,7 @@ export function podcastVideoInput(podcast: Episode, chips: { id: string; title: 
       voiceStartSeconds, voiceEndSeconds, image: segment.imagePath, icon: segment.icon, phrases };
   });
   return { title: podcast.title, language: podcast.language, mood: podcast.mood, speakers: podcast.speakers.map((speaker) => speaker.name), chips,
-    durationSeconds: Math.max(podcast.durationSeconds ?? 0, cursor + 1), segments };
+    durationSeconds: Math.max(podcast.durationSeconds ?? 0, cursor + 1), segments, ...(style ? { style } : {}) };
 }
 
 /** Stores the composition next to the recording and returns the summary kept on the episode. */
@@ -93,7 +93,7 @@ const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set
  * limit. A translation of an episode that already has video only gets translated labels, right away.
  */
 export async function createPodcastVideo(db: Database, user: string, day: PodcastDay, key: string, deps: ServiceDeps = {}, onProgress?: ProgressListener,
-  language?: TranslationLanguage): Promise<DailyPodcast> {
+  language?: TranslationLanguage, style?: PodcastVideoStyle): Promise<DailyPodcast> {
   const store = deps.store ?? getObjectStore();
   const lock = `${user}/${key}/${language ?? ""}`;
   const pending = writing.get(lock);
@@ -135,7 +135,7 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
       const chip = await getSummaryForViewer(db, id, user);
       return { id: chip.id, title: chip.title };
     }));
-    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, checkPoints: true });
+    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, style, checkPoints: true });
     if (state.listeners.size === 0 || !started.videoDesign) return started;
     // Streaming clients (older apps) follow the run; it continues in the background past the request.
     return waitForPodcastVideoDesign(db, user, day, key, started.videoDesign.id, report, AbortSignal.timeout(270_000));

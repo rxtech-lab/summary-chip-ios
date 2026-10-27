@@ -32,6 +32,15 @@ struct PodcastGenerationEvent: Decodable {
     let error: APIErrorBody?
 }
 
+/// Art direction of a designed podcast video. `news` is the server's default.
+public enum PodcastVideoStyle: String, Codable, Sendable, CaseIterable, Identifiable {
+    /// A calm editorial TV explainer in ivory and teal.
+    case news
+    /// Hand-drawn crayon doodles on drawing paper.
+    case crayon
+    public var id: String { rawValue }
+}
+
 public struct DailyPodcast: Codable, Sendable, Equatable {
     public enum PodcastType: String, Codable, Sendable {
         case daily, regular
@@ -161,6 +170,7 @@ private struct PodcastRequest: Encodable {
     var chipIds: [String]?
     var library: Bool
     var includeVideo: Bool
+    var videoStyle: PodcastVideoStyle?
     var summaryId: String?
     var speakerNames: [String]?
 }
@@ -237,11 +247,11 @@ extension SummaryAPIClient {
 
     /// `summaryID` regenerates that library podcast chip as a new version instead of creating another chip.
     public func generateDailyPodcast(date: Date, language: SummaryLanguage, regenerate: Bool, chipIds: [String]? = nil, library: Bool = false, includeVideo: Bool = true,
-                                     summaryID: String? = nil, speakerNames: [String]? = nil, calendar: Calendar = .current,
+                                     videoStyle: PodcastVideoStyle? = nil, summaryID: String? = nil, speakerNames: [String]? = nil, calendar: Calendar = .current,
                                      onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
         var request = try json("/api/v1/daily-podcasts", method: "POST", body: PodcastRequest(
             day: podcastDay(date, calendar: calendar), language: language.rawValue, regenerate: regenerate, chipIds: chipIds, library: library, includeVideo: includeVideo,
-            summaryId: summaryID, speakerNames: speakerNames
+            videoStyle: includeVideo ? videoStyle : nil, summaryId: summaryID, speakerNames: speakerNames
         ))
         request.timeoutInterval = 300
         if let onProgress {

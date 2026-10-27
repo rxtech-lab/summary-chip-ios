@@ -66,6 +66,18 @@ describe("writePodcastVideo", () => {
     }
   });
 
+  it("briefs the designer in the episode's art direction, news by default", async () => {
+    const news = scriptedModel([good]);
+    await writePodcastVideo(news.model, input);
+    const crayon = scriptedModel([good]);
+    await writePodcastVideo(crayon.model, { ...input, style: "crayon" as const });
+    const system = (calls: LanguageModelV4CallOptions[]) => JSON.stringify(calls[0].prompt[0]);
+    expect(system(news.calls)).toContain("calm editorial TV explainer");
+    expect(system(news.calls)).not.toContain("crayon");
+    expect(system(crayon.calls)).toContain("hand-drawn crayon explainer");
+    expect(system(crayon.calls)).not.toContain("#009B85");
+  });
+
   it("rejects decorative motion without the phrase clock", async () => {
     const { model, calls } = scriptedModel([[{ path: "src/Video.tsx", content: MOCK_PODCAST_VIDEO }], good]);
     expect(await writePodcastVideo(model, input)).toEqual({ "src/Video.tsx": narratedVideo });

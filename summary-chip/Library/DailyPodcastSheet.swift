@@ -391,8 +391,11 @@ struct DailyPodcastGenerationSheet: View {
     @AppStorage("podcast.generation.language") private var savedLanguage = ""
     @AppStorage("podcast.generation.includeVideo") private var savedIncludeVideo = true
     @AppStorage("podcast.generation.speakerNames") private var savedSpeakerNames = "[]"
+    @AppStorage("podcast.generation.videoStyle") private var savedVideoStyle = PodcastVideoStyle.news.rawValue
     @State private var speakerNames: [String] = []
     @State private var showsSpeakers = false
+    @State private var videoStyle: PodcastVideoStyle = .news
+    @State private var showsVideoStyles = false
     @State private var language: SummaryLanguage = .en
     @State private var generating = false
     @State private var includeVideo = true
@@ -422,39 +425,9 @@ struct DailyPodcastGenerationSheet: View {
                         }
                     }
                 }
-                if !regenerateVideoOnly {
-                Section {
-                    Picker("Media", selection: $includeVideo) {
-                        Text("Audio + video").tag(true)
-                        Text("Audio only").tag(false)
-                    }
-                    .accessibilityIdentifier("podcast-generation-media")
-                    Picker("Language", selection: $language) {
-                        ForEach(SummaryLanguage.translations) { Text($0.title).tag($0) }
-                    }
-                    Button { showsSpeakers = true } label: {
-                        HStack {
-                            Label("Speakers", systemImage: "person.2")
-                            Spacer()
-                            Text(speakerNames.isEmpty ? String(localized: "Automatic") : speakerNames.joined(separator: ", "))
-                                .foregroundStyle(.secondary).lineLimit(1)
-                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                        }
-                    }
-                    .accessibilityIdentifier("podcast-generation-speakers")
-                    Button { showsChips = true } label: {
-                        HStack {
-                            Label("Chips", systemImage: "square.stack")
-                            Spacer()
-                            Text("\(selected.count) selected").foregroundStyle(.secondary)
-                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                        }
-                    }
-                    .accessibilityIdentifier("podcast-select-chips")
-                    .disabled(loading)
-                } footer: {
-                    Text(existing?.summaryId != nil ? "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary stays within 6 minutes.")
-                }
+                if !regenerateVideoOnly { generationSection }
+                if regenerateVideoOnly {
+                    Section { videoStyleRow }
                 }
                 Section {
                     Text("Generation uses points. Audio and video design are saved for future playback. The video is designed on the server, so you can leave while it works; keep the app open while it renders on this device. Each version is kept until you remove it.")
@@ -483,6 +456,9 @@ struct DailyPodcastGenerationSheet: View {
             .sheet(isPresented: $showsChips) {
                 PodcastChipPicker(api: api, dayChips: isLibrary ? nil : chips, selected: $selected)
             }
+            .sheet(isPresented: $showsVideoStyles) {
+                PodcastVideoStyleSheet(style: $videoStyle)
+            }
             .interactiveDismissDisabled(generating)
             .alert("Couldn't Generate Podcast", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
@@ -492,12 +468,61 @@ struct DailyPodcastGenerationSheet: View {
             .sensoryFeedback(.selection, trigger: language)
             .sensoryFeedback(.selection, trigger: includeVideo)
             .sensoryFeedback(.selection, trigger: regenerateVideoOnly)
+            .sensoryFeedback(.selection, trigger: videoStyle)
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
         .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+
+    private var generationSection: some View {
+        Section {
+            Picker("Media", selection: $includeVideo) {
+                Text("Audio + video").tag(true)
+                Text("Audio only").tag(false)
+            }
+            .accessibilityIdentifier("podcast-generation-media")
+            Picker("Language", selection: $language) {
+                ForEach(SummaryLanguage.translations) { Text($0.title).tag($0) }
+            }
+            Button { showsSpeakers = true } label: {
+                HStack {
+                    Label("Speakers", systemImage: "person.2")
+                    Spacer()
+                    Text(speakerNames.isEmpty ? String(localized: "Automatic") : speakerNames.joined(separator: ", "))
+                        .foregroundStyle(.secondary).lineLimit(1)
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityIdentifier("podcast-generation-speakers")
+            Button { showsChips = true } label: {
+                HStack {
+                    Label("Chips", systemImage: "square.stack")
+                    Spacer()
+                    Text("\(selected.count) selected").foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityIdentifier("podcast-select-chips")
+            .disabled(loading)
+            if includeVideo { videoStyleRow }
+        } footer: {
+            Text(existing?.summaryId != nil ? "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary stays within 6 minutes.")
+        }
+    }
+
+    private var videoStyleRow: some View {
+        Button { showsVideoStyles = true } label: {
+            HStack {
+                Label("Video Style", systemImage: "paintpalette")
+                Spacer()
+                Text(videoStyle.title).foregroundStyle(.secondary).lineLimit(1)
+                Image(systemName: "chevron.right").foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier("podcast-generation-video-style")
     }
 
     @ViewBuilder private var generationOverlay: some View {
@@ -544,6 +569,7 @@ struct DailyPodcastGenerationSheet: View {
     private func loadChips() async {
         regenerateVideoOnly = videoOnly
         includeVideo = savedIncludeVideo
+        videoStyle = PodcastVideoStyle(rawValue: savedVideoStyle) ?? .news
         speakerNames = (try? JSONDecoder().decode([String].self, from: Data(savedSpeakerNames.utf8))) ?? []
         language = SummaryLanguage(rawValue: savedLanguage) ?? existing.flatMap { SummaryLanguage(rawValue: $0.language) }
             ?? SummaryLanguage(languageTag: Locale.preferredLanguages.first ?? "en") ?? .en
@@ -576,6 +602,7 @@ struct DailyPodcastGenerationSheet: View {
                 savedSpeakerNames = value
             }
         }
+        savedVideoStyle = videoStyle.rawValue
         generationProgress = nil
         renderProgress = nil
         generating = true
@@ -584,14 +611,14 @@ struct DailyPodcastGenerationSheet: View {
                 var podcast: DailyPodcast
                 if let pendingEpisode {
                     // A running design is followed; otherwise a new one starts. Audio is never regenerated.
-                    podcast = pendingEpisode.video != nil || pendingEpisode.isDesigningVideo ? pendingEpisode : try await api.composePodcastVideo(pendingEpisode)
+                    podcast = pendingEpisode.video != nil || pendingEpisode.isDesigningVideo ? pendingEpisode : try await api.composePodcastVideo(pendingEpisode, style: videoStyle)
                 } else if regenerateVideoOnly, let existing {
-                    podcast = try await api.composePodcastVideo(existing)
+                    podcast = try await api.composePodcastVideo(existing, style: videoStyle)
                 } else {
                     // Regenerating a library podcast adds a version to the same chip.
                     podcast = try await api.generateDailyPodcast(date: date, language: language, regenerate: true,
                         chipIds: selected.keys.sorted(), library: isLibrary,
-                        includeVideo: includeVideo, summaryID: existing?.summaryId, speakerNames: speakerNames.isEmpty ? nil : speakerNames, onProgress: { generationProgress = $0 })
+                        includeVideo: includeVideo, videoStyle: videoStyle, summaryID: existing?.summaryId, speakerNames: speakerNames.isEmpty ? nil : speakerNames, onProgress: { generationProgress = $0 })
                 }
                 // Preserve the paid episode if design or rendering fails. Retry never regenerates audio or design.
                 pendingEpisode = podcast

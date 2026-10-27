@@ -66,7 +66,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
   const highlights = input.recap || !input.library;
   const maxDurationSeconds = input.recap ? 179 : !input.library ? 360 : undefined;
   const base = dayKey(user, input.day);
-  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false])}`;
+  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.videoStyle ?? "news", input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false])}`;
   // Concurrent taps share a generation, even if the second requested regeneration.
   const pending = writing.get(requestKey);
   if (pending) {
@@ -192,7 +192,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       if (input.includeVideo !== false && ai.podcastVideoModelId()) {
         report("video-design", 97);
         const designing = await startPodcastVideoDesign(db, user, podcast, chips.map(({ chip }) => ({ id: chip.id, title: chip.title })),
-          { ai, store, billingEnvironment: deps.billingEnvironment, now: deps.now }, { checkPoints: false }).catch((error) => {
+          { ai, store, billingEnvironment: deps.billingEnvironment, now: deps.now }, { style: input.videoStyle, checkPoints: false }).catch((error) => {
           console.error("[podcast] video design could not start, publishing without video", error);
           return null;
         });
