@@ -728,6 +728,9 @@
     "5" : {
       "shouldTranslate" : false
     },
+    "A calm editorial TV explainer with clean ivory-and-teal line art." : {
+
+    },
     "A new illustration replaces the Clip's current cover." : {
 
     },
@@ -4026,6 +4029,9 @@
         }
       }
     },
+    "Crayon" : {
+
+    },
     "Create" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6861,6 +6867,9 @@
         }
       }
     },
+    "Hand-drawn crayon doodles on drawing paper, sketched in as the hosts speak." : {
+
+    },
     "Hayabusa" : {
       "shouldTranslate" : false
     },
@@ -8878,6 +8887,9 @@
       }
     },
     "New View" : {
+
+    },
+    "News" : {
 
     },
     "Next" : {
@@ -14713,6 +14725,9 @@
         }
       }
     },
+    "The video is designed in this style. Your choice is saved on this device when you generate." : {
+
+    },
     "The view is removed from the trip." : {
 
     },
@@ -16196,6 +16211,9 @@
 
     },
     "Video script jobs appear here. You can close the app while the server works." : {
+
+    },
+    "Video Style" : {
 
     },
     "View" : {

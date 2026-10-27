@@ -9,7 +9,7 @@ import { estimateVideoProgress } from "@/lib/ai/podcast-progress";
 import { newPodcastVideoDraft, PodcastVideoNoToolError, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
   type PodcastVideoDraft, type PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import type { TranslationLanguage } from "@/lib/contracts/api";
-import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
+import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign, PodcastVideoStyle, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
 import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_WIDTH, podcastPhraseWindows } from "@/lib/podcast-video/scaffold";
@@ -87,7 +87,7 @@ function designPercent(progress: number) {
  * without a balance; points are charged for the model's tokens when the run ends.
  */
 export async function startPodcastVideoDesign(db: Database, user: string, podcast: DailyPodcast, chips: { id: string; title: string }[],
-  deps: Deps & { billingEnvironment?: BillingEnvironment }, options: { language?: TranslationLanguage; checkPoints: boolean }): Promise<DailyPodcast> {
+  deps: Deps & { billingEnvironment?: BillingEnvironment }, options: { language?: TranslationLanguage; style?: PodcastVideoStyle; checkPoints: boolean }): Promise<DailyPodcast> {
   if (isDesigningVideo(podcast)) return podcast;
   const store = deps.store ?? getObjectStore();
   const ai = deps.ai ?? await getAiProvider();
@@ -100,7 +100,7 @@ export async function startPodcastVideoDesign(db: Database, user: string, podcas
     const check = await reservePodcastPoints(user, `${podcast.key}:video:${job.id}`, model, deps.billingEnvironment);
     await check?.settle(0, { check: true });
   }
-  const state: DesignState = { input: podcastVideoInput(podcast, chips), chips, draft: newPodcastVideoDraft(), costUsd: 0, failures: 0, progress: 0 };
+  const state: DesignState = { input: podcastVideoInput(podcast, chips, options.style), chips, draft: newPodcastVideoDraft(), costUsd: 0, failures: 0, progress: 0 };
   await store.put(statePath(job), jsonObject(state));
   const now = (deps.now?.() ?? new Date()).toISOString();
   const design: PodcastVideoDesign = { id: job.id, startedAt: now, updatedAt: now, percent: designPercent(0), ...(options.language ? { language: options.language } : {}) };

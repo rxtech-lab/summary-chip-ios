@@ -94,6 +94,17 @@ describe("podcast motion video", () => {
     // The run's draft is removed once it ends.
     expect([...env.store.objects.keys()].some((key) => key.includes("/video-design/"))).toBe(false);
   });
+  it("designs in the requested style and rejects unknown styles", async () => {
+    env.ai.video = true;
+    await chip("Volcanoes");
+    const created = await generate(false);
+    const rejected = await videoRoute.POST(apiRequest("POST", "/video", { token: env.tokens.alice, body: { day, videoStyle: "neon" } }), params({ key: created.key }));
+    expect(rejected.status).toBe(400);
+    const started = await videoRoute.POST(apiRequest("POST", "/video", { token: env.tokens.alice, body: { day, videoStyle: "crayon" } }), params({ key: created.key }));
+    expect(started.status).toBe(200);
+    expect((await designed(created.key)).video?.id).toBeTruthy();
+    expect(env.ai.calls.writePodcastVideo[0].style).toBe("crayon");
+  });
   it("reuses a running design instead of starting another", async () => {
     env.ai.video = true;
     await chip("Glaciers");
