@@ -788,6 +788,28 @@
         }
       }
     },
+    "A summary will be generated from this episode’s transcript." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A summary will be generated from this episode’s transcript."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将根据本集文字稿生成摘要。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將根據此集文字稿產生摘要。"
+          }
+        }
+      }
+    },
     "A text file can't be renamed as an image." : {
 
     },
@@ -1617,7 +1639,7 @@
         }
       }
     },
-    "All readable summary chips from this day are selected by default, across feed filters. You can choose which to include." : {
+    "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary stays within 6 minutes." : {
 
     },
     "All Sources" : {
@@ -2118,6 +2140,9 @@
 
     },
     "Automatic" : {
+
+    },
+    "Automatic Daily Recap" : {
 
     },
     "Automatically check for updates" : {
@@ -2883,6 +2908,9 @@
       }
     },
     "Chips" : {
+
+    },
+    "Choose + → New Podcast to turn saved chips into an episode with voices, captions and artwork. Pick your stories and language, then listen or create a video to share." : {
 
     },
     "Choose a local image file." : {
@@ -3673,6 +3701,28 @@
         }
       }
     },
+    "Couldn’t Generate Summary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Generate Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法生成摘要"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法產生摘要"
+          }
+        }
+      }
+    },
     "Couldn't Import Image" : {
 
     },
@@ -4246,6 +4296,9 @@
           }
         }
       }
+    },
+    "Daily Recap" : {
+
     },
     "Data" : {
 
@@ -4869,6 +4922,9 @@
     "Designing a new cover…" : {
 
     },
+    "Designing or rendering video" : {
+
+    },
     "Designing video…" : {
 
     },
@@ -5158,6 +5214,9 @@
           }
         }
       }
+    },
+    "Each day, create a private 1080p video from the previous day’s summary chips. Recaps highlight the main stories and stay under three minutes. Cloud generation continues while the app is closed. Days without chips are skipped." : {
+
     },
     "Each edit saves a version you can come back to." : {
 
@@ -6048,6 +6107,9 @@
         }
       }
     },
+    "Find the stories that stand out" : {
+
+    },
     "Finding Editor’s Picks…" : {
 
     },
@@ -6637,6 +6699,9 @@
     "Generate a new cover?" : {
 
     },
+    "Generate at" : {
+
+    },
     "Generate Cover" : {
 
     },
@@ -6659,8 +6724,33 @@
     "Generate Video" : {
 
     },
+    "Generating audio" : {
+
+    },
     "Generating cover…" : {
 
+    },
+    "Generating summary…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generating summary…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在生成摘要…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在產生摘要…"
+          }
+        }
+      }
     },
     "Generation uses points. Audio and video design are saved for future playback. The video is designed on the server, so you can leave while it works; keep the app open while it renders on this device. Each version is kept until you remove it." : {
 
@@ -6773,6 +6863,15 @@
     },
     "Hayabusa" : {
       "shouldTranslate" : false
+    },
+    "HD video renders in the cloud and downloads when ready. Choose Download in the podcast for a 4K export on this device." : {
+
+    },
+    "HD video renders in the cloud. You can close this sheet and return later." : {
+
+    },
+    "HD video renders in the cloud. You can return later while it finishes." : {
+
     },
     "Header · Center" : {
       "extractionState" : "manual",
@@ -6963,9 +7062,6 @@
 
     },
     "Hide Editor" : {
-
-    },
-    "Higher resolutions take longer to render and use more storage." : {
 
     },
     "Highlight" : {
@@ -7319,12 +7415,6 @@
         }
       }
     },
-    "Keep the app open during rendering. The finished video is cached on this device." : {
-
-    },
-    "Keep the app open until rendering finishes." : {
-
-    },
     "Keep the image's original file extension." : {
 
     },
@@ -7490,6 +7580,9 @@
       }
     },
     "Larger Text" : {
+
+    },
+    "Last Recap" : {
 
     },
     "Later" : {
@@ -7789,6 +7882,9 @@
         }
       }
     },
+    "Linked Chips" : {
+
+    },
     "List summaries newest first by source, category, tag or visibility." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7821,9 +7917,6 @@
           }
         }
       }
-    },
-    "Live Activity Log" : {
-
     },
     "Live Status" : {
       "localizations" : {
@@ -7988,6 +8081,9 @@
       }
     },
     "Loading progress" : {
+
+    },
+    "Loading schedule…" : {
 
     },
     "Loading source…" : {
@@ -8253,6 +8349,9 @@
         }
       }
     },
+    "Look for Editor’s Pick on selected summaries and podcasts. Turn on the Editor’s Pick filter to browse them, or ask Chippy’s chat for picks from a particular day." : {
+
+    },
     "Look Up Flight" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8517,6 +8616,9 @@
       }
     },
     "Name the key after the agent or device that uses it. The key gives full access to your summaries and trips." : {
+
+    },
+    "Needs attention" : {
 
     },
     "Needs Attention" : {
@@ -8809,6 +8911,12 @@
           }
         }
       }
+    },
+    "Next Recap" : {
+
+    },
+    "Next Run" : {
+
     },
     "Next Stop" : {
 
@@ -9684,6 +9792,12 @@
         }
       }
     },
+    "Off by default. Automatic recaps use credits." : {
+
+    },
+    "Off by default. When enabled, automatic recap generation consumes your credits. Turn this off and save to stop future automatic recaps." : {
+
+    },
     "Offline Cache" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9931,6 +10045,9 @@
     "Open Review of “%@”" : {
 
     },
+    "Open Settings → Daily Recap to schedule a private video from the previous day’s chips. Choose a language and time; cloud generation continues while Chippy is closed. Automatic recaps use credits, and days without chips are skipped." : {
+
+    },
     "Open Summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9946,6 +10063,9 @@
           }
         }
       }
+    },
+    "Open that day in the Feed to watch the recap. Video progress is available in Background Jobs." : {
+
     },
     "Open the podcast and choose Generate Video or Regenerate to try again." : {
 
@@ -10842,6 +10962,22 @@
         }
       }
     },
+    "Podcast Summary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podcast Summary"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播客摘要"
+          }
+        }
+      }
+    },
     "Podcast Unavailable" : {
 
     },
@@ -11229,6 +11365,9 @@
           }
         }
       }
+    },
+    "Queued" : {
+
     },
     "Rapid" : {
       "localizations" : {
@@ -11883,9 +12022,6 @@
         }
       }
     },
-    "Render on This Device" : {
-
-    },
     "Render Video" : {
 
     },
@@ -11922,6 +12058,9 @@
           }
         }
       }
+    },
+    "Rendering video in the cloud…" : {
+
     },
     "Rendering video…" : {
 
@@ -12528,6 +12667,9 @@
         }
       }
     },
+    "Saving schedule…" : {
+
+    },
     "Saving to Photos…" : {
 
     },
@@ -12578,6 +12720,12 @@
           }
         }
       }
+    },
+    "Schedule" : {
+
+    },
+    "Schedule saved" : {
+
     },
     "Search" : {
       "localizations" : {
@@ -13389,6 +13537,9 @@
           }
         }
       }
+    },
+    "Skipped" : {
+
     },
     "Slate" : {
       "extractionState" : "manual",
@@ -14634,6 +14785,26 @@
     "This diagram is drawn by LaTeX." : {
 
     },
+    "This episode has no summary. Regenerate the podcast to create one." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This episode has no summary. Regenerate the podcast to create one."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此集沒有摘要。重新產生播客即可建立摘要。"
+          }
+        }
+      }
+    },
+    "This export renders on this device. Keep the app open until it finishes." : {
+
+    },
     "This image can't be replaced." : {
 
     },
@@ -15405,6 +15576,9 @@
         }
       }
     },
+    "Turn your chips into a podcast" : {
+
+    },
     "Two Columns" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15808,6 +15982,9 @@
         }
       }
     },
+    "Use Current Time Zone" : {
+
+    },
     "Use Custom Rendering" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16159,6 +16336,12 @@
           }
         }
       }
+    },
+    "Watch HD Video" : {
+
+    },
+    "Watch Podcast" : {
+
     },
     "Weather" : {
       "localizations" : {
@@ -16515,7 +16698,7 @@
     "You" : {
 
     },
-    "You can close this sheet or quit the app. Script writing continues on the server." : {
+    "You can close this sheet or quit the app. Video work continues on the server." : {
 
     },
     "You choose which members and operations can use it after connecting." : {
@@ -16700,6 +16883,9 @@
       }
     },
     "Your audio was saved, but video design was unavailable. Retry Video to generate a video for this recording." : {
+
+    },
+    "Your day, in a short recap" : {
 
     },
     "Your Feed history of opened summaries" : {

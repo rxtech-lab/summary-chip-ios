@@ -31,8 +31,10 @@ nonisolated final class MacNavigationUITests: XCTestCase {
 
     @MainActor
     func testSettingsReopensWelcomeAndNewFeatures() {
+        continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--preview-mac"]
+        app.launchArguments = ["--preview-mac", "-ApplePersistenceIgnoreState", "YES",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10))
         app.descendants(matching: .any)["mac-settings"].click()
@@ -55,6 +57,14 @@ nonisolated final class MacNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Connect your AI agents"].waitForExistence(timeout: 5))
         app.buttons["Next"].click()
         XCTAssertTrue(app.staticTexts["Meet your Trip Diary"].waitForExistence(timeout: 5))
+        app.buttons["Next"].click()
+        XCTAssertTrue(app.staticTexts["Research papers, in LaTeX"].waitForExistence(timeout: 5))
+        app.buttons["Next"].click()
+        XCTAssertTrue(app.staticTexts["Turn your chips into a podcast"].waitForExistence(timeout: 5))
+        app.buttons["Next"].click()
+        XCTAssertTrue(app.staticTexts["Your day, in a short recap"].waitForExistence(timeout: 5))
+        app.buttons["Next"].click()
+        XCTAssertTrue(app.staticTexts["Find the stories that stand out"].waitForExistence(timeout: 5))
         app.buttons["Got it"].click()
         XCTAssertTrue(features.waitForExistence(timeout: 5))
 

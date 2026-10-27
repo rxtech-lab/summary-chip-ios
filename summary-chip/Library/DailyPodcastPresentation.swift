@@ -37,6 +37,7 @@ struct DailyPodcastPresentation: ViewModifier {
                         pendingChipID = id
                         player.isPresented = false
                     }, onChipUpdated: { environment.library.upsert($0) })
+                        .id(date)
                 }
             }
             .overlay {

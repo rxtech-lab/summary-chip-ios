@@ -1,3 +1,4 @@
+import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-render";
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -5,7 +6,7 @@ import type { Database } from "@/lib/db/client";
 import { podcastDrafts, podcastEpisodes } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { dailyPodcastEpisode, dayKey, jsonObject } from "./daily-podcast";
-import type { PodcastDay, PodcastVideoSource } from "@/lib/contracts/daily-podcast";
+import type { PodcastDay, PodcastVideoSource, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import { podcastVideoInput, podcastVideoSource } from "./podcast-video";
 import { getSummaryForViewer } from "./summaries";
 import { getObjectStore } from "@/lib/storage/r2";
@@ -88,17 +89,22 @@ export async function submitPodcastDraft(db: Database, user: string, ref: Episod
     chips: project.input.chips, files: { ...project.files, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(project.input.segments)) } };
   const sourceFile = `video-${id}.json`;
   await getObjectStore().put(`${dayKey(user, ref.day)}/${ref.key}/${sourceFile}`, jsonObject(source));
+  const retired: PodcastVideoSummary[] = [];
   await db.transaction(async tx => {
     const [draft] = await tx.select().from(podcastDrafts).where(eq(podcastDrafts.key, ref.key));
     if (draft?.revision !== revision) throw conflict();
     const [row] = await tx.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.key, ref.key), eq(podcastEpisodes.ownerId, user), eq(podcastEpisodes.deleted, false)));
     if (!row) throw new ApiError(404, "NOT_FOUND", "Podcast not found");
     const episode = row.document;
+    if (episode.video) retired.push(episode.video);
+    for (const other of Object.values(episode.translations ?? {})) if (other.video) retired.push(other.video);
     episode.video = { id, createdAt: source.createdAt, sourceFile };
     for (const translation of Object.values(episode.translations ?? {})) delete translation.video;
     await tx.update(podcastEpisodes).set({ document: episode }).where(and(eq(podcastEpisodes.key, ref.key), eq(podcastEpisodes.ownerId, user)));
     await tx.update(podcastDrafts).set({ revision: revision + 1 }).where(eq(podcastDrafts.key, ref.key));
   });
+  for (const video of retired) await retirePodcastRenders(getObjectStore(), user, ref.day, ref.key, video);
+  await queueDefaultPodcastRender(db, user, ref.day, ref.key);
   return { saved: true, revision: revision + 1, video: { id, createdAt: source.createdAt }, notes: frames.flatMap(f => f.notes) };
 }
 

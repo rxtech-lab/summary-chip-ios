@@ -768,3 +768,25 @@ export const backgroundJobs = sqliteTable("background_jobs", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   notifiedAt: integer("notified_at", { mode: "timestamp_ms" }),
 }, (table) => [index("background_jobs_owner_idx").on(table.ownerId, table.createdAt, table.id)]);
+
+/** Opt-in account schedule; verified billing environment is retained for background generation. */
+export const dailyRecapSchedules = sqliteTable("daily_recap_schedules", {
+  ownerId: text("owner_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  timeZone: text("time_zone").notNull(),
+  language: text("language").notNull(),
+  hour: integer("hour").notNull().default(7),
+  billingEnvironment: text("billing_environment").$type<import("@/lib/subscription/config").BillingEnvironment>(),
+  nextAt: integer("next_at", { mode: "timestamp_ms" }).notNull(),
+}, table => [index("daily_recap_due_idx").on(table.enabled, table.nextAt)]);
+
+/** A unique owner/local-date claim prevents repeated cron calls from spending twice. */
+export const dailyRecapRuns = sqliteTable("daily_recap_runs", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: text("date").notNull(),
+  status: text("status").notNull(),
+  episodeKey: text("episode_key"),
+  error: text("error"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+}, table => [uniqueIndex("daily_recap_owner_date_idx").on(table.ownerId, table.date)]);

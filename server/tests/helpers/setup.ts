@@ -1,3 +1,5 @@
+import { setPodcastRenderStarterForTests } from "@/lib/podcast-video/render-workflow";
+import type { PodcastRenderJob } from "@/lib/services/podcast-render";
 import { generateKeyPair, SignJWT } from "jose";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -58,19 +60,21 @@ export interface TestEnv {
   runTripTranslations: () => Promise<void>;
   /** Queued background video designs, run explicitly by tests. */
   podcastVideoDesigns: PodcastVideoJob[];
+  podcastRenders: PodcastRenderJob[];
   runPodcastVideoDesigns: () => Promise<void>;
   tokens: Record<"alice" | "bob", string>;
   teardown: () => void;
 }
 
-/** Fresh in-memory libsql database (migrated), memory object store, mock AI and local JWKS. */
+/** Fresh isolated libsql database (migrated), memory object store, mock AI and local JWKS. */
 export async function setupTestEnv(options: { transactional?: boolean } = {}): Promise<TestEnv> {
   keys ??= await generateKeyPair("RS256");
   setBearerConfigForTests({ issuer: ISSUER, allowedClientIds: new Set([CLIENT_ID]), key: keys.publicKey });
   // No identity provider in tests: userinfo knows no emails unless a test says otherwise.
   setUserInfoFetcherForTests(async () => null);
   // libsql opens a new connection for interactive transactions; :memory: would lose the schema.
-  const directory = options.transactional ? mkdtempSync(path.join(tmpdir(), "chippy-test-")) : undefined;
+  // Automatic video renders claim work transactionally, so file-backed storage is now the default.
+  const directory = (options.transactional ?? true) ? mkdtempSync(path.join(tmpdir(), "chippy-test-")) : undefined;
   const handle = createDatabase(directory ? `file:${path.join(directory, "db.sqlite")}` : ":memory:");
   await handle.migrate();
   setDatabaseForTests(handle.db);
@@ -100,6 +104,8 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
     for (const job of tripTranslations.splice(0)) await finishTripTranslation(handle.db, job, await runTripTranslationPass(handle.db, job));
   };
   // Background video designs wait until a test runs them, as the workflow would after the response.
+  const podcastRenders: PodcastRenderJob[] = [];
+  setPodcastRenderStarterForTests({ start: async job => { podcastRenders.push(job); } });
   const podcastVideoDesigns: PodcastVideoJob[] = [];
   setPodcastVideoDesignerForTests({ start: async (job) => { podcastVideoDesigns.push(job); } });
   const runPodcastVideoDesigns = async () => {
@@ -116,6 +122,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
     tripTranslations,
     runTripTranslations,
     podcastVideoDesigns,
+    podcastRenders,
     runPodcastVideoDesigns,
     tokens,
     teardown: () => {
@@ -133,6 +140,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
       setWeatherTrackerForTests(undefined);
       setTripTranslatorForTests(undefined);
       setPodcastVideoDesignerForTests(undefined);
+      setPodcastRenderStarterForTests(undefined);
       setTripNotifierForTests(undefined);
       setPaperNotifierForTests(undefined);
       setTripReminderSchedulerForTests(undefined);

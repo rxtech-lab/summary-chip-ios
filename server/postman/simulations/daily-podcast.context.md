@@ -42,3 +42,5 @@ silent. The HTTP test now drives the real single-turn agent used by workflow ste
 The article HTTP test exercises structured output through the real Gateway SDK.
 Speech fixture MP3s now preserve spoken text in an ID3 title, matching the local
 transcription fixture used by the existing streamed-generation integration test.
+
+2026-10-27: Summary backfill uses the real gateway HTTP adapter against the transcript fixture. All 34 focused podcast tests passed with the simulation enabled, including persisted summaries, reuse, access denial, invalid output, and provider failure. Updated the script fixture with required summary and recap ranking fields. This does not verify live model quality.

@@ -28,6 +28,13 @@ private struct PodcastVideoTicket: Decodable {
     var method: String
     var headers: [String: String]
 }
+private struct PodcastCloudRenderInput: Encodable { var day: PodcastVideoDay; var language: String?; var resolution: Int }
+private struct PodcastCloudRender: Decodable {
+    struct Render: Decodable { var id: String; var status: String; var resolution: Int; var byteSize: Int?; var error: APIErrorBody? }
+    var videoId: String?
+    var render: Render?
+    var downloadUrl: URL?
+}
 private struct PodcastVideoDownload: Decodable { var videoId: String; var downloadUrl: URL }
 
 extension SummaryAPIClient {
@@ -83,6 +90,43 @@ extension SummaryAPIClient {
             guard http.statusCode == 200 else { throw SummaryAPIError.http(status: http.statusCode) }
             let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
             guard size > 0, size == video.published?.byteSize else { throw SummaryAPIError.invalidResponse }
+            try Task.checkCancellation()
+            await onProgress?(.init(completedBytes: Int64(size), totalBytes: Int64(size)))
+            return file
+        } catch {
+            try? FileManager.default.removeItem(at: file)
+            throw error
+        }
+    }
+
+    /// Starts/reuses a durable cloud render and downloads the private R2 output. Closing the
+    /// sheet cancels polling and downloading; the server continues rendering for later reuse.
+    public func downloadCloudPodcastVideo(_ podcast: DailyPodcast, resolution: Int = 1080,
+                                          onProgress: MediaTransferProgress.Handler? = nil) async throws -> URL {
+        guard [720, 1080].contains(resolution), let video = podcast.video else { throw SummaryAPIError.invalidResponse }
+        let path = videoPath(podcast, "/render")
+        var state: PodcastCloudRender = try await send(json(path, method: "POST",
+            body: PodcastCloudRenderInput(day: videoDay(podcast), language: podcast.translationLanguage, resolution: resolution)))
+        let renderID = state.render?.id
+        let query = try videoQuery(podcast) + [URLQueryItem(name: "resolution", value: String(resolution))]
+        while state.render?.status == "running" {
+            try Task.checkCancellation()
+            guard state.videoId == video.id, state.render?.id == renderID else { throw SummaryAPIError.invalidResponse }
+            try await Task.sleep(for: .seconds(3))
+            state = try await send(request(path, query: query))
+        }
+        if let error = state.render?.error { throw SummaryAPIError.server(status: 502, body: error) }
+        guard state.videoId == video.id, state.render?.id == renderID, state.render?.resolution == resolution,
+              state.render?.status == "ready", let url = state.downloadUrl,
+              let size = state.render?.byteSize, size > 0 else { throw SummaryAPIError.invalidResponse }
+        var download = URLRequest(url: url)
+        download.timeoutInterval = 600
+        await onProgress?(.init(completedBytes: 0, totalBytes: Int64(size)))
+        let delegate = onProgress.map { MediaTransferDelegate($0) }
+        let (file, response) = try await session.download(for: download, delegate: delegate)
+        do {
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  try file.resourceValues(forKeys: [.fileSizeKey]).fileSize == size else { throw SummaryAPIError.invalidResponse }
             try Task.checkCancellation()
             await onProgress?(.init(completedBytes: Int64(size), totalBytes: Int64(size)))
             return file

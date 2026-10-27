@@ -37,3 +37,31 @@ Use case: stylized-concept. Asset type: square new-feature onboarding illustrati
 ## Local review
 
 Launch a Debug simulator build with `--preview-education` to review the real education sheets without signing in or changing the production welcome/read flags. This preview route is excluded from Release builds.
+
+## Podcast Studio, Daily Recap and Editor’s Picks (2026-10-27)
+
+Generated with the built-in image generation tool for the existing paged education sheet on iOS and macOS. Each card has a permanent ID and is acknowledged independently. Replay from Settings → What’s New. Artwork uses warm ivory, indigo, teal and coral, with no embedded copy so native text remains accessible and localizable.
+
+### Podcast Studio
+
+Asset: `summary-chip/Assets.xcassets/FeaturePodcastStudio.imageset/FeaturePodcastStudio.png`
+
+Prompt:
+
+Use case: stylized-concept. Asset type: square feature-card artwork for Chippy iOS and macOS, Podcast Studio. Create an elegant editorial still life of a softly rounded indigo studio microphone beside two floating ivory summary cards with abstract indigo lines, a teal audio waveform ribbon flowing into a small rounded video frame with an abstract coral play triangle. Warm ivory background, geometric layered paper and matte clay 3D forms, rounded edges, subtle soft shadows, indigo and teal palette with one small coral accent. Centered spacious composition, all subjects inside generous margins, readable at 280px. Premium friendly app illustration. No words, letters, numbers, logos, emoji, watermark, or UI screenshot.
+
+### Daily Recap
+
+Asset: `summary-chip/Assets.xcassets/FeatureDailyRecap.imageset/FeatureDailyRecap.png`
+
+Prompt:
+
+Use case: stylized-concept. Asset type: square new-feature card illustration for Chippy iOS and macOS announcing automatic daily video recaps. Subject: a floating rounded ivory calendar with a grid of simple blank teal dots, beside a small indigo video screen with coral play triangle and three small ivory summary cards feeding into it along a graceful teal arc. A small ivory and indigo clock medallion suggests a daily schedule. Geometric layered paper and matte clay 3D still life, warm ivory background, rounded edges, subtle soft shadows, indigo and teal palette with one small coral accent. Centered spacious composition with generous margins, all objects fully in frame, legible at 280px. Polished premium friendly app artwork matching an editorial onboarding illustration system. No words, letters, numbers, logos, emoji, watermarks or UI screenshots.
+
+### Editor’s Picks
+
+Asset: `summary-chip/Assets.xcassets/FeatureEditorsPicks.imageset/FeatureEditorsPicks.png`
+
+Prompt:
+
+Use case: stylized-concept. Asset type: square new-feature card artwork for Chippy iOS and macOS, Editor's Picks. Create an elegant editorial still life: three floating softly rounded ivory summary cards with simple abstract indigo lines, with the central card raised prominently and bearing a small teal circular medallion with a coral star. A graceful indigo bookmark ribbon and layered teal paper shapes suggest a curated reading collection. Warm ivory studio background, geometric layered paper and matte clay 3D illustration, softly rounded edges, subtle shadows, indigo and teal with one coral accent. Centered balanced composition with generous margins, no cropping, readable at 280px tall, premium friendly editorial app artwork. No words, letters, numbers, logos, emoji, watermarks or UI screenshot.

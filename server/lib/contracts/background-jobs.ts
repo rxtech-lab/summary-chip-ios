@@ -4,6 +4,7 @@ import type { PodcastDay } from "./daily-podcast";
 export interface BackgroundJob {
   id: string;
   title: string;
+  kind?: "design" | "render";
   episodeKey: string;
   day: PodcastDay;
   language?: string;

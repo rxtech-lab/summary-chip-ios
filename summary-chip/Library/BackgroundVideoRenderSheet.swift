@@ -35,10 +35,10 @@ struct BackgroundVideoRenderSheet: View {
                     VStack(spacing: 12) {
                         if let fraction = progress?.fraction { ProgressView(value: fraction).frame(width: 200) }
                         else { ProgressView() }
-                        Text(progress?.stage == .rendering ? "Rendering video…" : progress?.stage == .encoding ? "Encoding video…" : "Preparing video…")
+                        Text(progress?.stage == .cloudRendering ? "Rendering video in the cloud…" : progress?.stage == .rendering ? "Rendering video…" : progress?.stage == .encoding ? "Encoding video…" : "Preparing video…")
                         if let detail = progress?.frameDetail { Text("Frames: \(detail)").monospacedDigit() }
                         if let transfer = progress?.transfer { Text(transfer.detail).monospacedDigit() }
-                        Text("Keep the app open until rendering finishes.").font(.caption)
+                        Text("HD video renders in the cloud. You can close this sheet and return later.").font(.caption)
                     }
                     .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
                 }

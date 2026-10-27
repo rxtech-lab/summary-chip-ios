@@ -6,7 +6,7 @@ import { writePodcast, type PodcastInput } from "@/lib/ai/podcast-agent";
 const chipId = "fa3a7127-8e54-4cf0-a01e-d30f63ea14cb";
 const input: PodcastInput = { language: "Chinese", voices: ["en-US-Harper"], speakerNames: ["Harper"],
   chips: [{ id: chipId, title: "Decision models", summary: "Measuring progress", highlights: [] }] };
-const script = { title: "Decision models", mood: "focused", speakers: [{ name: "Harper", voice: "en-US-Harper" }],
+const script = { title: "Decision models", summary: "An overview of decision models and how they measure progress.", mood: "focused", speakers: [{ name: "Harper", voice: "en-US-Harper" }],
   segments: [{ speaker: 0, chipId, caption: "欢迎收听今天的播客。" }] };
 function scriptedModel(respond: (index: number) => unknown) {
   const calls: LanguageModelV4CallOptions[] = [];
@@ -72,4 +72,43 @@ it("does not retry ordinary provider errors or an expired deadline", async () =>
   const aborted = scriptedModel(() => { controller.abort(); return {}; });
   await expect(writePodcast(aborted.model, input, { abortSignal: controller.signal })).rejects.toThrow();
   expect(aborted.calls).toHaveLength(1);
+});
+
+it("allows a recap to select highlights while keeping chip references valid", async () => {
+  const recap = { ...input, recap: true, chips: [...input.chips, { ...input.chips[0], id: "other-story" }] };
+  const { model } = scriptedModel(() => ({ ...script, rankedChipIds: [chipId] }));
+  expect(await writePodcast(model, recap)).toEqual(script);
+});
+
+
+it.each([179, 360])("orders highlights by importance within the %s-second budget", async (maxDurationSeconds) => {
+  const recap = { ...input, recap: true, maxDurationSeconds, chips: [...input.chips, { ...input.chips[0], id: "important" }, { ...input.chips[0], id: "unimportant" }] };
+  const low = { ...script.segments[0], caption: "Less important." };
+  const first = { ...script.segments[0], chipId: "important", caption: "Major development." };
+  const second = { ...first, caption: "Its impact." };
+  const { model, calls } = scriptedModel(() => ({ ...script, segments: [low, first, second], rankedChipIds: ["important", chipId] }));
+  const result = await writePodcast(model, recap);
+  expect(result.segments).toEqual([first, second, low]);
+  expect(result).not.toHaveProperty("rankedChipIds");
+  expect(JSON.stringify(calls[0].prompt)).toContain("descending importance");
+  expect(JSON.stringify(calls[0].prompt)).toContain(maxDurationSeconds === 360 ? "500 words" : "250 words");
+});
+
+it("rejects duplicate or inconsistent selected-chip rankings", async () => {
+  for (const rankedChipIds of [[chipId, chipId], ["missing"], [chipId, "unused"]]) {
+    const recap = { ...input, recap: true, chips: [...input.chips, { ...input.chips[0], id: "unused" }] };
+    const { model } = scriptedModel(() => ({ ...script, rankedChipIds }));
+    await expect(writePodcast(model, recap)).rejects.toBeInstanceOf(NoObjectGeneratedError);
+  }
+});
+
+it("requires a summary below 200 words and repairs invalid summaries", async () => {
+  for (const summary of [undefined, "", Array(200).fill("word").join(" "), "这是一个重要的新闻。".repeat(80)]) {
+    const { model, calls } = scriptedModel(index => index === 0 ? { ...script, summary } : script);
+    expect((await writePodcast(model, input)).summary).toBe(script.summary);
+    expect(calls).toHaveLength(2);
+  }
+  const summary = Array(199).fill("word").join(" ");
+  const { model } = scriptedModel(() => ({ ...script, summary }));
+  expect((await writePodcast(model, input)).summary).toBe(summary);
 });

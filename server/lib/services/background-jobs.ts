@@ -65,8 +65,8 @@ export async function notifyBackgroundJob(db: Database, ownerId: string, id: str
   if (!claimed.rowsAffected) return;
   await deliver(db, ownerId, {
     aps: { alert: {
-      title: job.status === "ready" ? "Video script ready" : "Video design needs attention",
-      body: job.status === "ready" ? "Open this job and tap Render on This Device to create your video."
+      title: job.status === "ready" ? (job.kind === "render" ? "Video ready" : "Video script ready") : "Video design needs attention",
+      body: job.status === "ready" ? (job.kind === "render" ? "Your HD video is ready. Open the podcast to watch or download." : "Your composition is ready. HD video rendering continues in the cloud.")
         : "Open this job to view its log, then open the podcast to retry video design.",
     }, sound: "default" },
     userId: ownerId, backgroundJobId: id,

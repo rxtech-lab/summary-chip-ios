@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var helpSheet: HelpSheet?
     @State private var showsCredits = false
     @State private var showsNotifications = false
+    @State private var showsDailyRecap = false
     @State private var showsMCPServer = false
     @State private var formWidth: CGFloat = 0
     private static let maxContentWidth: CGFloat = 680
@@ -32,6 +33,7 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showsCredits) { SummaryCreditsSheet(environment: environment) }
             .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
+            .sheet(isPresented: $showsDailyRecap) { DailyRecapSettingsSheet(api: environment.api) }
             .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(api: environment.api) }
             .sheet(item: $helpSheet) { sheet in
                 switch sheet {
@@ -93,6 +95,11 @@ struct SettingsView: View {
                                     : String(localized: "Off")) {
                     Button("Configure…") { showsNotifications = true }
                         .accessibilityIdentifier("notification-settings")
+                }
+                SettingsActionRow(String(localized: "Daily Recap"), systemImage: "video.badge.waveform", tint: .purple,
+                                  detail: String(localized: "Off by default. Automatic recaps use credits.")) {
+                    Button("Configure…") { showsDailyRecap = true }
+                        .accessibilityIdentifier("daily-recap-settings")
                 }
                 SettingsActionRow(String(localized: "MCP Server"), systemImage: "point.3.connected.trianglepath.dotted", tint: .indigo,
                                   detail: String(localized: "API keys for AI agents.")) {
@@ -371,6 +378,10 @@ struct SettingsView: View {
 
     private var notificationSettingsSection: some View {
         Section("Notifications") {
+            Button { showsDailyRecap = true } label: {
+                Label("Daily Recap", systemImage: "video.badge.waveform")
+            }
+            .accessibilityIdentifier("daily-recap-settings")
             Button { showsNotifications = true } label: {
                 Label("Notifications", systemImage: "bell.badge")
             }

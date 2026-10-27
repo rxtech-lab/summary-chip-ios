@@ -3,6 +3,43 @@ import Testing
 @testable import SummaryKit
 
 @Suite(.serialized) struct DailyPodcastTests {
+    @Test @MainActor func backfillsSummaryWithBillingProofAndEpisodeBounds() async throws {
+        PodcastProtocol.recorder.clear()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PodcastProtocol.self]
+        let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
+                                   session: URLSession(configuration: config), billingProofProvider: { .xcode })
+        let podcast = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: false)
+        let result = try await api.generatePodcastSummary(podcast)
+        #expect(result.summary == "Recorded story overview.")
+        #expect(result.audioPath == podcast.audioPath)
+        let request = try #require(PodcastProtocol.recorder.values.last)
+        #expect(request.url?.path == "/api/v1/daily-podcasts/key/summary")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "x-storekit-environment") == "xcode")
+        let body = try JSONSerialization.jsonObject(with: #require(request.httpBody)) as! [String: Any]
+        #expect(body["language"] as? String == podcast.language)
+        #expect((body["day"] as? [String: String])?["start"] == "2030-03-10T05:00:00Z")
+    }
+
+    @Test func podcastTypesDecodeAndRoundTripWithLegacyFallback() throws {
+        let json = #"{"key":"type-test","title":"Recap","language":"en","createdAt":"2030-03-10T05:00:00Z","speakers":[],"segments":[]}"#
+        var episode = try SummaryJSON.decoder().decode(DailyPodcast.self, from: Data(json.utf8))
+        #expect(episode.summary == nil)
+        episode.summary = "The main stories and their takeaways."
+        let saved = try JSONEncoder().encode(episode)
+        #expect(try JSONDecoder().decode(DailyPodcast.self, from: saved).summary == episode.summary)
+        #expect(episode.resolvedType == .daily)
+        episode.summaryId = "library-chip"
+        #expect(episode.resolvedType == .regular)
+        for type in [DailyPodcast.PodcastType.daily, .regular] {
+            episode.type = type
+            let data = try JSONEncoder().encode(episode)
+            #expect((try JSONSerialization.jsonObject(with: data) as? [String: Any])?["type"] as? String == type.rawValue)
+            #expect(try JSONDecoder().decode(DailyPodcast.self, from: data).resolvedType == type)
+        }
+    }
+
     @Test @MainActor func usesLocalDayBoundariesAndCarriesBillingProofOnlyForGeneration() async throws {
         PodcastProtocol.recorder.clear()
         let cacheFolder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
@@ -264,6 +301,9 @@ private final class PodcastProtocol: URLProtocol, @unchecked Sendable {
                     : #""video":{"id":"video-2","createdAt":"\#(now)"},"#
             } else { fields = "" }
             body = #"{"podcast":{"# + fields + body.dropFirst(#"{"podcast":{"#.count)
+        }
+        if path.hasSuffix("/summary") {
+            body = body.replacingOccurrences(of: #""title":"Daily""#, with: #""title":"Daily","summary":"Recorded story overview.""#)
         }
         var payload = body
         var headers = ["Content-Type": "application/json"]

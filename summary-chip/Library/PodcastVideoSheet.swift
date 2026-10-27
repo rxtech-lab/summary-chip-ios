@@ -117,6 +117,7 @@ struct PodcastVideoPublicationSheet: View {
             transfer = value.transfer
             switch value.stage {
             case .preparing: status = value.transfer == nil ? "Preparing video…" : "Downloading podcast…"
+            case .cloudRendering: status = "Rendering video in the cloud…"
             case .rendering: status = "Rendering video…"
             case .encoding: status = "Encoding video…"
             }

@@ -1,3 +1,4 @@
+import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-render";
 import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import { getAiProvider } from "@/lib/ai/provider";
@@ -95,6 +96,7 @@ export async function translateDailyPodcast(db: Database, user: string, day: Pod
       const musicCost = (music?.generatedClips ?? 0) * ai.musicUsdPerClip();
       await charge?.settle(Math.max(1, pointsForCost(textCost + speechCost + musicCost)),
         { translation: language, segments: translation.segments.length, textCostUsd: textCost, speechCostUsd: speechCost, musicCostUsd: musicCost });
+      if (translation.video) await queueDefaultPodcastRender(db, user, day, key, language);
       report("complete", 100);
       return saved;
     } catch (error) {
@@ -119,6 +121,7 @@ export async function removePodcastTranslation(db: Database, user: string, day: 
   });
   const store = deps.store ?? getObjectStore();
   const base = translationPath(user, podcast, language);
+  await retirePodcastRenders(store, user, day, key, translation.video);
   const published = translation.video?.published?.videoId;
   await Promise.all([store.delete(`${base}/audio.mp3`), translation.video && store.delete(`${base}/video.json`),
     published && store.delete(`${dayKey(user, day)}/${key}/video/${published}.mp4`)]);

@@ -14,13 +14,13 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
     var title: String { self == .ultraHD4K ? "4K (3840 × 2160)" : "\(rawValue)p (\(width) × \(height))" }
 }
 
-/// Renders an episode's agent-written Remotion composition on device: the server sends the source,
+/// HD renders download from the cloud. Higher resolution exports render on device: the server sends the source,
 /// the app adds the recording, artwork and real timings, then WebKit draws each frame and AVFoundation
-/// encodes the MP4. Matching published videos are downloaded instead. Files are cached per resolution and composition,
+/// encodes the MP4. Files are cached per resolution and composition,
 /// so watching, saving and publishing reuse one file.
 @MainActor enum PodcastMotionRenderer {
     struct Progress: Equatable {
-        enum Stage { case preparing, rendering, encoding }
+        enum Stage { case preparing, cloudRendering, rendering, encoding }
         var stage: Stage
         var fraction: Double?
         var frameDetail: String?
@@ -36,15 +36,17 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
         podcast.isTranslation ? "\(podcast.key)~\(podcast.language)-" : "\(podcast.key)-"
     }
 
-    static func cachedURL(for podcast: DailyPodcast, resolution: PodcastVideoResolution = .hd720) async throws -> URL? {
+    static func cachedURL(for podcast: DailyPodcast, resolution: PodcastVideoResolution = .fullHD1080) async throws -> URL? {
         guard let video = podcast.video else { return nil }
-        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v5.mp4")
+        let url = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v6.mp4")
         return try await reusableVideo(at: url) ? url : nil
     }
 
-    static func render(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution = .hd720, onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
+    static func render(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution = .fullHD1080, onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
         if let cached = try await cachedURL(for: podcast, resolution: resolution) { return cached }
-        if let published = try await publishedVideo(api: api, podcast: podcast, resolution: resolution, onProgress: onProgress) { return published }
+        if resolution.rawValue <= 1080 {
+            return try await cloudVideo(api: api, podcast: podcast, resolution: resolution, onProgress: onProgress)
+        }
         guard let video = podcast.video, !podcast.segments.isEmpty else { throw SummaryAPIError.invalidResponse }
         onProgress(Progress(stage: .preparing))
         let fm = FileManager.default
@@ -84,35 +86,39 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
         try PodcastVideoExporter.embedCaptions(in: output, podcast: podcast, width: resolution.width, height: resolution.height)
         try await validateVideo(at: output)
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
-        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v5.mp4")
+        let destination = cache.appending(path: "\(prefix(for: podcast))\(video.id)-\(resolution.rawValue)p-subtitles-v6.mp4")
         if try await reusableVideo(at: destination) { return destination }
         try fm.moveItem(at: output, to: destination)
         return destination
     }
 
-    private static func publishedVideo(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution,
-                                       onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL? {
-        if podcast.video?.isPublished == true {
-            onProgress(Progress(stage: .preparing))
-            let file = try await api.downloadPublishedPodcastVideo(podcast) { transfer in
-                onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
-            }
-            defer { try? FileManager.default.removeItem(at: file) }
-            try Task.checkCancellation()
-            let asset = AVURLAsset(url: file)
-            let valid = try await reusableVideo(at: file)
-            let track = valid ? try await asset.loadTracks(withMediaType: .video).first : nil
-            let size = try await track?.load(.naturalSize)
-            if size == CGSize(width: resolution.width, height: resolution.height) {
-                try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-                let destination = cache.appending(path: "\(prefix(for: podcast))\(podcast.video!.id)-\(resolution.rawValue)p-subtitles-v5.mp4")
-                // Another consumer may have finished downloading while this one was suspended.
-                if try await reusableVideo(at: destination) { return destination }
-                try FileManager.default.moveItem(at: file, to: destination)
-                return destination
-            }
+    private static func cloudVideo(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution,
+                                   onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
+        onProgress(Progress(stage: .cloudRendering))
+        let downloaded = try await api.downloadCloudPodcastVideo(podcast, resolution: resolution.rawValue) { transfer in
+            onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
         }
-        return nil
+        defer { try? FileManager.default.removeItem(at: downloaded) }
+        let file = try stageCloudDownload(at: downloaded)
+        defer { try? FileManager.default.removeItem(at: file) }
+        try await validateVideo(at: file)
+        let asset = AVURLAsset(url: file)
+        guard let track = try await asset.loadTracks(withMediaType: .video).first,
+              try await track.load(.naturalSize) == CGSize(width: resolution.width, height: resolution.height),
+              let id = podcast.video?.id else { throw SummaryAPIError.invalidResponse }
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        let destination = cache.appending(path: "\(prefix(for: podcast))\(id)-\(resolution.rawValue)p-subtitles-v6.mp4")
+        if try await reusableVideo(at: destination) { return destination }
+        try FileManager.default.moveItem(at: file, to: destination)
+        return destination
+    }
+
+    /// URLSession uses a .tmp suffix. AVFoundation needs the MP4 extension to
+    /// recognize some valid Remotion exports, even after their HTTP download succeeds.
+    static func stageCloudDownload(at downloaded: URL) throws -> URL {
+        let file = downloaded.deletingLastPathComponent().appending(path: "\(UUID().uuidString).mp4")
+        try FileManager.default.moveItem(at: downloaded, to: file)
+        return file
     }
 
     /// File existence alone is insufficient: interrupted writes and older exports can leave

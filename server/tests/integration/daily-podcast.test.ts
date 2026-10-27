@@ -1,3 +1,5 @@
+import * as summaryRoute from "@/app/api/v1/daily-podcasts/[key]/summary/route";
+import { writePodcastSummary } from "@/lib/ai/podcast-summary";
 import * as linkedPodcastsRoute from "@/app/api/v1/summaries/[id]/podcasts/route";
 import * as publicCover from "@/app/api/public/podcasts/[id]/cover/route";
 import { generateMetadata } from "@/app/podcast/[id]/page";
@@ -20,7 +22,7 @@ import * as publicAudio from "@/app/api/public/podcasts/[id]/audio/route";
 import * as publicArt from "@/app/api/public/podcasts/[id]/art/[index]/route";
 import { podcastEpisodes, podcastShareLinks, summaries, summaryViews } from "@/lib/db/schema";
 import { podcastDaySchema, type DailyPodcast } from "@/lib/contracts/daily-podcast";
-import { dayKey } from "@/lib/services/daily-podcast";
+import { dayKey, podcastInLanguage } from "@/lib/services/daily-podcast";
 import { getHeadlines } from "@/lib/services/headlines";
 import { createShareLink } from "@/lib/services/share-links";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
@@ -47,6 +49,30 @@ function audio(podcast: DailyPodcast, token = env.tokens.alice, key = podcast.ke
 }
 
 describe("podcast selection and versions", () => {
+  it.each([2, 4])("generates and saves %i named speakers with default MAI voices", async count => {
+    const names = ["Bard", "Zoey", "Alex", "Sam"].slice(0, count);
+    const sources = [];
+    for (const name of names) sources.push(await chip(`${name} story`));
+    vi.stubEnv("AI_PODCAST_VOICES", "");
+    vi.stubEnv("AI_TOUR_VOICE", "");
+    vi.spyOn(env.ai, "speechModelId").mockReturnValue("microsoft/mai-voice-2.1-flash");
+    const speak = vi.spyOn(env.ai, "speak");
+    try {
+      const response = await generate({ speakerNames: names, includeVideo: false,
+        ...(count === 4 ? { library: true, chipIds: sources.map(source => source.id) } : {}) });
+      expect(response.status).toBe(200);
+      const { podcast } = await response.json() as { podcast: DailyPodcast };
+      expect(podcast.speakers.map(speaker => speaker.name)).toEqual(names);
+      expect(new Set(podcast.speakers.map(speaker => speaker.voice)).size).toBe(count);
+      for (const segment of podcast.segments) {
+        expect(speak).toHaveBeenCalledWith(segment.caption, podcast.speakers[segment.speaker].voice, expect.any(Object));
+      }
+      const [stored] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, podcast.key));
+      expect(stored.document.speakers).toEqual(podcast.speakers);
+      expect((await audio(podcast)).status).toBe(200);
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("selects chips explicitly and rejects empty, out-of-day and inaccessible selections before AI", async () => {
     const one = await chip("One");
     await chip("Two");
@@ -54,7 +80,19 @@ describe("podcast selection and versions", () => {
     const writer = vi.spyOn(env.ai, "writePodcast");
     const response = await generate({ chipIds: [one.id] });
     expect(response.status).toBe(200);
-    expect((await response.json()).podcast.chipIds).toEqual([one.id]);
+    const episode = (await response.json()).podcast;
+    expect(episode.chipIds).toEqual([one.id]);
+    expect(episode.type).toBe("daily");
+    expect(episode.summary).toBeTruthy();
+    expect((await (await saved()).json()).podcast.summary).toBe(episode.summary);
+    expect((await (await saved()).json()).podcast.type).toBe("daily");
+    const legacy = { ...episode };
+    delete legacy.type;
+    expect(podcastInLanguage(legacy).type).toBe("daily");
+    const nextDay = { start: day.end, end: "2030-04-03T00:00:00+08:00" };
+    const missing = await route.GET(apiRequest("GET", `/api/v1/daily-podcasts?${new URLSearchParams(nextDay)}`, { token: env.tokens.alice }));
+    expect((await missing.json()).podcast).toBeNull();
+    expect(podcastInLanguage({ ...legacy, summaryId: "legacy-chip" }).type).toBe("regular");
     expect((await generate({ chipIds: [] })).status).toBe(400);
     expect((await generate({ regenerate: true, chipIds: [tomorrow.id] })).status).toBe(422);
     expect((await generate({ regenerate: true, chipIds: ["unavailable"] })).status).toBe(422);
@@ -70,6 +108,7 @@ describe("podcast selection and versions", () => {
     const { podcast } = await response.json() as { podcast: DailyPodcast };
     for (const segment of podcast.segments) {
       expect(segment.captionCues?.length).toBeGreaterThan(0);
+      expect(segment.captionCues!.every(cue => cue.paged === true)).toBe(true);
       expect(segment.captionCues![0].startSeconds).toBeCloseTo(segment.startSeconds!, 2);
       expect(segment.captionCues!.at(-1)!.endSeconds).toBeCloseTo(segment.endSeconds!, 2);
       expect(segment.captionCues!.every(cue => !/\p{P}/u.test(cue.text))).toBe(true);
@@ -137,6 +176,7 @@ describe("podcast selection and versions", () => {
     await env.handle.db.update(summaries).set({ createdAt: new Date(day.start) }).where(eq(summaries.id, podcast.summaryId!));
     const regenerated = (await (await generate({ regenerate: true })).json()).podcast as DailyPodcast;
     expect(regenerated.chipIds).toEqual([today.id]);
+    expect(podcast.type).toBe("regular");
     expect((await generate({ library: true, chipIds: [podcast.summaryId], regenerate: true })).status).toBe(422);
     await env.handle.db.delete(summaries).where(eq(summaries.id, podcast.summaryId!));
     expect((await audio(podcast)).status).toBe(404);
@@ -211,19 +251,22 @@ describe("daily podcast contract", () => {
     expect((await regenerated.json()).podcast.chipIds).toEqual([own.id]);
   });
 
-  it("generates and reopens a complete episode for a day with more than 24 chips", async () => {
+  it("considers every candidate on a busy day and saves only the selected highlights", async () => {
     const chips = [];
     for (let index = 0; index < 30; index++) chips.push(await chip(`Discovery ${index}`));
-    const writer = vi.spyOn(env.ai, "writePodcast");
+    const write = env.ai.writePodcast.bind(env.ai);
+    const writer = vi.spyOn(env.ai, "writePodcast").mockImplementation(input => write({ ...input, chips: input.chips.slice(0, 3) }));
     const response = await generate();
     expect(response.status).toBe(200);
     const { podcast } = await response.json() as { podcast: DailyPodcast };
     const ids = new Set(chips.map((item) => item.id));
     expect(new Set(writer.mock.calls[0][0].chips.map((item) => item.id))).toEqual(ids);
-    expect(new Set(podcast.chipIds)).toEqual(ids);
-    expect(new Set(podcast.segments.map((segment) => segment.chipId))).toEqual(ids);
-    expect(podcast.segments).toHaveLength(30);
-    expect(env.ai.calls.speak).toHaveLength(30);
+    const selected = new Set(writer.mock.calls[0][0].chips.slice(0, 3).map(chip => chip.id));
+    expect(podcast.maxDurationSeconds).toBe(360);
+    expect(new Set(podcast.chipIds)).toEqual(selected);
+    expect(new Set(podcast.segments.map((segment) => segment.chipId))).toEqual(selected);
+    expect(podcast.segments).toHaveLength(3);
+    expect(env.ai.calls.speak).toHaveLength(3);
     expect(podcast.segments.at(-1)?.endSeconds).toBe(podcast.durationSeconds);
     expect((await audio(podcast)).status).toBe(200);
     expect((await (await saved()).json()).podcast).toEqual(podcast);
@@ -253,7 +296,7 @@ describe("daily podcast contract", () => {
     await chip("Source");
     vi.spyOn(env.ai, "speechModelId").mockReturnValueOnce(null);
     expect((await generate()).status).toBe(503);
-    vi.spyOn(env.ai, "writePodcast").mockResolvedValueOnce({ title: "Bad", mood: "calm", speakers: [{ name: "Host", voice: "invented" }],
+    vi.spyOn(env.ai, "writePodcast").mockResolvedValueOnce({ title: "Bad", summary: "Invalid references.", mood: "calm", speakers: [{ name: "Host", voice: "invented" }],
       segments: [{ speaker: 0, chipId: "not-a-chip", caption: "Invented" }] });
     expect((await generate()).status).toBe(502);
     expect((await (await saved()).json()).podcast).toBeNull();
@@ -510,5 +553,55 @@ describe("live podcast progress", () => {
     const result = events(await (await route.POST(streamRequest())).text());
     expect(result.at(-1)).toMatchObject({ type: "error", status: 502, error: { code: "PODCAST_FAILED" } });
     expect(result.some((event) => event.type === "complete" || event.progress?.percent === 100)).toBe(false);
+  });
+});
+
+describe("summary backfill", () => {
+  async function legacy() {
+    await chip("Recorded story");
+    const episode = (await (await generate({ includeVideo: false })).json()).podcast as DailyPodcast;
+    delete episode.summary;
+    await env.handle.db.update(podcastEpisodes).set({ document: episode }).where(eq(podcastEpisodes.key, episode.key));
+    return episode;
+  }
+  const backfill = (episode: DailyPodcast, token = env.tokens.alice) => summaryRoute.POST(
+    apiRequest("POST", `/api/v1/daily-podcasts/${episode.key}/summary`, { token, body: { day } }), params({ key: episode.key }));
+
+  it("saves a missing summary once without changing media, then reuses it", async () => {
+    const episode = await legacy();
+    const writer = vi.spyOn(env.ai, "writePodcastSummary");
+    const responses = await Promise.all([backfill(episode), backfill(episode)]);
+    expect(responses.map(response => response.status)).toEqual([200, 200]);
+    const result = (await responses[0].json()).podcast;
+    expect(result.summary).toBeTruthy();
+    expect(result.segments).toEqual(episode.segments);
+    expect(result.audioPath).toBe(episode.audioPath);
+    expect(result.key).toBe(episode.key);
+    expect((await (await saved()).json()).podcast.summary).toBe(result.summary);
+    expect((await backfill(episode)).status).toBe(200);
+    expect(writer).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects other accounts before generating and leaves failures unsaved", async () => {
+    const episode = await legacy();
+    const writer = vi.spyOn(env.ai, "writePodcastSummary");
+    expect((await backfill(episode, env.tokens.bob)).status).toBe(404);
+    expect(writer).not.toHaveBeenCalled();
+    writer.mockRejectedValueOnce(new Error("Provider unavailable"));
+    expect((await backfill(episode)).status).toBeGreaterThanOrEqual(400);
+    expect((await (await saved()).json()).podcast.summary).toBeUndefined();
+    writer.mockResolvedValueOnce(Array(200).fill("word").join(" "));
+    expect((await backfill(episode)).status).toBeGreaterThanOrEqual(400);
+    expect((await (await saved()).json()).podcast.summary).toBeUndefined();
+    expect((await backfill(episode)).status).toBe(200);
+  });
+
+  it.skipIf(!process.env.PODCAST_SIMULATION_URL)("generates through the real gateway HTTP adapter", async () => {
+    const episode = await legacy();
+    const gateway = createGateway({ apiKey: "fixture", baseURL: process.env.PODCAST_SIMULATION_URL });
+    vi.spyOn(env.ai, "writePodcastSummary").mockImplementation((podcast, options) => writePodcastSummary(gateway("fixture/podcast"), podcast, options));
+    const response = await backfill(episode);
+    expect(response.status).toBe(200);
+    expect((await response.json()).podcast.summary).toBe("A concise overview of the recorded discoveries and their implications.");
   });
 });

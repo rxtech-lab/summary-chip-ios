@@ -10,7 +10,7 @@ struct DailyPodcastDownloadSheet: View {
     let podcast: DailyPodcast
     @Environment(\.dismiss) private var dismiss
     @State private var format: PodcastDownloadFormat = .audio
-    @State private var resolution: PodcastVideoResolution = .hd720
+    @State private var resolution: PodcastVideoResolution = .fullHD1080
     @State private var preparing = false
     @State private var saveToPhotos = false
     @State private var savingToPhotos = false
@@ -44,7 +44,7 @@ struct DailyPodcastDownloadSheet: View {
                         }
                         .disabled(preparing)
                         .accessibilityIdentifier("podcast-download-resolution")
-                        Text("Higher resolutions take longer to render and use more storage.")
+                        Text(resolution.rawValue <= 1080 ? "HD video renders in the cloud. You can return later while it finishes." : "This export renders on this device. Keep the app open until it finishes.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     #if os(iOS)
@@ -128,6 +128,7 @@ struct DailyPodcastDownloadSheet: View {
                     }
                     if savingToPhotos { Text("Saving to Photos…") }
                     else if transfer != nil { Text("Downloading podcast…") }
+                    else if renderProgress?.stage == .cloudRendering { Text("Rendering video in the cloud…") }
                     else if renderProgress?.stage == .rendering { Text("Rendering video…") }
                     else if renderProgress?.stage == .encoding { Text("Encoding video…") }
                     else { Text("Preparing download…") }

@@ -1,3 +1,4 @@
+import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-render";
 import { backgroundJobs } from "@/lib/db/schema";
 import { recordJobActivity, notifyBackgroundJob } from "./background-jobs";
 import { podcastVideoError } from "./podcast-video-error";
@@ -8,7 +9,7 @@ import { estimateVideoProgress } from "@/lib/ai/podcast-progress";
 import { newPodcastVideoDraft, PodcastVideoNoToolError, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
   type PodcastVideoDraft, type PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import type { TranslationLanguage } from "@/lib/contracts/api";
-import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign } from "@/lib/contracts/daily-podcast";
+import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
 import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_WIDTH, podcastPhraseWindows } from "@/lib/podcast-video/scaffold";
@@ -200,9 +201,10 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
     const translating = savedEpisode.videoDesign?.id === job.id && !!job.language;
     const videoId = job.language ? savedEpisode.translations?.[job.language]?.video?.id : savedEpisode.video.id;
     await recordJobActivity(db, job.userId, job.id, translating ? "translating" : "ready",
-      translating ? "Translating video labels…" : "Script ready. Tap Render on This Device to create the video.",
+      translating ? "Translating video labels…" : "Composition ready. HD video will render in the cloud.",
       { status: translating ? "running" : "ready", percent: translating ? 92 : 100, videoId });
     await store.delete(statePath(job));
+    await queueDefaultPodcastRender(db, job.userId, job.day, job.key);
     return translating;
   }
   const podcast = savedEpisode?.videoDesign?.id === job.id ? savedEpisode : null;
@@ -240,12 +242,15 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
   const video = await storePodcastVideo(store, `${dayKey(job.userId, job.day)}/${job.key}`, source);
   const translating = !!job.language && !!podcast.translations?.[job.language];
   const stale: string[] = [];
+  const retired: PodcastVideoSummary[] = [];
   await updatePodcastDocument(db, job.userId, job.key, (latest) => {
     if (latest.videoDesign?.id !== job.id) return;
+    if (latest.video) retired.push(latest.video);
     if (latest.video?.published) stale.push(latest.video.published.videoId);
     latest.video = video;
     // Translated videos showed the replaced composition: each translation can make a new one from this.
     for (const other of Object.values(latest.translations ?? {})) {
+      if (other.video) retired.push(other.video);
       if (other.video?.published) stale.push(other.video.published.videoId);
       delete other.video;
     }
@@ -255,10 +260,12 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
   });
   // Old renders show the replaced composition; share links fall back to audio until the new one is published.
   for (const videoId of stale) await store.delete(renderKey(job.userId, job.day, job.key, videoId));
+  for (const video of retired) await retirePodcastRenders(store, job.userId, job.day, job.key, video);
   await store.delete(statePath(job));
   await recordJobActivity(db, job.userId, job.id, translating ? "translating" : "ready",
-    translating ? "Translating video labels…" : "Script ready. Tap Render on This Device to create the video.",
+    translating ? "Translating video labels…" : "Composition ready. HD video will render in the cloud.",
     { status: translating ? "running" : "ready", percent: translating ? 92 : 100, videoId: translating ? undefined : source.id });
+  await queueDefaultPodcastRender(db, job.userId, job.day, job.key);
   return translating;
 }
 
@@ -271,7 +278,7 @@ export async function translatePodcastVideoDesign(db: Database, job: PodcastVide
     const saved = await dailyPodcastEpisode(db, job.userId, job.day, job.key).catch(() => null);
     const videoId = saved?.video?.id === job.id ? saved.translations?.[job.language]?.video?.id : undefined;
     if (videoId) await recordJobActivity(db, job.userId, job.id, "ready",
-      "Script ready. Tap Render on This Device to create the video.", { status: "ready", percent: 100, videoId });
+      "Composition ready. HD video will render in the cloud.", { status: "ready", percent: 100, videoId });
     return;
   }
   const clear = async (error?: PodcastVideoDesign["error"]) => {
@@ -281,7 +288,7 @@ export async function translatePodcastVideoDesign(db: Database, job: PodcastVide
       else delete latest.videoDesign;
     });
     await recordJobActivity(db, job.userId, job.id, error ? "failed" : "ready",
-      error?.message ?? "Script ready. Tap Render on This Device to create the video.",
+      error?.message ?? "Composition ready. HD video will render in the cloud.",
       { status: error ? "failed" : "ready", percent: error ? 92 : 100, videoId: job.language ? saved.translations?.[job.language]?.video?.id : saved.video?.id });
   };
   const translation = podcast.translations?.[job.language];

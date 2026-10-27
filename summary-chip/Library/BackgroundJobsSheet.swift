@@ -190,37 +190,33 @@ private struct BackgroundJobDetail: View {
     @State private var taps = 0
 
     var body: some View {
-        List {
+        Form {
             if let job {
+                Section { header(job) }
                 Section {
-                    Text(job.title).font(.headline)
-                    Label(job.statusTitle, systemImage: job.statusIcon)
-                    if job.status == "running" {
-                        ProgressView(value: Double(job.percent), total: 100)
-                        Text("You can close this sheet or quit the app. Script writing continues on the server.")
-                    } else if job.status == "ready" {
-                        Button("Render on This Device", systemImage: "play.rectangle") { open(render: true) }
-                            .accessibilityIdentifier("background-job-render")
-                        Text("Keep the app open during rendering. The finished video is cached on this device.")
-                    } else { Text("Open the podcast and choose Generate Video or Regenerate to try again.") }
-                    Button("Open Podcast", systemImage: "waveform") { open(render: false) }
-                }
+                    actions(job)
+                } footer: { Text(job.guidance) }
                 if let failure = job.error {
-                    Section("Error") {
-                        Label(failure.message, systemImage: "exclamationmark.triangle").foregroundStyle(.red).textSelection(.enabled)
-                        Text(failure.code).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                    Section {
+                        Label {
+                            Text(failure.message).textSelection(.enabled)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        }
+                    } header: { Text("Error") } footer: {
+                        Text(failure.code).font(.caption.monospaced()).textSelection(.enabled)
                     }
                 }
-                Section("Live Activity Log") {
-                    ForEach(job.logs) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.message).textSelection(.enabled)
-                            Text(entry.at, style: .time).font(.caption).foregroundStyle(.secondary)
+                if !job.logs.isEmpty {
+                    Section("Activity") {
+                        ForEach(Array(job.logs.enumerated()), id: \.element.id) { index, entry in
+                            logRow(entry, latest: index == job.logs.count - 1, job: job)
                         }
                     }
                 }
             }
         }
+        .formStyle(.grouped)
         .navigationTitle("Job Details")
         .summaryInlineNavigationTitle()
         .disabled(opening)
@@ -252,6 +248,63 @@ private struct BackgroundJobDetail: View {
         .sensoryFeedback(.error, trigger: error)
     }
 
+    private func header(_ job: BackgroundJob) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: job.headerSymbol)
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(.white)
+                .symbolEffect(.pulse, isActive: job.status == "running")
+                .frame(width: 64, height: 64)
+                .background(job.statusColor.gradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            VStack(spacing: 4) {
+                Text(job.title).font(.title3.bold()).multilineTextAlignment(.center)
+                Text(job.statusTitle).font(.subheadline.weight(.medium)).foregroundStyle(job.statusColor)
+                Text(job.createdAt, format: .dateTime.month().day().hour().minute())
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if job.status == "running" {
+                ProgressView(value: Double(job.percent), total: 100).tint(job.statusColor)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private func actions(_ job: BackgroundJob) -> some View {
+        VStack(spacing: 10) {
+            if job.status == "ready" {
+                Button { open(render: true) } label: {
+                    Label("Watch HD Video", systemImage: "play.fill").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("background-job-render")
+            }
+            Button { open(render: false) } label: {
+                Label("Open Podcast", systemImage: "waveform").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .controlSize(.large)
+        .padding(.vertical, 4)
+    }
+
+    private func logRow(_ entry: BackgroundJob.Log, latest: Bool, job: BackgroundJob) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: latest ? "circle.inset.filled" : "circle.fill")
+                .font(.system(size: latest ? 11 : 7))
+                .foregroundStyle(latest ? AnyShapeStyle(job.statusColor) : AnyShapeStyle(.tertiary))
+                .frame(width: 12)
+            Text(entry.message)
+                .foregroundStyle(latest ? .primary : .secondary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(entry.at, style: .time)
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
     private func open(render: Bool) {
         guard let job, !opening else { return }
         taps += 1
@@ -277,7 +330,7 @@ private extension BackgroundJob {
     var statusTitle: String {
         switch status {
         case "running": "Writing script · \(percent)%"
-        case "ready": "Ready to render on device"
+        case "ready": "Ready to open"
         case "failed": "Needs attention"
         default: "Updating…"
         }
@@ -287,6 +340,27 @@ private extension BackgroundJob {
         case "running": "clock.arrow.circlepath"
         case "ready": "checkmark.circle"
         default: "exclamationmark.triangle"
+        }
+    }
+    var headerSymbol: String {
+        switch status {
+        case "running": "arrow.triangle.2.circlepath"
+        case "ready": "checkmark"
+        default: "exclamationmark"
+        }
+    }
+    var statusColor: Color {
+        switch status {
+        case "running": .blue
+        case "ready": .green
+        default: .orange
+        }
+    }
+    var guidance: String {
+        switch status {
+        case "running": String(localized: "You can close this sheet or quit the app. Video work continues on the server.")
+        case "ready": String(localized: "HD video renders in the cloud and downloads when ready. Choose Download in the podcast for a 4K export on this device.")
+        default: String(localized: "Open the podcast and choose Generate Video or Regenerate to try again.")
         }
     }
 }

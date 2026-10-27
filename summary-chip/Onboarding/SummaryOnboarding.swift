@@ -49,7 +49,19 @@ struct EducationPage: Identifiable, Equatable {
         .init(id: "latex-papers-v1", kind: .feature,
               title: String(localized: "Research papers, in LaTeX"),
               message: String(localized: "Write LaTeX papers with a live PDF preview. Let your AI agent research, write and edit through MCP. Chippy cross-checks references for source accuracy and support for your cited claims. Start with + → New Paper, and review issues in the References sheet."),
-              imageName: "FeatureLaTeXPapers")
+              imageName: "FeatureLaTeXPapers"),
+        .init(id: "podcast-studio-v1", kind: .feature,
+              title: String(localized: "Turn your chips into a podcast"),
+              message: String(localized: "Choose + → New Podcast to turn saved chips into an episode with voices, captions and artwork. Pick your stories and language, then listen or create a video to share."),
+              imageName: "FeaturePodcastStudio"),
+        .init(id: "daily-video-recap-v1", kind: .feature,
+              title: String(localized: "Your day, in a short recap"),
+              message: String(localized: "Open Settings → Daily Recap to schedule a private video from the previous day’s chips. Choose a language and time; cloud generation continues while Chippy is closed. Automatic recaps use credits, and days without chips are skipped."),
+              imageName: "FeatureDailyRecap"),
+        .init(id: "editors-picks-v1", kind: .feature,
+              title: String(localized: "Find the stories that stand out"),
+              message: String(localized: "Look for Editor’s Pick on selected summaries and podcasts. Turn on the Editor’s Pick filter to browse them, or ask Chippy’s chat for picks from a particular day."),
+              imageName: "FeatureEditorsPicks")
     ]
 }
 

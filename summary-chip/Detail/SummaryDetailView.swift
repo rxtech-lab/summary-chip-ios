@@ -44,6 +44,15 @@ struct SummaryDetailView: View {
 
     private var isPreviewingVersion: Bool { versions.isPreviewing }
 
+    private var bottomContentPadding: CGFloat {
+        #if os(macOS)
+        // Leave room for the floating player (68 points plus 20 points of outer padding).
+        return environment.podcastPlayer.showsMiniPlayer ? 120 : 32
+        #else
+        return 32
+        #endif
+    }
+
     var body: some View {
         ScrollView {
             SummaryDetailContent(
@@ -53,7 +62,7 @@ struct SummaryDetailView: View {
             )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .padding(.bottom, 32)
+                .padding(.bottom, bottomContentPadding)
                 .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)
         }
