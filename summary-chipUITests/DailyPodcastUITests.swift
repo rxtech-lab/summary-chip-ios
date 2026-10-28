@@ -158,6 +158,11 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
         XCTAssertTrue(app.buttons["podcast-open-chip"].waitForExistence(timeout: 10))
+        // Generation saves the episode; the listener starts playback explicitly.
+        let toggle = app.buttons["podcast-toggle"]
+        XCTAssertEqual(toggle.label, "Play")
+        toggle.tap()
+        XCTAssertEqual(toggle.label, "Pause")
         let initial = progress(app)
         app.buttons["podcast-open-chip"].tap()
         let miniToggle = app.buttons["podcast-mini-toggle"]

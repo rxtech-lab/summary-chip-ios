@@ -587,6 +587,23 @@ private extension LikesPreviewStore {
     }
 
     nonisolated func routePodcast(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
+        if method == "GET", path == ["daily-podcasts", "options"] {
+            // The generation form loads these choices before enabling Generate.
+            return json([
+                "languages": ["en", "zh-Hans", "zh-Hant", "ja", "ko", "es", "fr", "de"],
+                "speakers": ["maxCount": 4, "maxNameLength": 40],
+                "duration": [
+                    "presets": [["seconds": 360, "title": "Long"], ["seconds": 180, "title": "Medium"],
+                                ["seconds": 90, "title": "Short"], ["seconds": 30, "title": "Clips"]],
+                    "minSeconds": 30, "maxSeconds": 1800, "defaultSeconds": 360
+                ],
+                "videoStyles": [
+                    ["id": "news", "title": "News", "description": "Editorial TV explainer.", "symbol": "tv", "swatch": ["#F7FAF7", "#009B85"]],
+                    ["id": "crayon", "title": "Crayon", "description": "Hand-drawn crayon doodles.", "symbol": "pencil.and.scribble", "swatch": ["#FBF5E6", "#E4572E"]]
+                ],
+                "defaultVideoStyle": "news"
+            ])
+        }
         let dayKey = query.first { $0.name == "start" }?.value ?? ""
         let duration = ProcessInfo.processInfo.arguments.contains("--preview-podcast-navigation") ? 60 : 2
         if method == "GET", path.count == 2, path[1] == "versions" {
