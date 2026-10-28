@@ -1250,6 +1250,9 @@
         }
       }
     },
+    "Couldn't open the X composer. Please check your browser and try again." : {
+
+    },
     "Couldn't Read File" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1297,6 +1300,9 @@
           }
         }
       }
+    },
+    "Couldn't Share to X" : {
+
     },
     "Create" : {
       "localizations" : {
@@ -2053,6 +2059,9 @@
           }
         }
       }
+    },
+    "Has a podcast" : {
+
     },
     "Heavy rain" : {
       "localizations" : {
@@ -3209,6 +3218,9 @@
         }
       }
     },
+    "Play Podcast" : {
+
+    },
     "Please open %@ and sign in." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3257,6 +3269,9 @@
       }
     },
     "Preparing video…" : {
+
+    },
+    "Preparing X post…" : {
 
     },
     "Preview image" : {
@@ -3858,6 +3873,9 @@
           }
         }
       }
+    },
+    "Share to X" : {
+
     },
     "Sign in to Chippy" : {
       "localizations" : {

@@ -109,7 +109,8 @@ it("records failures without retrying billable generation or ambiguous workflow 
   expect(start).toHaveBeenCalledTimes(1);
 });
 
-it.each([true, false])("rejects an oversized script before speech (automatic=%s)", async (automatic) => {
+it("rejects an oversized automatic recap script before speech", async () => {
+  const automatic = true;
   await chip();
   const original = env.ai.writePodcast.bind(env.ai);
   vi.spyOn(env.ai, "writePodcast").mockImplementation(async input => {
@@ -148,7 +149,7 @@ it.each([true, false])("keeps only ranked stories in recap/manual daily summary 
   const podcast = await createDailyPodcast(env.handle.db, "user-alice", {
     day: recapDay(due, input.timeZone).day, language: "en", recap: automatic || undefined, includeVideo: true, library: false, regenerate: true,
   });
-  expect(podcast.maxDurationSeconds).toBe(automatic ? 179 : 360);
+  expect(podcast.maxDurationSeconds).toBe(automatic ? 179 : undefined);
   expect(writer.mock.calls[0][0]).toMatchObject({ recap: true, maxDurationSeconds: automatic ? 179 : 360 });
   expect(podcast.chipIds).toEqual([important.id]);
   expect(podcast.chipIds).not.toContain(minor.id);
@@ -168,4 +169,32 @@ it("excludes generated podcast chips and skips a podcast-only day before AI", as
   expect(writer).not.toHaveBeenCalled();
   expect(env.podcastVideoDesigns).toEqual([]);
   expect((await dailyRecapSettings(env.handle.db, "user-alice")).lastRun?.status).toBe("skipped");
+});
+
+
+it.each([false, true])("saves manual podcasts beyond the approximate script and audio target (library=%s)", async (library) => {
+  const source = await chip();
+  const write = env.ai.writePodcast.bind(env.ai);
+  const writer = vi.spyOn(env.ai, "writePodcast").mockImplementation(async input => {
+    const script = await write(input);
+    return { ...script, segments: [{ ...script.segments[0], caption: "Complete natural sentence. ".repeat(15) }] };
+  });
+  const speak = env.ai.speak.bind(env.ai);
+  const transcribe = env.ai.transcribePodcast.bind(env.ai);
+  let originalAudio!: Uint8Array;
+  vi.spyOn(env.ai, "transcribePodcast").mockImplementation(() => transcribe(originalAudio));
+  vi.spyOn(env.ai, "speak").mockImplementation(async (...args) => {
+    const audio = await speak(...args);
+    originalAudio = audio.bytes;
+    const long = joinPodcastAudio(Array.from({ length: 400 }, () => audio.bytes));
+    return { ...audio, bytes: long.bytes };
+  });
+  const podcast = await createDailyPodcast(env.handle.db, "user-alice", {
+    day: recapDay(due, input.timeZone).day, language: "en", library, regenerate: false, chipIds: [source.id], durationSeconds: 30, includeVideo: false,
+  });
+  expect(podcast.durationSeconds).toBeGreaterThan(30);
+  expect(podcast.maxDurationSeconds).toBeUndefined();
+  expect(writer).toHaveBeenCalledTimes(1);
+  expect(writer.mock.calls[0][0]).toMatchObject({ maxDurationSeconds: 30, approximateDuration: true });
+  expect(await env.handle.db.select().from(podcastEpisodes)).toHaveLength(1);
 });

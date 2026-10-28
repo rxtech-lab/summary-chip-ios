@@ -30,6 +30,9 @@ final class DailyPodcastPlayer {
     @ObservationIgnored private var task: Task<Void, Never>?
     private(set) var interrupted = false
     @ObservationIgnored private var resumeAfterInterruption = false
+    @ObservationIgnored private let nowPlaying: PodcastNowPlaying
+    /// Bumped by each play/stop so a slow session activation can't resume after a later stop.
+    @ObservationIgnored private var activationGeneration = 0
     #if os(iOS)
     @ObservationIgnored nonisolated(unsafe) private var interruptionObserver: NSObjectProtocol?
     #endif
@@ -45,6 +48,14 @@ final class DailyPodcastPlayer {
 
     init(api: SummaryAPIClient) {
         self.api = api
+        nowPlaying = PodcastNowPlaying(api: api)
+        nowPlaying.register(.init(
+            play: { [weak self] in if self?.playing == false { self?.toggle() } },
+            pause: { [weak self] in self?.pause() },
+            toggle: { [weak self] in self?.toggle() },
+            skip: { [weak self] in self?.skip($0) },
+            seek: { [weak self] in self?.seek(to: $0) }
+        ))
         #if os(iOS)
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
@@ -164,6 +175,7 @@ final class DailyPodcastPlayer {
         captionTimelines = [:]
         currentTime = 0
         duration = podcast.durationSeconds ?? 0
+        refreshNowPlaying()
     }
     func toggle() {
         if playing { pause(); return }
@@ -175,17 +187,35 @@ final class DailyPodcastPlayer {
             if task == nil { startPreviewPlayback() }
             return
         }
-        do {
-            #if os(iOS)
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-            try AVAudioSession.sharedInstance().setActive(true)
-            #endif
-            if currentTime >= duration { seek(to: 0) }
-            playing = true
-            if let audio { audio.play() }
-            videoPlayer?.play()
-            if task == nil { loadAndPlay() }
-        } catch { self.error = error.localizedDescription }
+        if currentTime >= duration { seek(to: 0) }
+        playing = true
+        refreshNowPlaying()
+        #if os(iOS)
+        // Activating the session blocks; do it off the main thread, then start playback.
+        activationGeneration += 1
+        let generation = activationGeneration
+        Task { [weak self] in
+            do {
+                try await Self.setAudioSession(active: true)
+            } catch {
+                guard let self, generation == activationGeneration else { return }
+                self.error = error.localizedDescription
+                playing = false
+                refreshNowPlaying()
+                return
+            }
+            guard let self, generation == activationGeneration, playing else { return }
+            startPlayback()
+        }
+        #else
+        startPlayback()
+        #endif
+    }
+
+    private func startPlayback() {
+        audio?.play()
+        videoPlayer?.play()
+        if task == nil { loadAndPlay() }
     }
 
     /// Reopens the current episode at the same position. Failed cloud renders are
@@ -202,6 +232,7 @@ final class DailyPodcastPlayer {
         playing = false
         audio?.pause()
         videoPlayer?.pause()
+        refreshNowPlaying()
     }
 
     func beginInterruption() {
@@ -223,7 +254,10 @@ final class DailyPodcastPlayer {
     func prepareVideo() {
         guard podcast?.video != nil, videoPlayer == nil, task == nil, !usesPreviewPlayback else { return }
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+        // Native controls may start it without `toggle()`, so the category must allow background audio.
+        Self.audioSessionQueue.async {
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+        }
         #endif
         loadAndPlay()
     }
@@ -231,6 +265,7 @@ final class DailyPodcastPlayer {
         currentTime = max(0, min(duration, time))
         audio?.currentTime = currentTime
         videoPlayer?.seek(to: CMTime(seconds: currentTime, preferredTimescale: 600))
+        refreshNowPlaying()
     }
     func skip(_ seconds: Double) { seek(to: currentTime + seconds) }
     func stop() {
@@ -245,11 +280,51 @@ final class DailyPodcastPlayer {
         transferProgress = nil
         playing = false
         buffering = false
+        nowPlaying.clear()
         #if os(iOS)
+        activationGeneration += 1
         if !usesPreviewPlayback {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            Task { try? await Self.setAudioSession(active: false) }
         }
         #endif
+    }
+
+    #if os(iOS)
+    /// One serial queue keeps activations and deactivations in the order they were requested.
+    private nonisolated static let audioSessionQueue = DispatchQueue(label: "app.rxlab.summary-chip.podcast-audio-session", qos: .userInitiated)
+
+    /// `setActive` can block for a while, so it never runs on the main thread.
+    private nonisolated static func setAudioSession(active: Bool) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            audioSessionQueue.async {
+                do {
+                    let session = AVAudioSession.sharedInstance()
+                    if active {
+                        try session.setCategory(.playback, mode: .spokenAudio)
+                        try session.setActive(true)
+                    } else {
+                        try session.setActive(false, options: .notifyOthersOnDeactivation)
+                    }
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    #endif
+
+    /// Publishes the episode, current turn and position to the lock screen and Control Center.
+    private func refreshNowPlaying() {
+        guard let podcast, !usesPreviewPlayback else { return }
+        nowPlaying.update(podcast: podcast, segment: segment, index: index, speaker: speaker,
+                          currentTime: currentTime, duration: duration, playing: playing)
+    }
+
+    /// Refreshes Now Playing only when playback crosses into another turn.
+    private func refreshNowPlayingIfTurnChanged() {
+        guard let podcast, nowPlaying.needsUpdate(key: podcast.key, index: index) else { return }
+        refreshNowPlaying()
     }
 
     /// UI fixtures exercise playback state without the simulator's audio device. In CI,
@@ -290,8 +365,9 @@ final class DailyPodcastPlayer {
             if let failure = movie.currentItem?.error { throw failure }
             let time = movie.currentTime().seconds
             if time.isFinite { currentTime = time }
-            if let length = movie.currentItem?.duration.seconds, length.isFinite, length != duration { duration = length }
-            if !interrupted, playing != (movie.rate > 0) { playing = movie.rate > 0 }
+            if let length = movie.currentItem?.duration.seconds, length.isFinite, length != duration { duration = length; refreshNowPlaying() }
+            if !interrupted, playing != (movie.rate > 0) { playing = movie.rate > 0; refreshNowPlaying() }
+            refreshNowPlayingIfTurnChanged()
         }
     }
 
@@ -317,6 +393,7 @@ final class DailyPodcastPlayer {
                     player.currentTime = currentTime
                     player.prepareToPlay()
                     buffering = false
+                    refreshNowPlaying()
                 }
                 guard let player = audio else { return }
                 var started = false
@@ -331,10 +408,12 @@ final class DailyPodcastPlayer {
                         }
                     }
                     currentTime = player.currentTime
+                    refreshNowPlayingIfTurnChanged()
                 }
                 currentTime = duration
                 playing = false
                 task = nil
+                refreshNowPlaying()
             } catch is CancellationError {
             } catch {
                 guard !Task.isCancelled else { return }

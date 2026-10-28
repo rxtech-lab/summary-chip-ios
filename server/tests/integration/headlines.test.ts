@@ -5,7 +5,8 @@ import { eq, sql } from "drizzle-orm";
 import { readFileSync } from "node:fs";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
 import * as route from "@/app/api/v1/summaries/headlines/route";
-import { editorialScores, headlineRankings, pushDevices, summaries, users } from "@/lib/db/schema";
+import { editorialScores, headlineRankings, podcastEpisodes, pushDevices, summaries, users } from "@/lib/db/schema";
+import type { DailyPodcast } from "@/lib/contracts/daily-podcast";
 import { getHeadlines, headlineWeight, rerankHeadlines } from "@/lib/services/headlines";
 import { apiRequest, setupTestEnv, type TestEnv } from "../helpers/setup";
 
@@ -144,6 +145,36 @@ describe("editorial headlines", () => {
     expect((await list("editorsPick=false&limit=50")).items).toHaveLength(24);
     const invalid = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?editorsPick=invalid", { token: env.tokens.alice }));
     expect(invalid.status).toBe(400);
+  });
+  it("never picks a podcast about one chip, and stacks it on that chip", async () => {
+    await chip("source");
+    await chip("other");
+    await chip("solo", "podcast");
+    await chip("multi", "podcast");
+    const episode = async (key: string, summaryId: string, chipIds: string[], deleted = false) =>
+      env.handle.db.insert(podcastEpisodes).values({ key, ownerId: "user-alice", dayStart: 0, dayEnd: 1, summaryId, deleted,
+        document: { key, summaryId, chipIds, createdAt: now.toISOString() } as unknown as DailyPodcast });
+    await episode("solo-1", "solo", ["source"]);
+    await episode("solo-2", "solo", ["source"]);
+    // A deleted version about other chips no longer counts.
+    await episode("solo-old", "solo", ["source", "other"], true);
+    await episode("multi-1", "multi", ["source", "other"]);
+    await rerankHeadlines(env.handle.db, "user-alice", async (chips) => {
+      expect(chips.map((chip) => chip.id).sort()).toEqual(["multi", "other", "source"]);
+      return Object.fromEntries(chips.map((chip) => [chip.id, 90]));
+    });
+    // A pick stored before the podcast became solo is hidden too.
+    await env.handle.db.insert(editorialScores).values({ summaryId: "solo", ownerId: "user-alice", score: 90, isEditorsPick: true, rankedAt: now });
+    expect((await getHeadlines(env.handle.db, "user-alice", now)).editorPickIDs.sort()).toEqual(["multi", "other", "source"]);
+    const response = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?limit=50", { token: env.tokens.alice }));
+    const items: { id: string; podcastSourceId: string | null; stackedPodcastId: string | null }[] = (await response.json()).items;
+    const byId = Object.fromEntries(items.map((item) => [item.id, item]));
+    expect(byId.solo).toMatchObject({ podcastSourceId: "source", stackedPodcastId: null });
+    expect(byId.multi).toMatchObject({ podcastSourceId: null, stackedPodcastId: null });
+    expect(byId.source).toMatchObject({ podcastSourceId: null, stackedPodcastId: "solo" });
+    expect(byId.other).toMatchObject({ stackedPodcastId: null });
+    const picks = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?editorsPick=true", { token: env.tokens.alice }));
+    expect((await picks.json()).items.map((item: { id: string }) => item.id)).not.toContain("solo");
   });
   it("updates stored pick decisions when a chip is rescored", async () => {
     await chip("first");

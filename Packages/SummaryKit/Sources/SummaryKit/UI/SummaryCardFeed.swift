@@ -30,7 +30,8 @@ public final class SummaryFeedScrollState {
     }
 }
 
-/// Scrolling masonry feed of `SummaryTileView`s, newest first. Two columns on compact widths,
+/// Scrolling masonry feed of `SummaryTileView`s, newest first; a podcast about one listed chip is
+/// stacked under that chip's card instead of shown on its own. Two columns on compact widths,
 /// three on regular (iPad). Cards push `Summary` values; register
 /// `.navigationDestination(for: Summary.self)` on the enclosing stack, or pass `onSelect` to
 /// handle taps yourself. `menuItems` builds each
@@ -80,7 +81,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         @ViewBuilder menuItems: @escaping (Summary) -> MenuItems,
         @ViewBuilder footer: () -> Footer
     ) {
-        self.entries = entries
+        self.entries = SummaryFeedEntry.stackingPodcasts(entries)
         self.retainedScrollState = scrollState
         self.editorPickIDs = editorPickIDs
         self.showsTimeline = showsTimeline
@@ -318,7 +319,8 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     /// Pushes onto the enclosing `NavigationStack`, or hands the summary to `onSelect` when set.
     @ViewBuilder
     private func tileLink(for entry: SummaryFeedEntry) -> some View {
-        let tile = SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind, isEditorsPick: editorPickIDs.contains(entry.id))
+        let tile = SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind,
+                                   isEditorsPick: editorPickIDs.contains(entry.id), hasPodcast: entry.stackedPodcastID != nil)
         if let onSelect {
             Button { viewport.opening(entry.id); onSelect(entry.summary) } label: { tile }
         } else {
@@ -349,6 +351,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             let target = heights.indices.min { heights[$0] < heights[$1] } ?? 0
             columns[target].append(entry)
             heights[target] += SummaryTileView.Style.style(for: entry.summary).estimatedHeight(title: entry.summary.title) + 0.08
+                + (entry.stackedPodcastID == nil ? 0 : 0.1)
             placed += 1
             let spread = (heights.max() ?? 0) - (heights.min() ?? 0)
             if placed >= count * maxRows || (placed >= count * minRows && spread < levelTolerance) {

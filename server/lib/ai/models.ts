@@ -135,6 +135,15 @@ export function imageTimeoutMs(): number {
   return Number.isFinite(configured) && configured > 0 ? configured : 60_000;
 }
 
+/** About Gemini 2.5 Flash Image's list price per image, when `AI_IMAGE_USD_PER_IMAGE` isn't set. */
+const DEFAULT_IMAGE_USD_PER_IMAGE = 0.04;
+
+/** Price per generated image in USD (`AI_IMAGE_USD_PER_IMAGE`), used to charge points for video cut-outs. */
+export function imageUsdPerImage(): number {
+  const configured = Number(process.env.AI_IMAGE_USD_PER_IMAGE);
+  return Number.isFinite(configured) && configured >= 0 && process.env.AI_IMAGE_USD_PER_IMAGE?.trim() ? configured : DEFAULT_IMAGE_USD_PER_IMAGE;
+}
+
 /** Tour narration model (`AI_TOUR_MODEL`): pick a fast one, it writes every scene of a trip tour. Defaults to the text model. */
 export function tourModelId(): string {
   return process.env.AI_TOUR_MODEL?.trim() || textModelId();

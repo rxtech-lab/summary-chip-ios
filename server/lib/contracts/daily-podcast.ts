@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { shareLinkLabelSchema, TRANSLATION_LANGUAGES, ttlDaysSchema } from "./api";
+import { shareLinkLabelSchema, TRANSLATION_LANGUAGES, ttlDaysSchema, type TranslationLanguage } from "./api";
 
 export const podcastDaySchema = z.object({
   start: z.iso.datetime({ offset: true }),
@@ -25,6 +25,19 @@ export type PatchPodcastShareLinkInput = z.infer<typeof patchPodcastShareLinkSch
 export const PODCAST_VIDEO_STYLES = ["news", "crayon"] as const;
 export type PodcastVideoStyle = (typeof PODCAST_VIDEO_STYLES)[number];
 export const podcastVideoStyleSchema = z.enum(PODCAST_VIDEO_STYLES);
+/** Longest host name a caller may choose. */
+export const MAX_PODCAST_SPEAKER_NAME = 40;
+/** `GET /api/v1/daily-podcasts/options`: what the generation form offers, localized by `Accept-Language`. */
+export const MIN_PODCAST_DURATION_SECONDS = 30;
+export const MAX_PODCAST_DURATION_SECONDS = 1800;
+export interface PodcastGenerationOptions {
+  duration: { presets: { seconds: number; title: string }[]; minSeconds: number; maxSeconds: number; defaultSeconds: number };
+  languages: TranslationLanguage[];
+  /** `maxCount` is how many named hosts the configured voices allow; 0 when speech is unavailable. */
+  speakers: { maxCount: number; maxNameLength: number };
+  videoStyles: { id: PodcastVideoStyle; title: string; description: string; symbol: string; swatch: string[] }[];
+  defaultVideoStyle: PodcastVideoStyle;
+}
 export const createDailyPodcastSchema = z.object({
   day: podcastDaySchema,
   language: z.enum(TRANSLATION_LANGUAGES),
@@ -32,7 +45,7 @@ export const createDailyPodcastSchema = z.object({
   /** A highlights recap with a hard measured duration limit below three minutes. */
   recap: z.boolean().optional(),
   /** Ordered host names; omission lets the model choose. */
-  speakerNames: z.array(z.string().trim().min(1).max(40)).min(1).max(4).optional(),
+  speakerNames: z.array(z.string().trim().min(1).max(MAX_PODCAST_SPEAKER_NAME)).min(1).max(4).optional(),
   /** Omitted means all eligible chips. An explicit empty selection is invalid. */
   chipIds: z.array(z.string().min(1)).min(1).optional(),
   /** Library episodes may use chips from any day and never replace a daily default. */
@@ -41,6 +54,8 @@ export const createDailyPodcastSchema = z.object({
   includeVideo: z.boolean().optional(),
   /** Art direction of the designed video; omitted means the default news style. */
   videoStyle: podcastVideoStyleSchema.optional(),
+  /** Approximate episode length; the finished audio/video may be shorter or longer. */
+  durationSeconds: z.number().int().min(MIN_PODCAST_DURATION_SECONDS).max(MAX_PODCAST_DURATION_SECONDS).optional(),
   /** Regenerates this library podcast chip as a new version instead of creating another chip. */
   summaryId: z.string().min(1).optional(),
 }).refine((input) => !input.summaryId || input.library, { message: "summaryId requires library", path: ["summaryId"] });
@@ -85,7 +100,7 @@ export interface PodcastTranslation {
 export interface DailyPodcast extends PodcastScript {
   /** Absent only on legacy documents; library episodes are regular, others daily. */
   type?: "daily" | "regular";
-  /** Daily summary or automated recap output may never exceed this measured duration. */
+  /** Automated recap output may never exceed this measured duration. Manual targets do not set this. */
   maxDurationSeconds?: number;
   key: string;
   summaryId?: string;
@@ -154,6 +169,16 @@ export interface PodcastVideoSource {
   chips: { id: string; title: string }[];
   /** Project files, scaffold included, keyed by path (src/index.ts is the entry point). */
   files: Record<string, string>;
+  /** Transparent cut-out images the video agent generated, placed under public/ for staticFile(). */
+  assets?: PodcastVideoAsset[];
+}
+export interface PodcastVideoAsset {
+  /** Path under public/, e.g. `gen/rocket.png`. */
+  path: string;
+  /** Object path relative to the episode (`<dayKey>/<key>/`), shared by translations and versions. */
+  file: string;
+  width: number;
+  height: number;
 }
 /** A language query/body field: omitted or the original language selects the original recording. */
 export const podcastLanguageSchema = z.enum(TRANSLATION_LANGUAGES);
@@ -218,6 +243,8 @@ export interface PodcastVideoRender {
   status: "running" | "ready" | "failed";
   resolution: 720 | 1080;
   updatedAt: string;
+  /** When the cloud renderer picked the job up; absent while it waits in the queue. */
+  startedAt?: string;
   byteSize?: number;
   error?: { code: string; message: string };
 }

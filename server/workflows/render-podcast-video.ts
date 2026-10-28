@@ -1,8 +1,8 @@
 import { sleep } from "workflow";
 import { getDatabase } from "@/lib/db/client";
-import { currentPodcastRender, finishPodcastRender, podcastRenderError, type PodcastRenderJob } from "@/lib/services/podcast-render";
+import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, podcastRenderError, type PodcastRenderJob } from "@/lib/services/podcast-render";
 import { getCloudPodcastRenderer, type RenderSession } from "@/lib/podcast-video/sandbox-renderer";
-import { notifyBackgroundJob, recordJobActivity } from "@/lib/services/background-jobs";
+import { notifyBackgroundJob } from "@/lib/services/background-jobs";
 
 /** Detached container execution survives function invocations. Each short poll is a durable step. */
 export async function renderPodcastVideo(job: PodcastRenderJob) {
@@ -15,6 +15,7 @@ export async function renderPodcastVideo(job: PodcastRenderJob) {
       return;
     }
     session = launched.session;
+    await started(job);
     for (let attempt = 0; attempt < 350; attempt++) {
       await sleep("10s");
       const result = await poll(job, session);
@@ -47,8 +48,11 @@ launch.maxRetries = 0;
 async function poll(job: PodcastRenderJob, session: RenderSession) {
   "use step";
   await currentPodcastRender(getDatabase(), job);
-  await recordJobActivity(getDatabase(), job.userId, job.id, "rendering", "Rendering in the cloud. You can close the app.", { percent: 50 });
   return getCloudPodcastRenderer().poll(session);
+}
+async function started(job: PodcastRenderJob) {
+  "use step";
+  await markPodcastRenderStarted(getDatabase(), job);
 }
 async function upload(job: PodcastRenderJob, session: RenderSession, bytes: number) {
   "use step";

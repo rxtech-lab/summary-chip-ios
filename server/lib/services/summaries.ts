@@ -38,6 +38,7 @@ import type { BillingEnvironment } from "@/lib/subscription/config";
 import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
 import { summaryContent, versionStatements, type VersionContent, type VersionOptions } from "./document-versions";
 import { findDuplicateChip } from "./duplicates";
+import { isNotSoloPodcast, withPodcastStacks } from "./podcast-stacks";
 import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type SummaryEmbedding } from "./embeddings";
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
@@ -108,7 +109,8 @@ export async function readSummaryJson(
     viewerId ? findLikedAt(db, viewerId, row.id) : null,
     needsGrant ? findGrantToken(db, row.id, viewerId) : options.grantToken ?? null,
   ]);
-  return toSummaryJson(row, viewerId, options.viewedAt ?? null, reading, likedAt, grantToken);
+  const [json] = await withPodcastStacks(db, viewerId, [toSummaryJson(row, viewerId, options.viewedAt ?? null, reading, likedAt, grantToken)]);
+  return json;
 }
 
 export async function findLikedAt(db: Database, userId: string, summaryId: string): Promise<Date | null> {
@@ -644,7 +646,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
       .union(db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId))));
   const conditions = [candidates, scope];
   if (query.editorsPick) {
-    conditions.push(mine, inArray(summaries.kind, ["summary", "podcast"]),
+    conditions.push(mine, inArray(summaries.kind, ["summary", "podcast"]), isNotSoloPodcast,
       inArray(summaries.id, db.select({ id: editorialScores.summaryId }).from(editorialScores)
         .where(and(eq(editorialScores.ownerId, userId), eq(editorialScores.isEditorsPick, true)))));
   }
@@ -673,7 +675,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const last = page[page.length - 1];
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)),
+    items: await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
 }
@@ -713,7 +715,7 @@ async function searchLibrary(
   const page = rows.slice(0, query.limit);
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)),
+    items: await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }
@@ -807,7 +809,8 @@ export async function patchSummary(
   if (changes.title !== undefined || patch.tags !== undefined || patch.summary !== undefined || patch.highlights !== undefined
     || patch.category !== undefined || patch.keywords !== undefined) await indexSummary(db, ai, updated);
   if (tagsChanged && reading.translation) return readSummaryJson(db, updated, ownerId, null, { ai, billingEnvironment: deps.billingEnvironment });
-  return toSummaryJson(updated, ownerId, null, reading);
+  const [json] = await withPodcastStacks(db, ownerId, [toSummaryJson(updated, ownerId, null, reading)]);
+  return json;
 }
 
 type ImageKeys = Pick<SummaryRow, "ogImageKey" | "artImageKey">;

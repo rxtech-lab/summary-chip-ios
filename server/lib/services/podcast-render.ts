@@ -82,6 +82,20 @@ export function podcastRenderError(failure?: unknown) {
   return { code: "PODCAST_RENDER_FAILED", message: "Cloud video rendering failed. Please retry from the podcast." };
 }
 
+/** Marks a queued render as rendering once its sandbox launched, so apps can tell waiting from working. */
+export async function markPodcastRenderStarted(db: Database, job: PodcastRenderJob) {
+  await renderTransaction(db, async tx => {
+    await updatePodcastDocument(tx, job.userId, job.key, latest => {
+      const video = videoOf(latest, job.language);
+      const render = video?.renders?.[job.resolution];
+      if (video?.id !== job.videoId || render?.id !== job.id || render.status !== "running" || render.startedAt) return;
+      const at = new Date().toISOString();
+      video.renders![job.resolution] = { ...render, startedAt: at, updatedAt: at };
+    });
+  });
+  await recordJobActivity(db, job.userId, job.id, "rendering", "Rendering in the cloud. You can close the app.", { percent: 50 });
+}
+
 export async function finishPodcastRender(db: Database, job: PodcastRenderJob, byteSize: number | undefined, failure?: { code: string }) {
   const error = podcastRenderError(failure);
   let accepted = false;

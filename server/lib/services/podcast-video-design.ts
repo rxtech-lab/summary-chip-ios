@@ -7,13 +7,14 @@ import type { LanguageModelUsage } from "ai";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { estimateVideoProgress } from "@/lib/ai/podcast-progress";
 import { newPodcastVideoDraft, PodcastVideoNoToolError, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
-  type PodcastVideoDraft, type PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
+  type PodcastVideoDraft, type PodcastVideoImageTools, type PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastVideoDesign, PodcastVideoStyle, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
 import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_WIDTH, podcastPhraseWindows } from "@/lib/podcast-video/scaffold";
 import { getPodcastVideoDesigner } from "@/lib/podcast-video/designer";
+import { podcastVideoAssets, podcastVideoImageFile } from "@/lib/podcast-video/images";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
@@ -65,9 +66,40 @@ type Deps = { ai?: AiProvider; store?: ObjectStore; now?: () => Date };
 function statePath(job: Pick<PodcastVideoJob, "userId" | "day" | "key" | "id">) {
   return `${dayKey(job.userId, job.day)}/${job.key}/video-design/${job.id}.json`;
 }
+/** Deletes the cut-outs a run drew; a saved composition keeps the ones it uses. */
+async function deleteDraftImages(store: ObjectStore, job: PodcastVideoJob, draft: PodcastVideoDraft, keep: Set<string> = new Set()) {
+  for (const image of Object.values(draft.images ?? {})) {
+    if (!keep.has(image.file)) await store.delete(`${dayKey(job.userId, job.day)}/${job.key}/${image.file}`).catch(() => undefined);
+  }
+}
+
+/** generate_image's storage and model for one turn; null when no image model is configured. */
+function imageTools(ai: AiProvider, store: ObjectStore, job: PodcastVideoJob, state: DesignState): PodcastVideoImageTools | undefined {
+  if (!ai.imageModelId()) return undefined;
+  const episodePath = `${dayKey(job.userId, job.day)}/${job.key}`;
+  return {
+    draw: async (subject, abortSignal) => {
+      // An attempt is billed whether or not the cut-out succeeds; the model drew it either way.
+      state.costUsd += ai.imageUsdPerImage();
+      return ai.drawPodcastVideoImage(subject, state.input.style, { abortSignal });
+    },
+    save: async (path, png) => {
+      const file = podcastVideoImageFile(job.id, path);
+      await store.put(`${episodePath}/${file}`, { bytes: png, contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
+      return file;
+    },
+    read: async (file) => (await store.get(`${episodePath}/${file}`)).bytes,
+  };
+}
+
 async function readState(store: ObjectStore, job: PodcastVideoJob): Promise<DesignState | null> {
   try { return JSON.parse(new TextDecoder().decode((await store.get(statePath(job))).bytes)) as DesignState; }
-  catch { return null; }
+  catch (error) {
+    // A transient R2 read failure must reach the workflow's step retries. Treating it
+    // as a missing draft ends the run and lets finish delete the recoverable work.
+    if (error instanceof ApiError && error.code === "OBJECT_MISSING" && error.status === 404) return null;
+    throw error;
+  }
 }
 
 /** A design run is working on the episode: it saved a turn recently and hasn't failed. */
@@ -139,13 +171,16 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
     return { status: "failed", code: "PODCAST_VIDEO_REPLACED" };
   }
   const state = await readState(store, job);
-  if (!state) return { status: "failed", code: "PODCAST_VIDEO_FAILED" };
+  if (!state) return { status: "failed", code: "PODCAST_VIDEO_DRAFT_MISSING", error: {
+    code: "PODCAST_VIDEO_DRAFT_MISSING", message: "The saved video draft could not be found. Please retry video design.",
+  } };
   if (podcastVideoDraftFinished(state.draft)) return state.draft.result ? { status: "accepted" } : { status: "failed", code: "PODCAST_VIDEO_FAILED" };
   const ai = deps.ai ?? await getAiProvider();
   const usage: { step: LanguageModelUsage; modelId?: string }[] = [];
   let evidence: string;
   try {
-    const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS), onUsage: (step, modelId) => usage.push({ step, modelId }) });
+    const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS), onUsage: (step, modelId) => usage.push({ step, modelId }),
+      images: imageTools(ai, store, job, state) });
     state.draft = turn.draft;
     state.failures = 0;
     delete state.lastError;
@@ -210,7 +245,12 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
   const podcast = savedEpisode?.videoDesign?.id === job.id ? savedEpisode : null;
   const state = await readState(store, job);
   if (!podcast || !state) {
-    await recordJobActivity(db, job.userId, job.id, "failed", "Design could not continue. Open the podcast to retry.", { status: "failed" });
+    const error = outcome.status === "failed" ? outcome.error : undefined;
+    await recordJobActivity(db, job.userId, job.id, "failed", error?.message ?? "Design could not continue. Open the podcast to retry.", { status: "failed", error });
+    if (podcast && error) await updatePodcastDocument(db, job.userId, job.key, (latest) => {
+      if (latest.videoDesign?.id === job.id) latest.videoDesign = { ...latest.videoDesign, updatedAt: new Date().toISOString(), error };
+    });
+    if (state) await deleteDraftImages(store, job, state.draft);
     await store.delete(statePath(job));
     return false;
   }
@@ -233,12 +273,15 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
       latest.videoDesign = { ...latest.videoDesign, updatedAt: new Date().toISOString(),
         error };
     });
+    await deleteDraftImages(store, job, state.draft);
     await store.delete(statePath(job));
     return false;
   }
+  const assets = podcastVideoAssets(result, state.draft.images);
   const source = { id: job.id, model, createdAt: new Date().toISOString(), fps: PODCAST_VIDEO_FPS,
     width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, chips: state.chips,
-    files: { ...result, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(state.input.segments)) } };
+    files: { ...result, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(state.input.segments)) },
+    ...(assets.length ? { assets } : {}) };
   const video = await storePodcastVideo(store, `${dayKey(job.userId, job.day)}/${job.key}`, source);
   const translating = !!job.language && !!podcast.translations?.[job.language];
   const stale: string[] = [];
@@ -261,6 +304,8 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
   // Old renders show the replaced composition; share links fall back to audio until the new one is published.
   for (const videoId of stale) await store.delete(renderKey(job.userId, job.day, job.key, videoId));
   for (const video of retired) await retirePodcastRenders(store, job.userId, job.day, job.key, video);
+  // Cut-outs the agent drew but the accepted composition doesn't use.
+  await deleteDraftImages(store, job, state.draft, new Set(assets.map((asset) => asset.file)));
   await store.delete(statePath(job));
   await recordJobActivity(db, job.userId, job.id, translating ? "translating" : "ready",
     translating ? "Translating video labels…" : "Composition ready. HD video will render in the cloud.",

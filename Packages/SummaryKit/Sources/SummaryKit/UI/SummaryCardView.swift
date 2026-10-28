@@ -213,9 +213,11 @@ public struct KindBadge: View {
         switch kind {
         case .trip: Color(red: 0.95, green: 0.5, blue: 0.35)
         case .miniApp: Color(red: 0.12, green: 0.55, blue: 0.48)
-        default: Color(red: 0.36, green: 0.42, blue: 0.85)
+        default: Self.podcastTint
         }
     }
+
+    static let podcastTint = Color(red: 0.36, green: 0.42, blue: 0.85)
 }
 
 /// One card in a feed: the summary plus the date the feed sorts by.
@@ -223,12 +225,34 @@ public struct SummaryFeedEntry: Identifiable, Hashable, Sendable {
     public var summary: Summary
     public var date: Date
     public var dateKind: SummaryCardView.DateKind
+    /// A podcast about this chip alone, drawn stacked under its card.
+    public var stackedPodcastID: String?
     public var id: String { summary.id }
 
     public init(summary: Summary, date: Date, dateKind: SummaryCardView.DateKind) {
         self.summary = summary
         self.date = date
         self.dateKind = dateKind
+        self.stackedPodcastID = summary.stackedPodcastId
+    }
+
+    /// Folds each podcast about a single chip into that chip's card when both are listed.
+    public static func stackingPodcasts(_ entries: [SummaryFeedEntry]) -> [SummaryFeedEntry] {
+        let ids = Set(entries.map(\.id))
+        func stackedSource(_ entry: SummaryFeedEntry) -> String? {
+            guard entry.summary.kind == .podcast, let source = entry.summary.podcastSourceId, ids.contains(source) else { return nil }
+            return source
+        }
+        var podcasts: [String: String] = [:]
+        for entry in entries {
+            if let source = stackedSource(entry), podcasts[source] == nil { podcasts[source] = entry.id }
+        }
+        return entries.compactMap { entry in
+            if stackedSource(entry) != nil { return nil }
+            var entry = entry
+            entry.stackedPodcastID = entry.stackedPodcastID ?? podcasts[entry.id]
+            return entry
+        }
     }
 
     /// Library entry: dated by creation for your own summaries, by last view for others'.
@@ -282,13 +306,19 @@ public struct SummaryTileView: View {
     let dateKind: SummaryCardView.DateKind
     let style: Style
     let isEditorsPick: Bool
+    let hasPodcast: Bool
 
-    public init(summary: Summary, date: Date? = nil, dateKind: SummaryCardView.DateKind = .created, style: Style? = nil, isEditorsPick: Bool = false) {
+    /// How far the stacked podcast layers show below a card.
+    static let stackPeek: CGFloat = 9
+
+    public init(summary: Summary, date: Date? = nil, dateKind: SummaryCardView.DateKind = .created, style: Style? = nil,
+                isEditorsPick: Bool = false, hasPodcast: Bool = false) {
         self.summary = summary
         self.date = date ?? summary.createdAt
         self.dateKind = dateKind
         self.style = style ?? .style(for: summary)
         self.isEditorsPick = isEditorsPick
+        self.hasPodcast = hasPodcast
     }
 
     private var shape: RoundedRectangle {
@@ -296,6 +326,57 @@ public struct SummaryTileView: View {
     }
 
     public var body: some View {
+        if hasPodcast {
+            card
+                .overlay(alignment: .bottomTrailing) {
+                    // Overhangs the card's bottom edge slightly, onto the stack.
+                    podcastBadge
+                        .alignmentGuide(.bottom) { $0.height - 8 }
+                        .padding(.trailing, 18)
+                }
+                .padding(.bottom, Self.stackPeek * 2)
+                .background(alignment: .top) { podcastStack }
+                .accessibilityElement(children: .combine)
+        } else {
+            card
+        }
+    }
+
+    /// Two more cards under this one, each a little narrower and lower, like a stacked deck.
+    private var podcastStack: some View {
+        GeometryReader { geometry in
+            let height = geometry.size.height - Self.stackPeek * 2
+            ZStack(alignment: .top) {
+                stackedCard(tint: 0.18)
+                    .frame(width: geometry.size.width - 32, height: height)
+                    .offset(y: Self.stackPeek * 2)
+                stackedCard(tint: 0.1)
+                    .frame(width: geometry.size.width - 16, height: height)
+                    .offset(y: Self.stackPeek)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func stackedCard(tint: Double) -> some View {
+        shape.fill(Color.summaryCardBackground)
+            .overlay { shape.fill(KindBadge.podcastTint.opacity(tint)) }
+            .overlay { shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5) }
+            .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+    }
+
+    private var podcastBadge: some View {
+        Image(systemName: "waveform")
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(width: 34, height: 34)
+            .background(KindBadge.podcastTint, in: Circle())
+            .overlay { Circle().strokeBorder(Color.summaryCardBackground, lineWidth: 2) }
+            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+            .accessibilityLabel(Text("Has a podcast", bundle: .module))
+    }
+
+    private var card: some View {
         Group {
             switch style {
             case .text, .inset: standard

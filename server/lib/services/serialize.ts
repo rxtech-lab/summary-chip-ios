@@ -62,6 +62,10 @@ export interface SummaryJson {
    * made private. Only the title, cover and source are sent; the summary text is left out.
    */
   isExpired: boolean;
+  /** Owner only, on a podcast chip about exactly one chip: that chip, which the app stacks it on. */
+  podcastSourceId: string | null;
+  /** Owner only, on a chip: the newest podcast chip about this chip alone (see `podcastSourceId`). */
+  stackedPodcastId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -198,6 +202,9 @@ export function toSummaryJson(
     viewedAt: viewedAt ? viewedAt.toISOString() : null,
     likedAt: likedAt ? likedAt.toISOString() : null,
     isExpired,
+    // Filled by `withPodcastStacks`, which needs the owner's podcast episodes.
+    podcastSourceId: null,
+    stackedPodcastId: null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

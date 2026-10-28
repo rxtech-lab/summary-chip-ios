@@ -32,13 +32,66 @@ struct PodcastGenerationEvent: Decodable {
     let error: APIErrorBody?
 }
 
-/// Art direction of a designed podcast video. `news` is the server's default.
-public enum PodcastVideoStyle: String, Codable, Sendable, CaseIterable, Identifiable {
-    /// A calm editorial TV explainer in ivory and teal.
-    case news
-    /// Hand-drawn crayon doodles on drawing paper.
-    case crayon
+/// Art direction of a designed podcast video, by its server id. The server lists the styles it offers
+/// in `PodcastGenerationOptions`, so new styles need no app update. `news` is the server's default.
+public struct PodcastVideoStyle: RawRepresentable, Codable, Sendable, Hashable, Identifiable {
+    public var rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+    public init(from decoder: any Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
     public var id: String { rawValue }
+    public static let news = PodcastVideoStyle(rawValue: "news")
+}
+
+/// `GET /api/v1/daily-podcasts/options`: what the podcast generation form offers, localized by the server.
+public struct PodcastGenerationOptions: Decodable, Sendable, Equatable {
+    public struct Speakers: Decodable, Sendable, Equatable {
+        /// How many named hosts the server's voices allow; 0 when only automatic hosts are possible.
+        public var maxCount: Int
+        public var maxNameLength: Int
+    }
+    public struct VideoStyle: Decodable, Sendable, Equatable, Identifiable {
+        public var id: PodcastVideoStyle
+        public var title: String
+        public var description: String
+        /// An SF Symbol name.
+        public var symbol: String
+        /// The style's palette as `#rrggbb` colors.
+        public var swatch: [String]
+    }
+    public struct DurationOptions: Decodable, Sendable, Equatable {
+        public struct Preset: Decodable, Sendable, Equatable, Identifiable {
+            public var seconds: Int
+            public var title: String
+            public var id: Int { seconds }
+        }
+        public var presets: [Preset]
+        public var minSeconds: Int
+        public var maxSeconds: Int
+        public var defaultSeconds: Int
+    }
+    public var duration: DurationOptions?
+    public var languages: [SummaryLanguage]
+    public var speakers: Speakers
+    public var videoStyles: [VideoStyle]
+    public var defaultVideoStyle: PodcastVideoStyle
+
+    enum CodingKeys: String, CodingKey { case languages, speakers, videoStyles, defaultVideoStyle, duration }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Languages this app doesn't know yet are skipped rather than failing the form.
+        languages = try container.decode([String].self, forKey: .languages).compactMap { SummaryLanguage(rawValue: $0) }
+        duration = try container.decodeIfPresent(DurationOptions.self, forKey: .duration)
+        speakers = try container.decode(Speakers.self, forKey: .speakers)
+        videoStyles = try container.decode([VideoStyle].self, forKey: .videoStyles)
+        defaultVideoStyle = try container.decode(PodcastVideoStyle.self, forKey: .defaultVideoStyle)
+    }
+
+    public func videoStyle(_ id: PodcastVideoStyle) -> VideoStyle? { videoStyles.first { $0.id == id } }
 }
 
 public struct DailyPodcast: Codable, Sendable, Equatable {
@@ -127,6 +180,8 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
         public var id: String
         public var createdAt: String
         public var published: Publication?
+        /// Private cloud renders keyed by resolution ("720", "1080").
+        public var renders: [String: PodcastRenderState]?
         /// Whether share links play the render of the current composition.
         public var isPublished: Bool { published?.videoId == id }
     }
@@ -173,6 +228,7 @@ private struct PodcastRequest: Encodable {
     var videoStyle: PodcastVideoStyle?
     var summaryId: String?
     var speakerNames: [String]?
+    var durationSeconds: Int?
 }
 private struct PodcastTranslationRequest: Encodable {
     var day: PodcastDay
@@ -247,11 +303,11 @@ extension SummaryAPIClient {
 
     /// `summaryID` regenerates that library podcast chip as a new version instead of creating another chip.
     public func generateDailyPodcast(date: Date, language: SummaryLanguage, regenerate: Bool, chipIds: [String]? = nil, library: Bool = false, includeVideo: Bool = true,
-                                     videoStyle: PodcastVideoStyle? = nil, summaryID: String? = nil, speakerNames: [String]? = nil, calendar: Calendar = .current,
+                                     videoStyle: PodcastVideoStyle? = nil, summaryID: String? = nil, speakerNames: [String]? = nil, durationSeconds: Int? = nil, calendar: Calendar = .current,
                                      onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
         var request = try json("/api/v1/daily-podcasts", method: "POST", body: PodcastRequest(
             day: podcastDay(date, calendar: calendar), language: language.rawValue, regenerate: regenerate, chipIds: chipIds, library: library, includeVideo: includeVideo,
-            videoStyle: includeVideo ? videoStyle : nil, summaryId: summaryID, speakerNames: speakerNames
+            videoStyle: includeVideo ? videoStyle : nil, summaryId: summaryID, speakerNames: speakerNames, durationSeconds: durationSeconds
         ))
         request.timeoutInterval = 300
         if let onProgress {
@@ -310,6 +366,10 @@ extension SummaryAPIClient {
         throw SummaryAPIError.notSignedIn
     }
 
+    /// The languages, speaker limits and video styles the generation form offers.
+    public func podcastGenerationOptions() async throws -> PodcastGenerationOptions {
+        try await send(request("/api/v1/daily-podcasts/options"))
+    }
     public func podcastVersions(date: Date) async throws -> [PodcastVersion] {
         let day = podcastDay(date, calendar: .current)
         let result: PodcastVersions = try await send(request("/api/v1/daily-podcasts/versions", query: [

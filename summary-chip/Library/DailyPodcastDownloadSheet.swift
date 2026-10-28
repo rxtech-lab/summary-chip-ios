@@ -128,6 +128,7 @@ struct DailyPodcastDownloadSheet: View {
                     }
                     if savingToPhotos { Text("Saving to Photos…") }
                     else if transfer != nil { Text("Downloading podcast…") }
+                    else if renderProgress?.stage == .cloudQueued { Text("Waiting to render video…") }
                     else if renderProgress?.stage == .cloudRendering { Text("Rendering video in the cloud…") }
                     else if renderProgress?.stage == .rendering { Text("Rendering video…") }
                     else if renderProgress?.stage == .encoding { Text("Encoding video…") }
@@ -185,7 +186,8 @@ struct DailyPodcastDownloadSheet: View {
                         throw PhotosSaveError.permissionDenied
                     }
                     try Task.checkCancellation()
-                    try await PHPhotoLibrary.shared().performChanges {
+                    // PhotoKit invokes this block on its own queue; do not inherit MainActor.
+                    try await PHPhotoLibrary.shared().performChanges { @Sendable in
                         PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
                     }
                     completed = true

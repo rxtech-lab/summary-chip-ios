@@ -33,6 +33,8 @@ export interface FrameReport {
   png?: Uint8Array;
 }
 export interface PreviewSettings { fps: number; width: number; height: number; durationSeconds: number; language: string }
+/** An image under public/ the preview draws instead of a placeholder (the agent's generated cut-outs). */
+export interface PreviewAsset { bytes: Uint8Array; width: number; height: number }
 
 /** Bottom band reserved for the separately embedded subtitles while a voice is audible. */
 export const SUBTITLE_BAND = 100;
@@ -216,8 +218,12 @@ function expandInset(style: Record<string, unknown>) {
   delete style.inset;
 }
 
+/** The asset an <img> shows: `staticFile("gen/x.png")` renders as "/gen/x.png". */
+const assetOf = (node: Extract<Tree, object>, assets: Record<string, PreviewAsset>) =>
+  typeof node.p.src === "string" ? assets[node.p.src.replace(/^\/+/, "")] : undefined;
+
 /** Converts a rendered tree into Satori elements; SVGs and images become marker boxes. */
-function toSatori(tree: Tree[], settings: PreviewSettings, families: string[]) {
+function toSatori(tree: Tree[], settings: PreviewSettings, families: string[], assets: Record<string, PreviewAsset> = {}) {
   const svgs = new Map<number, Extract<Tree, object>>();
   let id = 0;
   const convert = (node: Tree): unknown => {
@@ -231,10 +237,14 @@ function toSatori(tree: Tree[], settings: PreviewSettings, families: string[]) {
     if (node.t === "svg" || node.t === "img") {
       id += 1;
       const kind = node.t === "svg" ? 1 : 2;
-      if (kind === 1) svgs.set(id, node);
+      svgs.set(id, node);
       const layout = Object.fromEntries(Object.entries(style).filter(([key]) => LAYOUT_STYLES.test(key)));
-      return { type: "div", key: `m${id}`, props: { style: { ...layout, display: "flex", width: size("width", kind === 1 ? 300 : 320), height: size("height", kind === 1 ? 150 : 200),
-        backgroundColor: marker(kind, id) } } };
+      // A known image keeps its aspect ratio when only one side is set, as WebKit does.
+      const asset = kind === 2 ? assetOf(node, assets) : undefined;
+      let width = size("width", kind === 1 ? 300 : asset?.width ?? 320), height = size("height", kind === 1 ? 150 : asset?.height ?? 200);
+      if (asset && typeof width === "number" && style.height === undefined && node.p.height === undefined) height = width * asset.height / asset.width;
+      else if (asset && typeof height === "number" && style.width === undefined && node.p.width === undefined) width = height * asset.width / asset.height;
+      return { type: "div", key: `m${id}`, props: { style: { ...layout, display: "flex", width, height, backgroundColor: marker(kind, id) } } };
     }
     const converted = node.c.map(convert);
     const children = converted.filter((child) => child !== null && child !== "");
@@ -374,7 +384,7 @@ const parseAttributes = (source: string) => Object.fromEntries([...source.matchA
 const unescape = (text: string) => text.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/&amp;/g, "&");
 
 /** Reads Satori's SVG: word boxes and marker rects, then splices the real SVGs and artwork placeholders in. */
-function analyse(svg: string, svgs: Map<number, Extract<Tree, object>>) {
+function analyse(svg: string, svgs: Map<number, Extract<Tree, object>>, assets: Record<string, PreviewAsset> = {}) {
   const words: { text: string; box: Box; fontSize: number; key: string; opacity: number }[] = [];
   const texts: (FrameText & { opacity: number })[] = [];
   const images: Box[] = [];
@@ -409,13 +419,20 @@ function analyse(svg: string, svgs: Map<number, Extract<Tree, object>>) {
       const box: Box = { x: number(attrs.x), y: number(attrs.y), width: number(attrs.width), height: number(attrs.height) };
       const wrapper = ["transform", "clip-path", "mask"].filter((key) => attrs[key]).map((key) => ` ${key}="${attrs[key]}"`).join("");
       const start = match.index!, end = start + whole.length;
-      if (kind === 2) {
+      const node = svgs.get(id);
+      const asset = kind === 2 && node ? assetOf(node, assets) : undefined;
+      if (asset) {
+        images.push(bounds(m, box));
+        const fit = String(styleOf(node!, "objectFit") ?? "fill");
+        const aspect = fit === "contain" || fit === "scale-down" ? "xMidYMid meet" : fit === "cover" ? "xMidYMid slice" : "none";
+        replacements.push({ start, end, markup: `<g${wrapper}><image x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" preserveAspectRatio="${aspect}"`
+          + ` href="data:image/png;base64,${Buffer.from(asset.bytes).toString("base64")}"/></g>` });
+      } else if (kind === 2) {
         images.push(bounds(m, box));
         const { x, y, width, height } = box;
         replacements.push({ start, end, markup: `<g${wrapper}><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#D3DED9" stroke="#8FA69D" stroke-width="2"/>`
           + `<path d="M${x} ${y}L${x + width} ${y + height}M${x + width} ${y}L${x} ${y + height}" stroke="#8FA69D" stroke-width="2"/></g>` });
       } else {
-        const node = svgs.get(id);
         if (node) {
           const geometry = svgGeometry(node, multiply(m, [1, 0, 0, 1, box.x, box.y]), box.width, box.height, opacity);
           texts.push(...geometry.texts);
@@ -479,7 +496,7 @@ function layoutIssues(texts: (FrameText & { opacity: number })[], images: Box[],
  * `data` is the episode's data.json; `phrases` its phrases.json. PNGs are only drawn when requested.
  */
 export async function previewPodcastFrames(files: Record<string, string>, data: unknown, phrases: unknown, frames: PreviewFrame[],
-  settings: PreviewSettings, options: { png?: boolean } = {}): Promise<{ error: string } | { frames: FrameReport[] }> {
+  settings: PreviewSettings, options: { png?: boolean; assets?: Record<string, PreviewAsset> } = {}): Promise<{ error: string } | { frames: FrameReport[] }> {
   const selected = frames.slice(0, MAX_FRAMES);
   const rendered = await elementTrees(files, data, phrases, selected.map((f) => Math.max(0, Math.round(f.seconds * settings.fps))), settings);
   if ("error" in rendered) return { error: rendered.error! };
@@ -495,7 +512,7 @@ export async function previewPodcastFrames(files: Record<string, string>, data: 
       reports.push({ seconds: frame.seconds, issues: [`The composition throws at ${frame.seconds.toFixed(2)}s: ${result?.error ?? "no output"}`], notes: shared, texts: [] });
       continue;
     }
-    const { root, svgs } = toSatori(result.tree, settings, families);
+    const { root, svgs } = toSatori(result.tree, settings, families, options.assets);
     const styleErrors = new Set<string>();
     let svg: string;
     try {
@@ -506,7 +523,7 @@ export async function previewPodcastFrames(files: Record<string, string>, data: 
         notes: [...shared, `The preview could not lay out this frame (${error instanceof Error ? error.message.slice(0, 200) : "unknown error"}); check it on device.`] });
       continue;
     }
-    const { texts, images, painted } = analyse(svg, svgs);
+    const { texts, images, painted } = analyse(svg, svgs, options.assets);
     const { issues, notes } = layoutIssues(texts, images, frame, settings);
     const report: FrameReport = { seconds: frame.seconds, issues, notes: [...shared, ...notes, ...[...styleErrors].map((message) => `Preview ignored a style: ${message}`)],
       texts: texts.filter((text) => text.opacity >= 0.35).slice(0, 40).map(({ text, x, y, width, height, fontSize }) => ({ text, fontSize: Math.round(fontSize),

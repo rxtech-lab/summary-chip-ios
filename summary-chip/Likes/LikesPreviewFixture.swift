@@ -148,11 +148,13 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 
     private func backgroundJobResponse(list: Bool) -> (Int, Data) {
         if backgroundJobDeleted { return list ? json(["items": [], "nextCursor": NSNull()]) : notFound }
-        let job: [String: Any] = ["id": "preview-video-job", "title": "Daily discoveries", "episodeKey": "preview-episode",
+        let job: [String: Any] = ["id": "preview-video-job", "title": "Render 1080p video", "kind": "render", "episodeKey": "preview-episode",
             "day": ["start": "2030-04-01T00:00:00Z", "end": "2030-04-02T00:00:00Z"],
             "status": "ready", "percent": 100, "videoId": "preview-video",
-            "createdAt": "2030-04-01T12:00:00Z", "updatedAt": "2030-04-01T12:01:00Z",
-            "logs": [["id": "ready", "at": "2030-04-01T12:01:00Z", "message": "Script ready. Tap Render on This Device to create the video."]]]
+            "createdAt": "2030-04-01T12:00:00Z", "updatedAt": "2030-04-01T12:03:00Z",
+            "logs": [["id": "queued", "at": "2030-04-01T12:00:00Z", "message": "Queued cloud video render. You can close the app."],
+                     ["id": "rendering", "at": "2030-04-01T12:01:00Z", "message": "Rendering in the cloud. You can close the app."],
+                     ["id": "finished", "at": "2030-04-01T12:03:00Z", "message": "Video ready in R2. Open the podcast to watch or download."]]]
         return list ? json(["items": [job], "nextCursor": NSNull()]) : json(["job": job])
     }
 

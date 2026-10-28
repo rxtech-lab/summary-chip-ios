@@ -15,6 +15,8 @@ import { z } from "zod";
 import { ApiError } from "@/lib/http/errors";
 import { mockServicesEnabled } from "@/lib/storage/r2";
 import { fitGeneratedOg } from "@/lib/og/generated";
+import { removeGreenScreen, type Cutout } from "@/lib/podcast-video/cutout";
+import type { PodcastVideoStyle } from "@/lib/contracts/daily-podcast";
 import {
   dedicatedImageModel,
   embeddingModel,
@@ -24,6 +26,7 @@ import {
   imageLanguageModel,
   imageModelId,
   imageTimeoutMs,
+  imageUsdPerImage,
   podcastModel,
   podcastModelId,
   podcastVideoModel,
@@ -213,6 +216,12 @@ export interface AiProvider {
   writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null>;
   /** One turn (one tool call) of a resumable video design run. Throws when the model call fails or videos are off. */
   podcastVideoTurn(input: PodcastVideoInput, draft: PodcastVideoDraft, options?: PodcastVideoTurnOptions): Promise<PodcastVideoTurnResult>;
+  /** Gateway id of the image model (`AI_IMAGE_MODEL`) that draws video cut-outs; null when images are off. */
+  imageModelId(): string | null;
+  /** The image model's price per image in USD. */
+  imageUsdPerImage(): number;
+  /** `subject` drawn on a green screen by the image model, with the green removed. Throws when it failed. */
+  drawPodcastVideoImage(subject: string, style: PodcastVideoStyle | undefined, options?: { abortSignal?: AbortSignal }): Promise<Cutout>;
   narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]>;
   /** Gateway id of the tour model (`AI_TOUR_MODEL`), recorded on the points it charges. */
   tourModelId(): string;
@@ -683,6 +692,20 @@ export class GatewayAiProvider implements AiProvider {
     return podcastVideoTurn(podcastVideoModelIds().map(podcastVideoModel), input, draft, options);
   }
 
+  imageModelId(): string | null {
+    return imageModelId();
+  }
+
+  imageUsdPerImage(): number {
+    return imageUsdPerImage();
+  }
+
+  async drawPodcastVideoImage(subject: string, style: PodcastVideoStyle | undefined, options: { abortSignal?: AbortSignal } = {}): Promise<Cutout> {
+    const id = imageModelId();
+    if (!id) throw new Error("Images are off");
+    return removeGreenScreen(await drawImage(id, greenScreenInstruction(subject, style), { aspectRatio: "1:1", size: "1024x1024", abortSignal: options.abortSignal }));
+  }
+
   speechModelId(): string | null {
     return speechModelId();
   }
@@ -827,16 +850,42 @@ function miniAppIllustrationInstruction(input: DesignInput): string {
 }
 
 /** The artwork, as raw image bytes in whatever size the model produced. */
-async function drawCard(id: string, input: DesignInput): Promise<Uint8Array> {
-  const prompt = illustrationInstruction(input);
+function drawCard(id: string, input: DesignInput): Promise<Uint8Array> {
+  return drawImage(id, illustrationInstruction(input), { aspectRatio: "16:9", size: "1536x1024" });
+}
+
+/** How each video style's cut-outs are drawn, matching its art direction. */
+const CUTOUT_LOOK: Record<PodcastVideoStyle, string> = {
+  news: "Polished modern editorial illustration: clean shapes, soft even studio lighting, a calm palette of teal, deep green, ivory and warm coral accents.",
+  crayon: "Warm hand-drawn crayon illustration, like a children's picture book: visible waxy crayon strokes and scribbled fills in tomato red, sky blue, sunflower yellow and grape purple with soft graphite outlines.",
+};
+
+/**
+ * The cut-out prompt: one subject on a flat chroma-key green, so `removeGreenScreen` can lift it out.
+ * `subject` comes from the video agent; the background rules are always appended last.
+ */
+function greenScreenInstruction(subject: string, style: PodcastVideoStyle = "news") {
+  return [
+    `Subject: ${subject.trim().slice(0, 600)}`,
+    `Style: ${CUTOUT_LOOK[style]}`,
+    "Draw only the subject, isolated, centred, fully inside the frame with a generous empty margin on every side; nothing touches or is cut off by the edges.",
+    "Background: one flat, uniform, pure chroma-key green (#00FF00) filling the entire canvas edge to edge. No gradient, vignette, texture, floor, horizon, cast shadow, reflection or glow on the background.",
+    "Never use bright or saturated green anywhere in the subject (no green outlines, highlights or reflections); if the subject is naturally green, use a muted olive or blue-green instead. Keep crisp, clean edges against the green.",
+    NO_TEXT,
+  ].join("\n");
+}
+
+/** One image from the image model, as raw bytes in whatever size it produced. */
+async function drawImage(id: string, prompt: string, options: { aspectRatio: "16:9" | "1:1"; size: `${number}x${number}`; abortSignal?: AbortSignal }): Promise<Uint8Array> {
+  const abortSignal = options.abortSignal ? AbortSignal.any([options.abortSignal, AbortSignal.timeout(imageTimeoutMs())]) : AbortSignal.timeout(imageTimeoutMs());
   if (isLanguageImageModel(id)) {
     const result = await generateText({
       model: imageLanguageModel(id),
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
       // Gemini only draws when image output is requested; without it the model may answer with no parts at all.
-      providerOptions: { google: { responseModalities: ["TEXT", "IMAGE"], imageConfig: { aspectRatio: "16:9" } } },
+      providerOptions: { google: { responseModalities: ["TEXT", "IMAGE"], imageConfig: { aspectRatio: options.aspectRatio } } },
       maxRetries: 1,
-      abortSignal: AbortSignal.timeout(imageTimeoutMs()),
+      abortSignal,
     });
     const drawn = result.files.find((file) => file.mediaType.startsWith("image/"));
     if (!drawn) throw new Error(`The image model answered without an image (${result.finishReason}): ${result.text.slice(0, 200)}`);
@@ -845,9 +894,9 @@ async function drawCard(id: string, input: DesignInput): Promise<Uint8Array> {
   const { image } = await generateImage({
     model: dedicatedImageModel(id),
     prompt,
-    size: "1536x1024",
+    size: options.size,
     maxRetries: 1,
-    abortSignal: AbortSignal.timeout(imageTimeoutMs()),
+    abortSignal,
   });
   return image.uint8Array;
 }

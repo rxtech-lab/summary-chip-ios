@@ -46,7 +46,10 @@ struct BackgroundJobsSheet: View {
             .navigationTitle("Background Jobs")
             .summaryInlineNavigationTitle()
             .navigationDestination(for: String.self) { id in
-                BackgroundJobDetail(api: api, id: id, onOpenPodcast: onOpenPodcast)
+                BackgroundJobDetail(api: api, id: id, onOpenPodcast: onOpenPodcast) {
+                    path = []
+                }
+                .id(id)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
@@ -108,7 +111,7 @@ struct BackgroundJobsSheet: View {
                         Text(job.title).font(.headline)
                         Label(job.statusTitle, systemImage: job.statusIcon).font(.subheadline).foregroundStyle(.secondary)
                         if let failure = job.error { Text(failure.message).font(.caption).foregroundStyle(.red).lineLimit(2) }
-                        if job.status == "running" { ProgressView(value: Double(job.percent), total: 100) }
+                        if job.status == "running" { job.progressBar }
                         Text(job.createdAt, style: .date).font(.caption).foregroundStyle(.secondary)
                     }.padding(.vertical, 4)
                 }
@@ -181,10 +184,14 @@ private struct BackgroundJobDetail: View {
     let api: SummaryAPIClient
     let id: String
     let onOpenPodcast: (DailyPodcast) -> Void
+    let onRetry: () -> Void
+    @AppStorage("podcast.generation.videoStyle") private var savedVideoStyle = PodcastVideoStyle.news.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @State private var job: BackgroundJob?
     @State private var error: String?
     @State private var opening = false
+    @State private var retrying = false
+    @State private var retrySucceeded = false
     @State private var renderEpisode: DailyPodcast?
     @State private var showsRender = false
     @State private var taps = 0
@@ -192,10 +199,7 @@ private struct BackgroundJobDetail: View {
     var body: some View {
         Form {
             if let job {
-                Section { header(job) }
-                Section {
-                    actions(job)
-                } footer: { Text(job.guidance) }
+                Section { header(job) } footer: { Text(job.guidance) }
                 if let failure = job.error {
                     Section {
                         Label {
@@ -208,9 +212,10 @@ private struct BackgroundJobDetail: View {
                     }
                 }
                 if !job.logs.isEmpty {
+                    // Newest first, so the current step is always at the top.
                     Section("Activity") {
-                        ForEach(Array(job.logs.enumerated()), id: \.element.id) { index, entry in
-                            logRow(entry, latest: index == job.logs.count - 1, job: job)
+                        ForEach(Array(job.logs.reversed().enumerated()), id: \.element.id) { index, entry in
+                            logRow(entry, latest: index == 0, job: job)
                         }
                     }
                 }
@@ -219,11 +224,44 @@ private struct BackgroundJobDetail: View {
         .formStyle(.grouped)
         .navigationTitle("Job Details")
         .summaryInlineNavigationTitle()
-        .disabled(opening)
+        #if os(iOS)
+        .toolbar {
+            if let job {
+                ToolbarItem(placement: .bottomBar) { openPodcastButton }
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+                if job.canWatch {
+                    ToolbarItem(placement: .bottomBar) { watchButton.buttonStyle(.glassProminent) }
+                } else if job.status == "failed" {
+                    ToolbarItem(placement: .bottomBar) { retryButton.buttonStyle(.glassProminent) }
+                }
+            }
+        }
+        #else
+        .safeAreaInset(edge: .bottom) {
+            if let job { macActionBar(job) }
+        }
+        #endif
+        .disabled(opening || retrying)
         .overlay {
-            if opening || job == nil && error == nil {
-                ProgressView(opening ? "Opening podcast…" : "Loading job…")
+            if opening || retrying || job == nil && error == nil {
+                ProgressView(retrying ? "Retrying video…" : opening ? "Opening podcast…" : "Loading job…")
                     .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            }
+        }
+        .overlay {
+            if retrySucceeded {
+                VStack(spacing: 12) {
+                    Label("Retry started successfully", systemImage: "checkmark.circle.fill")
+                        .font(.headline)
+                    Text("View its progress in the jobs list.")
+                    Button("View Jobs") { taps += 1; onRetry() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .multilineTextAlignment(.center)
+                .padding(24)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                .padding()
+                .accessibilityIdentifier("background-job-retry-success")
             }
         }
         .sheet(isPresented: $showsRender) {
@@ -245,6 +283,7 @@ private struct BackgroundJobDetail: View {
         } message: { Text(error ?? "") }
         .sensoryFeedback(.selection, trigger: taps)
         .sensoryFeedback(.success, trigger: job?.status == "ready")
+        .sensoryFeedback(.success, trigger: retrySucceeded)
         .sensoryFeedback(.error, trigger: error)
     }
 
@@ -262,32 +301,72 @@ private struct BackgroundJobDetail: View {
                 Text(job.createdAt, format: .dateTime.month().day().hour().minute())
                     .font(.caption).foregroundStyle(.secondary)
             }
-            if job.status == "running" {
-                ProgressView(value: Double(job.percent), total: 100).tint(job.statusColor)
-            }
+            if job.status == "running" { job.progressBar.tint(job.statusColor) }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
     }
 
-    @ViewBuilder
-    private func actions(_ job: BackgroundJob) -> some View {
-        VStack(spacing: 10) {
-            if job.status == "ready" {
-                Button { open(render: true) } label: {
-                    Label("Watch HD Video", systemImage: "play.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("background-job-render")
-            }
-            Button { open(render: false) } label: {
-                Label("Open Podcast", systemImage: "waveform").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-        }
-        .controlSize(.large)
-        .padding(.vertical, 4)
+    private var openPodcastButton: some View {
+        Button { open(render: false) } label: { Label("Open Podcast", systemImage: "waveform") }
+            .accessibilityIdentifier("background-job-open")
     }
+
+    private var retryButton: some View {
+        Button {
+            guard let job, !retrying, !retrySucceeded else { return }
+            taps += 1
+            retrying = true
+            Task {
+                defer { retrying = false }
+                do {
+                    let podcast = try await api.backgroundJobPodcast(job)
+                    if job.isRender {
+                        guard podcast.video?.id == job.videoId, !podcast.isDesigningVideo else {
+                            self.error = String(localized: "This script was replaced by a newer design. Open the latest job or the podcast to continue.")
+                            return
+                        }
+                        _ = try await api.startCloudPodcastRender(podcast)
+                        retrySucceeded = true
+                        return
+                    }
+                    // An old failed log must not replace a newer successful composition.
+                    if podcast.videoDesign?.id != job.id && !podcast.isDesigningVideo && podcast.video != nil {
+                        onOpenPodcast(podcast)
+                        return
+                    }
+                    let updated = try await api.composePodcastVideo(podcast,
+                        style: PodcastVideoStyle(rawValue: savedVideoStyle) ?? .news)
+                    guard updated.videoDesign?.id != nil else { throw SummaryAPIError.invalidResponse }
+                    retrySucceeded = true
+                } catch { self.error = error.localizedDescription }
+            }
+        } label: { Label("Retry", systemImage: "arrow.clockwise") }
+        .accessibilityIdentifier("background-job-retry")
+        .disabled(retrySucceeded)
+    }
+
+    /// Only a finished cloud render has a video to watch; a finished script still waits for its render job.
+    private var watchButton: some View {
+        Button { open(render: true) } label: { HStack(spacing: 6) { Image(systemName: "play.fill"); Text("Watch HD Video") }.padding(.horizontal, 6) }
+            .accessibilityIdentifier("background-job-render")
+    }
+
+    #if os(macOS)
+    /// Floating Liquid Glass actions over the activity log.
+    private func macActionBar(_ job: BackgroundJob) -> some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                openPodcastButton.buttonStyle(.glass)
+                if job.canWatch { watchButton.buttonStyle(.glassProminent) }
+                else if job.status == "failed" { retryButton.buttonStyle(.glassProminent) }
+            }
+            .labelStyle(.titleAndIcon)
+            .controlSize(.large)
+        }
+        .padding(.bottom, 16)
+    }
+    #endif
 
     private func logRow(_ entry: BackgroundJob.Log, latest: Bool, job: BackgroundJob) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -327,16 +406,30 @@ private struct BackgroundJobDetail: View {
 }
 
 private extension BackgroundJob {
+    /// A render job logs "rendering" (50%) once the cloud renderer starts it; before that it is queued.
+    var isQueued: Bool { isRender && status == "running" && percent == 0 }
+    var canWatch: Bool { isRender && status == "ready" }
+
+    /// Render progress is not measured, so it shows an indeterminate bar.
+    @ViewBuilder var progressBar: some View {
+        if isRender { ProgressView().progressViewStyle(.linear) }
+        else { ProgressView(value: Double(percent), total: 100) }
+    }
+
     var statusTitle: String {
         switch status {
-        case "running": "Writing script · \(percent)%"
-        case "ready": "Ready to open"
-        case "failed": "Needs attention"
-        default: "Updating…"
+        case "running" where isQueued: String(localized: "Waiting to render")
+        case "running" where isRender: String(localized: "Rendering in the cloud")
+        case "running": String(localized: "Writing script · \(percent)%")
+        case "ready" where isRender: String(localized: "Video ready")
+        case "ready": String(localized: "Script ready")
+        case "failed": String(localized: "Needs attention")
+        default: String(localized: "Updating…")
         }
     }
     var statusIcon: String {
         switch status {
+        case "running" where isQueued: "hourglass"
         case "running": "clock.arrow.circlepath"
         case "ready": "checkmark.circle"
         default: "exclamationmark.triangle"
@@ -344,6 +437,8 @@ private extension BackgroundJob {
     }
     var headerSymbol: String {
         switch status {
+        case "running" where isQueued: "hourglass"
+        case "running" where isRender: "film"
         case "running": "arrow.triangle.2.circlepath"
         case "ready": "checkmark"
         default: "exclamationmark"
@@ -358,8 +453,13 @@ private extension BackgroundJob {
     }
     var guidance: String {
         switch status {
-        case "running": String(localized: "You can close this sheet or quit the app. Video work continues on the server.")
-        case "ready": String(localized: "HD video renders in the cloud and downloads when ready. Choose Download in the podcast for a 4K export on this device.")
+        case "running" where isQueued: String(localized: "The video is waiting for a cloud renderer. You can close this sheet or quit the app.")
+        case "running" where isRender: String(localized: "The video is rendering in the cloud. You can close this sheet or quit the app.")
+        case "running": String(localized: "You can close this sheet or quit the app. The script keeps writing on the server, then the HD video renders in the cloud.")
+        case "ready" where isRender: String(localized: "Watch the HD video here or open the podcast to download it. Choose Download in the podcast for a 4K export on this device.")
+        case "ready": String(localized: "The script is ready. Its HD video renders in the cloud as a separate Render job.")
+        case "failed" where isRender: String(localized: "Choose Retry to render the video again.")
+        case "failed": String(localized: "Choose Retry to start a new video design using the existing podcast audio.")
         default: String(localized: "Open the podcast and choose Generate Video or Regenerate to try again.")
         }
     }

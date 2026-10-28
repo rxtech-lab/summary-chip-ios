@@ -14,6 +14,7 @@ struct LibraryView: View {
     @State private var showsNewMiniApp = false
     @State private var showsCredits = false
     @State private var sharingSummary: Summary?
+    @State private var xSharingRequest: XSharingRequest?
     @State private var deletingSummary: Summary?
     @State private var deletedCount = 0
     @State private var likeStatus: LikeStatus?
@@ -119,6 +120,7 @@ struct LibraryView: View {
                 .sheet(isPresented: $showsCredits) {
                     SummaryCreditsSheet(environment: environment)
                 }
+                .xSharing($xSharingRequest, api: environment.api)
                 .sheet(item: $sharingSummary) { summary in
                     ShareModeSheet(summary: summary, api: environment.api) { updated in
                         environment.library.upsert(updated)
@@ -301,8 +303,14 @@ struct LibraryView: View {
                         if isMiniApps { model.upsert(result.0) }
                     }
                 }
-                Button {
-                    sharingSummary = summary
+                Menu {
+                    Button { sharingSummary = summary } label: {
+                        Label("Share…", systemImage: "square.and.arrow.up")
+                    }
+                    Button("Share to X", systemImage: "arrow.up.forward") {
+                        xSharingRequest = XSharingRequest(summary: summary)
+                    }
+                    .accessibilityIdentifier("chip-share-x")
                 } label: {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }

@@ -17,7 +17,8 @@ import {
   podcastPhraseWindows,
   validatePodcastVideo,
 } from "@/lib/podcast-video/scaffold";
-import { previewPodcastFrames, SUBTITLE_BAND, type PreviewFrame, type PreviewSettings } from "@/lib/podcast-video/frame-preview";
+import { previewPodcastFrames, SUBTITLE_BAND, type PreviewAsset, type PreviewFrame, type PreviewSettings } from "@/lib/podcast-video/frame-preview";
+import { PODCAST_VIDEO_IMAGE_DIR, MAX_PODCAST_VIDEO_IMAGES, podcastVideoImagePath, referencedPodcastImages } from "@/lib/podcast-video/images";
 import type { TourNarrationOptions } from "./tour-agent";
 
 export interface PodcastVideoOptions extends TourNarrationOptions {
@@ -99,7 +100,7 @@ export const PODCAST_VIDEO_MAX_TURNS = 64;
 const MAX_WRITE_CHARS = 6_000;
 
 /** The designer's system prompt in the episode's art direction. */
-const instructions = (style?: PodcastVideoStyle) => `You are a senior motion designer who writes Remotion (React) compositions. Write the animated video for a podcast episode: it plays in sync with the recording, which the app adds itself.
+const instructions = (style?: PodcastVideoStyle, images = false) => `You are a senior motion designer who writes Remotion (React) compositions. Write the animated video for a podcast episode: it plays in sync with the recording, which the app adds itself.
 
 The project already contains src/index.ts, src/Root.tsx, src/data.json, src/phrases.json and src/podcast.ts (shown below). Write ${PODCAST_VIDEO_ENTRY}, exporting \`export const PodcastVideo: React.FC = () => …\`, plus optional extra components under src/ (at most ${MAX_PODCAST_VIDEO_FILES} files). Saved files are retained throughout this run, including after validation failures. Do not resend unchanged files. Only a validated submission becomes the final video.
 
@@ -107,7 +108,8 @@ Work in small steps: make exactly one tool call per turn and wait for its result
 
 Workflow:
 1. Plan the storyboard against the transcribed phrases before writing code: for every turn decide what appears or changes on each phrase, and for every story change choreograph the bridge between the two stories.
-2. Build incrementally: write_file each small component as soon as it is ready; use edit_file for targeted repairs.
+2. Build incrementally: write_file each small component as soon as it is ready; use edit_file for targeted repairs.${images ? `
+   When a subject is hard to draw convincingly as SVG (an animal, a person's silhouette, food, a vehicle, a detailed device, a landmark, a plant), call generate_image once for it: the image model draws it and its green screen is removed, giving a transparent cut-out PNG you place with <Img src={staticFile("${PODCAST_VIDEO_IMAGE_DIR}/name.png")} style={{ width, height, objectFit: "contain" }} />. At most ${MAX_PODCAST_VIDEO_IMAGES} images per video, each one subject with no text; keep using SVG for diagrams, labels, connectors, charts and simple icons, and animate cut-outs with transforms and opacity like any other object (a spring entrance, a gentle bob, a Magic Move between turns). Size each cut-out to its reported aspect ratio; text must sit beside it, never over it.` : ""}
 3. Check single frames with render_frame (up to ${PREVIEWS} times). It renders the saved draft at an episode time and returns the picture plus measured text boxes and issues. Check at least: the settled opening title, the middle of its Magic Move into the first scene, the ending card after its closing animation, the settled end of a busy phrase in each topic, the middle (progress ≈ 0.5) of every story transition, and one Magic Move between turns of the same story. Look at the image, not only the issue list: fix overlapping labels and shapes, labels crossing strokes, cramped or off-centre groups, empty or lopsided areas, and anything cut off. Re-render after fixing.
 4. Call submit_video with the storyboard. It compiles the project and renders the settled end of every phrase; overlapping text, text over artwork, text cut off by the canvas, text inside the subtitle band while the voice plays, and runtime errors reject the submission with the times to inspect.
 
@@ -154,7 +156,7 @@ Motion design craft:
 - Text must fit: wrap long topic labels, clamp sizes, and support CJK. Use the font stack -apple-system, "SF Pro Display", "PingFang SC", "Hiragino Sans", "Apple SD Gothic Neo", sans-serif. Keep all text above the bottom ${SUBTITLE_BAND}px while a voice plays.
 
 Rules:
-- Import only from "react", "remotion" and your own files. Use interpolate, interpolateColors, spring, Easing, Sequence, AbsoluteFill, Img, staticFile and random from remotion. Use inline styles (render_frame does not apply CSS files).
+- Import only from "react", "remotion" and your own files.${images ? ` Use staticFile() only for the chip artwork and the cut-outs generate_image returned.` : ""} Use interpolate, interpolateColors, spring, Easing, Sequence, AbsoluteFill, Img, staticFile and random from remotion. Use inline styles (render_frame does not apply CSS files).
 - Animate only from useCurrentFrame() / the helpers. No timers, clocks, Math.random (use random(seed)), fetch, network URLs, storage, iframes, dangerouslySetInnerHTML, audio or video elements.
 - All random() seeds must be string or number literals. For multiple objects, use a literal-seeded value plus a deterministic index formula. No React state/effects, CSS animations/transitions/@keyframes, SVG animate/set elements or Web Animations: calculate every visible property directly from the current frame. Rendering a frame must give the same result regardless of worker or previous frames.
 - interpolate() input ranges must be strictly increasing, including when computed from timings: guard tiny or zero-length windows.
@@ -221,6 +223,27 @@ export interface PodcastVideoDraft {
   result: Record<string, string> | null;
   /** Index of the model running the design; a model that fails a turn hands the run to the next one. */
   modelIndex?: number;
+  /** Cut-outs generate_image saved, by their path under public/. */
+  images?: Record<string, PodcastVideoDraftImage>;
+  /** generate_image calls that drew an image, including replaced ones. */
+  imagesDrawn?: number;
+}
+
+export interface PodcastVideoDraftImage {
+  /** Where `PodcastVideoImageTools.save` stored it. */
+  file: string;
+  width: number;
+  height: number;
+  subject: string;
+}
+
+/** Draws and stores cut-outs for generate_image; without them the tool isn't offered. */
+export interface PodcastVideoImageTools {
+  /** The subject on a green screen with the green removed. */
+  draw(subject: string, abortSignal?: AbortSignal): Promise<{ png: Uint8Array; width: number; height: number }>;
+  /** Stores a cut-out for `path` (under public/) and returns its file reference. */
+  save(path: string, png: Uint8Array): Promise<string>;
+  read(file: string): Promise<Uint8Array>;
 }
 
 export function newPodcastVideoDraft(): PodcastVideoDraft {
@@ -236,6 +259,7 @@ export interface PodcastVideoTurnOptions {
   abortSignal?: AbortSignal;
   /** Receives each model call's usage and the gateway id of the model that ran it. */
   onUsage?: (usage: LanguageModelUsage, modelId?: string) => void;
+  images?: PodcastVideoImageTools;
 }
 
 /** What the turn did, as progress evidence: the tool it ran and its outcome. */
@@ -263,7 +287,7 @@ function nudgedDraft(current: PodcastVideoDraft, text: string, truncated: boolea
   if (last?.role === "user" && typeof last.content === "string" && last.content.startsWith(NUDGE)) draft.messages.pop();
   const said = text.trim().slice(0, 2_000);
   draft.messages.push({ role: "user", content: `${NUDGE}${truncated ? " and ran out of output before calling one" : ""}, so nothing was saved.${
-    said ? `\nIt said:\n<previous_reply>\n${said}\n</previous_reply>` : ""}\nReply now with exactly one tool call (write_file, edit_file, render_frame or submit_video) and keep it small; plan as you go instead of planning everything first.` });
+    said ? `\nIt said:\n<previous_reply>\n${said}\n</previous_reply>` : ""}\nReply now with exactly one tool call (write_file, edit_file, generate_image, render_frame or submit_video) and keep it small; plan as you go instead of planning everything first.` });
   return draft;
 }
 
@@ -310,6 +334,16 @@ export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], 
     return { ok: true, path };
   };
   /** Where an episode time falls, so frame reports read in storyboard terms. */
+  /** The saved cut-outs for frame previews, so the agent sees them in place. */
+  const previewAssets = async (): Promise<Record<string, PreviewAsset>> => {
+    const assets: Record<string, PreviewAsset> = {};
+    if (!options.images) return assets;
+    for (const [path, image] of Object.entries(draft.images ?? {})) {
+      const bytes = await options.images.read(image.file).catch(() => null);
+      if (bytes) assets[path] = { bytes, width: image.width, height: image.height };
+    }
+    return assets;
+  };
   const locate = (seconds: number) => {
     const index = input.segments.findLastIndex((segment) => segment.startSeconds <= seconds);
     if (index < 0) return "title card";
@@ -339,8 +373,48 @@ export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], 
         return saveFile(path, source.slice(0, index) + newText + source.slice(index + oldText.length));
       },
     }),
+    ...(options.images ? { generate_image: tool({
+      description: `Draw one subject with the image model on a green screen and remove the green, saving a transparent PNG cut-out at ${PODCAST_VIDEO_IMAGE_DIR}/<name>.png for staticFile(). For subjects SVG can't draw convincingly; at most ${MAX_PODCAST_VIDEO_IMAGES} per video. Reusing a name replaces that image. Returns its pixel size and shows it.`,
+      inputSchema: z.object({
+        name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/).describe("Short kebab-case file name without extension, e.g. sea-turtle"),
+        subject: z.string().min(3).max(600).describe("The single object to draw, concretely: what it is, its pose or angle, notable details and colours. No text, no background, no scene."),
+      }),
+      execute: async ({ name, subject }) => {
+        const skipped = once();
+        if (skipped) return skipped;
+        options.abortSignal?.throwIfAborted();
+        const tools = options.images!;
+        const path = podcastVideoImagePath(name);
+        if ((draft.imagesDrawn ?? 0) >= MAX_PODCAST_VIDEO_IMAGES) return { ok: false, message: "No images left; reuse a generated image or draw the subject in SVG" };
+        draft.imagesDrawn = (draft.imagesDrawn ?? 0) + 1;
+        let image: Awaited<ReturnType<PodcastVideoImageTools["draw"]>>;
+        try {
+          image = await tools.draw(subject, options.abortSignal);
+        } catch (error) {
+          options.abortSignal?.throwIfAborted();
+          console.warn("[podcast-video] image generation failed", { ...context(), name, message: (error instanceof Error ? error.message : String(error)).slice(0, 300) });
+          evidence = `Image ${name} could not be drawn`;
+          return { ok: false, message: `The image could not be drawn (${error instanceof Error ? error.message.slice(0, 200) : "unknown error"}). Try a simpler subject or draw it in SVG.`,
+            imagesLeft: MAX_PODCAST_VIDEO_IMAGES - draft.imagesDrawn };
+        }
+        const file = await tools.save(path, image.png);
+        draft.images = { ...draft.images, [path]: { file, width: image.width, height: image.height, subject } };
+        evidence = `Generated image ${path} (${image.width}×${image.height})`;
+        console.info("[podcast-video] image generated", { ...context(), path, width: image.width, height: image.height });
+        return { ok: true, path, src: `staticFile("${path}")`, width: image.width, height: image.height, aspectRatio: Math.round((image.width / image.height) * 1000) / 1000,
+          imagesLeft: MAX_PODCAST_VIDEO_IMAGES - draft.imagesDrawn, png: Buffer.from(image.png).toString("base64") };
+      },
+      toModelOutput: ({ output }) => {
+        if (!("png" in output) || !output.png) return { type: "text", value: JSON.stringify(output) };
+        const { png, ...report } = output;
+        return { type: "content", value: [
+          { type: "text", text: JSON.stringify(report) },
+          { type: "file", mediaType: "image/png", data: { type: "data", data: png } },
+        ] };
+      },
+    }) } : {}),
     render_frame: tool({
-      description: `Render the saved draft at one episode time and return a PNG of the frame with its measured text boxes. Issues list overlapping text, text over artwork, text cut off by the canvas and text in the subtitle band during speech; also inspect the picture for overlapping shapes and unbalanced layout. Limited to ${PREVIEWS} calls per run; artwork appears as a crossed placeholder.`,
+      description: `Render the saved draft at one episode time and return a PNG of the frame with its measured text boxes. Issues list overlapping text, text over artwork, text cut off by the canvas and text in the subtitle band during speech; also inspect the picture for overlapping shapes and unbalanced layout. Limited to ${PREVIEWS} calls per run; chip artwork appears as a crossed placeholder, generated cut-outs as drawn.`,
       inputSchema: z.object({ seconds: z.number().min(0).describe("Episode time in seconds, e.g. just before a phrase ends or midway through a transition") }),
       execute: async ({ seconds }): Promise<RenderFrameResult> => {
         const skipped = once();
@@ -351,7 +425,7 @@ export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], 
         draft.previews += 1;
         seconds = Math.min(seconds, Math.max(0, input.durationSeconds - 0.05));
         const segment = input.segments.find((s) => s.voiceStartSeconds <= seconds && seconds < s.voiceEndSeconds);
-        const preview = await previewPodcastFrames({ ...draft.files }, data, phrases, [{ seconds, speaking: !!segment }], settings, { png: true });
+        const preview = await previewPodcastFrames({ ...draft.files }, data, phrases, [{ seconds, speaking: !!segment }], settings, { png: true, assets: await previewAssets() });
         if ("error" in preview) return { ok: false, message: preview.error, previewsLeft: PREVIEWS - draft.previews };
         const [frame] = preview.frames;
         evidence = `Checked a frame at ${seconds.toFixed(2)}s (${locate(seconds)}): ${frame.issues.length} issues`;
@@ -400,13 +474,16 @@ export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], 
         if (!Object.values(map).some(source => /\busePhrases\s*\(/.test(source))) {
           issues.push({ message: "Use usePhrases() to select each spoken turn's scene and land its actions on the phrase cues" });
         }
+        for (const path of referencedPodcastImages(map)) {
+          if (!draft.images?.[path]) issues.push({ message: `staticFile("${path}") is not a generated image; call generate_image for it or remove it` });
+        }
         const storyChanges = input.segments.some((segment, index) => index > 0 && segment.chipId !== input.segments[index - 1].chipId);
         if (storyChanges && !Object.values(map).some(source => /\buseStoryTransition\s*\(/.test(source))) {
           issues.push({ message: "Use useStoryTransition() to animate a designed bridge at every story change" });
         }
         let warnings: string[] = [];
         if (!issues.length) {
-          const preview = await previewPodcastFrames(map, data, phrases, podcastCheckFrames(input), settings);
+          const preview = await previewPodcastFrames(map, data, phrases, podcastCheckFrames(input), settings, { assets: await previewAssets() });
           if ("error" in preview) {
             // A preview limitation is not a defect of the video; report it without rejecting.
             warnings = [`Layout check skipped: ${preview.error.slice(0, 600)}`];
@@ -437,7 +514,7 @@ export async function podcastVideoTurn(models: LanguageModel | LanguageModel[], 
     const modelId = modelName(model);
     const result = await generateText({
       model,
-      system: instructions(input.style),
+      system: instructions(input.style, !!options.images),
       messages: [{ role: "user", content: `<episode>\n${episodePrompt(input)}\n</episode>` }, ...draft.messages],
       tools,
       // Sonnet 5.5 and Opus 5.5 reject forced tool choice; the instructions and the

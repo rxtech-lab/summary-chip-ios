@@ -5,6 +5,7 @@ import { evaluationModel, evaluationModelId } from "@/lib/ai/models";
 import type { Database } from "@/lib/db/client";
 import { editorialScores, headlineRankings, summaries, type SummaryRow } from "@/lib/db/schema";
 import { mockServicesEnabled } from "@/lib/storage/r2";
+import { isNotSoloPodcast } from "./podcast-stacks";
 import { shareUrlFor } from "./serialize";
 
 export const HEADLINE_WINDOW = 50;
@@ -15,7 +16,7 @@ export type HeadlineScorer = (chips: Candidate[]) => Promise<Record<string, numb
 export async function headlineCandidates(db: Database, ownerId: string) {
   return db.select({ id: summaries.id, title: summaries.title, summary: summaries.summary, kind: summaries.kind,
     createdAt: summaries.createdAt, updatedAt: summaries.updatedAt, slug: summaries.slug }).from(summaries)
-    .where(and(eq(summaries.ownerId, ownerId), inArray(summaries.kind, ["summary", "podcast"])))
+    .where(and(eq(summaries.ownerId, ownerId), inArray(summaries.kind, ["summary", "podcast"]), isNotSoloPodcast))
     .orderBy(desc(summaries.createdAt), desc(summaries.id)).limit(HEADLINE_WINDOW);
 }
 function revision(chips: Candidate[]) {
@@ -79,7 +80,7 @@ export async function getHeadlines(db: Database, ownerId: string, now = new Date
   const picks = await db.select({ id: editorialScores.summaryId }).from(editorialScores)
     .innerJoin(summaries, eq(summaries.id, editorialScores.summaryId))
     .where(and(eq(editorialScores.ownerId, ownerId), eq(summaries.ownerId, ownerId),
-      eq(editorialScores.isEditorsPick, true), inArray(summaries.kind, ["summary", "podcast"])))
+      eq(editorialScores.isEditorsPick, true), inArray(summaries.kind, ["summary", "podcast"]), isNotSoloPodcast))
     .orderBy(desc(summaries.createdAt), desc(summaries.id));
   const items = ready ? chips.map((chip) => ({ id: chip.id, title: chip.title, kind: chip.kind,
     shareUrl: shareUrlFor(chip.slug), createdAt: chip.createdAt.toISOString(), score: ranking.scores[chip.id] }))
