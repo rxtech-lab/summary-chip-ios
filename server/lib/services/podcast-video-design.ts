@@ -69,7 +69,7 @@ function statePath(job: Pick<PodcastVideoJob, "userId" | "day" | "key" | "id">) 
 /** Deletes the cut-outs a run drew; a saved composition keeps the ones it uses. */
 async function deleteDraftImages(store: ObjectStore, job: PodcastVideoJob, draft: PodcastVideoDraft, keep: Set<string> = new Set()) {
   for (const image of Object.values(draft.images ?? {})) {
-    if (!keep.has(image.file)) await store.delete(`${dayKey(job.userId, job.day)}/${job.key}/${image.file}`).catch(() => undefined);
+    if (!image.supplied && !keep.has(image.file)) await store.delete(`${dayKey(job.userId, job.day)}/${job.key}/${image.file}`).catch(() => undefined);
   }
 }
 
@@ -132,7 +132,12 @@ export async function startPodcastVideoDesign(db: Database, user: string, podcas
     const check = await reservePodcastPoints(user, `${podcast.key}:video:${job.id}`, model, deps.billingEnvironment);
     await check?.settle(0, { check: true });
   }
-  const state: DesignState = { input: podcastVideoInput(podcast, chips, options.style), chips, draft: newPodcastVideoDraft(), costUsd: 0, failures: 0, progress: 0 };
+  const draft = newPodcastVideoDraft();
+  // Approved storyboard frames are supplied to the designer as ready images it may place with staticFile().
+  const supplied = Object.fromEntries(podcast.segments.flatMap(segment => segment.storyboard
+    ? [[segment.storyboard.path, { file: segment.storyboard.file, width: segment.storyboard.width, height: segment.storyboard.height, subject: segment.camera ?? "", supplied: true }]] : []));
+  if (Object.keys(supplied).length) draft.images = supplied;
+  const state: DesignState = { input: podcastVideoInput(podcast, chips, options.style), chips, draft, costUsd: 0, failures: 0, progress: 0 };
   await store.put(statePath(job), jsonObject(state));
   const now = (deps.now?.() ?? new Date()).toISOString();
   const design: PodcastVideoDesign = { id: job.id, startedAt: now, updatedAt: now, percent: designPercent(0), ...(options.language ? { language: options.language } : {}) };
@@ -180,7 +185,7 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
   let evidence: string;
   try {
     const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS), onUsage: (step, modelId) => usage.push({ step, modelId }),
-      images: imageTools(ai, store, job, state) });
+      images: imageTools(ai, store, job, state), readAsset: async (file) => (await store.get(`${dayKey(job.userId, job.day)}/${job.key}/${file}`)).bytes });
     state.draft = turn.draft;
     state.failures = 0;
     delete state.lastError;
@@ -277,7 +282,10 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
     await store.delete(statePath(job));
     return false;
   }
-  const assets = podcastVideoAssets(result, state.draft.images);
+  // Storyboard frames ship with the composition even when it builds their paths at runtime.
+  const used = podcastVideoAssets(result, state.draft.images);
+  const assets = [...used, ...Object.entries(state.draft.images ?? {}).flatMap(([path, image]) => image.supplied && !used.some(asset => asset.path === path)
+    ? [{ path, file: image.file, width: image.width, height: image.height }] : [])];
   const source = { id: job.id, model, createdAt: new Date().toISOString(), fps: PODCAST_VIDEO_FPS,
     width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, chips: state.chips,
     files: { ...result, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(state.input.segments)) },

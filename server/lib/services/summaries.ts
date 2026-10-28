@@ -30,12 +30,12 @@ import { extractPdfText } from "@/lib/extract/pdf";
 import { platformOf } from "@/lib/extract/platforms";
 import { runAfter } from "@/lib/http/after";
 import { ApiError, notFound } from "@/lib/http/errors";
-import { generateOgImages, type OgImages } from "@/lib/og/generate";
+import { generateOgImages } from "@/lib/og/generate";
 import { generateSlug } from "@/lib/slug";
 import { reserveDocumentPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
 import { consumeSummaryUsage } from "@/lib/subscription/usage";
 import type { BillingEnvironment } from "@/lib/subscription/config";
-import { artImageKey, getObjectStore, isOwnedUploadKey, OG_CACHE_CONTROL, ogImageKey, type ObjectStore } from "@/lib/storage/r2";
+import { getObjectStore, isOwnedUploadKey, type ObjectStore } from "@/lib/storage/r2";
 import { summaryContent, versionStatements, type VersionContent, type VersionOptions } from "./document-versions";
 import { findDuplicateChip } from "./duplicates";
 import { isNotSoloPodcast, withPodcastStacks } from "./podcast-stacks";
@@ -49,6 +49,9 @@ import { notifySummaryAdded } from "./notifications";
 import { rerankHeadlines } from "./headlines";
 import { selectCoverTheme } from "./cover-colors";
 import { redesignMiniAppCover } from "@/lib/mini-app/cover";
+
+import { deleteObjects, rotateImageKeys, storeImages, type ImageKeys } from "./summary-images";
+export { deleteObjects, rotateImageKeys } from "./summary-images";
 
 export interface ServiceDeps {
   ai?: AiProvider;
@@ -675,9 +678,22 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const last = page[page.length - 1];
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))),
+    items: await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)))),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
+}
+
+/**
+ * Marks the caller's own saved editor's picks, matching the Headlines `editorPickIDs`: summary and
+ * podcast chips only, never a solo podcast (stacked on its chip). Runs after `withPodcastStacks`.
+ */
+async function withEditorsPicks(db: Database, userId: string, items: SummaryJson[]): Promise<SummaryJson[]> {
+  const candidates = items.filter((item) => item.isOwner && (item.kind === "summary" || (item.kind === "podcast" && !item.podcastSourceId)));
+  if (candidates.length === 0) return items;
+  const picks = new Set((await db.select({ id: editorialScores.summaryId }).from(editorialScores)
+    .where(and(eq(editorialScores.ownerId, userId), eq(editorialScores.isEditorsPick, true),
+      inArray(editorialScores.summaryId, candidates.map((item) => item.id))))).map((pick) => pick.id));
+  return items.map((item) => picks.has(item.id) && candidates.includes(item) ? { ...item, isEditorsPick: true } : item);
 }
 
 /** Rows the caller may still read; expired likes are sent without their text, so they aren't translated. */
@@ -715,7 +731,7 @@ async function searchLibrary(
   const page = rows.slice(0, query.limit);
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))),
+    items: await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)))),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }
@@ -811,68 +827,6 @@ export async function patchSummary(
   if (tagsChanged && reading.translation) return readSummaryJson(db, updated, ownerId, null, { ai, billingEnvironment: deps.billingEnvironment });
   const [json] = await withPodcastStacks(db, ownerId, [toSummaryJson(updated, ownerId, null, reading)]);
   return json;
-}
-
-type ImageKeys = Pick<SummaryRow, "ogImageKey" | "artImageKey">;
-
-/** Uploads the card (and the text-free art when there is one) under fresh keys. */
-async function storeImages(store: ObjectStore, id: string, timestamp: number, images: OgImages): Promise<ImageKeys> {
-  const ogKey = ogImageKey(id, timestamp);
-  await store.put(ogKey, { bytes: images.card, contentType: "image/png", cacheControl: OG_CACHE_CONTROL });
-  let artKey: string | null = null;
-  if (images.art) {
-    artKey = artImageKey(id, timestamp);
-    try {
-      await store.put(artKey, { bytes: images.art, contentType: "image/png", cacheControl: OG_CACHE_CONTROL });
-    } catch (error) {
-      console.warn("[summaries] art image upload failed", error);
-      artKey = null;
-    }
-  }
-  return { ogImageKey: ogKey, artImageKey: artKey };
-}
-
-/** Best-effort deletion of R2 objects that are no longer referenced. */
-export async function deleteObjects(store: ObjectStore, keys: (string | null)[]): Promise<void> {
-  await Promise.all(keys.filter((key): key is string => Boolean(key)).map((key) =>
-    store.delete(key).catch((error) => console.warn("[summaries] retired image delete failed", error))));
-}
-
-async function copyToFreshKey(store: ObjectStore, from: string, to: string): Promise<string | null> {
-  try {
-    const object = await store.get(from);
-    await store.put(to, { ...object, cacheControl: OG_CACHE_CONTROL });
-    return to;
-  } catch (error) {
-    console.warn("[summaries] image key rotation failed; the old public image URL stays valid", error);
-    return null;
-  }
-}
-
-/**
- * Copies the summary's images to new random keys. `changes` holds the keys that moved; the caller
- * saves them and then deletes `retired`. A copy that failed keeps its old key (and URL).
- */
-export async function rotateImageKeys(
-  store: ObjectStore,
-  row: Pick<SummaryRow, "id"> & ImageKeys,
-  now: Date,
-): Promise<{ changes: Partial<ImageKeys>; retired: string[] }> {
-  const changes: Partial<ImageKeys> = {};
-  const retired: string[] = [];
-  const [og, art] = await Promise.all([
-    row.ogImageKey ? copyToFreshKey(store, row.ogImageKey, ogImageKey(row.id, now.getTime())) : null,
-    row.artImageKey ? copyToFreshKey(store, row.artImageKey, artImageKey(row.id, now.getTime())) : null,
-  ]);
-  if (og && row.ogImageKey) {
-    changes.ogImageKey = og;
-    retired.push(row.ogImageKey);
-  }
-  if (art && row.artImageKey) {
-    changes.artImageKey = art;
-    retired.push(row.artImageKey);
-  }
-  return { changes, retired };
 }
 
 /** Removes a summary row, its dependents and its R2 objects (best effort for objects). */

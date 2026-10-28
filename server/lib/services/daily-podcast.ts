@@ -12,7 +12,7 @@ import type { LanguageModelUsage } from "ai";
 import { getAiProvider } from "@/lib/ai/provider";
 import { podcastVoices } from "@/lib/ai/models";
 import { LANGUAGE_NAMES, normalizeDraft } from "@/lib/ai/summary-schema";
-import { createDailyPodcastSchema, podcastScriptSchema, type DailyPodcast, type PodcastDay, type PodcastProgress, type PodcastScript } from "@/lib/contracts/daily-podcast";
+import { createDailyPodcastSchema, podcastScriptSchema, type DailyPodcast, type PodcastDay, type PodcastPlanFrame, type PodcastProgress, type PodcastScript } from "@/lib/contracts/daily-podcast";
 import type { AiProvider } from "@/lib/ai/provider";
 import type { SummaryRow } from "@/lib/db/schema";
 import type { z } from "zod";
@@ -61,14 +61,14 @@ export async function savedDailyPodcast(db: Database, user: string, day: Podcast
 type ProgressListener = (progress: PodcastProgress) => void;
 const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set<ProgressListener>; latest: PodcastProgress }>();
 
-export async function createDailyPodcast(db: Database, user: string, input: z.infer<typeof createDailyPodcastSchema>, deps: ServiceDeps = {}, onProgress?: ProgressListener) {
+export async function createDailyPodcast(db: Database, user: string, input: z.infer<typeof createDailyPodcastSchema>, deps: ServiceDeps & { approvedPlan?: { id: string; script: PodcastScript; frames?: (PodcastPlanFrame | null)[] } } = {}, onProgress?: ProgressListener) {
   const store = deps.store ?? getObjectStore();
   const highlights = input.recap || !input.library || input.durationSeconds !== undefined;
   const targetDurationSeconds = input.recap ? Math.min(179, input.durationSeconds ?? 179) : input.durationSeconds ?? (!input.library ? 360 : undefined);
   // Only scheduled recaps have a hard limit; the manual Length picker is a target.
   const maxDurationSeconds = input.recap ? targetDurationSeconds : undefined;
   const base = dayKey(user, input.day);
-  const requestKey = `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.videoStyle ?? "news", input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false, input.durationSeconds ?? null])}`;
+  const requestKey = deps.approvedPlan?.id ?? `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.videoStyle ?? "news", input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false, input.durationSeconds ?? null])}`;
   // Concurrent taps share a generation, even if the second requested regeneration.
   const pending = writing.get(requestKey);
   if (pending) {
@@ -86,6 +86,14 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
   };
   report("preparing", 0);
   const run = (async () => {
+    if (deps.approvedPlan) {
+      const [existing] = await db.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.key, deps.approvedPlan.id), eq(podcastEpisodes.ownerId, user)));
+      if (existing) {
+        if (existing.deleted) throw new ApiError(409, "PODCAST_PLAN_USED", "This plan's podcast was removed. Create a new plan.");
+        await authorize(db, user, existing.document);
+        return existing.document;
+      }
+    }
     const saved = input.regenerate || input.library || input.chipIds || input.durationSeconds !== undefined ? null : await savedDailyPodcast(db, user, input.day);
     if (saved && !input.regenerate && !input.recap) { report("complete", 100); return saved; }
     // Regenerating a library podcast adds a version to its chip rather than creating another chip.
@@ -107,14 +115,14 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
     if (input.speakerNames && input.speakerNames.length > voices.length) {
       throw new ApiError(400, "PODCAST_SPEAKERS_UNAVAILABLE", `Up to ${voices.length} speakers are available. Choose fewer speakers.`);
     }
-    const key = randomUUID();
+    const key = deps.approvedPlan?.id ?? randomUUID();
     const charge = await reservePodcastPoints(user, key, ai.podcastModelId(), deps.billingEnvironment);
     const usage: LanguageModelUsage[] = [];
     const deadline = AbortSignal.timeout(270_000);
     let coverTask: Promise<PodcastCover | null> | null = null;
     try {
       report("script", 5);
-      const script = podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, recap: highlights, maxDurationSeconds: targetDurationSeconds, approximateDuration: !input.recap,
+      const script = deps.approvedPlan?.script ?? podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, recap: highlights, maxDurationSeconds: targetDurationSeconds, approximateDuration: !input.recap,
         chips: chips.map(({ chip }) => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })) },
       { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]), onUsage: (step) => usage.push(step) }));
       if ((input.speakerNames && (script.speakers.length !== input.speakerNames.length || script.speakers.some((speaker, index) => speaker.name !== input.speakerNames![index]))) || new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || (!highlights && chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id)))) {
@@ -144,6 +152,17 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
         return { ...segment, imagePath: chipArtPath(chip), icon: chip.theme.emoji || "🎙️" };
       }), deadline, (completed, total) => report("speech", 20 + Math.floor(50 * completed / total), completed, total));
       const segments = voiced.segments;
+      // Approved storyboard frames move next to the recording, where the video designer and renderers read assets.
+      if (deps.approvedPlan?.frames) {
+        await Promise.all(deps.approvedPlan.frames.map(async (frame, index) => {
+          if (!frame || !segments[index]) return;
+          const file = `video-assets/plan/storyboard-${index + 1}.png`;
+          try {
+            await store.put(`${base}/${key}/${file}`, { ...await store.get(frame.key), contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
+            segments[index].storyboard = { path: `gen/storyboard-${index + 1}.png`, file, width: frame.width, height: frame.height };
+          } catch (error) { console.warn("[podcast] storyboard frame could not be copied", { key, index, error }); }
+        }));
+      }
       const podcast: DailyPodcast = { ...script, type: input.library ? "regular" : "daily", segments, key, language: input.language, day: input.day,
         ...(maxDurationSeconds ? { maxDurationSeconds } : {}),
         chipIds: chips.map(({ chip }) => chip.id), createdAt: (deps.now?.() ?? new Date()).toISOString() };

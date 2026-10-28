@@ -275,6 +275,16 @@
     "%lld" : {
 
     },
+    "%lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld · %2$@"
+          }
+        }
+      }
+    },
     "%lld / %lld" : {
       "localizations" : {
         "en" : {
@@ -325,6 +335,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 個 LaTeX 錯誤"
+          }
+        }
+      }
+    },
+    "%lld lines" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 行"
           }
         }
       }
@@ -568,6 +594,22 @@
     },
     "%lld." : {
 
+    },
+    "%lld/500 characters" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld/500 个字符"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld/500 個字元"
+          }
+        }
+      }
     },
     "%lld+ results" : {
       "localizations" : {
@@ -2085,6 +2127,22 @@
         }
       }
     },
+    "Ask to change the script or storyboard…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求修改脚本或分镜…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請求修改腳本或分鏡…"
+          }
+        }
+      }
+    },
     "Ask Trip Agent" : {
 
     },
@@ -2480,6 +2538,22 @@
     },
     "Calendar updated" : {
 
+    },
+    "Camera Direction" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "镜头说明"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鏡頭說明"
+          }
+        }
+      }
     },
     "Cancel" : {
       "localizations" : {
@@ -3326,6 +3400,22 @@
         }
       }
     },
+    "Composition, camera movement and transition" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "构图、镜头运动和转场"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "構圖、鏡頭運動和轉場"
+          }
+        }
+      }
+    },
     "Configuration copied" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3354,6 +3444,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定…"
+          }
+        }
+      }
+    },
+    "Confirm & Generate" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认并生成"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認並生成"
           }
         }
       }
@@ -3933,6 +4039,22 @@
         }
       }
     },
+    "Couldn't Save Line" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存此行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存此行"
+          }
+        }
+      }
+    },
     "Couldn't Save Rendering Options" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4000,6 +4122,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法更新喜歡"
+          }
+        }
+      }
+    },
+    "Couldn't Update Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更新规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法更新規劃"
           }
         }
       }
@@ -4632,6 +4770,22 @@
     "Delete Job Log?" : {
 
     },
+    "Delete Line" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除此行"
+          }
+        }
+      }
+    },
     "Delete My Account" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4717,6 +4871,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除摘要"
+          }
+        }
+      }
+    },
+    "Delete this line?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要删除这一行吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要刪除這一行嗎？"
           }
         }
       }
@@ -5138,6 +5308,9 @@
         }
       }
     },
+    "Done (%lld)" : {
+
+    },
     "Download" : {
 
     },
@@ -5196,8 +5369,40 @@
     "Drag to resize the editor and preview." : {
 
     },
+    "Draw %lld Missing Frames" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "绘制 %lld 个缺失画面"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繪製 %lld 個缺少的畫面"
+          }
+        }
+      }
+    },
     "Drawing figure…" : {
 
+    },
+    "Drawing storyboard frames…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在绘制分镜画面…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在繪製分鏡畫面…"
+          }
+        }
+      }
     },
     "Drop to Add Image" : {
 
@@ -5463,6 +5668,22 @@
     },
     "Edit Sharing…" : {
 
+    },
+    "Edit this line" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑这一行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯這一行"
+          }
+        }
+      }
     },
     "Edit Transport" : {
       "localizations" : {
@@ -6740,6 +6961,22 @@
         }
       }
     },
+    "Generate this podcast?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要生成这期播客吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要生成這集 Podcast 嗎？"
+          }
+        }
+      }
+    },
     "Generate Video" : {
 
     },
@@ -6767,6 +7004,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在產生摘要…"
+          }
+        }
+      }
+    },
+    "Generation uses points and follows the script and camera storyboard you reviewed. Shots without a frame are designed from their camera direction." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成会消耗点数，并遵循你审阅过的脚本和镜头分镜。没有画面的镜头将按其镜头说明设计。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成會消耗點數，並遵循你審閱過的腳本和鏡頭分鏡。沒有畫面的鏡頭將依其鏡頭說明設計。"
+          }
+        }
+      }
+    },
+    "Generation uses points and follows the script, camera storyboard and frames you reviewed." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成会消耗点数，并遵循你审阅过的脚本、镜头分镜和画面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成會消耗點數，並遵循你審閱過的腳本、鏡頭分鏡和畫面。"
           }
         }
       }
@@ -7037,6 +7306,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "說明"
+          }
+        }
+      }
+    },
+    "Here's a plan with the script and camera storyboard. Ask me to change anything, or tap a line to edit it yourself." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是包含脚本和镜头分镜的规划。告诉我想修改什么，或点按某一行自行编辑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這是包含腳本和鏡頭分鏡的規劃。告訴我想修改什麼，或點按某一行自行編輯。"
           }
         }
       }
@@ -7431,6 +7716,22 @@
         }
       }
     },
+    "Keep Reviewing" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续审阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續審閱"
+          }
+        }
+      }
+    },
     "Keep the image's original file extension." : {
 
     },
@@ -7783,6 +8084,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "路線"
+          }
+        }
+      }
+    },
+    "Line %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 行"
           }
         }
       }
@@ -9032,6 +9349,9 @@
         }
       }
     },
+    "No Chips" : {
+
+    },
     "No clips match the current filters." : {
       "localizations" : {
         "zh-Hans" : {
@@ -9358,6 +9678,9 @@
 
     },
     "No References" : {
+
+    },
+    "No Results" : {
 
     },
     "No Reviews" : {
@@ -10457,6 +10780,22 @@
         }
       }
     },
+    "Output" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输出"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸出"
+          }
+        }
+      }
+    },
     "Page & Columns" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10855,8 +11194,40 @@
         }
       }
     },
+    "PLAN" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃"
+          }
+        }
+      }
+    },
     "Plan each day with places, transport and bookings, and follow your itinerary on the map. Track expenses in your chosen currency, share your trip, and ask the trip agent to help organise your plans. Find it all in Trips." : {
 
+    },
+    "Plan Mode" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划模式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃模式"
+          }
+        }
+      }
     },
     "Planned" : {
       "comment" : "Booking status",
@@ -10967,6 +11338,22 @@
     },
     "Podcast Options" : {
 
+    },
+    "Podcast Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播客规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podcast 規劃"
+          }
+        }
+      }
     },
     "Podcast playback position" : {
       "localizations" : {
@@ -11201,6 +11588,22 @@
     },
     "Preparing podcast…" : {
 
+    },
+    "Preparing script and storyboard…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备脚本和分镜…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備腳本和分鏡…"
+          }
+        }
+      }
     },
     "Preparing video…" : {
 
@@ -12308,6 +12711,22 @@
     "Retry" : {
 
     },
+    "Retry Generation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试生成"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重試生成"
+          }
+        }
+      }
+    },
     "Retry started successfully" : {
 
     },
@@ -12335,13 +12754,74 @@
       }
     },
     "Review" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "审阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "審閱"
+          }
+        }
+      }
+    },
+    "Review and revise the script and camera storyboard after clicking Generate. Media is generated only after you confirm. Planning uses points." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击“生成”后可审阅并修改脚本和镜头分镜。确认后才会生成音视频。规划会消耗点数。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按一下「生成」後可審閱並修改腳本和鏡頭分鏡。確認後才會生成音訊與影片。規劃會消耗點數。"
+          }
+        }
+      }
+    },
+    "Review and revise the script and camera storyboard after tapping Generate. Media is generated only after you confirm. Planning uses points." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按“生成”后可审阅并修改脚本和镜头分镜。确认后才会生成音视频。规划会消耗点数。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "點按「生成」後可審閱並修改腳本和鏡頭分鏡。確認後才會生成音訊與影片。規劃會消耗點數。"
+          }
+        }
+      }
     },
     "Review Changes" : {
 
     },
     "Review permissions and disconnect this authorization" : {
 
+    },
+    "Review Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "审阅规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "審閱規劃"
+          }
+        }
+      }
     },
     "Review what each app can access. Select an app to manage its authorization." : {
 
@@ -12355,8 +12835,37 @@
     "Reviews…" : {
 
     },
+    "Revising the plan…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在修改规划…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在修改規劃…"
+          }
+        }
+      }
+    },
     "Revision %lld" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 版"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 版"
+          }
+        }
+      }
     },
     "Revoke" : {
       "localizations" : {
@@ -12681,6 +13190,38 @@
         }
       }
     },
+    "Saving line…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保存…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在儲存…"
+          }
+        }
+      }
+    },
+    "Saving redraws this frame from the new camera direction. Drawing uses points." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存后会按新的镜头说明重新绘制此画面。绘制会消耗点数。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存後會依新的鏡頭說明重新繪製此畫面。繪製會消耗點數。"
+          }
+        }
+      }
+    },
     "Saving rendering options…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12757,6 +13298,22 @@
     },
     "Schedule saved" : {
 
+    },
+    "Script" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脚本"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "腳本"
+          }
+        }
+      }
     },
     "Script ready" : {
 
@@ -13780,6 +14337,22 @@
         }
       }
     },
+    "Speaker" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讲者"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "講者"
+          }
+        }
+      }
+    },
     "Speaker %lld" : {
 
     },
@@ -13788,6 +14361,22 @@
     },
     "Spec (JSON)" : {
 
+    },
+    "Spoken script" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口播稿"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "口播稿"
+          }
+        }
+      }
     },
     "Standard" : {
       "extractionState" : "manual",
@@ -14525,6 +15114,22 @@
     "The image was replaced." : {
 
     },
+    "The line and its storyboard shot are removed from the plan." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一行及其分镜镜头将从规划中移除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這一行及其分鏡鏡頭將從規劃中移除。"
+          }
+        }
+      }
+    },
     "The link and preview stop working and the paper is removed permanently. To only stop sharing, make it private instead." : {
       "localizations" : {
         "zh-Hans" : {
@@ -14658,6 +15263,22 @@
     },
     "The script keeps writing on the server if you leave, then the HD video renders in the cloud. Open Background Jobs to follow both." : {
 
+    },
+    "The storyboard frame for this line." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一行的分镜画面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這一行的分鏡畫面。"
+          }
+        }
+      }
     },
     "The summary, key points and source text are translated the first time you pick a language. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
       "extractionState" : "stale",
@@ -15599,6 +16220,9 @@
         }
       }
     },
+    "Try a different search." : {
+
+    },
     "Try Again" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15614,6 +16238,9 @@
           }
         }
       }
+    },
+    "Try another source or search." : {
+
     },
     "Turn this day's chips into a podcast with captions and artwork. Choose a language before generating." : {
       "localizations" : {
@@ -16093,6 +16720,22 @@
         }
       }
     },
+    "Use This Script and Storyboard" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用此脚本和分镜"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用此腳本和分鏡"
+          }
+        }
+      }
+    },
     "Used %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16365,6 +17008,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "遊覽時長"
+          }
+        }
+      }
+    },
+    "Voice" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "声音"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聲音"
           }
         }
       }
@@ -16818,6 +17477,22 @@
         }
       }
     },
+    "You'll review the plan before any audio or video is made." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在生成任何音频或视频之前，你会先审阅规划。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在製作任何音訊或影片之前，你會先審閱規劃。"
+          }
+        }
+      }
+    },
     "You're offline" : {
       "localizations" : {
         "zh-Hans" : {
@@ -17097,6 +17772,214 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "縮小"
+          }
+        }
+      }
+    },
+    "Planned Podcasts" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已规划的播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已規劃的 Podcast"
+          }
+        }
+      }
+    },
+    "Planned Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已规划的播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已規劃的 Podcast"
+          }
+        }
+      }
+    },
+    "PLANNED" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已規劃"
+          }
+        }
+      }
+    },
+    "%lld lines · %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 行 · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 行 · %@"
+          }
+        }
+      }
+    },
+    "Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃"
+          }
+        }
+      }
+    },
+    "Plan Actions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划操作"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃操作"
+          }
+        }
+      }
+    },
+    "Delete Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除規劃"
+          }
+        }
+      }
+    },
+    "Delete this planned podcast?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要删除这个已规划的播客吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要刪除這個已規劃的 Podcast 嗎？"
+          }
+        }
+      }
+    },
+    "Its script, storyboard and frames are removed. Points already spent on planning aren't refunded." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其脚本、分镜和画面将被删除。已用于规划的点数不会退还。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其腳本、分鏡和畫面將被刪除。已用於規劃的點數不會退還。"
+          }
+        }
+      }
+    },
+    "Couldn't Open Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法打開規劃"
+          }
+        }
+      }
+    },
+    "Opening plan…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打开规划…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打開規劃…"
+          }
+        }
+      }
+    },
+    "Deleting plan…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在删除规划…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在刪除規劃…"
+          }
+        }
+      }
+    },
+    "Opens the plan to keep reviewing it" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开规划以继续审阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打開規劃以繼續審閱"
           }
         }
       }

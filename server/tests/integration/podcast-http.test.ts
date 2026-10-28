@@ -27,6 +27,15 @@ describe.skipIf(!process.env.PODCAST_SIMULATION_URL)("podcast narration over HTT
       { text: "Here is the news", startSeconds: 2.8, endSeconds: 4.2 },
     ]);
   });
+  it("writes a reviewable script with a camera storyboard through the real HTTP adapter", async () => {
+    const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
+    const script = await writePodcast(gateway("fixture/podcast"), {
+      language: "English", voices: ["voice-a"], storyboard: true,
+      chips: [{ id: "one", title: "Science", summary: "A scientific discovery.", highlights: [] }],
+    });
+    expect(script.segments[0].camera).toContain("slow push in");
+    expect(script.segments[0].caption).toBe("A scientific discovery.");
+  });
   it("uses the gateway SDK and validates grounded multi-host output", async () => {
     const gateway = createGateway({ baseURL: process.env.PODCAST_SIMULATION_URL, apiKey: "local-fixture-only" });
     const script = await writePodcast(gateway("fixture/podcast"), {

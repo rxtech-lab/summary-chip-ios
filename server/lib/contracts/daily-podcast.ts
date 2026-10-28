@@ -21,8 +21,8 @@ export const patchPodcastShareLinkSchema = z.object({
   ttlDays: ttlDaysSchema.optional(),
 }).strict();
 export type PatchPodcastShareLinkInput = z.infer<typeof patchPodcastShareLinkSchema>;
-/** Art directions the video designer offers: an editorial TV explainer, or hand-drawn crayon. */
-export const PODCAST_VIDEO_STYLES = ["news", "crayon"] as const;
+/** Art directions the video designer offers: an editorial TV explainer, hand-drawn crayon, or a software update keynote. */
+export const PODCAST_VIDEO_STYLES = ["news", "crayon", "update"] as const;
 export type PodcastVideoStyle = (typeof PODCAST_VIDEO_STYLES)[number];
 export const podcastVideoStyleSchema = z.enum(PODCAST_VIDEO_STYLES);
 /** Longest host name a caller may choose. */
@@ -78,8 +78,36 @@ export const podcastScriptSchema = z.object({
     speaker: z.number().int().min(0).max(3),
     chipId: z.string().min(1),
     caption: z.string().trim().min(1).max(500),
+    /** Approved shot composition, camera movement, and transition for this spoken turn. */
+    camera: z.string().trim().min(1).max(2000).optional(),
   })).min(1),
 });
+export const podcastPlanScriptSchema = podcastScriptSchema.extend({
+  segments: podcastScriptSchema.shape.segments.element.extend({ camera: z.string().trim().min(1).max(2000) }).array().min(1).max(300),
+});
+export const revisePodcastPlanSchema = z.object({ revision: z.number().int().nonnegative(), script: podcastPlanScriptSchema }).strict();
+export const confirmPodcastPlanSchema = z.object({ revision: z.number().int().nonnegative() }).strict();
+/** `POST /api/v1/daily-podcasts/plans/:id/messages`: a chat request that revises the plan (spends points). */
+export const refinePodcastPlanSchema = z.object({ revision: z.number().int().nonnegative(), message: z.string().trim().min(1).max(2000) }).strict();
+/** `POST /api/v1/daily-podcasts/plans/:id/frames`: draws storyboard frames for shots that have none (spends points). */
+export const drawPodcastPlanFramesSchema = z.object({ revision: z.number().int().nonnegative() }).strict();
+/** One exchange in a plan's refinement chat. */
+export interface PodcastPlanMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  /** The plan revision this message produced (assistant) or was written against (user). */
+  revision: number;
+  createdAt: string;
+}
+/** A drawn storyboard frame, stored privately under the plan. Keyed by the camera direction it pictures. */
+export interface PodcastPlanFrame {
+  key: string;
+  width: number;
+  height: number;
+}
+export type PodcastCreationInput = z.infer<typeof createDailyPodcastSchema>;
+export type PodcastPlanScript = z.infer<typeof podcastPlanScriptSchema>;
 export type PodcastScript = z.infer<typeof podcastScriptSchema>;
 export type PodcastDay = z.infer<typeof podcastDaySchema>;
 /** One spoken language of an episode. Segments match the original's one to one (speaker, chip, order). */
@@ -126,7 +154,9 @@ export interface DailyPodcast extends PodcastScript {
     /** When the voice is audible within the turn, and its pauses, all in episode seconds; captions are timed against these. */
     captionCues?: { text: string; startSeconds: number; endSeconds: number; paged?: boolean }[];
     voiceStartSeconds?: number; voiceEndSeconds?: number; pauseSeconds?: number[];
-    imagePath: string | null; icon: string })[];
+    imagePath: string | null; icon: string;
+    /** The approved storyboard frame of a planned episode, copied next to the recording as a video asset. */
+    storyboard?: PodcastVideoAsset })[];
 }
 
 /** Maximum size of a published podcast video render (MP4). */

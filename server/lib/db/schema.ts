@@ -790,3 +790,21 @@ export const dailyRecapRuns = sqliteTable("daily_recap_runs", {
   error: text("error"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
 }, table => [uniqueIndex("daily_recap_owner_date_idx").on(table.ownerId, table.date)]);
+
+/** Reviewable script and camera storyboard, frozen on confirmation. */
+export const podcastPlans = sqliteTable("podcast_plans", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  input: text("input", { mode: "json" }).$type<import("@/lib/contracts/daily-podcast").PodcastCreationInput>().notNull(),
+  script: text("script", { mode: "json" }).$type<import("@/lib/contracts/daily-podcast").PodcastPlanScript>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  generatingUntil: integer("generating_until").notNull().default(0),
+  confirmed: integer("confirmed", { mode: "boolean" }).notNull().default(false),
+  /** Drawn storyboard frames keyed by a hash of the camera direction they picture. */
+  frames: text("frames", { mode: "json" }).$type<Record<string, import("@/lib/contracts/daily-podcast").PodcastPlanFrame>>().notNull().default({}),
+  /** The refinement chat, oldest first. */
+  messages: text("messages", { mode: "json" }).$type<import("@/lib/contracts/daily-podcast").PodcastPlanMessage[]>().notNull().default([]),
+  /** Epoch milliseconds; plans saved before timestamps read as 0. */
+  createdAt: integer("created_at").notNull().default(0),
+  updatedAt: integer("updated_at").notNull().default(0),
+}, table => [index("podcast_plans_owner_idx").on(table.ownerId, table.confirmed, table.updatedAt)]);

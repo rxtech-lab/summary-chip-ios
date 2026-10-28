@@ -9,12 +9,19 @@ struct DailyPodcastGenerationSheet: View {
     var library = false
     var initialChip: Summary? = nil
     var videoOnly = false
+    /// An unconfirmed plan reopened from the library: the sheet goes straight to its review and generates from it.
+    var resumingPlan: PodcastPlan? = nil
     let onGenerated: (DailyPodcast) -> Void
     @Environment(\.dismiss) private var dismiss
     @AppStorage("podcast.generation.language") private var savedLanguage = ""
     @AppStorage("podcast.generation.includeVideo") private var savedIncludeVideo = true
     @AppStorage("podcast.generation.speakerNames") private var savedSpeakerNames = "[]"
     @AppStorage("podcast.generation.videoStyle") private var savedVideoStyle = PodcastVideoStyle.news.rawValue
+    @State private var plan: PodcastPlan?
+    @State private var approvedPlan: PodcastPlan?
+    @State private var showsPlan = false
+    @AppStorage("podcast.generation.planMode") private var planMode = false
+    @State private var preparingPlan = false
     @State private var speakerNames: [String] = []
     @State private var showsSpeakers = false
     @State private var videoStyle: PodcastVideoStyle = .news
@@ -51,33 +58,53 @@ struct DailyPodcastGenerationSheet: View {
                             Text("Podcast").tag(false)
                             Text(existing.video == nil ? "Generate Video" : "Video only").tag(true)
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .disabled(plan != nil)
                     }
                 }
-                if !regenerateVideoOnly { generationSection }
-                if regenerateVideoOnly {
-                    Section { videoStyleRow }
-                }
-                Section {
-                    Text("Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it.")
-                        .foregroundStyle(.secondary)
+                if let plan, resumingPlan != nil {
+                    resumedPlanSection(plan)
+                } else if regenerateVideoOnly {
+                    Section { videoStyleRow } footer: { generationNote }
+                } else {
+                    Group {
+                        sourcesSection
+                        voiceSection
+                        outputSection
+                    }
+                    .disabled(plan != nil)
+                    planSection
                 }
             }
             .formStyle(.grouped)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(existing != nil ? "Regenerate Podcast" : library ? "New Podcast" : "New Daily Podcast")
+            .navigationTitle(resumingPlan != nil ? "Planned Podcast" : existing != nil ? "Regenerate Podcast" : library ? "New Podcast" : "New Daily Podcast")
             .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }.disabled(generating)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(pendingEpisode != nil ? "Retry Video" : "Generate") { generate() }
-                        .disabled(generating || loading || options == nil || (pendingEpisode == nil && !regenerateVideoOnly && (selected.isEmpty || !speakerNamesValid)))
+                    Button(pendingEpisode != nil ? "Retry Video" : approvedPlan != nil ? "Retry Generation" : plan != nil ? "Review Plan" : "Generate") {
+                        // Plan mode turns Generate into drafting the plan, then reviewing it; media starts after confirmation.
+                        if (planMode || plan != nil) && approvedPlan == nil && pendingEpisode == nil && !regenerateVideoOnly { preparePlan() } else { generate() }
+                    }
+                        .disabled(generating || loading || (resumingPlan == nil && (options == nil || (pendingEpisode == nil && !regenerateVideoOnly && (selected.isEmpty || !speakerNamesValid)))))
                         .accessibilityIdentifier("podcast-generation-submit")
                 }
             }
             .disabled(generating)
             .overlay { generationOverlay }
+            .animation(.easeInOut(duration: 0.2), value: generating)
+            .sheet(isPresented: $showsPlan, onDismiss: {
+                // A plan reopened from the library returns there when closed unconfirmed; it stays listed.
+                if approvedPlan != nil { generate() } else if resumingPlan != nil { dismiss() }
+            }) {
+                if let plan {
+                    PodcastPlanSheet(api: api, initial: plan, onConfirm: { approvedPlan = $0 }, onSave: { self.plan = $0 })
+                }
+            }
             .sheet(isPresented: $showsSpeakers) {
                 PodcastSpeakersSheet(names: $speakerNames, limits: options?.speakers)
             }
@@ -103,76 +130,142 @@ struct DailyPodcastGenerationSheet: View {
             .sensoryFeedback(.selection, trigger: regenerateVideoOnly)
             .sensoryFeedback(.selection, trigger: videoStyle)
             .sensoryFeedback(.selection, trigger: durationSeconds)
+            .sensoryFeedback(.selection, trigger: planMode)
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
+        .frame(minWidth: 320, idealWidth: 520, minHeight: 400, maxHeight: .infinity)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
 
-    private var generationSection: some View {
+    private func resumedPlanSection(_ plan: PodcastPlan) -> some View {
         Section {
-            Picker("Media", selection: $includeVideo) {
-                Text("Audio + video").tag(true)
-                Text("Audio only").tag(false)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(plan.script.title).font(.headline)
+                if let summary = plan.script.summary { Text(summary).foregroundStyle(.secondary).lineLimit(4) }
+                Text("\(plan.script.segments.count) lines").font(.caption).foregroundStyle(.secondary)
             }
-            .accessibilityIdentifier("podcast-generation-media")
-            Picker("Language", selection: $language) {
-                ForEach(options?.languages ?? [language]) { Text($0.title).tag($0) }
+            .padding(.vertical, 4)
+            if approvedPlan == nil && pendingEpisode == nil {
+                sheetRow("Review Plan", systemImage: "list.bullet.clipboard", value: "", id: "podcast-resume-plan") { showsPlan = true }
             }
-            Button { showsSpeakers = true } label: {
-                HStack {
-                    Label("Speakers", systemImage: "person.2")
-                    Spacer()
-                    Text(speakerNames.isEmpty ? String(localized: "Automatic") : speakerNames.joined(separator: ", "))
-                        .foregroundStyle(.secondary).lineLimit(1)
-                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+        } header: {
+            Text("Plan")
+        } footer: {
+            generationNote
+        }
+    }
+
+    private var generationNote: some View {
+        Text("Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it.")
+    }
+
+    /// A form row that opens a dedicated sheet, styled like a navigation row on every platform.
+    private func sheetRow(_ title: LocalizedStringKey, systemImage: String, value: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            LabeledContent {
+                HStack(spacing: 6) {
+                    Text(value).lineLimit(1).truncationMode(.tail)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                 }
+                .foregroundStyle(.secondary)
+            } label: {
+                Label(title, systemImage: systemImage).foregroundStyle(.primary)
             }
-            .accessibilityIdentifier("podcast-generation-speakers")
-            .disabled(options.map { $0.speakers.maxCount == 0 } ?? true)
-            Button { showsChips = true } label: {
-                HStack {
-                    Label("Chips", systemImage: "square.stack")
-                    Spacer()
-                    Text("\(selected.count) selected").foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+    }
+
+    @ViewBuilder private var planSection: some View {
+        if !regenerateVideoOnly && pendingEpisode == nil {
+            Section {
+                #if os(macOS)
+                Toggle(isOn: planModeBinding) {
+                    Text("Plan Mode")
+                    Text("Review and revise the script and camera storyboard after clicking Generate. Media is generated only after you confirm. Planning uses points.")
                 }
-            }
-            .accessibilityIdentifier("podcast-select-chips")
-            .disabled(loading)
-            if let duration = options?.duration {
-                Button { showsDuration = true } label: {
+                .toggleStyle(.checkbox)
+                .disabled(approvedPlan != nil)
+                .accessibilityIdentifier("podcast-generation-plan")
+                #else
+                Button { planModeBinding.wrappedValue.toggle() } label: {
                     HStack {
-                        Label("Length", systemImage: "clock")
+                        Label("Plan Mode", systemImage: "list.bullet.clipboard").foregroundStyle(.primary)
                         Spacer()
-                        let preset = duration.presets.first { $0.seconds == durationSeconds }
-                        Text([preset?.title, PodcastDurationSheet.time(durationSeconds)].compactMap { $0 }.joined(separator: " · "))
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        Image(systemName: planMode ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(planMode ? Color.accentColor : Color.secondary)
+                            .imageScale(.large)
                     }
+                    .contentShape(Rectangle())
                 }
-                .accessibilityIdentifier("podcast-generation-duration")
-                .disabled(pendingEpisode != nil)
+                .buttonStyle(.plain)
+                .disabled(approvedPlan != nil)
+                .accessibilityAddTraits(planMode ? .isSelected : [])
+                .accessibilityIdentifier("podcast-generation-plan")
+                #endif
+            } header: {
+                Text("Review")
+            } footer: {
+                VStack(alignment: .leading, spacing: 8) {
+                    #if !os(macOS)
+                    Text("Review and revise the script and camera storyboard after tapping Generate. Media is generated only after you confirm. Planning uses points.")
+                    #endif
+                    generationNote
+                }
             }
-            if includeVideo { videoStyleRow }
+        }
+    }
+
+    /// Turning plan mode off discards the unconfirmed draft and unlocks the options.
+    private var planModeBinding: Binding<Bool> {
+        Binding(get: { planMode }, set: { planMode = $0; if !$0 { plan = nil } })
+    }
+
+    private var sourcesSection: some View {
+        Section {
+            sheetRow("Chips", systemImage: "square.stack", value: String(localized: "\(selected.count) selected"), id: "podcast-select-chips") { showsChips = true }
+                .disabled(loading)
+            if let duration = options?.duration {
+                let preset = duration.presets.first { $0.seconds == durationSeconds }
+                sheetRow("Length", systemImage: "clock", value: [preset?.title, PodcastDurationSheet.time(durationSeconds)].compactMap { $0 }.joined(separator: " · "),
+                         id: "podcast-generation-duration") { showsDuration = true }
+                    .disabled(pendingEpisode != nil)
+            }
+        } header: {
+            Text("Sources")
         } footer: {
             Text(existing?.summaryId != nil ? "Choose the source chips for a new version of this podcast chip. Earlier versions stay in Manage Versions." : isLibrary ? "Search your library and choose the source chips for a new podcast chip. Podcast chips are excluded from daily generation." : "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary follows your chosen length.")
         }
     }
 
-    private var videoStyleRow: some View {
-        Button { showsVideoStyles = true } label: {
-            HStack {
-                Label("Video Style", systemImage: "paintpalette")
-                Spacer()
-                Text(options?.videoStyle(videoStyle)?.title ?? "").foregroundStyle(.secondary).lineLimit(1)
-                Image(systemName: "chevron.right").foregroundStyle(.secondary)
-            }
+    private var voiceSection: some View {
+        Section("Voice") {
+            Picker(selection: $language) {
+                ForEach(options?.languages ?? [language]) { Text($0.title).tag($0) }
+            } label: { Label("Language", systemImage: "globe") }
+            sheetRow("Speakers", systemImage: "person.2", value: speakerNames.isEmpty ? String(localized: "Automatic") : speakerNames.joined(separator: ", "),
+                     id: "podcast-generation-speakers") { showsSpeakers = true }
+                .disabled(options.map { $0.speakers.maxCount == 0 } ?? true)
         }
-        .accessibilityIdentifier("podcast-generation-video-style")
-        .disabled(options == nil)
+    }
+
+    private var outputSection: some View {
+        Section("Output") {
+            Picker(selection: $includeVideo) {
+                Text("Audio + video").tag(true)
+                Text("Audio only").tag(false)
+            } label: { Label("Media", systemImage: "film") }
+            .accessibilityIdentifier("podcast-generation-media")
+            if includeVideo { videoStyleRow }
+        }
+    }
+
+    private var videoStyleRow: some View {
+        sheetRow("Video Style", systemImage: "paintpalette", value: options?.videoStyle(videoStyle)?.title ?? "", id: "podcast-generation-video-style") { showsVideoStyles = true }
+            .disabled(options == nil)
     }
 
     private var speakerNamesValid: Bool {
@@ -183,6 +276,18 @@ struct DailyPodcastGenerationSheet: View {
 
     @ViewBuilder private var generationOverlay: some View {
         if generating {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
+                generationCard
+            }
+            .transition(.opacity)
+        } else if loading {
+            ProgressView("Loading chips…")
+                .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private var generationCard: some View {
             VStack(spacing: 12) {
                 if let progress = renderProgress {
                     Text(progress.title).font(.headline)
@@ -210,20 +315,36 @@ struct DailyPodcastGenerationSheet: View {
                             .accessibilityIdentifier("podcast-generation-background")
                     }
                 } else {
-                    ProgressView("Creating your podcast…")
+                    Image(systemName: preparingPlan ? "list.bullet.clipboard" : "waveform")
+                        .font(.system(size: 28, weight: .medium)).foregroundStyle(.tint)
+                        .symbolEffect(.pulse, options: .repeating)
+                    Text(preparingPlan ? "Preparing script and storyboard…" : "Creating your podcast…").font(.headline)
+                    if preparingPlan {
+                        Text("You'll review the plan before any audio or video is made.")
+                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    }
+                    ProgressView().progressViewStyle(.linear)
                 }
             }
-            .frame(maxWidth: 280)
-            .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .frame(width: 300)
+            .padding(24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.separator.opacity(0.5)))
+            .shadow(color: .black.opacity(0.2), radius: 24, y: 8)
             .padding()
             .accessibilityIdentifier("podcast-generation-progress")
-        } else if loading {
-            ProgressView("Loading chips…")
-                .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        }
     }
 
     private func loadChips() async {
+        if let resumingPlan {
+            // The plan carries its own sources and settings; the form isn't shown.
+            // A planned video is followed while it designs; an audio-only plan must not report a missing video.
+            includeVideo = false
+            plan = resumingPlan
+            loading = false
+            showsPlan = true
+            return
+        }
         regenerateVideoOnly = videoOnly
         includeVideo = savedIncludeVideo
         speakerNames = (try? JSONDecoder().decode([String].self, from: Data(savedSpeakerNames.utf8))) ?? []
@@ -262,8 +383,25 @@ struct DailyPodcastGenerationSheet: View {
         loading = false
     }
 
+    private func preparePlan() {
+        if plan != nil { showsPlan = true; return }
+        preparingPlan = true
+        generating = true
+        Task {
+            do {
+                plan = try await api.preparePodcastPlan(date: date, language: language, chipIds: selected.keys.sorted(),
+                    library: isLibrary, includeVideo: includeVideo, videoStyle: videoStyle, summaryID: existing?.summaryId,
+                    speakerNames: speakerNames.isEmpty ? nil : speakerNames, durationSeconds: options?.duration == nil ? nil : durationSeconds)
+                successes += 1
+                showsPlan = true
+            } catch { self.error = error.localizedDescription }
+            preparingPlan = false
+            generating = false
+        }
+    }
+
     private func generate() {
-        if pendingEpisode == nil && !regenerateVideoOnly {
+        if pendingEpisode == nil && !regenerateVideoOnly && resumingPlan == nil {
             speakerNames = speakerNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             savedLanguage = language.rawValue
             savedIncludeVideo = includeVideo
@@ -272,7 +410,7 @@ struct DailyPodcastGenerationSheet: View {
                 savedSpeakerNames = value
             }
         }
-        savedVideoStyle = videoStyle.rawValue
+        if resumingPlan == nil { savedVideoStyle = videoStyle.rawValue }
         generationProgress = nil
         renderProgress = nil
         generating = true
@@ -284,6 +422,8 @@ struct DailyPodcastGenerationSheet: View {
                     podcast = pendingEpisode.video != nil || pendingEpisode.isDesigningVideo ? pendingEpisode : try await api.composePodcastVideo(pendingEpisode, style: videoStyle)
                 } else if regenerateVideoOnly, let existing {
                     podcast = try await api.composePodcastVideo(existing, style: videoStyle)
+                } else if let approvedPlan {
+                    podcast = try await api.confirmPodcastPlan(approvedPlan, onProgress: { generationProgress = $0 })
                 } else {
                     // Regenerating a library podcast adds a version to the same chip.
                     podcast = try await api.generateDailyPodcast(date: date, language: language, regenerate: true,
@@ -359,55 +499,80 @@ private struct PodcastChipPicker: View {
         NavigationStack {
             List {
                 Section {
-                    Picker("Source", selection: $source) {
-                        Text("All Sources").tag(SummaryOrigin?.none)
-                        ForEach(SummaryOrigin.known) { Text($0.title).tag(Optional($0)) }
-                    }
-                    .accessibilityIdentifier("podcast-source-filter")
-                    if dayChips != nil {
-                        Button("Select All") {
-                            for chip in visible { selected[chip.id] = chip }; taps += 1
+                    if visible.isEmpty && !loading {
+                        ContentUnavailableView {
+                            Label(search.isEmpty ? "No Chips" : "No Results", systemImage: search.isEmpty ? "square.stack" : "magnifyingglass")
+                        } description: {
+                            Text(source == nil ? "Try a different search." : "Try another source or search.")
                         }
+                        .listRowBackground(Color.clear)
                     }
-                    Button("Clear Selection") { selected.removeAll(); taps += 1 }
-                }
-                Section("\(selected.count) selected") {
-                    if visible.isEmpty && !loading { ContentUnavailableView.search(text: search) }
                     ForEach(visible) { chip in
-                        Button {
+                        PodcastChipRow(chip: chip, isSelected: selected[chip.id] != nil) {
                             if selected[chip.id] != nil { selected.removeValue(forKey: chip.id) }
                             else { selected[chip.id] = chip }
                             taps += 1
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(chip.title).foregroundStyle(.primary)
-                                    Text(chip.source.title).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: selected[chip.id] != nil ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selected[chip.id] != nil ? Color.accentColor : .secondary)
-                            }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(selected[chip.id] != nil ? .isSelected : [])
                     }
                     if cursor != nil {
-                        Button("Load More") { Task { await load(more: true) } }.disabled(loading)
+                        Button { Task { await load(more: true) } } label: {
+                            Label("Load More", systemImage: "arrow.down.circle").frame(maxWidth: .infinity)
+                        }
+                        .disabled(loading)
+                    }
+                } header: {
+                    HStack {
+                        Text(source.map(\.title) ?? String(localized: "All Sources"))
+                        Spacer()
+                        if !selected.isEmpty {
+                            Text("\(selected.count) selected")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                                .foregroundStyle(Color.accentColor)
+                                .textCase(nil)
+                        }
                     }
                 }
             }
             .overlay {
                 if loading { ProgressView("Loading chips…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) }
             }
+            .animation(.snappy, value: selected.count)
             .navigationTitle("Choose Chips")
             .summaryInlineNavigationTitle()
             .searchable(text: $search, prompt: "Search chips")
             .searchPresentationToolbarBehavior(.avoidHidingContent)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.accessibilityIdentifier("podcast-chip-picker-done") }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(selected.isEmpty ? String(localized: "Done") : String(localized: "Done (\(selected.count))")) { dismiss() }
+                        .accessibilityIdentifier("podcast-chip-picker-done")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Picker("Source", selection: $source) {
+                            Label("All Sources", systemImage: "square.stack").tag(SummaryOrigin?.none)
+                            ForEach(SummaryOrigin.known) { origin in
+                                Label { Text(origin.title) } icon: { origin.image }.tag(Optional(origin))
+                            }
+                        }
+                        .pickerStyle(.inline)
+                        Divider()
+                        if dayChips != nil {
+                            Button("Select All", systemImage: "checkmark.circle") {
+                                for chip in visible { selected[chip.id] = chip }; taps += 1
+                            }
+                            .disabled(visible.isEmpty)
+                        }
+                        Button("Clear Selection", systemImage: "xmark.circle", role: .destructive) { selected.removeAll(); taps += 1 }
+                            .disabled(selected.isEmpty)
+                    } label: {
+                        Label("Filter", systemImage: source == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    }
+                    .accessibilityIdentifier("podcast-source-filter")
+                }
             }
+            .onChange(of: source) { taps += 1 }
             .task(id: query) {
                 guard dayChips == nil else { return }
                 do { try await Task.sleep(for: .milliseconds(250)); try Task.checkCancellation() }
@@ -436,6 +601,42 @@ private struct PodcastChipPicker: View {
             results = more ? results + chips : chips
             cursor = page.nextCursor
         } catch is CancellationError {} catch { self.error = error.localizedDescription }
+    }
+}
+
+private struct PodcastChipRow: View {
+    let chip: PodcastChip
+    let isSelected: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 12) {
+                chip.source.image
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(isSelected ? Color.white : .secondary)
+                    .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(chip.title)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Text(chip.source.title).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.5))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(isSelected ? Color.accentColor.opacity(0.08) : nil)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

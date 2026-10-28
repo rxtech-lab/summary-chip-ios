@@ -20,6 +20,11 @@ struct LibraryView: View {
     @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
     @State private var model: LibraryModel
+    @State private var resumedPlan: ResumedPlan?
+    @State private var deletingPlan: PodcastPlanSummary?
+    @State private var planStatus: String?
+    @State private var planError: String?
+    @State private var planChanges = 0
     /// Lets a parent (the macOS sidebar layout) push a summary, e.g. one picked in search.
     var path: Binding<[Summary]>?
     @Environment(\.scenePhase) private var scenePhase
@@ -56,6 +61,11 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack(path: stackPath) {
             content
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if !isMiniApps && model.showsPlannedPodcasts && !model.plannedPodcasts.isEmpty {
+                        PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 })
+                    }
+                }
                 .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
                 .navigationDestination(for: Summary.self) { summary in
                     SummaryDestination(environment: environment, summary: summary)
@@ -103,17 +113,31 @@ struct LibraryView: View {
                         }
                     }
                 }
-                .sheet(isPresented: $showsNewPodcast) {
-                    DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true) { podcast in
-                        Task {
-                            if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
-                                environment.library.insert(chip)
-                            }
-                            try? await Task.sleep(for: .milliseconds(350))
-                            environment.podcastPlayer.present(podcast: podcast)
-                        }
+                .sheet(isPresented: $showsNewPodcast, onDismiss: refreshPlans) {
+                    DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true, onGenerated: presentGenerated)
+                }
+                .sheet(item: $resumedPlan, onDismiss: refreshPlans) { resumed in
+                    DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: resumed.library,
+                                                resumingPlan: resumed.plan, onGenerated: presentGenerated)
+                }
+                .confirmationDialog("Delete this planned podcast?", isPresented: Binding(get: { deletingPlan != nil }, set: { if !$0 { deletingPlan = nil } }),
+                                    titleVisibility: .visible, presenting: deletingPlan) { plan in
+                    Button("Delete Plan", role: .destructive) { deletePlan(plan) }
+                    Button("Cancel", role: .cancel) {}
+                } message: { _ in
+                    Text("Its script, storyboard and frames are removed. Points already spent on planning aren't refunded.")
+                }
+                .alert("Couldn't Open Plan", isPresented: Binding(get: { planError != nil }, set: { if !$0 { planError = nil } })) {
+                    Button("OK", role: .cancel) { planError = nil }
+                } message: { Text(planError ?? "") }
+                .overlay {
+                    if let planStatus {
+                        ProgressView(planStatus).padding(24)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                     }
                 }
+                .sensoryFeedback(.success, trigger: planChanges)
+                .sensoryFeedback(.error, trigger: planError)
                 .sheet(isPresented: $showsNewPaper) {
                     NewPaperSheet(api: environment.api, onCreated: openCreated)
                 }
@@ -176,6 +200,48 @@ struct LibraryView: View {
             Label("New", systemImage: "plus")
         }
         .accessibilityIdentifier("new-summary")
+    }
+
+    private func presentGenerated(_ podcast: DailyPodcast) {
+        Task {
+            if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
+                environment.library.insert(chip)
+            }
+            try? await Task.sleep(for: .milliseconds(350))
+            environment.podcastPlayer.present(podcast: podcast)
+        }
+    }
+
+    private func refreshPlans() {
+        Task { await model.refreshPlannedPodcasts() }
+    }
+
+    private func openPlan(_ summary: PodcastPlanSummary) {
+        podcastTaps += 1
+        planStatus = String(localized: "Opening plan…")
+        Task {
+            do {
+                let plan = try await environment.api.podcastPlan(id: summary.id)
+                planStatus = nil
+                if plan.confirmed { refreshPlans() } else { resumedPlan = ResumedPlan(plan: plan, library: summary.library) }
+            } catch {
+                planStatus = nil
+                planError = error.localizedDescription
+                refreshPlans()
+            }
+        }
+    }
+
+    private func deletePlan(_ plan: PodcastPlanSummary) {
+        planStatus = String(localized: "Deleting plan…")
+        Task {
+            do {
+                try await environment.api.deletePodcastPlan(id: plan.id)
+                withAnimation { model.removePlannedPodcast(id: plan.id) }
+                planChanges += 1
+            } catch { planError = error.localizedDescription }
+            planStatus = nil
+        }
     }
 
     /// Pushes a paper made in the New Paper sheet once the sheet has closed.
@@ -453,4 +519,81 @@ private extension LibraryView {
         }
     }
 
+}
+
+private struct ResumedPlan: Identifiable {
+    let plan: PodcastPlan
+    let library: Bool
+    var id: String { plan.id }
+}
+
+/// Unconfirmed podcast plans, pinned above the feed: open one to keep reviewing it, or delete it.
+private struct PlannedPodcastsStrip: View {
+    let plans: [PodcastPlanSummary]
+    let onOpen: (PodcastPlanSummary) -> Void
+    let onDelete: (PodcastPlanSummary) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Label("Planned Podcasts", systemImage: "list.bullet.clipboard").font(.subheadline.weight(.semibold))
+                Text("\(plans.count)").font(.caption.weight(.semibold)).monospacedDigit()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Capsule().fill(.quaternary))
+            }
+            .padding(.horizontal, 16)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 12) {
+                    ForEach(plans) { plan in card(plan) }
+                }
+                .padding(.horizontal, 16)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .padding(.vertical, 10)
+        .background(Color.summaryGroupedBackground)
+        .accessibilityIdentifier("planned-podcasts")
+    }
+
+    private func card(_ plan: PodcastPlanSummary) -> some View {
+        HStack(spacing: 10) {
+            Button { onOpen(plan) } label: {
+                HStack(spacing: 10) {
+                    PlanFrameImage(url: plan.thumbnailUrl, storyboard: false, drawing: false)
+                        .frame(width: 96, height: 54)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("PLANNED").font(.caption2.weight(.bold)).tracking(0.6).foregroundStyle(.tint)
+                        Text(plan.title).font(.subheadline.weight(.semibold)).lineLimit(2).multilineTextAlignment(.leading)
+                        Text("\(plan.lineCount) lines · \(plan.updatedAt, format: .relative(presentation: .named))")
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the plan to keep reviewing it")
+            .accessibilityIdentifier("planned-podcast-\(plan.id)")
+            Menu {
+                Button { onOpen(plan) } label: { Label("Review Plan", systemImage: "list.bullet.clipboard") }
+                Button(role: .destructive) { onDelete(plan) } label: { Label("Delete Plan", systemImage: "trash") }
+            } label: {
+                Image(systemName: "ellipsis.circle").font(.title3).foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32).contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .accessibilityLabel("Plan Actions")
+            .accessibilityIdentifier("planned-podcast-actions")
+        }
+        .padding(10)
+        .frame(width: 320, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.background))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.separator.opacity(0.4)))
+        .contextMenu {
+            Button { onOpen(plan) } label: { Label("Review Plan", systemImage: "list.bullet.clipboard") }
+            Button(role: .destructive) { onDelete(plan) } label: { Label("Delete Plan", systemImage: "trash") }
+        }
+    }
 }
