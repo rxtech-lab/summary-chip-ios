@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "@/lib/mcp/server";
 import { podcastEpisodes, users } from "@/lib/db/schema";
-import { currentPodcastRender, finishPodcastRender, podcastRenderKey, podcastRenderStatus, startPodcastRender } from "@/lib/services/podcast-render";
+import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, podcastRenderKey, podcastRenderStatus, startPodcastRender } from "@/lib/services/podcast-render";
 import { dailyPodcastEpisode, updatePodcastDocument } from "@/lib/services/daily-podcast";
 import { setPodcastRenderStarterForTests } from "@/lib/podcast-video/render-workflow";
 import * as renderRoute from "@/app/api/v1/daily-podcasts/[key]/video/render/route";
@@ -56,6 +56,21 @@ it("reuses work, scopes translations/resolutions, and leaves publication untouch
   expect(episode.video?.published).toBeUndefined();
   expect(episode.video?.renders?.[720]).toBeUndefined();
   expect(episode.translations?.ja.video?.renders?.[720]?.id).toBe(ja.render.id);
+});
+it("reports a render as queued until the renderer starts it", async () => {
+  const queued = await (await start()).json();
+  expect(queued.render).toMatchObject({ status: "running" });
+  expect(queued.render.startedAt).toBeUndefined();
+  const job = env.podcastRenders[0];
+  expect((await backgroundJob(env.handle.db, "user-alice", job.id)).percent).toBe(0);
+  await markPodcastRenderStarted(env.handle.db, job);
+  const rendering = (await (await status()).json()).render;
+  expect(rendering).toMatchObject({ status: "running", startedAt: expect.any(String) });
+  const logged = await backgroundJob(env.handle.db, "user-alice", job.id);
+  expect(logged).toMatchObject({ kind: "render", status: "running", percent: 50 });
+  expect(logged.logs.map(entry => entry.id)).toEqual(["queued", "rendering"]);
+  await markPodcastRenderStarted(env.handle.db, job);
+  expect((await (await status()).json()).render.startedAt).toBe(rendering.startedAt);
 });
 it("records launch failure safely and permits an explicit retry", async () => {
   setPodcastRenderStarterForTests({ start: async () => { throw new Error("secret provider response"); } });

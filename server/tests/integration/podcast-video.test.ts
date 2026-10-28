@@ -1,6 +1,7 @@
 import { createGateway } from "@ai-sdk/gateway";
 import type { AiProvider } from "@/lib/ai/provider";
 import { podcastVideoTurn } from "@/lib/ai/podcast-video-agent";
+import { finishPodcastVideoDesign, runPodcastVideoDesignTurn } from "@/lib/services/podcast-video-design";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import * as route from "@/app/api/v1/daily-podcasts/route";
@@ -12,7 +13,7 @@ import * as linksRoute from "@/app/api/v1/daily-podcasts/[key]/links/route";
 import * as publicRoute from "@/app/api/public/podcasts/[id]/route";
 import * as publicVideo from "@/app/api/public/podcasts/[id]/video/route";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
-import { summaries } from "@/lib/db/schema";
+import { backgroundJobs, summaries } from "@/lib/db/schema";
 import type { DailyPodcast, PodcastVideoSource } from "@/lib/contracts/daily-podcast";
 import { PODCAST_VIDEO_SCAFFOLD, validatePodcastVideo } from "@/lib/podcast-video/scaffold";
 import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
@@ -50,6 +51,45 @@ async function designed(key: string) {
 }
 
 describe("podcast motion video", () => {
+  it("preserves a draft on transient storage failure so a workflow retry can finish", async () => {
+    env.ai.video = true;
+    await chip("Storage recovery");
+    const created = await generate();
+    const job = env.podcastVideoDesigns[0];
+    const draftKey = [...env.store.objects.keys()].find((key) => key.endsWith(`/video-design/${job.id}.json`))!;
+    const draft = env.store.objects.get(draftKey);
+    const originalGet = env.store.get.bind(env.store);
+    const failure = new Error("Temporary storage connection reset");
+    const spy = vi.spyOn(env.store, "get").mockImplementation(async (key) => {
+      if (key === draftKey) throw failure;
+      return originalGet(key);
+    });
+    await expect(runPodcastVideoDesignTurn(env.handle.db, job, { store: env.store, ai: env.ai })).rejects.toBe(failure);
+    expect(env.store.objects.get(draftKey)).toBe(draft);
+    expect(env.ai.calls.writePodcastVideo).toHaveLength(0);
+    expect((await episode(created.key)).videoDesign?.error).toBeUndefined();
+    spy.mockRestore();
+    expect((await designed(created.key)).video?.id).toBe(job.id);
+  });
+
+  it("distinguishes a genuinely missing draft from a storage outage", async () => {
+    env.ai.video = true;
+    await chip("Missing draft");
+    await generate();
+    const job = env.podcastVideoDesigns[0];
+    const draftKey = [...env.store.objects.keys()].find((key) => key.endsWith(`/video-design/${job.id}.json`))!;
+    await env.store.delete(draftKey);
+    const outcome = await runPodcastVideoDesignTurn(env.handle.db, job, { store: env.store, ai: env.ai });
+    expect(outcome).toMatchObject({
+      status: "failed", code: "PODCAST_VIDEO_DRAFT_MISSING", error: { code: "PODCAST_VIDEO_DRAFT_MISSING" },
+    });
+    expect(env.ai.calls.writePodcastVideo).toHaveLength(0);
+    await finishPodcastVideoDesign(env.handle.db, job, outcome, { store: env.store, ai: env.ai });
+    expect((await episode(job.key)).videoDesign?.error?.code).toBe("PODCAST_VIDEO_DRAFT_MISSING");
+    const [savedJob] = await env.handle.db.select().from(backgroundJobs).where(eq(backgroundJobs.id, job.id));
+    expect(savedJob.document.error?.code).toBe("PODCAST_VIDEO_DRAFT_MISSING");
+  });
+
   it("honors audio-only selection even when video generation is configured", async () => {
     env.ai.video = true;
     await chip("Audio only");
@@ -94,6 +134,31 @@ describe("podcast motion video", () => {
     // The run's draft is removed once it ends.
     expect([...env.store.objects.keys()].some((key) => key.includes("/video-design/"))).toBe(false);
   });
+  it("stores the agent's green-screen cut-outs with the composition and serves the ones it uses", async () => {
+    env.ai.video = true;
+    env.ai.images = true;
+    await chip("Sea turtles");
+    const created = await generate();
+    const used = `import { AbsoluteFill, Img, staticFile } from "remotion";\nexport const PodcastVideo = () => <AbsoluteFill><Img src={staticFile("gen/turtle.png")} /></AbsoluteFill>;\n`;
+    vi.spyOn(env.ai as AiProvider, "podcastVideoTurn").mockImplementation(async (_input, draft, options) => {
+      const images = options!.images!;
+      const saved: NonNullable<typeof draft.images> = {};
+      for (const name of ["turtle", "unused"]) {
+        const image = await images.draw(`A ${name}`);
+        saved[`gen/${name}.png`] = { file: await images.save(`gen/${name}.png`, image.png), width: image.width, height: image.height, subject: name };
+      }
+      return { draft: { ...draft, turns: 1, attempts: 1, images: saved, files: { "src/Video.tsx": used }, result: { "src/Video.tsx": used } }, evidence: "Validation passed" };
+    });
+    const podcast = await designed(created.key);
+    expect(env.ai.calls.drawPodcastVideoImage).toEqual([{ subject: "A turtle", style: undefined }, { subject: "A unused", style: undefined }]);
+    const video = (await (await source(podcast.key)).json()).video as PodcastVideoSource & { assets: { path: string; url: string; width: number; height: number }[] };
+    expect(video.assets).toEqual([{ path: "gen/turtle.png", url: expect.any(String), width: 64, height: 48 }]);
+    // Storage paths stay on the server; the unused cut-out is deleted with the draft.
+    expect(JSON.stringify(video)).not.toContain("video-assets/");
+    const stored = [...env.store.objects.keys()].filter((key) => key.includes("/video-assets/"));
+    expect(stored).toEqual([expect.stringMatching(new RegExp(`/${created.key}/video-assets/${podcast.video!.id}/turtle\\.png$`))]);
+  });
+
   it("designs in the requested style and rejects unknown styles", async () => {
     env.ai.video = true;
     await chip("Volcanoes");

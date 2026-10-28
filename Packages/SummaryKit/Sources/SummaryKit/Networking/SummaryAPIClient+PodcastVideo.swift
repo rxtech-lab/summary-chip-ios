@@ -14,6 +14,17 @@ public struct PodcastVideoSource: Decodable, Sendable, Equatable {
     public var chips: [Chip]
     /// Project files keyed by relative path; `src/index.ts` is the entry point.
     public var files: [String: String]
+    /// Transparent cut-outs the video agent generated, placed under `public/` for `staticFile()`.
+    public var assets: [Asset]?
+
+    public struct Asset: Decodable, Sendable, Equatable {
+        /// Path under `public/`, e.g. `gen/rocket.png`.
+        public var path: String
+        /// Short-lived signed download URL.
+        public var url: URL
+        public var width: Int
+        public var height: Int
+    }
 }
 
 private struct PodcastVideoEnvelope: Decodable { var video: PodcastVideoSource }
@@ -29,10 +40,21 @@ private struct PodcastVideoTicket: Decodable {
     var headers: [String: String]
 }
 private struct PodcastCloudRenderInput: Encodable { var day: PodcastVideoDay; var language: String?; var resolution: Int }
+/// A private cloud render of one composition. It waits in a queue (`isQueued`) until the renderer starts it.
+public struct PodcastRenderState: Codable, Sendable, Equatable {
+    public var id: String
+    public var status: String
+    public var resolution: Int
+    public var startedAt: Date?
+    public var byteSize: Int?
+    public var error: APIErrorBody?
+    public var isRunning: Bool { status == "running" }
+    public var isQueued: Bool { isRunning && startedAt == nil }
+    public var isReady: Bool { status == "ready" }
+}
 private struct PodcastCloudRender: Decodable {
-    struct Render: Decodable { var id: String; var status: String; var resolution: Int; var byteSize: Int?; var error: APIErrorBody? }
     var videoId: String?
-    var render: Render?
+    var render: PodcastRenderState?
     var downloadUrl: URL?
 }
 private struct PodcastVideoDownload: Decodable { var videoId: String; var downloadUrl: URL }
@@ -74,6 +96,17 @@ extension SummaryAPIClient {
         return envelope.video
     }
 
+    /// Downloads one generated cut-out of a composition from its signed URL (no account token).
+    public func podcastVideoAsset(_ asset: PodcastVideoSource.Asset) async throws -> Data {
+        var download = URLRequest(url: asset.url)
+        download.timeoutInterval = 120
+        let (data, response) = try await session.data(for: download)
+        guard let http = response as? HTTPURLResponse else { throw SummaryAPIError.invalidResponse }
+        guard http.statusCode == 200 else { throw SummaryAPIError.http(status: http.statusCode) }
+        guard !data.isEmpty else { throw SummaryAPIError.invalidResponse }
+        return data
+    }
+
     /// Downloads the published MP4 to a temporary file. The caller moves it into its video cache.
     /// Only the ticket request uses the account token; storage uses its short-lived signed URL.
     public func downloadPublishedPodcastVideo(_ podcast: DailyPodcast, onProgress: MediaTransferProgress.Handler? = nil) async throws -> URL {
@@ -102,23 +135,10 @@ extension SummaryAPIClient {
     /// Starts/reuses a durable cloud render and downloads the private R2 output. Closing the
     /// sheet cancels polling and downloading; the server continues rendering for later reuse.
     public func downloadCloudPodcastVideo(_ podcast: DailyPodcast, resolution: Int = 1080,
-                                          onProgress: MediaTransferProgress.Handler? = nil) async throws -> URL {
-        guard [720, 1080].contains(resolution), let video = podcast.video else { throw SummaryAPIError.invalidResponse }
-        let path = videoPath(podcast, "/render")
-        var state: PodcastCloudRender = try await send(json(path, method: "POST",
-            body: PodcastCloudRenderInput(day: videoDay(podcast), language: podcast.translationLanguage, resolution: resolution)))
-        let renderID = state.render?.id
-        let query = try videoQuery(podcast) + [URLQueryItem(name: "resolution", value: String(resolution))]
-        while state.render?.status == "running" {
-            try Task.checkCancellation()
-            guard state.videoId == video.id, state.render?.id == renderID else { throw SummaryAPIError.invalidResponse }
-            try await Task.sleep(for: .seconds(3))
-            state = try await send(request(path, query: query))
-        }
-        if let error = state.render?.error { throw SummaryAPIError.server(status: 502, body: error) }
-        guard state.videoId == video.id, state.render?.id == renderID, state.render?.resolution == resolution,
-              state.render?.status == "ready", let url = state.downloadUrl,
-              let size = state.render?.byteSize, size > 0 else { throw SummaryAPIError.invalidResponse }
+                                          onProgress: MediaTransferProgress.Handler? = nil,
+                                          onRender: (@MainActor @Sendable (PodcastRenderState) -> Void)? = nil) async throws -> URL {
+        let state = try await cloudPodcastRender(podcast, resolution: resolution, onRender: onRender)
+        guard let url = state.downloadUrl, let size = state.render?.byteSize, size > 0 else { throw SummaryAPIError.invalidResponse }
         var download = URLRequest(url: url)
         download.timeoutInterval = 600
         await onProgress?(.init(completedBytes: 0, totalBytes: Int64(size)))
@@ -134,6 +154,50 @@ extension SummaryAPIClient {
             try? FileManager.default.removeItem(at: file)
             throw error
         }
+    }
+
+    /// Queues a cloud render and returns immediately so the user can follow it in Background Jobs.
+    public func startCloudPodcastRender(_ podcast: DailyPodcast, resolution: Int = 1080) async throws -> PodcastRenderState {
+        guard [720, 1080].contains(resolution), let video = podcast.video else { throw SummaryAPIError.invalidResponse }
+        let state: PodcastCloudRender = try await send(json(videoPath(podcast, "/render"), method: "POST",
+            body: PodcastCloudRenderInput(day: videoDay(podcast), language: podcast.translationLanguage, resolution: resolution)))
+        if let error = state.render?.error { throw SummaryAPIError.server(status: 502, body: error) }
+        guard state.videoId == video.id, let render = state.render, render.isRunning || render.isReady else {
+            throw SummaryAPIError.invalidResponse
+        }
+        return render
+    }
+
+    /// Waits until the cloud render of the current composition is ready, reporting queued/rendering states.
+    /// Starts it if none is running (the server reuses an existing render); never downloads.
+    public func waitForCloudPodcastRender(_ podcast: DailyPodcast, resolution: Int = 1080,
+                                          onRender: (@MainActor @Sendable (PodcastRenderState) -> Void)? = nil) async throws -> PodcastRenderState {
+        guard let render = try await cloudPodcastRender(podcast, resolution: resolution, onRender: onRender).render else {
+            throw SummaryAPIError.invalidResponse
+        }
+        return render
+    }
+
+    private func cloudPodcastRender(_ podcast: DailyPodcast, resolution: Int,
+                                    onRender: (@MainActor @Sendable (PodcastRenderState) -> Void)?) async throws -> PodcastCloudRender {
+        guard [720, 1080].contains(resolution), let video = podcast.video else { throw SummaryAPIError.invalidResponse }
+        let path = videoPath(podcast, "/render")
+        var state: PodcastCloudRender = try await send(json(path, method: "POST",
+            body: PodcastCloudRenderInput(day: videoDay(podcast), language: podcast.translationLanguage, resolution: resolution)))
+        let renderID = state.render?.id
+        let query = try videoQuery(podcast) + [URLQueryItem(name: "resolution", value: String(resolution))]
+        while let render = state.render, render.isRunning {
+            try Task.checkCancellation()
+            guard state.videoId == video.id, render.id == renderID else { throw SummaryAPIError.invalidResponse }
+            await onRender?(render)
+            try await Task.sleep(for: .seconds(3))
+            state = try await send(request(path, query: query))
+        }
+        if let error = state.render?.error { throw SummaryAPIError.server(status: 502, body: error) }
+        guard state.videoId == video.id, let render = state.render, render.id == renderID, render.resolution == resolution,
+              render.isReady else { throw SummaryAPIError.invalidResponse }
+        await onRender?(render)
+        return state
     }
 
     /// Starts designing a new composition on the server (spends points when it finishes). Returns at once

@@ -1,6 +1,6 @@
 # Daily podcasts
 
-The Feed's daily play button opens a dedicated player sheet. A separate generation sheet chooses the spoken language and source chips. All eligible chips are selected by default. An agent considers all selected readable summary chips on that activity day, independently of pagination and feed filters, ranks stories by importance, and omits repetitive or low-value stories. Only chosen stories become linked chips and video headings. User-triggered daily summaries target five minutes with a hard six-minute video limit; the measured audio must fit within 356 seconds to leave room for video padding. Over-budget scripts or audio fail before an episode is saved. Automatic recaps retain their shorter three-minute budget. Owned chips use their creation date; others use their last viewed date, matching the Feed. Trips, papers, clips and generated podcast chips are excluded. Custom library podcasts retain their all-selected-chip behavior.
+The Feed's daily play button opens a dedicated player sheet. A separate generation sheet chooses the spoken language and source chips. All eligible chips are selected by default. An agent considers all selected readable summary chips on that activity day, independently of pagination and feed filters, ranks stories by importance, and omits repetitive or low-value stories. Only chosen stories become linked chips and video headings. User-triggered podcasts use the selected length as an approximate target, defaulting to six minutes. Longer scripts or recordings are accepted without shortening retries or dropping music. Automatic recaps retain their shorter three-minute budget. Owned chips use their creation date; others use their last viewed date, matching the Feed. Trips, papers, clips and generated podcast chips are excluded. Custom library podcasts retain their all-selected-chip behavior.
 
 The player overlays host names, exact spoken captions, a seek slider and playback controls on the cover using Liquid Glass. One continuous MP3 plays the whole episode, with timed caption and artwork changes and 15-second skip controls. A dedicated download sheet saves the original complete MP3, or downloads a cloud-rendered HD MP4 with the recording, timed artwork and selectable captions. 4K exports render on device. New Version opens a creation sheet and keeps previous versions. Manage Versions opens a dedicated sheet for playback, setting the default, or removal with native confirmation. Generation and buffering use overlays; mobile interactions provide haptics.
 
@@ -429,3 +429,17 @@ scheduled render or activate a user's account schedule.
 ### Summary backfill
 
 `POST /api/v1/daily-podcasts/:key/summary` accepts `{ day, language? }` and returns `{ podcast }` in the requested playback language. The summary is generated in the original language and validated to fewer than 200 words. Requires owner/source access and billing proof for generation; existing summaries are returned without a model charge. Concurrent requests in the same process share generation. Failures leave the episode unchanged and may be retried explicitly.
+
+### Episode length
+
+The generation form offers a dedicated Length sheet: Long (6:00), Medium (3:00),
+Short (1:30), Clips (0:30), or a custom duration from 0:30 to 30:00 in one-second
+increments. Presets, limits, and the default come from the generation options
+endpoint. The selection is saved on the device when generation starts.
+
+`POST /api/v1/daily-podcasts` accepts optional integer `durationSeconds` (30–1800).
+It guides the approximate narration length; the video follows the actual recording.
+The finished episode may be shorter or longer. Duration-targeted library
+podcasts select highlights when needed to fit the budget. Video-only retries reuse
+the recording; changing length requires regenerating the podcast. Automated daily
+recaps retain their stricter limit below three minutes.

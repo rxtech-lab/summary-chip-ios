@@ -81,7 +81,9 @@ struct DailyPodcastPlaybackView: View {
             if player.buffering {
                 VStack(spacing: 12) {
                     let transfer = podcast.video == nil ? player.transferProgress : player.videoProgress?.transfer
-                    Text(transfer != nil ? "Downloading podcast…" : (player.videoProgress?.stage == .rendering ? "Rendering video…" : "Preparing podcast…"))
+                    if transfer != nil { Text("Downloading podcast…") }
+                    else if let progress = player.videoProgress, progress.stage != .preparing { Text(progress.title) }
+                    else { Text("Preparing podcast…") }
                     if let fraction = transfer?.fraction ?? player.videoProgress?.fraction {
                         ProgressView(value: fraction).frame(width: 200)
                     } else { ProgressView() }
@@ -133,7 +135,7 @@ struct DailyPodcastPlaybackView: View {
 
 #if os(iOS)
 /// AVKit supplies native playback controls, including fullscreen and picture in picture.
-private struct PodcastNativeVideoPlayer: UIViewControllerRepresentable {
+struct PodcastNativeVideoPlayer: UIViewControllerRepresentable {
     let player: AVPlayer?
 
     func makeUIViewController(context: Context) -> AVPlayerViewController {

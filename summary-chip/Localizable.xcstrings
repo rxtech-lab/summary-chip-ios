@@ -728,9 +728,6 @@
     "5" : {
       "shouldTranslate" : false
     },
-    "A calm editorial TV explainer with clean ivory-and-teal line art." : {
-
-    },
     "A new illustration replaces the Clip's current cover." : {
 
     },
@@ -1642,7 +1639,7 @@
         }
       }
     },
-    "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary stays within 6 minutes." : {
+    "All readable summary chips from this day are selected by default. Choose the candidates; important stories are ranked first, repetitive stories are skipped, and the summary follows your chosen length." : {
 
     },
     "All Sources" : {
@@ -2922,7 +2919,7 @@
     "Choose an image to replace this file." : {
 
     },
-    "Choose Automatic to let the podcast choose its hosts, or enter a name for each speaker (up to 40 characters). Available voices may limit the number of speakers. These settings are saved on this device when you generate." : {
+    "Choose Automatic to let the podcast choose its hosts, or enter a name for each speaker (up to %lld characters). Up to %lld speakers are available. These settings are saved on this device when you generate." : {
 
     },
     "Choose Chips" : {
@@ -2944,10 +2941,26 @@
         }
       }
     },
+    "Choose from %@ to %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Choose from %1$@ to %2$@."
+          }
+        }
+      }
+    },
     "Choose Image…" : {
 
     },
     "Choose or drop a PNG, JPEG or PDF, up to 10 MB each and 25 MB together per paper." : {
+
+    },
+    "Choose Retry to render the video again." : {
+
+    },
+    "Choose Retry to start a new video design using the existing podcast audio." : {
 
     },
     "Choose Route" : {
@@ -4029,9 +4042,6 @@
         }
       }
     },
-    "Crayon" : {
-
-    },
     "Create" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4266,6 +4276,9 @@
           }
         }
       }
+    },
+    "Custom duration" : {
+
     },
     "Custom permissions" : {
 
@@ -6758,7 +6771,7 @@
         }
       }
     },
-    "Generation uses points. Audio and video design are saved for future playback. The video is designed on the server, so you can leave while it works; keep the app open while it renders on this device. Each version is kept until you remove it." : {
+    "Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it." : {
 
     },
     "Generation uses points. Audio is saved for future playback. Regeneration creates a new episode using the current chips and selected language." : {
@@ -6867,14 +6880,8 @@
         }
       }
     },
-    "Hand-drawn crayon doodles on drawing paper, sketched in as the hosts speak." : {
-
-    },
     "Hayabusa" : {
       "shouldTranslate" : false
-    },
-    "HD video renders in the cloud and downloads when ready. Choose Download in the podcast for a 4K export on this device." : {
-
     },
     "HD video renders in the cloud. You can close this sheet and return later." : {
 
@@ -7726,6 +7733,9 @@
         }
       }
     },
+    "Length" : {
+
+    },
     "Library Actions" : {
 
     },
@@ -8504,6 +8514,9 @@
         }
       }
     },
+    "Minutes" : {
+
+    },
     "Missing “%@”." : {
 
     },
@@ -8887,9 +8900,6 @@
       }
     },
     "New View" : {
-
-    },
-    "News" : {
 
     },
     "Next" : {
@@ -12037,6 +12047,9 @@
     "Render Video" : {
 
     },
+    "Rendering in the cloud" : {
+
+    },
     "Rendering Options" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12295,7 +12308,13 @@
     "Retry" : {
 
     },
+    "Retry started successfully" : {
+
+    },
     "Retry Video" : {
+
+    },
+    "Retrying video…" : {
 
     },
     "Return" : {
@@ -12739,6 +12758,9 @@
     "Schedule saved" : {
 
     },
+    "Script ready" : {
+
+    },
     "Search" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12980,6 +13002,9 @@
       }
     },
     "Second" : {
+
+    },
+    "Seconds" : {
 
     },
     "Section" : {
@@ -13243,6 +13268,9 @@
           }
         }
       }
+    },
+    "Share to X" : {
+
     },
     "Share…" : {
       "localizations" : {
@@ -14625,7 +14653,10 @@
     "The root “%@” isn't one of the elements." : {
 
     },
-    "The script keeps writing on the server if you leave. Open Background Jobs to view logs and render when ready." : {
+    "The script is ready. Its HD video renders in the cloud as a separate Render job." : {
+
+    },
+    "The script keeps writing on the server if you leave, then the HD video renders in the cloud. Open Background Jobs to follow both." : {
 
     },
     "The summary, key points and source text are translated the first time you pick a language. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
@@ -14728,6 +14759,12 @@
     "The video is designed in this style. Your choice is saved on this device when you generate." : {
 
     },
+    "The video is rendering in the cloud. You can close this sheet or quit the app." : {
+
+    },
+    "The video is waiting for a cloud renderer. You can close this sheet or quit the app." : {
+
+    },
     "The view is removed from the trip." : {
 
     },
@@ -14824,6 +14861,9 @@
 
     },
     "This integration was removed from the app. You can disconnect the saved account." : {
+
+    },
+    "This is a duration target. The finished audio and video may be shorter depending on the source material. Changing an existing video's length requires regenerating the podcast." : {
 
     },
     "This is a saved copy of the shared file. Link the original from Files if you want to open the latest version." : {
@@ -15829,6 +15869,9 @@
     "Updating your calendar…" : {
 
     },
+    "Updating…" : {
+
+    },
     "Uploaded PDFs and generated images" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16204,6 +16247,9 @@
     "Video only" : {
 
     },
+    "Video ready" : {
+
+    },
     "Video Ready" : {
 
     },
@@ -16220,6 +16266,12 @@
 
     },
     "View Details" : {
+
+    },
+    "View its progress in the jobs list." : {
+
+    },
+    "View Jobs" : {
 
     },
     "View needs correction" : {
@@ -16323,6 +16375,12 @@
     "Waiting for Your Agent" : {
 
     },
+    "Waiting to render" : {
+
+    },
+    "Waiting to render video…" : {
+
+    },
     "Walk" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16359,6 +16417,9 @@
 
     },
     "Watch Podcast" : {
+
+    },
+    "Watch the HD video here or open the podcast to download it. Choose Download in the podcast for a 4K export on this device." : {
 
     },
     "Weather" : {
@@ -16707,6 +16768,9 @@
         }
       }
     },
+    "Writing script · %lld%%" : {
+
+    },
     "Writing your tour…" : {
 
     },
@@ -16716,7 +16780,7 @@
     "You" : {
 
     },
-    "You can close this sheet or quit the app. Video work continues on the server." : {
+    "You can close this sheet or quit the app. The script keeps writing on the server, then the HD video renders in the cloud." : {
 
     },
     "You choose which members and operations can use it after connecting." : {

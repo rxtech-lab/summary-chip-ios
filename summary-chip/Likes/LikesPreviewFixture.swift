@@ -148,11 +148,13 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 
     private func backgroundJobResponse(list: Bool) -> (Int, Data) {
         if backgroundJobDeleted { return list ? json(["items": [], "nextCursor": NSNull()]) : notFound }
-        let job: [String: Any] = ["id": "preview-video-job", "title": "Daily discoveries", "episodeKey": "preview-episode",
+        let job: [String: Any] = ["id": "preview-video-job", "title": "Render 1080p video", "kind": "render", "episodeKey": "preview-episode",
             "day": ["start": "2030-04-01T00:00:00Z", "end": "2030-04-02T00:00:00Z"],
             "status": "ready", "percent": 100, "videoId": "preview-video",
-            "createdAt": "2030-04-01T12:00:00Z", "updatedAt": "2030-04-01T12:01:00Z",
-            "logs": [["id": "ready", "at": "2030-04-01T12:01:00Z", "message": "Script ready. Tap Render on This Device to create the video."]]]
+            "createdAt": "2030-04-01T12:00:00Z", "updatedAt": "2030-04-01T12:03:00Z",
+            "logs": [["id": "queued", "at": "2030-04-01T12:00:00Z", "message": "Queued cloud video render. You can close the app."],
+                     ["id": "rendering", "at": "2030-04-01T12:01:00Z", "message": "Rendering in the cloud. You can close the app."],
+                     ["id": "finished", "at": "2030-04-01T12:03:00Z", "message": "Video ready in R2. Open the podcast to watch or download."]]]
         return list ? json(["items": [job], "nextCursor": NSNull()]) : json(["job": job])
     }
 
@@ -585,6 +587,23 @@ private extension LikesPreviewStore {
     }
 
     nonisolated func routePodcast(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
+        if method == "GET", path == ["daily-podcasts", "options"] {
+            // The generation form loads these choices before enabling Generate.
+            return json([
+                "languages": ["en", "zh-Hans", "zh-Hant", "ja", "ko", "es", "fr", "de"],
+                "speakers": ["maxCount": 4, "maxNameLength": 40],
+                "duration": [
+                    "presets": [["seconds": 360, "title": "Long"], ["seconds": 180, "title": "Medium"],
+                                ["seconds": 90, "title": "Short"], ["seconds": 30, "title": "Clips"]],
+                    "minSeconds": 30, "maxSeconds": 1800, "defaultSeconds": 360
+                ],
+                "videoStyles": [
+                    ["id": "news", "title": "News", "description": "Editorial TV explainer.", "symbol": "tv", "swatch": ["#F7FAF7", "#009B85"]],
+                    ["id": "crayon", "title": "Crayon", "description": "Hand-drawn crayon doodles.", "symbol": "pencil.and.scribble", "swatch": ["#FBF5E6", "#E4572E"]]
+                ],
+                "defaultVideoStyle": "news"
+            ])
+        }
         let dayKey = query.first { $0.name == "start" }?.value ?? ""
         let duration = ProcessInfo.processInfo.arguments.contains("--preview-podcast-navigation") ? 60 : 2
         if method == "GET", path.count == 2, path[1] == "versions" {

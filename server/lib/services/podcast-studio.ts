@@ -7,7 +7,8 @@ import { podcastDrafts, podcastEpisodes } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { dailyPodcastEpisode, dayKey, jsonObject } from "./daily-podcast";
 import type { PodcastDay, PodcastVideoSource, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
-import { podcastVideoInput, podcastVideoSource } from "./podcast-video";
+import { currentPodcastVideoAssets, podcastVideoAssetBytes, podcastVideoInput, podcastVideoSource } from "./podcast-video";
+import { podcastVideoAssets } from "@/lib/podcast-video/images";
 import { getSummaryForViewer } from "./summaries";
 import { getObjectStore } from "@/lib/storage/r2";
 import { getAiProvider } from "@/lib/ai/provider";
@@ -74,19 +75,23 @@ export async function renderPodcastDraft(db: Database, user: string, ref: Episod
   const issues = await validatePodcastVideo(files);
   if (issues.length) throw new ApiError(422, "PODCAST_SOURCE_INVALID", JSON.stringify(issues));
   const frames = seconds === undefined ? podcastCheckFrames(input) : [{ seconds, speaking: input.segments.some(s => s.voiceStartSeconds <= seconds && seconds < s.voiceEndSeconds) }];
+  // Generated cut-outs of the composition the draft started from stay available to it.
+  const assets = podcastVideoAssets(files, Object.fromEntries((await currentPodcastVideoAssets(db, user, ref.day, ref.key)).map(asset => [asset.path, asset])));
   const preview = await previewPodcastFrames(files, podcastVideoData(input), podcastPhraseWindows(input.segments), frames,
-    { fps: PODCAST_VIDEO_FPS, width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, durationSeconds: input.durationSeconds, language: input.language }, { png: seconds !== undefined });
+    { fps: PODCAST_VIDEO_FPS, width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT, durationSeconds: input.durationSeconds, language: input.language },
+    { png: seconds !== undefined, assets: await podcastVideoAssetBytes(getObjectStore(), user, ref.day, ref.key, assets) });
   if ("error" in preview) throw new ApiError(422, "PODCAST_PREVIEW_FAILED", preview.error);
-  return { project, frames: preview.frames };
+  return { project, frames: preview.frames, assets };
 }
 
 export async function submitPodcastDraft(db: Database, user: string, ref: EpisodeRef, revision: number) {
-  const { project, frames } = await renderPodcastDraft(db, user, ref, revision);
+  const { project, frames, assets } = await renderPodcastDraft(db, user, ref, revision);
   const issues = frames.flatMap(frame => frame.issues.map(message => ({ seconds: frame.seconds, message })));
   if (issues.length) return { saved: false, revision, issues };
   const id = randomUUID();
   const source: PodcastVideoSource = { id, model: "mcp", createdAt: new Date().toISOString(), fps: PODCAST_VIDEO_FPS, width: PODCAST_VIDEO_WIDTH, height: PODCAST_VIDEO_HEIGHT,
-    chips: project.input.chips, files: { ...project.files, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(project.input.segments)) } };
+    chips: project.input.chips, files: { ...project.files, ...PODCAST_VIDEO_SCAFFOLD, [PODCAST_VIDEO_PHRASES]: JSON.stringify(podcastPhraseWindows(project.input.segments)) },
+    ...(assets.length ? { assets } : {}) };
   const sourceFile = `video-${id}.json`;
   await getObjectStore().put(`${dayKey(user, ref.day)}/${ref.key}/${sourceFile}`, jsonObject(source));
   const retired: PodcastVideoSummary[] = [];

@@ -2,7 +2,9 @@ import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-rende
 import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import type { AiProvider } from "@/lib/ai/provider";
-import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoSource, PodcastVideoStyle, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
+import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoAsset, PodcastVideoSource, PodcastVideoStyle, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
+import type { PreviewAsset } from "@/lib/podcast-video/frame-preview";
+import { isPodcastVideoAsset } from "@/lib/podcast-video/images";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
 import { PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD } from "@/lib/podcast-video/scaffold";
@@ -60,6 +62,32 @@ export async function podcastVideoSource(db: Database, user: string, day: Podcas
   if (translated && !podcast.translations?.[language!]) throw translationMissing();
   if (!video) throw new ApiError(404, "PODCAST_VIDEO_MISSING", "This podcast has no video yet.");
   return readVideoSource(store, translated ? translationPath(user, podcast, language!) : `${dayKey(user, day)}/${key}`, video.sourceFile);
+}
+
+/** The original composition's generated cut-outs, or none when the episode has no video yet. */
+export async function currentPodcastVideoAssets(db: Database, user: string, day: PodcastDay, key: string, store = getObjectStore()): Promise<PodcastVideoAsset[]> {
+  const podcast = await dailyPodcastEpisode(db, user, day, key);
+  if (!podcast.video) return [];
+  const source = await readVideoSource(store, `${dayKey(user, day)}/${key}`, podcast.video.sourceFile);
+  return (source.assets ?? []).filter(isPodcastVideoAsset);
+}
+
+/** Cut-out bytes by their public/ path, for frame previews. */
+export async function podcastVideoAssetBytes(store: ObjectStore, user: string, day: PodcastDay, key: string, assets: PodcastVideoAsset[]): Promise<Record<string, PreviewAsset>> {
+  const loaded: Record<string, PreviewAsset> = {};
+  for (const asset of assets.filter(isPodcastVideoAsset)) {
+    const object = await store.get(`${dayKey(user, day)}/${key}/${asset.file}`).catch(() => null);
+    if (object) loaded[asset.path] = { bytes: object.bytes, width: asset.width, height: asset.height };
+  }
+  return loaded;
+}
+
+/** Short-lived download URLs for a composition's cut-outs, so the app can place them under public/. */
+export async function podcastVideoAssetUrls(user: string, day: PodcastDay, key: string, source: PodcastVideoSource, store = getObjectStore()) {
+  return Promise.all((source.assets ?? []).filter(isPodcastVideoAsset).map(async (asset) => ({
+    path: asset.path, width: asset.width, height: asset.height,
+    url: (await store.signedGet(`${dayKey(user, day)}/${key}/${asset.file}`, { expiresInSeconds: 3600 })).url,
+  })));
 }
 
 /**

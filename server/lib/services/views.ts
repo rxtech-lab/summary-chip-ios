@@ -12,6 +12,7 @@ import { embedQuery } from "./embeddings";
 import { relevance } from "./search";
 import { canViewerRead, findGrantToken, readableByViewer, resolveShareKey } from "./share-access";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
+import { isNotSoloPodcast } from "./podcast-stacks";
 import { readSummaryJson } from "./summaries";
 import type { BillingEnvironmentResolver } from "./translations";
 import { getOwnedTrip, listTrips, toTripJson } from "./trips";
@@ -125,7 +126,7 @@ export async function listEditorsPicksForChat(db: Database, userId: string,
   const start = new Date(zonedTime(date, 0, timeZone));
   const end = new Date(zonedTime(addDays(date, 1), 0, timeZone));
   const conditions = [eq(summaries.ownerId, userId), eq(editorialScores.ownerId, userId),
-    eq(editorialScores.isEditorsPick, true), inArray(summaries.kind, ["summary", "podcast"]),
+    eq(editorialScores.isEditorsPick, true), inArray(summaries.kind, ["summary", "podcast"]), isNotSoloPodcast,
     gte(summaries.createdAt, start), lt(summaries.createdAt, end)];
   const cursor = decodeCursor(query.cursor);
   if (cursor) conditions.push(or(lt(summaries.createdAt, cursor.time),

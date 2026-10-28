@@ -12,6 +12,8 @@ public struct BackgroundJob: Decodable, Sendable, Identifiable, Equatable {
     }
     public var id: String
     public var title: String
+    /// "design" writes the video script; "render" turns it into an HD video in the cloud. Older jobs omit it.
+    public var kind: String?
     public var episodeKey: String
     public var day: PodcastDayBounds
     public var language: String?
@@ -22,6 +24,8 @@ public struct BackgroundJob: Decodable, Sendable, Identifiable, Equatable {
     public var createdAt: Date
     public var updatedAt: Date
     public var logs: [Log]
+
+    public var isRender: Bool { kind == "render" }
 }
 
 public struct BackgroundJobPage: Decodable, Sendable {

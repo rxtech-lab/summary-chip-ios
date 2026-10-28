@@ -15,6 +15,9 @@ import type { TourNarration } from "@/lib/contracts/tour";
 import { normalizeSourceUrl, sameContentStart, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
 import type { ReferenceInput, ReferenceTools, ReferenceVerdict } from "./reference-agent";
 import type { LlmSummary, LlmTranslation } from "./summary-schema";
+import type { PodcastVideoStyle } from "@/lib/contracts/daily-podcast";
+import type { Cutout } from "@/lib/podcast-video/cutout";
+import sharp from "sharp";
 
 /** One model step of 10 input + 10 output tokens. */
 const MOCK_STEP_USAGE = { inputTokens: 10, outputTokens: 10, totalTokens: 20 } as Parameters<NonNullable<MarkdownOptions["onUsage"]>>[0];
@@ -50,6 +53,7 @@ export class MockAiProvider implements AiProvider {
     speak: string[];
     composeMusic: string[];
     writePodcastVideo: PodcastVideoInput[];
+    drawPodcastVideoImage: { subject: string; style?: PodcastVideoStyle }[];
     translatePodcast: PodcastTranslationInput[];
     translatePodcastVideo: { files: Record<string, string>; language: string }[];
   } = {
@@ -73,6 +77,7 @@ export class MockAiProvider implements AiProvider {
     speak: [],
     composeMusic: [],
     writePodcastVideo: [],
+    drawPodcastVideoImage: [],
     translatePodcast: [],
     translatePodcastVideo: [],
   };
@@ -325,6 +330,25 @@ export class MockAiProvider implements AiProvider {
     // Without a result the run is over too: it spent its submissions.
     return { draft: { ...draft, turns: draft.turns + 1, files: result ?? draft.files, result, attempts: result ? draft.attempts + 1 : 5 },
       evidence: result ? "Validation passed" : "Validation failed" };
+  }
+
+  /** Images are off unless a test opts in, like videos. */
+  images = false;
+
+  imageModelId(): string | null {
+    return this.images ? "mock/image" : null;
+  }
+
+  /** $0.04 per image. */
+  imageUsdPerImage(): number {
+    return 0.04;
+  }
+
+  /** A 64×48 orange cut-out on a transparent canvas. */
+  async drawPodcastVideoImage(subject: string, style?: PodcastVideoStyle): Promise<Cutout> {
+    this.calls.drawPodcastVideoImage.push({ subject, style });
+    const png = await sharp({ create: { width: 64, height: 48, channels: 4, background: { r: 240, g: 140, b: 40, alpha: 1 } } }).png().toBuffer();
+    return { png: new Uint8Array(png), width: 64, height: 48 };
   }
 
   speechModelId(): string | null {

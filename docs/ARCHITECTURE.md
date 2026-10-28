@@ -167,6 +167,8 @@ shared) and then the live share links.
   "viewCount": 0, "isOwner": true,
   "viewedAt": "iso" | null,   // when the caller last opened someone else's summary; null for own
   "likedAt": "iso" | null,    // when the caller starred it (Likes tab); null when not starred
+  "podcastSourceId": "id" | null,  // owner only, podcast chips: the one chip all its versions cover (stacked on it, never an Editor's Pick)
+  "stackedPodcastId": "id" | null, // owner only, other chips: the newest such podcast, played from the chip's cover
   "createdAt": "iso", "updatedAt": "iso"
 }
 

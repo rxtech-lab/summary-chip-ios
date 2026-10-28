@@ -221,6 +221,13 @@ without a URL skips the evaluation, and `AI_EVALUATION_MODEL=off` always summari
 Set `AI_IMAGE_MODEL` (e.g. `google/gemini-3.1-flash-lite-image`) to enable `imageStyle: "illustration"`.
 Gemini image models are language models on the Gateway, so they are called with `generateText` and the
 drawing is read from `result.files`; other ids (e.g. `openai/gpt-image-2`) go through `generateImage`.
+The same model gives the podcast video agent a `generate_image` tool for subjects SVG can't draw well
+(animals, people, food, vehicles, landmarks): it draws one subject on a chroma-key green, the server keys
+the green out with sharp (`lib/podcast-video/cutout.ts`) and saves a trimmed transparent PNG at
+`public/gen/<name>.png` for `staticFile()`, at most six per video. Cut-outs are stored with the episode
+under `video-assets/<designId>/`, listed in the composition's `assets`, written into the cloud render
+sandbox, and served to the app as short-lived URLs for on-device renders. Each drawing is charged at
+`AI_IMAGE_USD_PER_IMAGE` (default $0.04) with the design run.
 The server randomly assigns a cover palette from eight distinct color families for new summaries,
 imports and image regeneration. It excludes the owner's five most recently updated chip palettes
 and, when regenerating, the chip's current palette. Colors, mode and accent are saved in the existing

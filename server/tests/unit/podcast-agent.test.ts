@@ -81,7 +81,7 @@ it("allows a recap to select highlights while keeping chip references valid", as
 });
 
 
-it.each([179, 360])("orders highlights by importance within the %s-second budget", async (maxDurationSeconds) => {
+it.each([[30, 39], [90, 117], [125, 162], [179, 232], [180, 234], [360, 468], [1800, 2340]])("orders highlights by importance within the %s-second budget", async (maxDurationSeconds, words) => {
   const recap = { ...input, recap: true, maxDurationSeconds, chips: [...input.chips, { ...input.chips[0], id: "important" }, { ...input.chips[0], id: "unimportant" }] };
   const low = { ...script.segments[0], caption: "Less important." };
   const first = { ...script.segments[0], chipId: "important", caption: "Major development." };
@@ -91,7 +91,7 @@ it.each([179, 360])("orders highlights by importance within the %s-second budget
   expect(result.segments).toEqual([first, second, low]);
   expect(result).not.toHaveProperty("rankedChipIds");
   expect(JSON.stringify(calls[0].prompt)).toContain("descending importance");
-  expect(JSON.stringify(calls[0].prompt)).toContain(maxDurationSeconds === 360 ? "500 words" : "250 words");
+  expect(JSON.stringify(calls[0].prompt)).toContain(`${words} words`);
 });
 
 it("rejects duplicate or inconsistent selected-chip rankings", async () => {
@@ -111,4 +111,13 @@ it("requires a summary below 200 words and repairs invalid summaries", async () 
   const summary = Array(199).fill("word").join(" ");
   const { model } = scriptedModel(() => ({ ...script, summary }));
   expect((await writePodcast(model, input)).summary).toBe(summary);
+});
+
+
+it("treats the manual duration as approximate narration guidance", async () => {
+  const { model, calls } = scriptedModel(() => ({ ...script, rankedChipIds: [chipId] }));
+  await writePodcast(model, { ...input, recap: true, maxDurationSeconds: 30, approximateDuration: true });
+  expect(JSON.stringify(calls[0].prompt)).toContain("approximately 30 seconds");
+  expect(JSON.stringify(calls[0].prompt)).toContain("not a hard cap");
+  expect(JSON.stringify(calls[0].prompt)).not.toContain("at most 39 words");
 });

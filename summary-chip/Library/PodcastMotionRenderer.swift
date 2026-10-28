@@ -20,11 +20,22 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
 /// so watching, saving and publishing reuse one file.
 @MainActor enum PodcastMotionRenderer {
     struct Progress: Equatable {
-        enum Stage { case preparing, cloudRendering, rendering, encoding }
+        /// Cloud renders wait in a queue (`cloudQueued`) before the renderer starts them.
+        enum Stage { case preparing, cloudQueued, cloudRendering, rendering, encoding }
         var stage: Stage
         var fraction: Double?
         var frameDetail: String?
         var transfer: MediaTransferProgress?
+
+        var title: LocalizedStringResource {
+            switch stage {
+            case .preparing: "Preparing video…"
+            case .cloudQueued: "Waiting to render video…"
+            case .cloudRendering: "Rendering video in the cloud…"
+            case .rendering: "Rendering video…"
+            case .encoding: "Encoding video…"
+            }
+        }
     }
 
     private static var cache: URL {
@@ -61,6 +72,7 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
         try audio.write(to: project.appending(path: "public/podcast.mp3"))
         onProgress(Progress(stage: .preparing))
         let images = try await downloadArtwork(api: api, podcast: podcast, to: project)
+        try await downloadAssets(api: api, source: source, to: project)
         try Task.checkCancellation()
         try data(podcast: podcast, source: source, images: images).write(to: project.appending(path: "src/data.json"))
 
@@ -94,10 +106,12 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
 
     private static func cloudVideo(api: SummaryAPIClient, podcast: DailyPodcast, resolution: PodcastVideoResolution,
                                    onProgress: @escaping @MainActor @Sendable (Progress) -> Void) async throws -> URL {
-        onProgress(Progress(stage: .cloudRendering))
-        let downloaded = try await api.downloadCloudPodcastVideo(podcast, resolution: resolution.rawValue) { transfer in
+        onProgress(Progress(stage: .cloudQueued))
+        let downloaded = try await api.downloadCloudPodcastVideo(podcast, resolution: resolution.rawValue, onProgress: { transfer in
             onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
-        }
+        }, onRender: { render in
+            if render.isRunning { onProgress(Progress(stage: render.isQueued ? .cloudQueued : .cloudRendering)) }
+        })
         defer { try? FileManager.default.removeItem(at: downloaded) }
         let file = try stageCloudDownload(at: downloaded)
         defer { try? FileManager.default.removeItem(at: file) }
@@ -192,6 +206,21 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
             names[path] = name
         }
         return names
+    }
+
+    /// The agent's generated cut-outs under public/. The composition references them, so a missing one fails the render.
+    private static func downloadAssets(api: SummaryAPIClient, source: PodcastVideoSource, to project: URL) async throws {
+        let root = project.resolvingSymlinksInPath().appending(path: "public/gen", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        for asset in source.assets ?? [] {
+            try Task.checkCancellation()
+            // The server owns the paths, but only plain names under public/gen are written.
+            let name = String(asset.path.dropFirst("gen/".count))
+            guard asset.path.hasPrefix("gen/"), name.range(of: #"^[a-z0-9][a-z0-9-]{0,39}\.png$"#, options: .regularExpression) != nil else {
+                throw SummaryAPIError.invalidResponse
+            }
+            try await api.podcastVideoAsset(asset).write(to: root.appending(path: name))
+        }
     }
 
     /// `src/data.json`, matching the scaffold's `PodcastVideoData`.

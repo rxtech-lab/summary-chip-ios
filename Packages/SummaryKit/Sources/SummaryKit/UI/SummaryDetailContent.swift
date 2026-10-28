@@ -14,6 +14,7 @@ public struct SummaryDetailContent: View {
     let summary: Summary
     let onEditSharing: (() -> Void)?
     let onChangeLanguage: (() -> Void)?
+    let onPlayPodcast: (() -> Void)?
 
     @Environment(\.openURL) private var openURL
     @Environment(\.summaryAssetLoader) private var loader
@@ -29,10 +30,13 @@ public struct SummaryDetailContent: View {
     ///     calls it (the app opens its Edit Sharing sheet).
     ///   - onChangeLanguage: When set, the "Translated from…" note becomes a button that calls it
     ///     (the app opens its Language sheet).
-    public init(summary: Summary, onEditSharing: (() -> Void)? = nil, onChangeLanguage: (() -> Void)? = nil) {
+    ///   - onPlayPodcast: When set, the cover shows a play button that calls it (the chip's own podcast).
+    public init(summary: Summary, onEditSharing: (() -> Void)? = nil, onChangeLanguage: (() -> Void)? = nil,
+                onPlayPodcast: (() -> Void)? = nil) {
         self.summary = summary
         self.onEditSharing = onEditSharing
         self.onChangeLanguage = onChangeLanguage
+        self.onPlayPodcast = onPlayPodcast
     }
 
     public var body: some View {
@@ -41,6 +45,25 @@ public struct SummaryDetailContent: View {
                 .clipShape(DetailTile.shape)
                 .overlay { DetailTile.shape.strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5) }
                 .shadow(color: .black.opacity(0.1), radius: 16, y: 6)
+                .overlay {
+                    if let onPlayPodcast {
+                        Button(action: onPlayPodcast) {
+                            Image(systemName: "play.fill")
+                                .font(.title.weight(.bold))
+                                .foregroundStyle(.white)
+                                .offset(x: 2)
+                                .frame(width: 72, height: 72)
+                                .background(.black.opacity(0.45), in: Circle())
+                                .background(.ultraThinMaterial, in: Circle())
+                                .overlay { Circle().strokeBorder(.white.opacity(0.7), lineWidth: 1.5) }
+                                .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Play Podcast", bundle: .module))
+                        .accessibilityIdentifier("summary-cover-play-podcast")
+                    }
+                }
                 .contextMenu {
                     Button {
                         Task { await copyCoverImage() }

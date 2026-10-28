@@ -62,3 +62,18 @@ struct PublishedPodcastVideoTests {
 private struct DownloadFixtureToken: AccessTokenProvider {
     func accessToken(forceRefresh: Bool) async throws -> String { "podcast-download-fixture" }
 }
+
+struct PodcastVideoSourceAssetTests {
+    @Test func decodesGeneratedCutoutsAndOlderCompositionsWithout() throws {
+        let decoder = SummaryJSON.decoder()
+        let source = try decoder.decode(PodcastVideoSource.self, from: Data(#"""
+        {"id":"v1","model":"mock/video","fps":24,"width":1280,"height":720,"chips":[],"files":{"src/Video.tsx":""},
+         "assets":[{"path":"gen/turtle.png","url":"https://r2.example/turtle.png?sig=1","width":64,"height":48}]}
+        """#.utf8))
+        #expect(source.assets == [.init(path: "gen/turtle.png", url: URL(string: "https://r2.example/turtle.png?sig=1")!, width: 64, height: 48)])
+        let older = try decoder.decode(PodcastVideoSource.self, from: Data(#"""
+        {"id":"v0","model":"mock/video","fps":24,"width":1280,"height":720,"chips":[],"files":{}}
+        """#.utf8))
+        #expect(older.assets == nil)
+    }
+}

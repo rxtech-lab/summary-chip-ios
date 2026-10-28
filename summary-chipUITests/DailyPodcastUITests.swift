@@ -35,7 +35,12 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
         XCTAssertTrue(app.buttons["background-job-render"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Script ready. Tap Render on This Device to create the video."].exists)
+        XCTAssertTrue(app.buttons["background-job-open"].exists)
+        // Activity is newest first: the finished step leads the log.
+        let finished = app.staticTexts["Video ready in R2. Open the podcast to watch or download."]
+        let queued = app.staticTexts["Queued cloud video render. You can close the app."]
+        XCTAssertTrue(finished.exists)
+        if queued.exists { XCTAssertLessThan(finished.frame.minY, queued.frame.minY) }
         attach(app, "background-job-ready-log")
         app.navigationBars["Job Details"].buttons["BackButton"].tap()
         app.buttons["Done"].tap()
@@ -153,6 +158,11 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
         XCTAssertTrue(app.buttons["podcast-open-chip"].waitForExistence(timeout: 10))
+        // Generation saves the episode; the listener starts playback explicitly.
+        let toggle = app.buttons["podcast-toggle"]
+        XCTAssertEqual(toggle.label, "Play")
+        toggle.tap()
+        XCTAssertEqual(toggle.label, "Pause")
         let initial = progress(app)
         app.buttons["podcast-open-chip"].tap()
         let miniToggle = app.buttons["podcast-mini-toggle"]

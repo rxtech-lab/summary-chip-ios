@@ -7,6 +7,7 @@ struct LikesView: View {
     @State private var feedScroll = SummaryFeedScrollState()
     @State private var didLoadInitially = false
     @State private var sharingSummary: Summary?
+    @State private var xSharingRequest: XSharingRequest?
     @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
     /// Lets a parent (the sidebar layout) own the navigation path.
@@ -44,6 +45,7 @@ struct LikesView: View {
                     }
                     ChatPanelToolbarContent(isVisible: chatPanelVisibility)
                 }
+                .xSharing($xSharingRequest, api: environment.api)
                 .sheet(item: $sharingSummary) { summary in
                     ShareModeSheet(summary: summary, api: environment.api) { updated in
                         environment.library.upsert(updated)
@@ -76,10 +78,12 @@ struct LikesView: View {
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) { toggleLike(summary) }
                 if !summary.isExpired {
-                    Button {
-                        sharingSummary = summary
-                    } label: {
-                        Label("Share", systemImage: "square.and.arrow.up")
+                    XSharingMenu(onShareToX: {
+                        xSharingRequest = XSharingRequest(summary: summary)
+                    }) {
+                        Button { sharingSummary = summary } label: {
+                            Label("Share…", systemImage: "square.and.arrow.up")
+                        }
                     }
                 }
             }) {

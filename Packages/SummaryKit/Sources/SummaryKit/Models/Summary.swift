@@ -345,6 +345,10 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     /// Someone else's starred summary that can no longer be opened: its link expired or it was made
     /// private. Only the title, cover and source come back; Likes shows it as expired.
     public var isExpired: Bool
+    /// Owner only, on a podcast chip about exactly one chip: that chip. Feeds stack the podcast on it.
+    public var podcastSourceId: String?
+    /// Owner only, on a chip: the newest podcast about this chip alone, played from the chip's cover.
+    public var stackedPodcastId: String?
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -416,6 +420,8 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         viewedAt = try c.decodeIfPresent(Date.self, forKey: .viewedAt)
         likedAt = try c.decodeIfPresent(Date.self, forKey: .likedAt)
         isExpired = try c.decodeIfPresent(Bool.self, forKey: .isExpired) ?? false
+        podcastSourceId = try c.decodeIfPresent(String.self, forKey: .podcastSourceId)
+        stackedPodcastId = try c.decodeIfPresent(String.self, forKey: .stackedPodcastId)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }

@@ -8,6 +8,7 @@ import { createGateway } from "@ai-sdk/gateway";
 import { generateSpeech } from "ai";
 import { writePodcast } from "@/lib/ai/podcast-agent";
 import * as versionsRoute from "@/app/api/v1/daily-podcasts/versions/route";
+import * as optionsRoute from "@/app/api/v1/daily-podcasts/options/route";
 import * as versionRoute from "@/app/api/v1/daily-podcasts/[key]/route";
 import * as libraryPodcastRoute from "@/app/api/v1/summaries/[id]/podcast/route";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -162,12 +163,16 @@ describe("podcast selection and versions", () => {
     expect(result.status).toBe(200);
     const podcast = (await result.json()).podcast as DailyPodcast;
     expect(podcast.summaryId).toBeTruthy();
+    // A podcast about one chip stacks on it and is never ranked as a pick of its own.
     await vi.waitFor(async () => {
       const headlines = await getHeadlines(env.handle.db, "user-alice");
-      expect(headlines.items.find((item) => item.id === podcast.summaryId)).toMatchObject({ kind: "podcast", score: 75 });
+      expect(headlines.pending).toBe(false);
+      expect(headlines.items.find((item) => item.id === old.id)).toMatchObject({ score: 75 });
+      expect(headlines.items.find((item) => item.id === podcast.summaryId)).toBeUndefined();
     });
     const library = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?kind=podcast", { token: env.tokens.alice }));
-    expect((await library.json()).items.map((item: { id: string }) => item.id)).toEqual([podcast.summaryId]);
+    expect((await library.json()).items.map((item: { id: string; podcastSourceId: string }) => [item.id, item.podcastSourceId]))
+      .toEqual([[podcast.summaryId, old.id]]);
     expect((await (await saved()).json()).podcast.key).toBe(daily.key);
     const detail = await libraryPodcastRoute.GET(apiRequest("GET", `/api/v1/summaries/${podcast.summaryId}/podcast`, { token: env.tokens.alice }), params({ id: podcast.summaryId! }));
     expect((await detail.json()).podcast.key).toBe(podcast.key);
@@ -262,7 +267,7 @@ describe("daily podcast contract", () => {
     const ids = new Set(chips.map((item) => item.id));
     expect(new Set(writer.mock.calls[0][0].chips.map((item) => item.id))).toEqual(ids);
     const selected = new Set(writer.mock.calls[0][0].chips.slice(0, 3).map(chip => chip.id));
-    expect(podcast.maxDurationSeconds).toBe(360);
+    expect(podcast.maxDurationSeconds).toBeUndefined();
     expect(new Set(podcast.chipIds)).toEqual(selected);
     expect(new Set(podcast.segments.map((segment) => segment.chipId))).toEqual(selected);
     expect(podcast.segments).toHaveLength(3);
@@ -271,6 +276,36 @@ describe("daily podcast contract", () => {
     expect((await audio(podcast)).status).toBe(200);
     expect((await (await saved()).json()).podcast).toEqual(podcast);
     expect(writer).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([30, 90, 180, 360, 125, 1800])("passes a %i-second length through generation and persistence", async (durationSeconds) => {
+    const source = await chip("A useful discovery");
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const response = await generate({ library: true, chipIds: [source.id], durationSeconds, includeVideo: false });
+    expect(response.status).toBe(200);
+    const { podcast } = await response.json() as { podcast: DailyPodcast };
+    expect(writer.mock.calls[0][0]).toMatchObject({ recap: true, maxDurationSeconds: durationSeconds });
+    expect(podcast.maxDurationSeconds).toBeUndefined();
+    expect(podcast.durationSeconds).toBeLessThanOrEqual(durationSeconds);
+  });
+
+  it("creates a new daily recording for a new length and keeps automated recaps capped", async () => {
+    await chip("A useful discovery");
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const first = await (await generate({ durationSeconds: 90 })).json();
+    const second = await (await generate({ durationSeconds: 180 })).json();
+    expect(first.podcast.key).not.toBe(second.podcast.key);
+    expect(second.podcast.maxDurationSeconds).toBeUndefined();
+    const recap = await (await generate({ recap: true, durationSeconds: 360 })).json();
+    expect(recap.podcast.maxDurationSeconds).toBe(179);
+    expect(writer).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([0, 29, 1801, 90.5, "90"])("rejects invalid duration %s before AI", async (durationSeconds) => {
+    await chip("A useful discovery");
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    expect((await generate({ durationSeconds })).status).toBe(400);
+    expect(writer).not.toHaveBeenCalled();
   });
 
   it("shares concurrent generation and preserves a working saved episode when regeneration fails", async () => {
@@ -603,5 +638,34 @@ describe("summary backfill", () => {
     const response = await backfill(episode);
     expect(response.status).toBe(200);
     expect((await response.json()).podcast.summary).toBe("A concise overview of the recorded discoveries and their implications.");
+  });
+});
+
+describe("podcast generation options", () => {
+  const options = (headers: Record<string, string> = {}) =>
+    optionsRoute.GET(apiRequest("GET", "/api/v1/daily-podcasts/options", { token: env.tokens.alice, headers }));
+
+  it("serves languages, the speaker limit from the configured voices and localized video styles", async () => {
+    vi.stubEnv("AI_PODCAST_VOICES", "a,b,c");
+    vi.spyOn(env.ai, "speechModelId").mockReturnValue("microsoft/mai-voice-2.1-flash");
+    const response = await options({ "accept-language": "zh-TW, en;q=0.8" });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.languages).toContain("ja");
+    expect(body.speakers).toEqual({ maxCount: 3, maxNameLength: 40 });
+    expect(body.defaultVideoStyle).toBe("news");
+    expect(body.videoStyles.map((style: { id: string }) => style.id)).toEqual(["news", "crayon"]);
+    expect(body.videoStyles[1]).toMatchObject({ title: "蠟筆", symbol: "pencil.and.scribble" });
+    expect(body.duration).toMatchObject({ minSeconds: 30, maxSeconds: 1800, defaultSeconds: 360 });
+    expect(body.duration.presets.map((preset: { seconds: number }) => preset.seconds)).toEqual([360, 180, 90, 30]);
+    expect(body.videoStyles[0].swatch[0]).toMatch(/^#[0-9A-F]{6}$/);
+  });
+
+  it("offers no named speakers without speech and requires sign-in", async () => {
+    vi.spyOn(env.ai, "speechModelId").mockReturnValue(null);
+    const body = await (await options()).json();
+    expect(body.speakers.maxCount).toBe(0);
+    expect(body.videoStyles[0].title).toBe("News");
+    expect((await optionsRoute.GET(apiRequest("GET", "/api/v1/daily-podcasts/options"))).status).toBe(401);
   });
 });

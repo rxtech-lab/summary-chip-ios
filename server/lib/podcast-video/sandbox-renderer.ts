@@ -7,10 +7,11 @@ import { summaries } from "@/lib/db/schema";
 import { MAX_PODCAST_VIDEO_BYTES } from "@/lib/contracts/daily-podcast";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore } from "@/lib/storage/r2";
-import { dailyPodcastRecording } from "@/lib/services/daily-podcast";
+import { dailyPodcastRecording, dayKey } from "@/lib/services/daily-podcast";
 import { currentPodcastRender, podcastRenderKey, type PodcastRenderJob } from "@/lib/services/podcast-render";
 import { podcastVideoInput, podcastVideoSource } from "@/lib/services/podcast-video";
 import { cloudCaptionsSrt } from "./captions";
+import { isPodcastVideoAsset } from "./images";
 import { CLOUD_RENDER_RUNNER } from "./cloud-runner";
 
 export interface RenderSession { name: string }
@@ -33,6 +34,12 @@ const production: CloudPodcastRenderer = {
       if (!/^src\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:tsx|ts|css|json)$/.test(path)) throw new Error("Invalid source path");
       return { path: `${directory}/${path}`, content: Buffer.from(value) };
     });
+    // The agent's generated cut-outs, stored with the episode the job's owner already owns.
+    for (const asset of source.assets ?? []) {
+      if (!isPodcastVideoAsset(asset)) throw new Error("Invalid asset path");
+      const image = await store.get(`${dayKey(job.userId, job.day)}/${job.key}/${asset.file}`);
+      files.push({ path: `${directory}/public/${asset.path}`, content: Buffer.from(image.bytes) });
+    }
     const input = podcastVideoInput(podcast, source.chips);
     const images = new Map<string, string>();
     for (const path of new Set(podcast.segments.flatMap(s => s.imagePath ? [s.imagePath] : []))) {

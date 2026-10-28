@@ -166,6 +166,20 @@ import Testing
         #expect(PodcastProtocol.recorder.values.count == 1)
     }
 
+    @Test func decodesServerDurationOptionsAndOlderServers() throws {
+        let json = #"{"languages":["en"],"speakers":{"maxCount":4,"maxNameLength":40},"videoStyles":[],"defaultVideoStyle":"news"}"#
+        let legacy = try JSONDecoder().decode(PodcastGenerationOptions.self, from: Data(json.utf8))
+        #expect(legacy.duration == nil)
+        var body = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        body["duration"] = ["presets": [["seconds": 30, "title": "Clips"]],
+                            "minSeconds": 30, "maxSeconds": 1800, "defaultSeconds": 360]
+        let options = try JSONDecoder().decode(PodcastGenerationOptions.self, from: JSONSerialization.data(withJSONObject: body))
+        #expect(options.duration?.presets.first?.seconds == 30)
+        #expect(options.duration?.minSeconds == 30)
+        #expect(options.duration?.maxSeconds == 1800)
+        #expect(options.duration?.defaultSeconds == 360)
+    }
+
     @Test func sendsExplicitChipSelectionForLibraryPodcast() async throws {
         PodcastProtocol.recorder.clear()
         let config = URLSessionConfiguration.ephemeral
@@ -173,12 +187,13 @@ import Testing
         let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
                                    session: URLSession(configuration: config))
         _ = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true,
-                                               chipIds: ["older-chip", "today-chip"], library: true, includeVideo: false, speakerNames: ["小明", "Jane"])
+                                               chipIds: ["older-chip", "today-chip"], library: true, includeVideo: false, speakerNames: ["小明", "Jane"], durationSeconds: 125)
         let body = try JSONSerialization.jsonObject(with: PodcastProtocol.recorder.values[0].httpBody!) as! [String: Any]
         #expect(body["chipIds"] as? [String] == ["older-chip", "today-chip"])
         #expect(body["library"] as? Bool == true)
         #expect(body["includeVideo"] as? Bool == false)
         #expect(body["speakerNames"] as? [String] == ["小明", "Jane"])
+        #expect(body["durationSeconds"] as? Int == 125)
         #expect(body["regenerate"] as? Bool == true)
     }
 

@@ -10,11 +10,18 @@ struct SummaryDetailView: View {
     @State private var summary: Summary
     @State private var showsChat = false
     @State private var showsShare = false
+    @State private var xSharingRequest: XSharingRequest?
     @State private var showsEditSharing = false
     @State private var showsNewPodcast = false
     @State private var linkedPodcasts: [DailyPodcast] = []
     @State private var showsLinkedPodcasts = false
     @State private var selectedPodcast: DailyPodcast?
+    @State private var podcastAction: PodcastMenuAction = .watch
+    @State private var podcastChoices: [DailyPodcast] = []
+    @State private var downloadPodcast: DailyPodcast?
+    @State private var openingPodcast = false
+    @State private var podcastError: String?
+    @State private var podcastPlays = 0
     @State private var showsRegenerate = false
     @State private var showsLanguage = false
     @State private var showsLocalFile = false
@@ -58,7 +65,8 @@ struct SummaryDetailView: View {
             SummaryDetailContent(
                 summary: shown,
                 onEditSharing: summary.isOwner && !isPreviewingVersion ? { showsEditSharing = true } : nil,
-                onChangeLanguage: summary.isOwner && !isPreviewingVersion ? { showsLanguage = true } : nil
+                onChangeLanguage: summary.isOwner && !isPreviewingVersion ? { showsLanguage = true } : nil,
+                onPlayPodcast: summary.stackedPodcastId != nil && !isPreviewingVersion ? { Task { await playStackedPodcast() } } : nil
             )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -82,14 +90,6 @@ struct SummaryDetailView: View {
         .summaryInlineNavigationTitle()
         .summaryHideTabBar()
         .toolbar {
-            if !linkedPodcasts.isEmpty {
-                ToolbarItem(placement: .summaryTrailing) {
-                    Button { showsLinkedPodcasts = true } label: {
-                        Label("Watch Podcast", systemImage: "play.rectangle")
-                    }
-                    .accessibilityIdentifier("summary-linked-podcasts")
-                }
-            }
             ToolbarItem(placement: .summaryTrailing) {
                 Button {
                     Task { await toggleLike() }
@@ -105,17 +105,23 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsLinkedPodcasts, onDismiss: {
             if let podcast = selectedPodcast {
                 selectedPodcast = nil
-                environment.podcastPlayer.present(podcast: podcast)
+                openSelectedPodcast(podcast)
             }
         }) {
-            LinkedPodcastsSheet(podcasts: linkedPodcasts) { podcast in
+            LinkedPodcastsSheet(podcasts: podcastChoices, action: podcastAction) { podcast in
                 selectedPodcast = podcast
                 showsLinkedPodcasts = false
+            }
+        }
+        .sheet(isPresented: Binding(get: { downloadPodcast != nil }, set: { if !$0 { downloadPodcast = nil } })) {
+            if let downloadPodcast {
+                DailyPodcastDownloadSheet(api: environment.api, podcast: downloadPodcast)
             }
         }
         .sheet(isPresented: $showsChat) {
             ChatView(environment: environment, summary: summary)
         }
+        .xSharing($xSharingRequest, api: environment.api)
         .sheet(isPresented: $showsShare) {
             ShareModeSheet(summary: summary, api: environment.api) { updated in apply(updated) }
         }
@@ -160,12 +166,26 @@ struct SummaryDetailView: View {
         }
         .sensoryFeedback(.selection, trigger: showsLinkedPodcasts)
         .sensoryFeedback(.selection, trigger: showsNewPodcast)
+        .sensoryFeedback(.selection, trigger: downloadPodcast != nil)
+        .sensoryFeedback(.impact(weight: .medium), trigger: podcastPlays)
+        .overlay {
+            if openingPodcast {
+                ProgressView("Opening podcast…")
+                    .padding(24)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+        .alert("Couldn't Open Podcast", isPresented: Binding(get: { podcastError != nil }, set: { if !$0 { podcastError = nil } })) {
+            Button("OK", role: .cancel) { podcastError = nil }
+        } message: { Text(podcastError ?? "") }
+        .sensoryFeedback(.error, trigger: podcastError) { _, new in new != nil }
         .task(id: summary.id) { await reloadLinkedPodcasts() }
+        // A podcast made or changed here may now stack on this chip.
         .onChange(of: showsNewPodcast) { _, shown in
-            if !shown { Task { await reloadLinkedPodcasts() } }
+            if !shown { Task { await reloadLinkedPodcasts(); await refresh() } }
         }
         .onChange(of: environment.podcastPlayer.isPresented) { _, shown in
-            if !shown { Task { await reloadLinkedPodcasts() } }
+            if !shown { Task { await reloadLinkedPodcasts(); await refresh() } }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: showsSourceText) { _, new in new }
         .sensoryFeedback(.success, trigger: savedCount)
@@ -216,15 +236,20 @@ struct SummaryDetailView: View {
             .accessibilityIdentifier("ask-summary")
             Divider()
         }
-        Button {
-            showsShare = true
+        Menu {
+            Button { showsShare = true } label: {
+                Label("Share…", systemImage: "square.and.arrow.up")
+            }
+            .accessibilityIdentifier("share-summary")
+            Button("Share to X", systemImage: "arrow.up.forward") {
+                xSharingRequest = XSharingRequest(summary: shown)
+            }
+            .accessibilityIdentifier("summary-share-x")
         } label: {
-            Label("Share…", systemImage: "square.and.arrow.up")
+            Label("Share", systemImage: "square.and.arrow.up")
         }
-        .accessibilityIdentifier("share-summary")
         if !isPreviewingVersion {
-            Button { showsNewPodcast = true } label: { Label("Create Podcast", systemImage: "waveform") }
-                .accessibilityIdentifier("summary-create-podcast")
+            podcastMenu
         }
         if summary.isOwner {
             // A submenu: pick a version to preview in place, restore it, or open the full history.
@@ -271,6 +296,82 @@ struct SummaryDetailView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+        }
+    }
+
+    private var hasPodcast: Bool { summary.stackedPodcastId != nil || !linkedPodcasts.isEmpty }
+
+    /// Existing episodes open dedicated download or playback views; generation remains available.
+    private var podcastMenu: some View {
+        Menu {
+            if hasPodcast {
+                Button { Task { await openPodcastAction(.download) } } label: {
+                    Label("Download Podcast", systemImage: "arrow.down.to.line")
+                }
+                .disabled(openingPodcast)
+                .accessibilityIdentifier("summary-download-podcast")
+                Button { Task { await openPodcastAction(.watch) } } label: {
+                    Label("Watch Podcast", systemImage: "play.rectangle")
+                }
+                .disabled(openingPodcast)
+                .accessibilityIdentifier("summary-linked-podcasts")
+                Divider()
+                Button { showsNewPodcast = true } label: { Label("Generate Podcast", systemImage: "plus") }
+                    .accessibilityIdentifier("summary-create-podcast")
+            } else {
+                Button { showsNewPodcast = true } label: { Label("Create Podcast", systemImage: "plus") }
+                    .accessibilityIdentifier("summary-create-podcast")
+            }
+        } label: {
+            Label("Podcast", systemImage: "waveform")
+        }
+        .accessibilityIdentifier("summary-podcast-menu")
+    }
+
+    private func openPodcastAction(_ action: PodcastMenuAction) async {
+        guard !openingPodcast else { return }
+        openingPodcast = true
+        defer { openingPodcast = false }
+        do {
+            var choices = linkedPodcasts
+            if let id = summary.stackedPodcastId, !choices.contains(where: { $0.summaryId == id }) {
+                let podcast = try await environment.api.libraryPodcast(summaryID: id)
+                if !choices.contains(where: { $0.key == podcast.key }) { choices.insert(podcast, at: 0) }
+            }
+            try Task.checkCancellation()
+            podcastAction = action
+            if choices.count == 1, let podcast = choices.first {
+                openSelectedPodcast(podcast)
+            } else if !choices.isEmpty {
+                podcastChoices = choices
+                showsLinkedPodcasts = true
+            }
+        } catch is CancellationError {
+        } catch { podcastError = error.localizedDescription }
+    }
+
+    private func openSelectedPodcast(_ podcast: DailyPodcast) {
+        if podcastAction == .download {
+            downloadPodcast = podcast
+        } else {
+            podcastPlays += 1
+            environment.podcastPlayer.present(podcast: podcast)
+        }
+    }
+
+    /// Opens the podcast about this chip alone in the player and starts it.
+    private func playStackedPodcast() async {
+        guard let id = summary.stackedPodcastId, !openingPodcast else { return }
+        openingPodcast = true
+        defer { openingPodcast = false }
+        do {
+            let podcast = try await environment.api.libraryPodcast(summaryID: id)
+            podcastPlays += 1
+            environment.podcastPlayer.present(podcast: podcast)
+            if !environment.podcastPlayer.playing { environment.podcastPlayer.toggle() }
+        } catch is CancellationError {
+        } catch {
+            podcastError = error.localizedDescription
         }
     }
 
@@ -513,6 +614,7 @@ private struct LibraryPodcastDetail: View {
     @State private var loading = true
     @State private var openingChip = false
     @State private var showsRegeneration = false
+    @State private var xSharingRequest: XSharingRequest?
     @State private var showsLinkedChips = false
     @State private var pendingChipID: String?
     @State private var regenerations = 0
@@ -537,8 +639,19 @@ private struct LibraryPodcastDetail: View {
                     .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
         }
+        .xSharing($xSharingRequest, api: environment.api)
         .navigationTitle(podcast?.title ?? summary.title)
         .toolbar {
+            if let podcast {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu("Share", systemImage: "square.and.arrow.up") {
+                        Button("Share to X", systemImage: "arrow.up.forward") {
+                            xSharingRequest = XSharingRequest(podcast: podcast)
+                        }
+                        .accessibilityIdentifier("podcast-share-x")
+                    }
+                }
+            }
             if let podcast, !podcast.sourceChipIDs.isEmpty {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Linked Chips", systemImage: "doc.on.doc") { showsLinkedChips = true }
@@ -614,8 +727,22 @@ private struct LibraryPodcastDetail: View {
 }
 
 
+private enum PodcastMenuAction {
+    case watch, download
+
+    var title: String {
+        switch self {
+        case .watch: String(localized: "Watch Podcast")
+        case .download: String(localized: "Download Podcast")
+        }
+    }
+
+    var systemImage: String { self == .watch ? "play.rectangle" : "arrow.down.to.line" }
+}
+
 private struct LinkedPodcastsSheet: View {
     let podcasts: [DailyPodcast]
+    let action: PodcastMenuAction
     let onSelect: (DailyPodcast) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var taps = 0
@@ -625,7 +752,7 @@ private struct LinkedPodcastsSheet: View {
             List(podcasts, id: \.key) { podcast in
                 Button { taps += 1; onSelect(podcast) } label: {
                     HStack {
-                        Image(systemName: "play.rectangle")
+                        Image(systemName: action.systemImage)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(podcast.title).font(.headline)
                             Text(podcast.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -638,7 +765,7 @@ private struct LinkedPodcastsSheet: View {
                 .accessibilityIdentifier("linked-podcast-\(podcast.key)")
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Watch Podcast")
+            .navigationTitle(action.title)
             .summaryInlineNavigationTitle()
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sensoryFeedback(.selection, trigger: taps)

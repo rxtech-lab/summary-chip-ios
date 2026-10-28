@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { podcastEpisodes, summaries } from "@/lib/db/schema";
-import type { PodcastDay } from "@/lib/contracts/daily-podcast";
+import type { PodcastDay, PodcastVideoSource } from "@/lib/contracts/daily-podcast";
+import { isPodcastVideoAsset } from "@/lib/podcast-video/images";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore } from "@/lib/storage/r2";
 import { dailyPodcastEpisode, dayKey, episodeAudioPath } from "./daily-podcast";
@@ -22,14 +23,21 @@ export async function createPodcastVersion(db: Database, user: string, day: Podc
   const to = `${dayKey(user, day)}/${episode.key}`;
   const copied: string[] = [];
   const copy = async (path: string) => {
+    if (copied.includes(`${to}/${path}`)) return;
     const object = await store.get(`${from}/${path}`);
     copied.push(`${to}/${path}`);
     await store.put(`${to}/${path}`, object);
   };
+  /** A composition and the generated cut-outs it uses (episode-relative, so shared by its translations). */
+  const copyVideo = async (path: string) => {
+    await copy(path);
+    const source = JSON.parse(new TextDecoder().decode((await store.get(`${from}/${path}`)).bytes)) as PodcastVideoSource;
+    for (const asset of source.assets ?? []) if (isPodcastVideoAsset(asset)) await copy(asset.file);
+  };
   try {
     await copy("audio.mp3");
     if (episode.video) {
-      await copy(episode.video.sourceFile ?? "video.json");
+      await copyVideo(episode.video.sourceFile ?? "video.json");
       delete episode.video.published;
       delete episode.video.renders;
     }
@@ -37,7 +45,7 @@ export async function createPodcastVersion(db: Database, user: string, day: Podc
       await copy(`translations/${language}/audio.mp3`);
       translation.audioPath = episodeAudioPath(episode, language);
       if (translation.video) {
-        await copy(`translations/${language}/${translation.video.sourceFile ?? "video.json"}`);
+        await copyVideo(`translations/${language}/${translation.video.sourceFile ?? "video.json"}`);
         delete translation.video.published;
         delete translation.video.renders;
       }
