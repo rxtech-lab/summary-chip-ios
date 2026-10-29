@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 import { withWorkflow } from "workflow/next";
 
-/** The podcast video agent previews frames in a QuickJS worker and draws them with a bundled font. */
-const podcastVideoPreview = ["./lib/podcast-video/frame-worker.mjs", "./lib/podcast-video/fonts/*.ttf", "./node_modules/quickjs-emscripten/**", "./node_modules/quickjs-emscripten-core/**", "./node_modules/@jitl/**"];
+/** The podcast video agent previews frames in a QuickJS worker and draws them with a bundled font.
+ * Its name check reads TypeScript's standard library (`Math`, `Array`…), which tracing does not follow. */
+const podcastVideoPreview = ["./lib/podcast-video/frame-worker.mjs", "./lib/podcast-video/fonts/*.ttf", "./node_modules/quickjs-emscripten/**", "./node_modules/quickjs-emscripten-core/**", "./node_modules/@jitl/**", "./node_modules/typescript/lib/lib.*.d.ts"];
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
