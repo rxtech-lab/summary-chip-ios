@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import SwiftUI
 import SummaryKit
 import WidgetKit
@@ -21,6 +22,8 @@ struct LibraryFilter: Hashable {
 /// The library (`GET /api/v1/summaries`): your own summaries plus others' you opened from shared
 /// links, newest activity first, with filters and paging. Search lives in its own tab (`SearchModel`). Everything loaded is saved to
 /// the offline store, which backs the feed until (or whenever) the network answers.
+private let feedLog = Logger(subsystem: "com.rxlab.summary-chip", category: "Feed")
+
 @Observable
 final class LibraryModel {
     let api: SummaryAPIClient
@@ -105,7 +108,11 @@ final class LibraryModel {
         defer { if generation == loadGeneration { isLoading = false } }
         do {
             let page = try await api.listSummaries(query(cursor: nil))
-            guard generation == loadGeneration else { return }
+            guard generation == loadGeneration else {
+                feedLog.debug("reload gen \(generation) superseded by \(self.loadGeneration)")
+                return
+            }
+            feedLog.debug("reload kind=\(String(describing: self.kind), privacy: .public) replaced \(self.items.count) with \(page.items.count) items, nextCursor=\(page.nextCursor ?? "nil", privacy: .public)")
             items = page.items
             nextCursor = page.nextCursor
             applyEditorPicks(page.items)
@@ -124,6 +131,7 @@ final class LibraryModel {
         } catch let error as URLError where error.code == .cancelled {
         } catch {
             guard generation == loadGeneration else { return }
+            feedLog.error("reload failed: \(String(describing: error), privacy: .public)")
             // Fall back to what's saved on the device, filtered locally.
             let saved = offline.summaries(matching: query(cursor: nil), editorPickIDs: editorPickIDs)
             if !saved.isEmpty || error.isOffline || filter.editorsPick {
@@ -143,6 +151,7 @@ final class LibraryModel {
             return
         }
         translationReloads += 1
+        feedLog.debug("translation pending, reloading first page in 5s (attempt \(self.translationReloads))")
         Task {
             try? await Task.sleep(for: .seconds(5))
             await reload()
@@ -150,19 +159,29 @@ final class LibraryModel {
     }
 
     func loadMore() async {
-        guard let cursor = nextCursor, !isLoadingMore, !isLoading else { return }
+        guard let cursor = nextCursor, !isLoadingMore, !isLoading else {
+            feedLog.debug("loadMore skipped: nextCursor=\(self.nextCursor ?? "nil", privacy: .public) isLoadingMore=\(self.isLoadingMore) isLoading=\(self.isLoading) items=\(self.items.count)")
+            return
+        }
         isLoadingMore = true
         defer { isLoadingMore = false }
         let generation = loadGeneration
+        feedLog.debug("loadMore cursor=\(cursor, privacy: .public) items=\(self.items.count)")
         do {
             let page = try await api.listSummaries(query(cursor: cursor))
-            guard generation == loadGeneration else { return }
+            guard generation == loadGeneration else {
+                feedLog.debug("loadMore dropped: gen \(generation) superseded by \(self.loadGeneration)")
+                return
+            }
             let known = Set(items.map(\.id))
-            items.append(contentsOf: page.items.filter { !known.contains($0.id) })
+            let fresh = page.items.filter { !known.contains($0.id) }
+            feedLog.debug("loadMore got \(page.items.count) items (\(fresh.count) new), nextCursor=\(page.nextCursor ?? "nil", privacy: .public)")
+            items.append(contentsOf: fresh)
             nextCursor = page.nextCursor
             applyEditorPicks(page.items)
             offline.upsert(page.items)
         } catch {
+            feedLog.error("loadMore failed: \(String(describing: error), privacy: .public)")
             errorMessage = error.localizedDescription
         }
     }
