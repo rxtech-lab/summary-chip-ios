@@ -144,6 +144,17 @@ export function imageUsdPerImage(): number {
   return Number.isFinite(configured) && configured >= 0 && process.env.AI_IMAGE_USD_PER_IMAGE?.trim() ? configured : DEFAULT_IMAGE_USD_PER_IMAGE;
 }
 
+/** Storyboard frame model (`STORY_BOARD_IMAGE_MODEL`) that pictures planned podcast shots; null turns planned frames off. */
+export function storyboardImageModelId(): string | null {
+  return process.env.STORY_BOARD_IMAGE_MODEL?.trim() || null;
+}
+
+/** Price per storyboard frame in USD (`STORY_BOARD_IMAGE_USD_PER_IMAGE`), the illustration price by default. */
+export function storyboardImageUsdPerImage(): number {
+  const configured = Number(process.env.STORY_BOARD_IMAGE_USD_PER_IMAGE);
+  return Number.isFinite(configured) && configured >= 0 && process.env.STORY_BOARD_IMAGE_USD_PER_IMAGE?.trim() ? configured : imageUsdPerImage();
+}
+
 /** Tour narration model (`AI_TOUR_MODEL`): pick a fast one, it writes every scene of a trip tour. Defaults to the text model. */
 export function tourModelId(): string {
   return process.env.AI_TOUR_MODEL?.trim() || textModelId();
@@ -168,6 +179,11 @@ export function podcastModel(): LanguageModel {
 export const DEFAULT_TOUR_VOICE = "en-US-Harper";
 /** MAI-Voice-2.1-Flash's list price per input character (US$15 per million), when `AI_SPEECH_USD_PER_CHARACTER` isn't set. */
 const DEFAULT_SPEECH_USD_PER_CHARACTER = 0.000015;
+/** AI Gateway list prices per input character for other speech models. */
+const SPEECH_USD_PER_CHARACTER: Record<string, number> = {
+  // https://vercel.com/ai-gateway/models/eleven-v4-turbo (US$20 per million)
+  "elevenlabs/eleven-v4-turbo": 0.00002,
+};
 
 /** Speech model that reads tours aloud (`AI_SPEECH_MODEL`, an AI Gateway id); null when unset, so tours play as subtitles only. */
 export function speechModelId(): string | null {
@@ -196,7 +212,8 @@ export function speechModel(id: string): SpeechModel {
 /** Price per spoken character in USD (`AI_SPEECH_USD_PER_CHARACTER`), used to charge points for narration. */
 export function speechUsdPerCharacter(): number {
   const configured = Number(process.env.AI_SPEECH_USD_PER_CHARACTER);
-  return Number.isFinite(configured) && configured >= 0 && process.env.AI_SPEECH_USD_PER_CHARACTER?.trim() ? configured : DEFAULT_SPEECH_USD_PER_CHARACTER;
+  if (Number.isFinite(configured) && configured >= 0 && process.env.AI_SPEECH_USD_PER_CHARACTER?.trim()) return configured;
+  return SPEECH_USD_PER_CHARACTER[speechModelId() ?? ""] ?? DEFAULT_SPEECH_USD_PER_CHARACTER;
 }
 
 /** Default model that writes podcast motion videos (Remotion code): a strong coding model. */

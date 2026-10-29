@@ -142,7 +142,10 @@ describe("editorial headlines", () => {
     expect(podcast.items.map((item: { id: string }) => item.id)).toEqual(["podcast-pick"]);
     expect((await list("editorsPick=true&scope=viewed")).items).toEqual([]);
     expect((await list("editorsPick=true&kind=trip")).items).toEqual([]);
-    expect((await list("editorsPick=false&limit=50")).items).toHaveLength(24);
+    const all: { id: string; isEditorsPick: boolean }[] = (await list("editorsPick=false&limit=50")).items;
+    expect(all).toHaveLength(24);
+    // The unfiltered list marks the same picks, so the app badges cards without waiting on Headlines.
+    expect(all.filter((item) => item.isEditorsPick).map((item) => item.id).sort()).toEqual(["old-pick", "podcast-pick"]);
     const invalid = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?editorsPick=invalid", { token: env.tokens.alice }));
     expect(invalid.status).toBe(400);
   });
@@ -173,6 +176,8 @@ describe("editorial headlines", () => {
     expect(byId.multi).toMatchObject({ podcastSourceId: null, stackedPodcastId: null });
     expect(byId.source).toMatchObject({ podcastSourceId: null, stackedPodcastId: "solo" });
     expect(byId.other).toMatchObject({ stackedPodcastId: null });
+    expect(items.filter((item) => (item as { isEditorsPick?: boolean }).isEditorsPick).map((item) => item.id).sort())
+      .toEqual(["multi", "other", "source"]);
     const picks = await summariesRoute.GET(apiRequest("GET", "/api/v1/summaries?editorsPick=true", { token: env.tokens.alice }));
     expect((await picks.json()).items.map((item: { id: string }) => item.id)).not.toContain("solo");
   });

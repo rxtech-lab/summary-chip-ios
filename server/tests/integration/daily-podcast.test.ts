@@ -654,7 +654,7 @@ describe("podcast generation options", () => {
     expect(body.languages).toContain("ja");
     expect(body.speakers).toEqual({ maxCount: 3, maxNameLength: 40 });
     expect(body.defaultVideoStyle).toBe("news");
-    expect(body.videoStyles.map((style: { id: string }) => style.id)).toEqual(["news", "crayon"]);
+    expect(body.videoStyles.map((style: { id: string }) => style.id)).toEqual(["news", "crayon", "update"]);
     expect(body.videoStyles[1]).toMatchObject({ title: "蠟筆", symbol: "pencil.and.scribble" });
     expect(body.duration).toMatchObject({ minSeconds: 30, maxSeconds: 1800, defaultSeconds: 360 });
     expect(body.duration.presets.map((preset: { seconds: number }) => preset.seconds)).toEqual([360, 180, 90, 30]);

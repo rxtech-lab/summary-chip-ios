@@ -6,6 +6,31 @@ The player overlays host names, exact spoken captions, a seek slider and playbac
 
 New episodes include an AI-written summary of fewer than 200 words, grounded in the stories actually narrated. The player’s Podcast Summary toolbar button opens a dedicated reading sheet on iOS and macOS. The summary stays in the original episode language when playback is translated. For older episodes without a summary, opening the sheet generates and saves one from the recorded transcript, with an overlay, retry alert, and mobile feedback. Audio and video are preserved. Word limits use locale-aware segmentation, including unspaced Chinese and Japanese text.
 
+## Plan mode
+
+Tick **Plan Mode** in the creation form, then tap **Generate**: the server writes only a draft script and camera storyboard and the full-height plan sheet opens. The sheet is a chat with the planner. The latest plan sits at the end of the transcript as a card listing every spoken line with its storyboard frame, speaker, narration and camera direction (subject, framing, camera movement, animation, and transition). Send a message ("make the opening shorter", "use an aerial shot for line 3") to revise the whole plan; tap a line to edit that one line (speaker, exact words, camera direction) or delete it in its own sheet. Every change saves a new revision. The source selection, language, voices, length, and video style are frozen with the plan.
+
+Storyboard frames are drawn by `STORY_BOARD_IMAGE_MODEL` (priced by `STORY_BOARD_IMAGE_USD_PER_IMAGE`, defaulting to the illustration price): one text-free 16:9 keyframe (stored as a 1280×720 PNG) for each of the first 40 shots, in the chosen video style. The sheet draws them when it opens and after each revision. Frames are keyed by a hash of their camera direction, so unchanged shots keep their frame across revisions and reorders, and a changed direction redraws only that shot. Without the model, plans have no frames and everything else works.
+
+Planning, chat revisions and frames spend points. Planning never synthesizes speech, creates a cover, starts a video design, or renders media. Confirmation starts generation using the saved narration verbatim. The approved frames are copied next to the recording as `video-assets/plan/storyboard-<n>.png` (`segments[n].storyboard`). They are supplied to the video designer as ready images (`gen/storyboard-<n>.png`, never deleted with a failed draft), listed on each turn as `storyboardFrame` beside its camera direction and real spoken timings, and always shipped in the composition's assets for device and cloud renders. Confirmed plans cannot be edited. Failed generation can be retried; a completed plan returns its existing episode without generating or charging again. An expiring database lease prevents concurrent media generation across server instances.
+
+Unconfirmed plans are listed above the library feed as **Planned Podcasts** (shown when the feed could contain podcasts you made). Tap one to reopen its plan sheet and confirm it, or delete it from its menu. Closing a reopened plan without confirming returns to the library and keeps it listed.
+
+`0044_podcast_plans.sql`, `0045_podcast_plan_chat.sql` and `0046_podcast_plan_timestamps.sql` must be migrated before enabling this flow on a deployed server. Drafts are owner scoped and cascade on account deletion. These endpoints require app bearer authentication and the same billing proof as podcast generation. Each returns `{plan: {id, revision, confirmed, script, messages, frames, storyboard}}`: `frames` holds hour-long private URLs aligned with `script.segments` (null for shots without one) and `storyboard` says whether frames can be drawn.
+
+| Method and path | Input | Response / behavior |
+| --- | --- | --- |
+| `POST /api/v1/daily-podcasts/plans` | Existing podcast creation body | New plan; script contains `camera` on every segment |
+| `GET /api/v1/daily-podcasts/plans` | — | `{plans: [{id, revision, title, summary, lineCount, library, language, day, createdAt, updatedAt, thumbnailUrl}]}`: the owner's unconfirmed plans, most recently changed first (up to 50) |
+| `DELETE /api/v1/daily-podcasts/plans/:id` | — | 204; deletes an unconfirmed plan and its frames. 409 `PODCAST_PLAN_CONFIRMED` or `PODCAST_PLAN_GENERATING` |
+| `GET /api/v1/daily-podcasts/plans/:id` | — | Owner's persisted plan, without generation or charges |
+| `PATCH /api/v1/daily-podcasts/plans/:id` | `{revision, script}` | Line edits: updated plan with incremented revision; rejects stale revisions, confirmed plans, invalid source/speaker references, or empty shots. Frames of changed directions are deleted |
+| `POST /api/v1/daily-podcasts/plans/:id/messages` | `{revision, message}` | Chat revision by the podcast model; appends the request and its reply to `messages` (`PODCAST_PLAN_REFINE_FAILED`, 502, on failure) |
+| `POST /api/v1/daily-podcasts/plans/:id/frames` | `{revision}` | Draws the missing frames; 503 `PODCAST_STORYBOARD_UNAVAILABLE` without the model, 502 `PODCAST_STORYBOARD_FAILED` when none could be drawn |
+| `POST /api/v1/daily-podcasts/plans/:id` | `{revision}` | Freezes the reviewed revision, then returns `{podcast}`; supports the existing SSE progress/completion contract |
+
+Conflict codes are `PODCAST_PLAN_CHANGED` (409, reload before editing/confirming), `PODCAST_PLAN_GENERATING` (409, another request is generating; retry later), and `PODCAST_PLAN_USED` (409, its completed episode was removed; create another plan). Missing or other users' plans return 404. Source access is checked again before saving edits or confirming.
+
 ## API contract
 
 All `/api/v1` endpoints require the app's bearer token. All JSON responses use `Cache-Control: no-store`. Day boundaries are ISO 8601 instants describing one local calendar day, including 23/25-hour daylight-saving days. The app computes these boundaries using its calendar, rather than sending a UTC date.

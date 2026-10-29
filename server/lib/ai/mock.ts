@@ -54,6 +54,7 @@ export class MockAiProvider implements AiProvider {
     composeMusic: string[];
     writePodcastVideo: PodcastVideoInput[];
     drawPodcastVideoImage: { subject: string; style?: PodcastVideoStyle }[];
+    drawStoryboardFrame: import("./provider").StoryboardShot[];
     translatePodcast: PodcastTranslationInput[];
     translatePodcastVideo: { files: Record<string, string>; language: string }[];
   } = {
@@ -78,6 +79,7 @@ export class MockAiProvider implements AiProvider {
     composeMusic: [],
     writePodcastVideo: [],
     drawPodcastVideoImage: [],
+    drawStoryboardFrame: [],
     translatePodcast: [],
     translatePodcastVideo: [],
   };
@@ -290,7 +292,28 @@ export class MockAiProvider implements AiProvider {
 
   async writePodcast(input: PodcastInput) {
     return { title: "Your daily podcast", summary: "A roundup of the selected stories and their main takeaways.", mood: "calm" as const, speakers: (input.speakerNames ?? ["Alex"]).map((name, index) => ({ name, voice: input.voices[index] })),
-      segments: input.chips.map((chip, index) => ({ speaker: index % (input.speakerNames?.length ?? 1), chipId: chip.id, caption: chip.summary.slice(0, 500) })) };
+      segments: input.chips.map((chip, index) => ({ speaker: index % (input.speakerNames?.length ?? 1), chipId: chip.id, caption: chip.summary.slice(0, 500), ...(input.storyboard ? { camera: "Wide shot of the story artwork, slow push in, then dissolve to the next story." } : {}) })) };
+  }
+
+  async refinePodcastPlan(input: import("./podcast-agent").PodcastPlanRefinementInput, options: TourNarrationOptions = {}) {
+    options.onUsage?.(MOCK_STEP_USAGE);
+    return { reply: "Updated the plan.", script: { ...input.script, segments: input.script.segments.map((segment, index) => index === 0
+      ? { ...segment, camera: `${segment.camera} Revised: ${input.request.slice(0, 200)}` } : segment) } };
+  }
+
+  /** Storyboard frames are off unless a test opts in. */
+  storyboardImageModelId(): string | null {
+    return this.storyboardFrames ? "mock/storyboard" : null;
+  }
+
+  storyboardImageUsdPerImage(): number {
+    return 0.05;
+  }
+
+  async drawStoryboardFrame(shot: import("./provider").StoryboardShot) {
+    this.calls.drawStoryboardFrame.push(shot);
+    const png = await sharp({ create: { width: 1280, height: 720, channels: 3, background: "#336699" } }).png().toBuffer();
+    return { png: new Uint8Array(png), width: 1280, height: 720 };
   }
 
   async translatePodcast(input: PodcastTranslationInput, options: TourNarrationOptions = {}) {
@@ -334,6 +357,8 @@ export class MockAiProvider implements AiProvider {
 
   /** Images are off unless a test opts in, like videos. */
   images = false;
+  /** Tests opt in to storyboard frames for podcast plans. */
+  storyboardFrames = false;
 
   imageModelId(): string | null {
     return this.images ? "mock/image" : null;

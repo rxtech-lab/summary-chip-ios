@@ -33,6 +33,8 @@ final class LibraryModel {
 
     private(set) var items: [Summary] = []
     private(set) var editorPickIDs: Set<String> = []
+    /// Podcast plans the owner hasn't confirmed yet, shown above the feed.
+    private(set) var plannedPodcasts: [PodcastPlanSummary] = []
     @ObservationIgnored private var headlineTask: Task<Void, Never>?
     private(set) var nextCursor: String?
     private(set) var isLoading = false
@@ -73,7 +75,24 @@ final class LibraryModel {
         )
     }
 
+    /// Plans are podcasts in the making: they show wherever podcasts the owner made would.
+    var showsPlannedPodcasts: Bool {
+        let shown = kind ?? filter.kind
+        return (shown == nil || shown == .podcast) && filter.scope != .viewed && !filter.editorsPick
+            && filter.category == nil && filter.tag == nil && filter.source == nil
+    }
+
+    func refreshPlannedPodcasts() async {
+        guard showsPlannedPodcasts else { plannedPodcasts = []; return }
+        if let plans = try? await api.podcastPlans() { plannedPodcasts = plans }
+    }
+
+    func removePlannedPodcast(id: String) {
+        plannedPodcasts.removeAll { $0.id == id }
+    }
+
     func reload() async {
+        Task { await refreshPlannedPodcasts() }
         loadGeneration += 1
         let generation = loadGeneration
         isLoading = true
@@ -83,6 +102,7 @@ final class LibraryModel {
             guard generation == loadGeneration else { return }
             items = page.items
             nextCursor = page.nextCursor
+            applyEditorPicks(page.items)
             errorMessage = nil
             isOffline = false
             hasLoaded = true
@@ -134,6 +154,7 @@ final class LibraryModel {
             let known = Set(items.map(\.id))
             items.append(contentsOf: page.items.filter { !known.contains($0.id) })
             nextCursor = page.nextCursor
+            applyEditorPicks(page.items)
             offline.upsert(page.items)
         } catch {
             errorMessage = error.localizedDescription
@@ -163,6 +184,13 @@ final class LibraryModel {
         offline.remove(id: id)
         editorPickIDs.remove(id)
         refreshHeadlines()
+    }
+
+    /// Lists mark the user's own picks, so badges show with the cards before Headlines answers.
+    private func applyEditorPicks(_ page: [Summary]) {
+        for summary in page where summary.isOwner {
+            if summary.isEditorsPick { editorPickIDs.insert(summary.id) } else { editorPickIDs.remove(summary.id) }
+        }
     }
 
     private func refreshHeadlines() {

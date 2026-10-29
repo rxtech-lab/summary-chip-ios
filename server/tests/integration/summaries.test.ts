@@ -104,7 +104,7 @@ describe("POST /api/v1/summaries", () => {
       "id", "slug", "kind", "shareUrl", "ogImageUrl", "artImageUrl", "sourceType", "source", "sourceUrl", "sourceTitle", "siteName", "sourceFileUrl",
       "hasSourceMarkdown", "sourceMarkdownPending", "title", "summary", "highlights", "category", "tags", "displayCategory", "displayTags", "keywords", "language",
       "originalLanguage", "displayLanguage", "translationPending", "sourceTranslationPending", "theme", "imageStyle", "visibility",
-      "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "likedAt", "isExpired", "podcastSourceId", "stackedPodcastId",
+      "ttlDays", "expiresAt", "viewCount", "isOwner", "viewedAt", "likedAt", "isExpired", "podcastSourceId", "stackedPodcastId", "isEditorsPick",
       "createdAt", "updatedAt",
     ]);
     // Readability extracted the article, not the nav/footer chrome.

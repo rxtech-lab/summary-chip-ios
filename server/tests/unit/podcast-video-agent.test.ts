@@ -78,6 +78,20 @@ describe("writePodcastVideo", () => {
     expect(system(crayon.calls)).not.toContain("#009B85");
   });
 
+  it("opens a software update with product, version and update beats, then feature titles that move into diagrams", async () => {
+    const update = scriptedModel([good]);
+    await writePodcastVideo(update.model, { ...input, style: "update" as const });
+    const news = scriptedModel([good]);
+    await writePodcastVideo(news.model, input);
+    const system = (calls: LanguageModelV4CallOptions[]) => JSON.stringify(calls[0].prompt[0]);
+    expect(system(update.calls)).toContain("software update keynote");
+    expect(system(update.calls)).toContain("first the product name, then the version number, then the word");
+    expect(system(update.calls)).toContain("title first, then the diagram");
+    expect(system(update.calls)).not.toContain("beautiful poster frame");
+    expect(system(news.calls)).toContain("beautiful poster frame");
+    expect(system(news.calls)).not.toContain("title first, then the diagram");
+  });
+
   it("rejects decorative motion without the phrase clock", async () => {
     const { model, calls } = scriptedModel([[{ path: "src/Video.tsx", content: MOCK_PODCAST_VIDEO }], good]);
     expect(await writePodcastVideo(model, input)).toEqual({ "src/Video.tsx": narratedVideo });
@@ -280,6 +294,23 @@ export const PodcastVideo = () => {
     expect(result.draft.modelIndex).toBe(1);
     expect(primary.calls).toHaveLength(1);
     expect(fallback.calls).toHaveLength(1);
+    expect(primary.calls[0].toolChoice).toEqual({ type: "auto" });
+  });
+
+  it("preserves saved work and bills both models when a text-only turn falls back", async () => {
+    const primary = scriptedModel([{ toolName: "write_file", input: { path: "src/Video.tsx", content: narratedVideo } }]);
+    const primaryModel = { ...primary.model, modelId: "vmc/motion-video-generation-model" };
+    const fallback = scriptedModel([{ toolName: "write_file", input: { path: "src/Extra.tsx", content: "export const Extra = 1;" } }, good]);
+    const first = await podcastVideoTurn([primaryModel, fallback.model], input, newPodcastVideoDraft());
+    const usedBy: (string | undefined)[] = [];
+    const second = await podcastVideoTurn([primaryModel, fallback.model], input, first.draft, { onUsage: (_, id) => usedBy.push(id) });
+    expect(second.draft.files).toEqual({ "src/Video.tsx": narratedVideo, "src/Extra.tsx": "export const Extra = 1;" });
+    expect(second.draft.turns).toBe(2);
+    expect(first.draft.files).not.toHaveProperty("src/Extra.tsx");
+    expect(usedBy).toEqual([primaryModel.modelId, "scripted"]);
+    await podcastVideoTurn([primaryModel, fallback.model], input, second.draft);
+    expect(primary.calls).toHaveLength(2);
+    expect(fallback.calls).toHaveLength(2);
   });
 
   it("hands a declined or failed turn to the next model, which keeps the run", async () => {

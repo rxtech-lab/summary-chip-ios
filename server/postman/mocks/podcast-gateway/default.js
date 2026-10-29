@@ -95,7 +95,7 @@ http.createServer(async (req, res) => {
     ...(input.recap ? { rankedChipIds: input.chips.map(chip => chip.id) } : {}),
     mood: "focused",
     speakers: input.voices.slice(0, input.speakerNames?.length ?? 2).map((voice, index) => ({ name: input.speakerNames?.[index] ?? (index ? "Sam" : "Alex"), voice })),
-    segments: input.chips.map((chip, index) => ({ speaker: index % Math.min(input.voices.length, input.speakerNames?.length ?? 2), chipId: chip.id, caption: chip.summary })),
+    segments: input.chips.map((chip, index) => ({ speaker: index % Math.min(input.voices.length, input.speakerNames?.length ?? 2), chipId: chip.id, caption: chip.summary, ...(input.storyboard ? { camera: "Wide shot of the source artwork, slow push in, then dissolve." } : {}) })),
   };
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify({

@@ -44,3 +44,5 @@ Speech fixture MP3s now preserve spoken text in an ID3 title, matching the local
 transcription fixture used by the existing streamed-generation integration test.
 
 2026-10-27: Summary backfill uses the real gateway HTTP adapter against the transcript fixture. All 34 focused podcast tests passed with the simulation enabled, including persisted summaries, reuse, access denial, invalid output, and provider failure. Updated the script fixture with required summary and recap ranking fields. This does not verify live model quality.
+
+2026-10-28: Plan preparation uses the real gateway HTTP adapter with per-turn camera directions. The plan and HTTP integration suites verify persisted storyboard output before media generation; the broader five-file run passed 101 tests. The gateway member served language, speech, transcription, and video calls; no member was silent. This proves the local contract and review gate, not live model quality or device interaction.

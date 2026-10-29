@@ -37,6 +37,21 @@ const VIDEO_STYLES: Record<PodcastVideoStyle, { title: Localized; description: L
     symbol: "pencil.and.scribble",
     swatch: ["#FBF5E6", "#E4572E", "#3A86C8", "#F2B635", "#4FA05A"],
   },
+  update: {
+    title: { en: "Software Update", "zh-Hans": "软件更新", "zh-Hant": "軟體更新", ja: "ソフトウェアアップデート", ko: "소프트웨어 업데이트", es: "Actualización de software", fr: "Mise à jour logicielle", de: "Softwareupdate" },
+    description: {
+      en: "A launch-keynote reveal: product, version and “Update”, then each feature's title gives way to an animated diagram.",
+      "zh-Hans": "发布会风格：依次呈现产品名、版本号与“更新”，每个功能先显示标题，再变为动画图解。",
+      "zh-Hant": "發表會風格：依序呈現產品名、版本號與「更新」，每個功能先顯示標題，再變為動畫圖解。",
+      ja: "発表会風の演出。製品名、バージョン、「アップデート」を順に表示し、各機能はタイトルからアニメーション図解へ展開します。",
+      ko: "발표회 스타일: 제품명, 버전, ‘업데이트’를 차례로 보여 주고, 각 기능은 제목에서 애니메이션 다이어그램으로 전환됩니다.",
+      es: "Una presentación de lanzamiento: producto, versión y «Actualización», y cada función pasa de su título a un diagrama animado.",
+      fr: "Une keynote de lancement : produit, version et « Mise à jour », puis chaque fonction passe de son titre à un schéma animé.",
+      de: "Eine Launch-Keynote: Produkt, Version und „Update“, dann wird jede Funktion vom Titel zu einem animierten Diagramm.",
+    },
+    symbol: "arrow.down.app",
+    swatch: ["#0E1116", "#4C8DFF", "#9B7BFF", "#3DD9A4"],
+  },
 };
 
 const DURATION_TITLES: Record<TranslationLanguage, string[]> = {
