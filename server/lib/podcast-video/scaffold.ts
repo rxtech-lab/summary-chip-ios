@@ -380,6 +380,11 @@ function unresolvedNames(files: Record<string, string>, agentPaths: string[]): P
     skipLibCheck: true, types: [],
   };
   const host = ts.createCompilerHost(options);
+  // Without the standard library every global (`Math`, `Array`) is "unresolved"; skip the check rather than reject valid designs.
+  if (!host.fileExists(host.getDefaultLibFileName(options))) {
+    console.error("[podcast-video] TypeScript lib files missing; skipping name check", { lib: host.getDefaultLibFileName(options) });
+    return [];
+  }
   const readFile = host.readFile.bind(host);
   const fileExists = host.fileExists.bind(host);
   const directoryExists = host.directoryExists?.bind(host);
