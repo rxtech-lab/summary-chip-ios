@@ -86,10 +86,13 @@ private struct XSharingModifier: ViewModifier {
             let cleaned = await XPostDateCleaner.clean(title: title, summary: overview)
             try Task.checkCancellation()
             let draft = XPostDraft(title: cleaned.title, summary: cleaned.summary, sources: sources)
-            openURL(draft.url) { accepted in
-                if accepted { opened += 1 }
-                else { error = String(localized: "Couldn't open the X composer. Please check your browser and try again.") }
+            // macOS calls the completion on LaunchServices' queue, so it must stay nonisolated (`@Sendable`);
+            // a main-actor-inferred closure traps there. Resume back on the main actor instead.
+            let accepted = await withCheckedContinuation { continuation in
+                openURL(draft.url) { @Sendable accepted in continuation.resume(returning: accepted) }
             }
+            if accepted { opened += 1 }
+            else { error = String(localized: "Couldn't open the X composer. Please check your browser and try again.") }
         } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
 }
