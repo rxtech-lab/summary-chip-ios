@@ -156,7 +156,7 @@ export interface DailyPodcast extends PodcastScript {
     voiceStartSeconds?: number; voiceEndSeconds?: number; pauseSeconds?: number[];
     imagePath: string | null; icon: string;
     /** The approved storyboard frame of a planned episode, copied next to the recording as a video asset. */
-    storyboard?: PodcastVideoAsset })[];
+    storyboard?: PodcastVideoAsset & { layout?: "sequence-2x2" } })[];
 }
 
 /** Maximum size of a published podcast video render (MP4). */
@@ -275,6 +275,8 @@ export interface PodcastVideoRender {
   updatedAt: string;
   /** When the cloud renderer picked the job up; absent while it waits in the queue. */
   startedAt?: string;
+  /** Measured render progress; 100 only after the output is uploaded and ready. */
+  percent?: number;
   byteSize?: number;
   error?: { code: string; message: string };
 }

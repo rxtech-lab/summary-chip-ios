@@ -110,7 +110,7 @@ enum PodcastVideoResolution: Int, CaseIterable, Identifiable, Sendable {
         let downloaded = try await api.downloadCloudPodcastVideo(podcast, resolution: resolution.rawValue, onProgress: { transfer in
             onProgress(Progress(stage: .preparing, fraction: transfer.fraction, transfer: transfer))
         }, onRender: { render in
-            if render.isRunning { onProgress(Progress(stage: render.isQueued ? .cloudQueued : .cloudRendering)) }
+            if render.isRunning { onProgress(Progress(stage: render.isQueued ? .cloudQueued : .cloudRendering, fraction: render.fraction)) }
         })
         defer { try? FileManager.default.removeItem(at: downloaded) }
         let file = try stageCloudDownload(at: downloaded)

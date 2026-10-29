@@ -3,6 +3,17 @@ import Testing
 @testable import SummaryKit
 
 struct PublishedPodcastVideoTests {
+    @Test func decodesCloudRenderProgressAndLegacyStatus() throws {
+        let legacy = Data(#"{"id":"r","status":"running","resolution":1080}"#.utf8)
+        let queued = try SummaryJSON.decoder().decode(PodcastRenderState.self, from: legacy)
+        #expect(queued.isQueued)
+        #expect(queued.fraction == nil)
+        let measured = Data(#"{"id":"r","status":"running","resolution":1080,"startedAt":"2030-04-01T00:00:00Z","percent":42}"#.utf8)
+        let rendering = try SummaryJSON.decoder().decode(PodcastRenderState.self, from: measured)
+        #expect(!rendering.isQueued)
+        #expect(rendering.fraction == 0.42)
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["PODCAST_DOWNLOAD_SIMULATION_URL"] != nil))
     @MainActor func downloadsPublishedTranslationWithoutLeakingTokenAndRejectsStaleOrPartialFiles() async throws {
         let base = try #require(ProcessInfo.processInfo.environment["PODCAST_DOWNLOAD_SIMULATION_URL"])

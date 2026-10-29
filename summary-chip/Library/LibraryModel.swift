@@ -46,6 +46,7 @@ final class LibraryModel {
     var filter = LibraryFilter()
 
     private var loadGeneration = 0
+    private var planLoadGeneration = 0
     /// Reloads made to pick up translations the server was still writing; bounded so a failing one can't loop.
     private var translationReloads = 0
 
@@ -83,11 +84,16 @@ final class LibraryModel {
     }
 
     func refreshPlannedPodcasts() async {
+        planLoadGeneration += 1
+        let generation = planLoadGeneration
         guard showsPlannedPodcasts else { plannedPodcasts = []; return }
-        if let plans = try? await api.podcastPlans() { plannedPodcasts = plans }
+        if let plans = try? await api.podcastPlans(), generation == planLoadGeneration, showsPlannedPodcasts {
+            plannedPodcasts = plans
+        }
     }
 
     func removePlannedPodcast(id: String) {
+        planLoadGeneration += 1
         plannedPodcasts.removeAll { $0.id == id }
     }
 

@@ -15,6 +15,7 @@ struct PodcastPlanSheet: View {
     @State private var pendingMessage: String?
     @State private var drawingFrames = false
     @State private var editingLine: PlanLine?
+    @State private var previewingLine: PlanLine?
     @State private var confirming = false
     @State private var error: String?
     @State private var sends = 0
@@ -43,7 +44,7 @@ struct PodcastPlanSheet: View {
                         PodcastPlanCard(plan: plan, drawingFrames: drawingFrames, editable: !busy,
                                         onEditLine: { taps += 1; editingLine = PlanLine(id: $0) },
                                         onDrawFrames: drawFrames,
-                                        onConfirm: { confirming = true })
+                                        onPreview: { taps += 1; previewingLine = PlanLine(id: $0) })
                             .id("plan")
                     }
                     .padding()
@@ -63,7 +64,7 @@ struct PodcastPlanSheet: View {
                     Button("Close") { dismiss() }.disabled(pendingMessage != nil)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Confirm & Generate") { confirming = true; taps += 1 }
+                    Button("Confirm & Generate", action: requestGeneration)
                         .disabled(!plan.isValid || busy)
                         .accessibilityIdentifier("podcast-plan-confirm")
                 }
@@ -71,8 +72,12 @@ struct PodcastPlanSheet: View {
             .sheet(item: $editingLine) { line in
                 PodcastPlanLineSheet(api: api, plan: plan, index: line.id) { updated in apply(updated) }
             }
+            .sheet(item: $previewingLine) { line in
+                PodcastStoryboardSheet(plan: plan, index: line.id)
+            }
+#if !os(macOS)
             .confirmationDialog("Generate this podcast?", isPresented: $confirming, titleVisibility: .visible) {
-                Button("Use This Script and Storyboard") { onSave(plan); onConfirm(plan); dismiss() }
+                Button("Use This Script and Storyboard", action: confirmGeneration)
                 Button("Keep Reviewing", role: .cancel) {}
             } message: {
                 if plan.missingFrameCount > 0 {
@@ -81,6 +86,7 @@ struct PodcastPlanSheet: View {
                     Text("Generation uses points and follows the script, camera storyboard and frames you reviewed.")
                 }
             }
+#endif
             .alert("Couldn't Update Plan", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
@@ -94,6 +100,22 @@ struct PodcastPlanSheet: View {
         .frame(minWidth: 520, idealWidth: 700, minHeight: 600, maxHeight: .infinity)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+
+    private func requestGeneration() {
+        guard plan.isValid, !busy else { return }
+        taps += 1
+#if os(macOS)
+        confirmGeneration()
+#else
+        confirming = true
+#endif
+    }
+
+    private func confirmGeneration() {
+        onSave(plan)
+        onConfirm(plan)
+        dismiss()
     }
 
     private var composer: some View {
@@ -205,7 +227,7 @@ private struct PodcastPlanCard: View {
     let editable: Bool
     let onEditLine: (Int) -> Void
     let onDrawFrames: () -> Void
-    let onConfirm: () -> Void
+    let onPreview: (Int) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -227,23 +249,31 @@ private struct PodcastPlanCard: View {
             framesStatus
             Divider()
             ForEach(plan.script.segments.indices, id: \.self) { index in
-                Button { onEditLine(index) } label: {
-                    PlanLineRow(index: index, segment: plan.script.segments[index], speaker: plan.speakerName(for: plan.script.segments[index]),
-                                frame: plan.frame(at: index), storyboard: plan.storyboard == true && index < 40, drawing: drawingFrames)
+                HStack(alignment: .top, spacing: 12) {
+                    Button { onPreview(index) } label: {
+                        PlanFrameImage(url: plan.frame(at: index), storyboard: plan.storyboard == true && index < 40, drawing: drawingFrames)
+                            .frame(width: 128, height: 72)
+                            .overlay(alignment: .bottomTrailing) {
+                                Image(systemName: "play.circle.fill").symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, .black.opacity(0.7)).padding(4)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Preview storyboard")
+                    .accessibilityIdentifier("podcast-plan-preview-\(index)")
+                    Button { onEditLine(index) } label: {
+                        PlanLineRow(index: index, segment: plan.script.segments[index], speaker: plan.speakerName(for: plan.script.segments[index]))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!editable)
+                    .accessibilityHint("Edit this line")
+                    .accessibilityIdentifier("podcast-plan-line-\(index)")
                 }
-                .buttonStyle(.plain)
-                .disabled(!editable)
-                .accessibilityHint("Edit this line")
-                .accessibilityIdentifier("podcast-plan-line-\(index)")
                 if index < plan.script.segments.count - 1 { Divider().padding(.leading, 140) }
             }
-            Button(action: onConfirm) {
-                Label("Confirm & Generate", systemImage: "sparkles").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(!plan.isValid || !editable)
-            .accessibilityIdentifier("podcast-plan-card-confirm")
+            Text("Generation uses points and follows the script and storyboard you reviewed.")
+                .font(.caption).foregroundStyle(.secondary)
+
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.background.secondary))
@@ -271,14 +301,9 @@ private struct PlanLineRow: View {
     let index: Int
     let segment: PodcastPlan.Segment
     let speaker: String
-    let frame: URL?
-    let storyboard: Bool
-    let drawing: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            PlanFrameImage(url: frame, storyboard: storyboard, drawing: drawing)
-                .frame(width: 128, height: 72)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text("\(index + 1)").font(.caption2.weight(.bold)).monospacedDigit()
@@ -319,6 +344,85 @@ struct PlanFrameImage: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityHidden(true)
+    }
+}
+
+/// A keyframe animatic of the planned motion, separate from the final rendered video.
+private struct PodcastStoryboardSheet: View {
+    let plan: PodcastPlan
+    let index: Int
+    @Environment(\.dismiss) private var dismiss
+    @State private var phase = 0
+    @State private var playing = false
+    private var sequence: Bool { plan.frameLayout == "sequence-2x2" }
+    private var stages: [LocalizedStringKey] { ["Entrance", "Build", "Emphasis", "Transition"] }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    AsyncImage(url: plan.frame(at: index)) { state in
+                        if let image = state.image {
+                            GeometryReader { geometry in
+                                image.resizable()
+                                    .frame(width: geometry.size.width * (sequence ? 2 : 1),
+                                           height: geometry.size.height * (sequence ? 2 : 1))
+                                    .offset(x: sequence ? -CGFloat(phase % 2) * geometry.size.width : 0,
+                                            y: sequence ? -CGFloat(phase / 2) * geometry.size.height : 0)
+                            }
+                            .clipped()
+                        } else if state.error != nil || plan.frame(at: index) == nil {
+                            ContentUnavailableView("Storyboard unavailable", systemImage: "photo")
+                        } else {
+                            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    if sequence {
+                        HStack {
+                            Button { playing.toggle() } label: {
+                                Label(playing ? "Pause" : "Play Keyframes", systemImage: playing ? "pause.fill" : "play.fill")
+                            }
+                            .disabled(plan.frame(at: index) == nil)
+                            .accessibilityIdentifier("podcast-storyboard-play")
+                            Spacer()
+                            Text(stages[phase]).font(.headline)
+                            Text("\(phase + 1)/4").monospacedDigit().foregroundStyle(.secondary)
+                        }
+                        Picker("Keyframe", selection: $phase) {
+                            ForEach(0..<4, id: \.self) { step in Text(stages[step]).tag(step) }
+                        }
+                        .pickerStyle(.segmented)
+                        Text("Keyframe preview of the planned animation. Final motion is rendered after generation.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text(plan.script.segments[index].caption).font(.headline).textSelection(.enabled)
+                    Label("Animation & Content", systemImage: "film.stack").font(.subheadline.weight(.semibold))
+                    Text(plan.script.segments[index].camera).textSelection(.enabled)
+                }
+                .padding()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Storyboard")
+            .summaryInlineNavigationTitle()
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .task(id: playing) {
+                guard playing else { return }
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .milliseconds(900)) } catch { return }
+                    phase = (phase + 1) % 4
+                }
+            }
+            .sensoryFeedback(.selection, trigger: playing)
+        }
+#if os(macOS)
+        .frame(minWidth: 520, idealWidth: 800, minHeight: 600, maxHeight: .infinity)
+#else
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+#endif
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
     }
 }
 

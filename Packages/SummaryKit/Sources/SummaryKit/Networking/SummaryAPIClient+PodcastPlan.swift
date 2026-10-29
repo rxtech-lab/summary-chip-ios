@@ -98,6 +98,7 @@ public struct PodcastPlanSummary: Codable, Sendable, Identifiable, Equatable, Ha
     public var library: Bool
     public var language: String
     public var updatedAt: Date
+    public var day: PodcastDayBounds?
     /// The first storyboard frame as a short-lived private URL.
     public var thumbnailUrl: URL?
 }
@@ -157,6 +158,15 @@ extension SummaryAPIClient {
         let response: PlanEnvelope = try await send(get("/api/v1/daily-podcasts/plans/\(id.urlPathEscaped)"))
         return response.plan
     }
+    public func savedPodcast(key: String, day: PodcastDayBounds) async throws -> DailyPodcast {
+        struct Envelope: Decodable { var podcast: DailyPodcast? }
+        let envelope: Envelope = try await send(request("/api/v1/daily-podcasts/\(key.urlPathEscaped)", query: [
+            URLQueryItem(name: "start", value: day.start), URLQueryItem(name: "end", value: day.end)
+        ]))
+        guard let podcast = envelope.podcast else { throw SummaryAPIError.invalidResponse }
+        return podcast
+    }
+
     /// Discards an unconfirmed plan and its storyboard frames.
     public func deletePodcastPlan(id: String) async throws {
         var request = request("/api/v1/daily-podcasts/plans/\(id.urlPathEscaped)")

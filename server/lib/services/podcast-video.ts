@@ -38,7 +38,7 @@ export function podcastVideoInput(podcast: Episode, chips: { id: string; title: 
       : [{ text: segment.caption, startSeconds: voiceStartSeconds, endSeconds: voiceEndSeconds }];
     return { speaker: segment.speaker, chipId: segment.chipId, caption: segment.caption, camera: segment.camera, startSeconds, endSeconds,
       voiceStartSeconds, voiceEndSeconds, image: segment.imagePath, icon: segment.icon, phrases,
-      ...(segment.storyboard ? { storyboardImage: segment.storyboard.path } : {}) };
+      ...(segment.storyboard ? { storyboardImage: segment.storyboard.path, storyboardLayout: segment.storyboard.layout } : {}) };
   });
   return { title: podcast.title, language: podcast.language, mood: podcast.mood, speakers: podcast.speakers.map((speaker) => speaker.name), chips,
     durationSeconds: Math.max(podcast.durationSeconds ?? 0, cursor + 1), segments, ...(style ? { style } : {}) };

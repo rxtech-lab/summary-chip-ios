@@ -50,7 +50,7 @@ const VIDEO_STYLES: Record<PodcastVideoStyle, { title: Localized; description: L
       de: "Eine Launch-Keynote: Produkt, Version und „Update“, dann wird jede Funktion vom Titel zu einem animierten Diagramm.",
     },
     symbol: "arrow.down.app",
-    swatch: ["#0E1116", "#4C8DFF", "#9B7BFF", "#3DD9A4"],
+    swatch: ["#0D1210", "#34D399", "#A3E635", "#22D3EE"],
   },
 };
 

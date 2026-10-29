@@ -10,6 +10,7 @@ struct PodcastPlanTests {
 
     @Test func validatesReviewedTextBeforeConfirmation() throws {
         var draft = try plan()
+        #expect(draft.frameLayout == nil)
         #expect(draft.isValid)
         draft.script.segments[0].camera = " \n "
         #expect(!draft.isValid)
@@ -23,8 +24,9 @@ struct PodcastPlanTests {
     }
 
     @Test func decodesChatAndAlignsStoryboardFrames() throws {
-        let json = #"{"id":"draft","revision":2,"confirmed":false,"storyboard":true,"messages":[{"id":"m1","role":"user","text":"Shorter","revision":1,"createdAt":"2030-01-01T00:00:00Z"},{"id":"m2","role":"assistant","text":"Done.","revision":2,"createdAt":"2030-01-01T00:00:00Z"}],"frames":["https://example.com/a.png",null],"script":{"title":"Daily news","mood":"focused","speakers":[{"name":"Alex","voice":"voice"}],"segments":[{"speaker":0,"chipId":"chip","caption":"One.","camera":"Wide."},{"speaker":0,"chipId":"chip","caption":"Two.","camera":"Close."}]}}"#
+        let json = #"{"id":"draft","revision":2,"confirmed":false,"storyboard":true,"frameLayout":"sequence-2x2","messages":[{"id":"m1","role":"user","text":"Shorter","revision":1,"createdAt":"2030-01-01T00:00:00Z"},{"id":"m2","role":"assistant","text":"Done.","revision":2,"createdAt":"2030-01-01T00:00:00Z"}],"frames":["https://example.com/a.png",null],"script":{"title":"Daily news","mood":"focused","speakers":[{"name":"Alex","voice":"voice"}],"segments":[{"speaker":0,"chipId":"chip","caption":"One.","camera":"Wide."},{"speaker":0,"chipId":"chip","caption":"Two.","camera":"Close."}]}}"#
         let decoded = try JSONDecoder().decode(PodcastPlan.self, from: Data(json.utf8))
+        #expect(decoded.frameLayout == "sequence-2x2")
         #expect(decoded.messages.map(\.role) == [.user, .assistant])
         #expect(decoded.frame(at: 0)?.absoluteString == "https://example.com/a.png")
         #expect(decoded.frame(at: 1) == nil)

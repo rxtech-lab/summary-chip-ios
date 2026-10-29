@@ -17,14 +17,14 @@ let env: TestEnv;
 const day = { start: "2030-04-01T00:00:00+08:00", end: "2030-04-02T00:00:00+08:00" };
 beforeEach(async () => { env = await setupTestEnv(); });
 afterEach(() => { vi.restoreAllMocks(); env.teardown(); });
-async function prepare() {
+async function prepare(videoStyle: "news" | "crayon" = "news") {
   const response = await summariesRoute.POST(apiRequest("POST", "/api/v1/summaries", { token: env.tokens.alice, body: {
     source: { type: "text", text: "A research group published battery results.", title: "Batteries" }, followLinks: false,
   } }));
   const chip = await response.json();
   await env.handle.db.update(summaries).set({ createdAt: new Date(day.start) }).where(eq(summaries.id, chip.id));
   const result = await plans.POST(apiRequest("POST", "/api/v1/daily-podcasts/plans", { token: env.tokens.alice,
-    body: { day, language: "en", chipIds: [chip.id], includeVideo: true } }));
+    body: { day, language: "en", chipIds: [chip.id], includeVideo: true, videoStyle } }));
   expect(result.status).toBe(200);
   return (await result.json()).plan;
 }
@@ -103,8 +103,11 @@ describe("podcast plan review gate", () => {
   it("draws storyboard frames, refines the plan in chat, and hands approved frames to the video designer", async () => {
     env.ai.video = true;
     env.ai.storyboardFrames = true;
-    const plan = await prepare();
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const plan = await prepare("crayon");
+    expect(writer.mock.calls[0][0].videoStyle).toBe("crayon");
     expect(plan.frames).toEqual([null]);
+    expect(plan.frameLayout).toBe("sequence-2x2");
     expect(plan.messages).toEqual([]);
     const drawn = await framesRoute.POST(request("POST", plan.id, { revision: 0 }, env.tokens.alice, "/frames"), params({ id: plan.id }));
     expect(drawn.status).toBe(200);
@@ -112,6 +115,7 @@ describe("podcast plan review gate", () => {
     expect(withFrames.frames[0]).toMatch(/^https:\/\/downloads\.invalid\//);
     expect(env.ai.calls.drawStoryboardFrame).toHaveLength(1);
     expect(env.ai.calls.drawStoryboardFrame[0].camera).toBe(plan.script.segments[0].camera);
+    expect(env.ai.calls.drawStoryboardFrame[0].style).toBe("crayon");
     // Nothing is missing, so drawing again draws nothing.
     await framesRoute.POST(request("POST", plan.id, { revision: 0 }, env.tokens.alice, "/frames"), params({ id: plan.id }));
     expect(env.ai.calls.drawStoryboardFrame).toHaveLength(1);
@@ -135,6 +139,7 @@ describe("podcast plan review gate", () => {
     const job = env.podcastVideoDesigns[0];
     const state = JSON.parse(new TextDecoder().decode((await env.store.get(`${episode}/video-design/${job.id}.json`)).bytes));
     expect(state.input.segments[0].storyboardImage).toBe("gen/storyboard-1.png");
+    expect(state.input.segments[0].storyboardLayout).toBe("sequence-2x2");
     expect(state.draft.images["gen/storyboard-1.png"]).toMatchObject({ file: "video-assets/plan/storyboard-1.png", supplied: true, width: 1280, height: 720 });
     expect((await runPodcastVideoDesignJob(env.handle.db, job, { ai: env.ai, store: env.store })).status).toBe("accepted");
     expect(env.ai.calls.writePodcastVideo.at(-1)?.segments[0].storyboardImage).toBe("gen/storyboard-1.png");

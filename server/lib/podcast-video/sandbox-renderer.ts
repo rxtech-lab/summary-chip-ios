@@ -17,7 +17,7 @@ import { CLOUD_RENDER_RUNNER } from "./cloud-runner";
 export interface RenderSession { name: string }
 export interface CloudPodcastRenderer {
   launch(db: Database, job: PodcastRenderJob): Promise<RenderSession>;
-  poll(session: RenderSession): Promise<{ status: "running" | "ready" | "failed"; byteSize?: number }>;
+  poll(session: RenderSession): Promise<{ status: "running" | "ready" | "failed"; byteSize?: number; percent?: number }>;
   upload(session: RenderSession, job: PodcastRenderJob, byteSize: number): Promise<void>;
   stop(session: RenderSession): Promise<void>;
 }
@@ -84,6 +84,8 @@ const production: CloudPodcastRenderer = {
     const bytes = await sandbox.readFileToBuffer({ path: `${directory}/status.json` });
     if (!bytes) return { status: "running" };
     const result = JSON.parse(bytes.toString());
+    if (result.status === "running") return { status: "running", percent: Number.isFinite(result.percent)
+      ? Math.max(1, Math.min(99, Math.floor(result.percent))) : undefined };
     if (result.status !== "ready" || !Number.isSafeInteger(result.byteSize) || result.byteSize <= 0 || result.byteSize > MAX_PODCAST_VIDEO_BYTES)
       return { status: "failed" };
     return { status: "ready", byteSize: result.byteSize };

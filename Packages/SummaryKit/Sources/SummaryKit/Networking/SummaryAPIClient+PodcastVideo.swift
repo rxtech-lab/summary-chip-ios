@@ -46,6 +46,8 @@ public struct PodcastRenderState: Codable, Sendable, Equatable {
     public var status: String
     public var resolution: Int
     public var startedAt: Date?
+    public var percent: Int?
+    public var fraction: Double? { percent.map { Double(min(100, max(0, $0))) / 100 } }
     public var byteSize: Int?
     public var error: APIErrorBody?
     public var isRunning: Bool { status == "running" }

@@ -468,3 +468,15 @@ The finished episode may be shorter or longer. Duration-targeted library
 podcasts select highlights when needed to fit the budget. Video-only retries reuse
 the recording; changing length requires regenerating the podcast. Automated daily
 recaps retain their stricter limit below three minutes.
+
+### Motion storyboard review
+
+Planned drafts form a compact header inside the feed and scroll with posts. Completing generation removes its draft immediately; stale confirmed cards load the saved episode without reopening review or generating media again.
+
+The macOS plan sheet has a single toolbar **Confirm & Generate** action, which starts generation directly after review. Closing without confirming preserves the draft. iOS retains its native confirmation dialog.
+
+Storyboard images are four keyframes in a 2×2 contact sheet (entrance, build, emphasis, transition), using the same complete style instructions as the video designer, with narration-grounded diagrams and short labels. Tap a storyboard thumbnail to open a dedicated full-height sheet, play the keyframes, or inspect an individual stage and its full animation direction. This is a keyframe animatic, not a preview of the final rendered motion. Keys include the format version, style, narration and camera direction; existing still-image drafts are redrawn on review. Each contact sheet uses one image generation, as before.
+
+The final designer receives the storyboard layout as metadata and implements its states as animated React/SVG; it must never display the contact sheet as a video plate. Legacy episodes without layout metadata remain single-keyframe references.
+
+Cloud render status includes an optional `percent` (0–100): zero while queued, measured Remotion progress during rendering, 97 during caption muxing and validation, 99 during R2 upload, and 100 only once the output is ready. Native rendering overlays and Background Jobs display this percentage. Durable renderer polling refreshes progress approximately every 10 seconds; clients poll status every 3 seconds. Older renders without a percentage keep their indeterminate indicator.

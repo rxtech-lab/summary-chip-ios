@@ -53,6 +53,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let onReachEnd: () -> Void
     let menuItems: (Summary) -> MenuItems
     let footer: Footer
+    private let header: AnyView?
     let showsTimeline: Bool
     let showsDateHeaders: Bool
     let onPlayDay: ((Date) -> Void)?
@@ -75,6 +76,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         editorPickIDs: Set<String> = [],
         showsTimeline: Bool = false,
         showsDateHeaders: Bool = false,
+        header: AnyView? = nil,
         onReachEnd: @escaping () -> Void = {},
         onSelect: ((Summary) -> Void)? = nil,
         onPlayDay: ((Date) -> Void)? = nil,
@@ -90,6 +92,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         self.onSelect = onSelect
         self.onPlayDay = onPlayDay
         self.menuItems = menuItems
+        self.header = header
         self.footer = footer()
     }
 
@@ -122,6 +125,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 // Headers and bands are flat rows of one lazy stack, so a long day loads band by
                 // band instead of as one giant row of nested lazy columns.
                 LazyVStack(alignment: .leading, spacing: Self.spacing) {
+                    if let header { header.padding(.horizontal, -Self.horizontalPadding) }
                     ForEach(sections) { section in
                         if showsDateHeaders {
                             dateHeader(for: section)

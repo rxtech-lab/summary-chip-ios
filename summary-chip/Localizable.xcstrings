@@ -355,6 +355,22 @@
         }
       }
     },
+    "%lld lines · %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 行 · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 行 · %@"
+          }
+        }
+      }
+    },
     "%lld nights" : {
       "localizations" : {
         "zh-Hans" : {
@@ -593,6 +609,9 @@
 
     },
     "%lld." : {
+
+    },
+    "%lld/4" : {
 
     },
     "%lld/500 characters" : {
@@ -1808,6 +1827,22 @@
         }
       }
     },
+    "Animation & Content" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "动画与内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動畫與內容"
+          }
+        }
+      }
+    },
     "Any category" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2433,13 +2468,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "构建版本"
+            "value" : "展开"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "建置版本"
+            "value" : "展開"
           }
         }
       }
@@ -3995,6 +4030,22 @@
     "Couldn't Open Job" : {
 
     },
+    "Couldn't Open Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法打開規劃"
+          }
+        }
+      }
+    },
     "Couldn't Open Podcast" : {
 
     },
@@ -4850,6 +4901,22 @@
         }
       }
     },
+    "Delete Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除規劃"
+          }
+        }
+      }
+    },
     "Delete Podcast" : {
 
     },
@@ -4887,6 +4954,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要刪除這一行嗎？"
+          }
+        }
+      }
+    },
+    "Delete this planned podcast?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要删除这个已规划的播客吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要刪除這個已規劃的 Podcast 嗎？"
           }
         }
       }
@@ -5011,6 +5094,22 @@
     },
     "Deleting job log…" : {
 
+    },
+    "Deleting plan…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在删除规划…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在刪除規劃…"
+          }
+        }
+      }
     },
     "Deleting trip…" : {
       "localizations" : {
@@ -5777,6 +5876,22 @@
     "Email" : {
 
     },
+    "Emphasis" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "强调"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "強調"
+          }
+        }
+      }
+    },
     "Enable Notifications" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5840,6 +5955,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "引擎"
+          }
+        }
+      }
+    },
+    "Entrance" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入场"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入場"
           }
         }
       }
@@ -7024,6 +7155,22 @@
         }
       }
     },
+    "Generation uses points and follows the script and storyboard you reviewed." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成会消耗点数，并遵循你审阅的脚本和分镜。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成會消耗點數，並遵循你審閱的腳本和分鏡。"
+          }
+        }
+      }
+    },
     "Generation uses points and follows the script, camera storyboard and frames you reviewed." : {
       "localizations" : {
         "zh-Hans" : {
@@ -7607,6 +7754,22 @@
         }
       }
     },
+    "Its script, storyboard and frames are removed. Points already spent on planning aren't refunded." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其脚本、分镜和画面将被删除。已用于规划的点数不会退还。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其腳本、分鏡和畫面將被刪除。已用於規劃的點數不會退還。"
+          }
+        }
+      }
+    },
     "Its share links and translations will stop working. If it is the default, another version will become the default." : {
       "localizations" : {
         "zh-Hans" : {
@@ -7763,6 +7926,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "金鑰已撤銷"
+          }
+        }
+      }
+    },
+    "Keyframe" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关键帧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關鍵影格"
+          }
+        }
+      }
+    },
+    "Keyframe preview of the planned animation. Final motion is rendered after generation." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是计划动画的关键帧预览。最终动画将在生成后渲染。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這是計劃動畫的關鍵影格預覽。最終動畫將在生成後算繪。"
           }
         }
       }
@@ -10511,6 +10706,22 @@
         }
       }
     },
+    "Opening plan…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打开规划…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打開規劃…"
+          }
+        }
+      }
+    },
     "Opening podcast…" : {
 
     },
@@ -10586,6 +10797,22 @@
     },
     "Opens the image to zoom." : {
 
+    },
+    "Opens the plan to keep reviewing it" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开规划以继续审阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打開規劃以繼續審閱"
+          }
+        }
+      }
     },
     "Operator" : {
       "localizations" : {
@@ -11194,6 +11421,22 @@
         }
       }
     },
+    "Plan" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃"
+          }
+        }
+      }
+    },
     "PLAN" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11206,6 +11449,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "規劃"
+          }
+        }
+      }
+    },
+    "Plan Actions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规划操作"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃操作"
           }
         }
       }
@@ -11242,6 +11501,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已計劃"
+          }
+        }
+      }
+    },
+    "PLANNED" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已规划"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已規劃"
+          }
+        }
+      }
+    },
+    "Planned Podcast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已规划的播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已規劃的 Podcast"
+          }
+        }
+      }
+    },
+    "Planned Podcasts" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已规划的播客"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已規劃的 Podcast"
           }
         }
       }
@@ -11313,6 +11620,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "播放第 %lld 天導覽"
+          }
+        }
+      }
+    },
+    "Play Keyframes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放关键帧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放關鍵影格"
           }
         }
       }
@@ -11626,6 +11949,22 @@
     },
     "Preview %@" : {
 
+    },
+    "Preview storyboard" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预览分镜"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預覽分鏡"
+          }
+        }
+      }
     },
     "Preview Unavailable" : {
       "localizations" : {
@@ -12449,6 +12788,23 @@
     },
     "Render Video" : {
 
+    },
+    "Rendering in the cloud · %lld%%" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在云端渲染 · %lld%%"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在雲端算繪 · %lld%%"
+          }
+        }
+      }
     },
     "Rendering in the cloud" : {
 
@@ -14559,6 +14915,25 @@
         }
       }
     },
+    "Storyboard" : {
+
+    },
+    "Storyboard unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分镜暂不可用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分鏡暫無法使用"
+          }
+        }
+      }
+    },
     "Style" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15907,6 +16282,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "列車名"
+          }
+        }
+      }
+    },
+    "Transition" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "转场"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉場"
           }
         }
       }
@@ -17772,214 +18163,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "縮小"
-          }
-        }
-      }
-    },
-    "Planned Podcasts" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已规划的播客"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已規劃的 Podcast"
-          }
-        }
-      }
-    },
-    "Planned Podcast" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已规划的播客"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已規劃的 Podcast"
-          }
-        }
-      }
-    },
-    "PLANNED" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已规划"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已規劃"
-          }
-        }
-      }
-    },
-    "%lld lines · %@" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 行 · %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 行 · %@"
-          }
-        }
-      }
-    },
-    "Plan" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "规划"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "規劃"
-          }
-        }
-      }
-    },
-    "Plan Actions" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "规划操作"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "規劃操作"
-          }
-        }
-      }
-    },
-    "Delete Plan" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除规划"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除規劃"
-          }
-        }
-      }
-    },
-    "Delete this planned podcast?" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要删除这个已规划的播客吗？"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要刪除這個已規劃的 Podcast 嗎？"
-          }
-        }
-      }
-    },
-    "Its script, storyboard and frames are removed. Points already spent on planning aren't refunded." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "其脚本、分镜和画面将被删除。已用于规划的点数不会退还。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "其腳本、分鏡和畫面將被刪除。已用於規劃的點數不會退還。"
-          }
-        }
-      }
-    },
-    "Couldn't Open Plan" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法打开规划"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法打開規劃"
-          }
-        }
-      }
-    },
-    "Opening plan…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在打开规划…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在打開規劃…"
-          }
-        }
-      }
-    },
-    "Deleting plan…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在删除规划…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在刪除規劃…"
-          }
-        }
-      }
-    },
-    "Opens the plan to keep reviewing it" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开规划以继续审阅"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打開規劃以繼續審閱"
           }
         }
       }

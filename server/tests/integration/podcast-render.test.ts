@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "@/lib/mcp/server";
 import { podcastEpisodes, users } from "@/lib/db/schema";
-import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, podcastRenderKey, podcastRenderStatus, startPodcastRender } from "@/lib/services/podcast-render";
+import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, updatePodcastRenderProgress, podcastRenderKey, podcastRenderStatus, startPodcastRender } from "@/lib/services/podcast-render";
 import { dailyPodcastEpisode, updatePodcastDocument } from "@/lib/services/daily-podcast";
 import { setPodcastRenderStarterForTests } from "@/lib/podcast-video/render-workflow";
 import * as renderRoute from "@/app/api/v1/daily-podcasts/[key]/video/render/route";
@@ -67,7 +67,7 @@ it("reports a render as queued until the renderer starts it", async () => {
   const rendering = (await (await status()).json()).render;
   expect(rendering).toMatchObject({ status: "running", startedAt: expect.any(String) });
   const logged = await backgroundJob(env.handle.db, "user-alice", job.id);
-  expect(logged).toMatchObject({ kind: "render", status: "running", percent: 50 });
+  expect(logged).toMatchObject({ kind: "render", status: "running", percent: 1 });
   expect(logged.logs.map(entry => entry.id)).toEqual(["queued", "rendering"]);
   await markPodcastRenderStarted(env.handle.db, job);
   expect((await (await status()).json()).render.startedAt).toBe(rendering.startedAt);
@@ -125,7 +125,7 @@ it("runs the cloud workflow through polling, R2 upload, completion and cleanup",
   const { setCloudPodcastRendererForTests } = await import("@/lib/podcast-video/sandbox-renderer");
   await start(); const job = env.podcastRenders[0];
   const stop = vi.fn().mockResolvedValue(undefined);
-  const poll = vi.fn().mockResolvedValueOnce({ status: "running" }).mockResolvedValue({ status: "ready", byteSize: 10 });
+  const poll = vi.fn().mockResolvedValueOnce({ status: "running", percent: 42 }).mockResolvedValue({ status: "ready", byteSize: 10 });
   setCloudPodcastRendererForTests({ launch: async () => ({ name: "test-render" }), poll, stop,
     upload: async (_session, job) => { await env.store.put(podcastRenderKey(job), { bytes: new Uint8Array(10), contentType: "video/mp4" }); } });
   try {
@@ -195,4 +195,31 @@ it("retires a removed translation's private R2 exports and fences its running jo
   await finishPodcastRender(env.handle.db, job, 10);
   expect(await env.store.head(podcastRenderKey(job))).toBeNull();
   expect((await dailyPodcastEpisode(env.handle.db, "user-alice", day, key)).translations?.ja).toBeUndefined();
+});
+
+it("persists monotonic measured progress and reserves 100 for uploaded output", async () => {
+  await start(); const job = env.podcastRenders[0];
+  await markPodcastRenderStarted(env.handle.db, job);
+  await updatePodcastRenderProgress(env.handle.db, job, 42.9);
+  expect((await (await status()).json()).render.percent).toBe(42);
+  expect((await backgroundJob(env.handle.db, "user-alice", job.id)).percent).toBe(42);
+  await updatePodcastRenderProgress(env.handle.db, job, 20);
+  await updatePodcastRenderProgress(env.handle.db, job, Number.NaN);
+  expect((await (await status()).json()).render.percent).toBe(42);
+  await updatePodcastRenderProgress(env.handle.db, job, 100);
+  expect((await (await status()).json()).render.percent).toBe(99);
+  await env.store.put(podcastRenderKey(job), { bytes: new Uint8Array(10), contentType: "video/mp4" });
+  await finishPodcastRender(env.handle.db, job, 10);
+  await updatePodcastRenderProgress(env.handle.db, job, 30);
+  expect((await (await status()).json()).render).toMatchObject({ status: "ready", percent: 100 });
+  expect((await backgroundJob(env.handle.db, "user-alice", job.id)).percent).toBe(100);
+});
+
+it("ignores progress from a replaced render claim", async () => {
+  await start(); const job = env.podcastRenders[0];
+  await markPodcastRenderStarted(env.handle.db, job);
+  await updatePodcastDocument(env.handle.db, "user-alice", key, episode => { episode.video!.renders![1080]!.updatedAt = "2020-01-01T00:00:00Z"; });
+  await start();
+  await updatePodcastRenderProgress(env.handle.db, job, 80);
+  expect((await (await status()).json()).render.percent).toBe(0);
 });

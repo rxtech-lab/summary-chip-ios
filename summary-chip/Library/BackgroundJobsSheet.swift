@@ -406,20 +406,20 @@ private struct BackgroundJobDetail: View {
 }
 
 private extension BackgroundJob {
-    /// A render job logs "rendering" (50%) once the cloud renderer starts it; before that it is queued.
+    /// A render stays at zero while queued, then reports measured progress.
     var isQueued: Bool { isRender && status == "running" && percent == 0 }
     var canWatch: Bool { isRender && status == "ready" }
 
-    /// Render progress is not measured, so it shows an indeterminate bar.
+    /// Queued renders wait for a worker; active renders report measured progress.
     @ViewBuilder var progressBar: some View {
-        if isRender { ProgressView().progressViewStyle(.linear) }
+        if isQueued { ProgressView().progressViewStyle(.linear) }
         else { ProgressView(value: Double(percent), total: 100) }
     }
 
     var statusTitle: String {
         switch status {
         case "running" where isQueued: String(localized: "Waiting to render")
-        case "running" where isRender: String(localized: "Rendering in the cloud")
+        case "running" where isRender: String(localized: "Rendering in the cloud · \(percent)%")
         case "running": String(localized: "Writing script · \(percent)%")
         case "ready" where isRender: String(localized: "Video ready")
         case "ready": String(localized: "Script ready")
