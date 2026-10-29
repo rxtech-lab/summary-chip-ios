@@ -1,6 +1,56 @@
 import XCTest
 
 nonisolated final class MacNavigationUITests: XCTestCase {
+    @MainActor func testPlannedPodcastsLeaveLibraryChipsVisible() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "--preview-podcast-plans", "-chatPanelVisible", "NO",
+                               "-ApplePersistenceIgnoreState", "YES", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        app.activate()
+        let draft = app.buttons["planned-podcast-preview-plan"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 10))
+        let chip = app.buttons["summary-card-s-coffee"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(draft.frame.height, 0)
+        XCTAssertGreaterThan(chip.frame.height, 0)
+        XCTAssertGreaterThan(chip.frame.minY, draft.frame.minY)
+        XCTAssertLessThan(chip.frame.maxY, app.windows.firstMatch.frame.maxY)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "56 years")).firstMatch.exists)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "Planned draft and library chips together"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let draftY = draft.frame.minY
+        app.activate()
+        app.scrollViews["summary-card-feed"].scroll(byDeltaX: 0, deltaY: -250)
+        if draft.exists {
+            XCTAssertLessThan(draft.frame.minY, draftY, "Drafts must scroll with the posts")
+        }
+    }
+
+    @MainActor func testConfirmingPlanDoesNotReopenReview() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-likes", "--preview-podcast-plans", "-chatPanelVisible", "NO",
+                               "-ApplePersistenceIgnoreState", "YES", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        app.activate()
+        let draft = app.buttons["planned-podcast-preview-plan"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 10))
+        draft.click()
+        let confirm = app.buttons["podcast-plan-confirm"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.click()
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 10), "Confirmation must close review and start generation")
+        XCTAssertTrue(draft.waitForNonExistence(timeout: 5), "A confirmed draft must leave the feed")
+        XCTAssertFalse(app.buttons["Use This Script and Storyboard"].exists, "Mac must not ask for a second confirmation")
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "Confirmed plan opens podcast"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     @MainActor func testContextMenuDeletesBackgroundJobHistoryAfterConfirmation() {
         continueAfterFailure = false
         let app = XCUIApplication()

@@ -61,11 +61,6 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack(path: stackPath) {
             content
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    if !isMiniApps && model.showsPlannedPodcasts && !model.plannedPodcasts.isEmpty {
-                        PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 })
-                    }
-                }
                 .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
                 .navigationDestination(for: Summary.self) { summary in
                     SummaryDestination(environment: environment, summary: summary)
@@ -203,7 +198,9 @@ struct LibraryView: View {
     }
 
     private func presentGenerated(_ podcast: DailyPodcast) {
+        model.removePlannedPodcast(id: podcast.key)
         Task {
+            await model.refreshPlannedPodcasts()
             if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
                 environment.library.insert(chip)
             }
@@ -223,7 +220,16 @@ struct LibraryView: View {
             do {
                 let plan = try await environment.api.podcastPlan(id: summary.id)
                 planStatus = nil
-                if plan.confirmed { refreshPlans() } else { resumedPlan = ResumedPlan(plan: plan, library: summary.library) }
+                if plan.confirmed {
+                    model.removePlannedPodcast(id: plan.id)
+                    guard let day = summary.day else { refreshPlans(); return }
+                    planStatus = String(localized: "Loading podcast…")
+                    let podcast = try await environment.api.savedPodcast(key: plan.id, day: day)
+                    planStatus = nil
+                    environment.podcastPlayer.present(podcast: podcast)
+                } else {
+                    resumedPlan = ResumedPlan(plan: plan, library: summary.library)
+                }
             } catch {
                 planStatus = nil
                 planError = error.localizedDescription
@@ -344,16 +350,24 @@ struct LibraryView: View {
         Task { await model.reload() }
     }
 
+    private var plannedPodcastsHeader: AnyView? {
+        guard !isMiniApps, model.showsPlannedPodcasts, !model.plannedPodcasts.isEmpty else { return nil }
+        return AnyView(PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 }))
+    }
+
     @ViewBuilder
     private var content: some View {
         if !model.hasLoaded {
             ProgressView(isMiniApps ? String(localized: "Loading your clips…") : String(localized: "Loading your summaries…"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.items.isEmpty {
-            emptyState
+            VStack(spacing: 0) {
+                plannedPodcastsHeader
+                emptyState.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         } else {
             // Clips are a plain grid; only the Feed is grouped by day with a timeline.
-            SummaryCardFeed(entries: model.entries, scrollState: feedScroll, editorPickIDs: model.editorPickIDs, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, onReachEnd: {
+            SummaryCardFeed(entries: model.entries, scrollState: feedScroll, editorPickIDs: model.editorPickIDs, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, header: plannedPodcastsHeader, onReachEnd: {
                 Task { await model.loadMore() }
             }, onSelect: { summary in
                 if summary.kind == .podcast, let openPodcast { openPodcast(summary) }
@@ -527,8 +541,9 @@ private struct ResumedPlan: Identifiable {
     var id: String { plan.id }
 }
 
-/// Unconfirmed podcast plans, pinned above the feed: open one to keep reviewing it, or delete it.
+/// Unconfirmed podcast plans, scrolling with the feed: open one to keep reviewing it, or delete it.
 private struct PlannedPodcastsStrip: View {
+    @ScaledMetric(relativeTo: .body) private var rowHeight = 110
     let plans: [PodcastPlanSummary]
     let onOpen: (PodcastPlanSummary) -> Void
     let onDelete: (PodcastPlanSummary) -> Void
@@ -543,11 +558,13 @@ private struct PlannedPodcastsStrip: View {
             }
             .padding(.horizontal, 16)
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 12) {
+                HStack(spacing: 12) {
                     ForEach(plans) { plan in card(plan) }
                 }
                 .padding(.horizontal, 16)
             }
+            // A horizontal scroll view otherwise claims the whole vertical safe-area inset, hiding the feed.
+            .frame(height: rowHeight)
             .scrollIndicators(.hidden)
         }
         .padding(.vertical, 10)
@@ -564,8 +581,14 @@ private struct PlannedPodcastsStrip: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("PLANNED").font(.caption2.weight(.bold)).tracking(0.6).foregroundStyle(.tint)
                         Text(plan.title).font(.subheadline.weight(.semibold)).lineLimit(2).multilineTextAlignment(.leading)
-                        Text("\(plan.lineCount) lines · \(plan.updatedAt, format: .relative(presentation: .named))")
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Group {
+                            if plan.updatedAt.timeIntervalSince1970 > 0 {
+                                Text("\(plan.lineCount) lines · \(plan.updatedAt, format: .relative(presentation: .named))")
+                            } else {
+                                Text("\(plan.lineCount) lines")
+                            }
+                        }
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }

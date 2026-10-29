@@ -1,6 +1,6 @@
 import { sleep } from "workflow";
 import { getDatabase } from "@/lib/db/client";
-import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, podcastRenderError, type PodcastRenderJob } from "@/lib/services/podcast-render";
+import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, updatePodcastRenderProgress, podcastRenderError, type PodcastRenderJob } from "@/lib/services/podcast-render";
 import { getCloudPodcastRenderer, type RenderSession } from "@/lib/podcast-video/sandbox-renderer";
 import { notifyBackgroundJob } from "@/lib/services/background-jobs";
 
@@ -48,7 +48,9 @@ launch.maxRetries = 0;
 async function poll(job: PodcastRenderJob, session: RenderSession) {
   "use step";
   await currentPodcastRender(getDatabase(), job);
-  return getCloudPodcastRenderer().poll(session);
+  const result = await getCloudPodcastRenderer().poll(session);
+  if (result.status === "running") await updatePodcastRenderProgress(getDatabase(), job, result.percent ?? 1);
+  return result;
 }
 async function started(job: PodcastRenderJob) {
   "use step";
@@ -57,6 +59,7 @@ async function started(job: PodcastRenderJob) {
 async function upload(job: PodcastRenderJob, session: RenderSession, bytes: number) {
   "use step";
   await currentPodcastRender(getDatabase(), job);
+  await updatePodcastRenderProgress(getDatabase(), job, 99);
   await getCloudPodcastRenderer().upload(session, job, bytes);
 }
 async function finish(job: PodcastRenderJob, bytes?: number, error?: { code: string }) {

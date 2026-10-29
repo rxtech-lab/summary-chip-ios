@@ -197,7 +197,7 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
     }
 }
 
-public struct PodcastDayBounds: Codable, Sendable, Equatable {
+public struct PodcastDayBounds: Codable, Sendable, Hashable {
     public var start: String
     public var end: String
 }

@@ -42,6 +42,7 @@ struct DailyPodcastGenerationSheet: View {
     @State private var designingVideo = false
     @State private var work: Task<Void, Never>?
     @State private var loading = true
+    @State private var didLoadChips = false
     @State private var chips: [PodcastChip] = []
     @State private var selected: [String: PodcastChip] = [:]
     @State private var showsChips = false
@@ -123,7 +124,11 @@ struct DailyPodcastGenerationSheet: View {
             .alert("Couldn't Generate Podcast", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
-            .task { await loadChips() }
+            .task {
+                guard !didLoadChips else { return }
+                didLoadChips = true
+                await loadChips()
+            }
             .sensoryFeedback(.impact, trigger: generating)
             .sensoryFeedback(.selection, trigger: language)
             .sensoryFeedback(.selection, trigger: includeVideo)

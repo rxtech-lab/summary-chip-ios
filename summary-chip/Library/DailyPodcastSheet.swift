@@ -353,7 +353,12 @@ struct DailyPodcastSheet: View {
                     } else if renderState?.isQueued != false {
                         Text("Waiting to render video…")
                     } else {
-                        Text("Rendering video in the cloud…")
+                        HStack {
+                            Text("Rendering video in the cloud…")
+                            if let fraction = renderState?.fraction {
+                                Text(fraction, format: .percent.precision(.fractionLength(0)))
+                            }
+                        }
                     }
                 }
                 .monospacedDigit()

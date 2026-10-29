@@ -11,6 +11,8 @@ public struct PodcastPlan: Codable, Sendable, Identifiable, Equatable {
     public var frames: [URL?]
     /// Whether the server draws storyboard frames; nil when it didn't say.
     public var storyboard: Bool?
+    /// Four successive animation keyframes, in reading order. Nil for legacy stills.
+    public var frameLayout: String?
 
     public struct Message: Codable, Sendable, Identifiable, Equatable {
         public enum Role: String, Codable, Sendable { case user, assistant }
@@ -20,7 +22,7 @@ public struct PodcastPlan: Codable, Sendable, Identifiable, Equatable {
         public var revision: Int
     }
 
-    private enum CodingKeys: String, CodingKey { case id, revision, confirmed, script, messages, frames, storyboard }
+    private enum CodingKeys: String, CodingKey { case id, revision, confirmed, script, messages, frames, storyboard, frameLayout }
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
@@ -30,6 +32,7 @@ public struct PodcastPlan: Codable, Sendable, Identifiable, Equatable {
         messages = try container.decodeIfPresent([Message].self, forKey: .messages) ?? []
         frames = try container.decodeIfPresent([URL?].self, forKey: .frames) ?? []
         storyboard = try container.decodeIfPresent(Bool.self, forKey: .storyboard)
+        frameLayout = try container.decodeIfPresent(String.self, forKey: .frameLayout)
     }
 
     /// The storyboard frame of segment `index`, if drawn.
@@ -98,6 +101,7 @@ public struct PodcastPlanSummary: Codable, Sendable, Identifiable, Equatable, Ha
     public var library: Bool
     public var language: String
     public var updatedAt: Date
+    public var day: PodcastDayBounds?
     /// The first storyboard frame as a short-lived private URL.
     public var thumbnailUrl: URL?
 }
@@ -157,6 +161,15 @@ extension SummaryAPIClient {
         let response: PlanEnvelope = try await send(get("/api/v1/daily-podcasts/plans/\(id.urlPathEscaped)"))
         return response.plan
     }
+    public func savedPodcast(key: String, day: PodcastDayBounds) async throws -> DailyPodcast {
+        struct Envelope: Decodable { var podcast: DailyPodcast? }
+        let envelope: Envelope = try await send(request("/api/v1/daily-podcasts/\(key.urlPathEscaped)", query: [
+            URLQueryItem(name: "start", value: day.start), URLQueryItem(name: "end", value: day.end)
+        ]))
+        guard let podcast = envelope.podcast else { throw SummaryAPIError.invalidResponse }
+        return podcast
+    }
+
     /// Discards an unconfirmed plan and its storyboard frames.
     public func deletePodcastPlan(id: String) async throws {
         var request = request("/api/v1/daily-podcasts/plans/\(id.urlPathEscaped)")

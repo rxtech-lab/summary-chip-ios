@@ -9,17 +9,32 @@ const maxSeconds = Number(process.argv[3] || 0);
 const language = process.argv[4] || 'und';
 const languageCodes = { en: 'eng', zh: 'zho', ja: 'jpn', ko: 'kor', es: 'spa', fr: 'fra', de: 'deu', it: 'ita', pt: 'por', ru: 'rus', ar: 'ara' };
 const subtitleLanguage = languageCodes[language.toLowerCase().split(/[-_]/)[0]] || 'und';
-async function status(value) {
-  await writeFile('status.tmp', JSON.stringify(value));
-  await rename('status.tmp', 'status.json');
+let pendingStatus = Promise.resolve();
+function status(value) {
+  pendingStatus = pendingStatus.then(async () => {
+    await writeFile('status.tmp', JSON.stringify(value));
+    await rename('status.tmp', 'status.json');
+  });
+  return pendingStatus;
+}
+let lastPercent = 0;
+function progress(percent) {
+  if (percent <= lastPercent) return;
+  lastPercent = percent;
+  void status({status: 'running', percent});
 }
 try {
+  await status({status: 'running', percent: 1});
   const serveUrl = await bundle({entryPoint: process.cwd() + '/src/index.ts', publicDir: process.cwd() + '/public'});
   const composition = await selectComposition({serveUrl, id: 'Main'});
   if (maxSeconds > 0 && composition.durationInFrames / composition.fps > maxSeconds) throw new Error('Recap exceeds duration limit');
+  progress(5);
   await renderMedia({serveUrl, composition, codec: 'h264', outputLocation: 'silent-captions.mp4',
     scale: resolution / composition.height, concurrency: 2,
+    onProgress: ({progress: fraction}) => progress(5 + Math.floor(Math.max(0, Math.min(1, fraction)) * 90)),
   });
+  progress(97);
+  await pendingStatus;
   // Preserve the recording mixed by Remotion and add selectable captions, including CJK text.
   execFileSync('ffmpeg', ['-y', '-i', 'silent-captions.mp4', '-i', 'captions.srt',
     '-map', '0:v:0', '-map', '0:a:0', '-map', '1:0', '-c:v', 'copy', '-c:a', 'copy',

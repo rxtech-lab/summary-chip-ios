@@ -41,7 +41,7 @@ export async function startPodcastRender(db: Database, userId: string, day: Podc
       if (previous?.status === "ready" || previous?.status === "running" && Date.now() - Date.parse(previous.updatedAt) < staleMs) return;
       const at = new Date().toISOString();
       job = { id: randomUUID(), userId, key, day, videoId: video.id, resolution, language };
-      video.renders = { ...video.renders, [resolution]: { id: job.id, status: "running", resolution, updatedAt: at } };
+      video.renders = { ...video.renders, [resolution]: { id: job.id, status: "running", resolution, percent: 0, updatedAt: at } };
     });
     const claimed = job as PodcastRenderJob | undefined;
     if (claimed) {
@@ -85,15 +85,35 @@ export function podcastRenderError(failure?: unknown) {
 /** Marks a queued render as rendering once its sandbox launched, so apps can tell waiting from working. */
 export async function markPodcastRenderStarted(db: Database, job: PodcastRenderJob) {
   await renderTransaction(db, async tx => {
+    let accepted = false;
     await updatePodcastDocument(tx, job.userId, job.key, latest => {
       const video = videoOf(latest, job.language);
       const render = video?.renders?.[job.resolution];
       if (video?.id !== job.videoId || render?.id !== job.id || render.status !== "running" || render.startedAt) return;
       const at = new Date().toISOString();
-      video.renders![job.resolution] = { ...render, startedAt: at, updatedAt: at };
+      video.renders![job.resolution] = { ...render, startedAt: at, percent: 1, updatedAt: at };
+      accepted = true;
     });
+    if (accepted) await recordJobActivity(tx, job.userId, job.id, "rendering", "Rendering in the cloud. You can close the app.", { percent: 1 });
   });
-  await recordJobActivity(db, job.userId, job.id, "rendering", "Rendering in the cloud. You can close the app.", { percent: 50 });
+}
+
+/** Persist measured progress only for the current running claim. Replayed polls never move it backwards. */
+export async function updatePodcastRenderProgress(db: Database, job: PodcastRenderJob, percent: number) {
+  if (!Number.isFinite(percent)) return;
+  let accepted: number | undefined;
+  await renderTransaction(db, async tx => {
+    accepted = undefined;
+    await updatePodcastDocument(tx, job.userId, job.key, latest => {
+      const video = videoOf(latest, job.language);
+      const render = video?.renders?.[job.resolution];
+      if (video?.id !== job.videoId || render?.id !== job.id || render.status !== "running" || !render.startedAt) return;
+      accepted = Math.max(render.percent ?? 1, Math.min(99, Math.max(1, Math.floor(percent))));
+      video.renders![job.resolution] = { ...render, percent: accepted, updatedAt: new Date().toISOString() };
+    });
+    if (accepted !== undefined) await recordJobActivity(tx, job.userId, job.id, "render-progress",
+      `Rendering in the cloud: ${accepted}%. You can close the app.`, { percent: accepted });
+  });
 }
 
 export async function finishPodcastRender(db: Database, job: PodcastRenderJob, byteSize: number | undefined, failure?: { code: string }) {
@@ -107,7 +127,7 @@ export async function finishPodcastRender(db: Database, job: PodcastRenderJob, b
         if (video?.id !== job.videoId || video.renders?.[job.resolution]?.id !== job.id) return;
         accepted = true;
         const render: PodcastVideoRender = { id: job.id, resolution: job.resolution, updatedAt: new Date().toISOString(),
-          status: byteSize ? "ready" : "failed", ...(byteSize ? { byteSize } : { error }) };
+          status: byteSize ? "ready" : "failed", ...(byteSize ? { byteSize, percent: 100 } : { error }) };
         video.renders[job.resolution] = render;
       });
     });

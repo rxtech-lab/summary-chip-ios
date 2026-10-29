@@ -159,7 +159,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
           const file = `video-assets/plan/storyboard-${index + 1}.png`;
           try {
             await store.put(`${base}/${key}/${file}`, { ...await store.get(frame.key), contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
-            segments[index].storyboard = { path: `gen/storyboard-${index + 1}.png`, file, width: frame.width, height: frame.height };
+            segments[index].storyboard = { layout: "sequence-2x2", path: `gen/storyboard-${index + 1}.png`, file, width: frame.width, height: frame.height };
           } catch (error) { console.warn("[podcast] storyboard frame could not be copied", { key, index, error }); }
         }));
       }

@@ -52,7 +52,10 @@ struct BackgroundVideoRenderSheet: View {
             .overlay {
                 if video == nil && error == nil {
                     VStack(spacing: 12) {
-                        if let fraction = progress?.fraction { ProgressView(value: fraction).frame(width: 200) }
+                        if let fraction = progress?.fraction {
+                            ProgressView(value: fraction).frame(width: 200)
+                            Text(fraction, format: .percent.precision(.fractionLength(0))).monospacedDigit()
+                        }
                         else { ProgressView() }
                         Text(progress?.title ?? "Preparing video…")
                         if let detail = progress?.frameDetail { Text("Frames: \(detail)").monospacedDigit() }

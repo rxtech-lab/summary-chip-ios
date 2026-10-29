@@ -43,7 +43,7 @@ export async function listBackgroundJobs(db: Database, ownerId: string, cursor?:
 }
 
 /** One writer per workflow; stable event ids prevent duplicated logs on replay. */
-export async function recordJobActivity(db: Database, ownerId: string, id: string, event: string,
+export async function recordJobActivity(db: Pick<Database, "select" | "update">, ownerId: string, id: string, event: string,
   message: string, patch: Partial<Pick<BackgroundJob, "status" | "percent" | "videoId" | "error">> = {}) {
   const [row] = await db.select().from(backgroundJobs).where(and(eq(backgroundJobs.id, id), eq(backgroundJobs.ownerId, ownerId)));
   if (!row || row.document.status !== "running") return;

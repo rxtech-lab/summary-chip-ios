@@ -54,6 +54,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     private var dailyPodcasts: [String: [String: Any]] = [:]
     private var podcastVersions: [String: [[String: Any]]] = [:]
     private var backgroundJobDeleted = false
+    private var previewPlanConfirmed = false
     private var paperImage = Data()
     private var paperPDF = Data()
     private var items: [Item]
@@ -587,6 +588,29 @@ private extension LikesPreviewStore {
     }
 
     nonisolated func routePodcast(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
+        if method == "GET", path == ["daily-podcasts", "plans"] {
+            let plans: [[String: Any]] = ProcessInfo.processInfo.arguments.contains("--preview-podcast-plans") && !previewPlanConfirmed ? [
+                ["id": "preview-plan", "revision": 0, "title": "Planned battery explainer", "lineCount": 7,
+                 "library": true, "language": "en", "updatedAt": "1970-01-01T00:00:00Z"]
+            ] : []
+            return json(["plans": plans])
+        }
+        if path == ["daily-podcasts", "plans", "preview-plan"] {
+            if method == "GET" {
+                return json(["plan": ["id": "preview-plan", "revision": 0, "confirmed": previewPlanConfirmed, "storyboard": false,
+                    "script": ["title": "Planned battery explainer", "mood": "calm", "speakers": [["name": "Alex", "voice": "preview"]],
+                               "segments": [["speaker": 0, "chipId": "s-coffee", "caption": "A battery breakthrough.", "camera": "Cells appear, connect, and highlight the output."]]]]])
+            }
+            if method == "POST" {
+                previewPlanConfirmed = true
+                let day = ["start": iso(Calendar.current.startOfDay(for: .now)), "end": iso(Calendar.current.startOfDay(for: .now).addingTimeInterval(86400))]
+                return json(["podcast": ["key": "preview-plan", "title": "Planned battery explainer", "type": "regular", "language": "en", "day": day,
+                    "audioPath": "/api/v1/daily-podcasts/preview-plan/audio", "durationSeconds": 2, "createdAt": iso(.now),
+                    "speakers": [["name": "Alex", "voice": "preview"]],
+                    "segments": [["speaker": 0, "chipId": "s-coffee", "caption": "A battery breakthrough.", "audioPath": "/api/v1/daily-podcasts/preview-plan/segments/0", "icon": "🔋"]],
+                    "videoDesign": ["id": "preview-design", "startedAt": iso(.now), "updatedAt": iso(.now), "percent": 10]]])
+            }
+        }
         if method == "GET", path == ["daily-podcasts", "options"] {
             // The generation form loads these choices before enabling Generate.
             return json([

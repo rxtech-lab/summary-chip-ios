@@ -23,15 +23,15 @@ type Plan = typeof podcastPlans.$inferSelect;
 const changed = () => new ApiError(409, "PODCAST_PLAN_CHANGED", "The plan changed or was confirmed. Reload the plan before continuing.");
 
 /** Frames are keyed by the direction they picture, so unchanged shots keep theirs across revisions and reorders. */
-export function storyboardFrameHash(camera: string) {
-  return createHash("sha256").update(camera.trim()).digest("hex").slice(0, 16);
+export function storyboardFrameHash(camera: string, caption: string, style: string = "news") {
+  return createHash("sha256").update(JSON.stringify(["motion-grid-v2", style, camera.trim(), caption.trim()])).digest("hex").slice(0, 16);
 }
 function frameKey(user: string, plan: string, hash: string) {
   return `${ownerKeyPrefix(user)}/podcast-plans/${plan}/${hash}.png`;
 }
 /** Each shot's drawn frame, in script order; null for shots without one. */
-export function planFrames(plan: Pick<Plan, "script" | "frames">): (PodcastPlanFrame | null)[] {
-  return plan.script.segments.map((segment, index) => index < MAX_STORYBOARD_FRAMES ? plan.frames[storyboardFrameHash(segment.camera)] ?? null : null);
+export function planFrames(plan: Pick<Plan, "script" | "frames" | "input">): (PodcastPlanFrame | null)[] {
+  return plan.script.segments.map((segment, index) => index < MAX_STORYBOARD_FRAMES ? plan.frames[storyboardFrameHash(segment.camera, segment.caption, plan.input.videoStyle)] ?? null : null);
 }
 
 export async function getPodcastPlan(db: Database, user: string, id: string) {
@@ -44,7 +44,7 @@ export async function publicPodcastPlan(plan: Plan, deps: { store?: ObjectStore;
   const store = deps.store ?? getObjectStore();
   const frames = await Promise.all(planFrames(plan).map(async frame =>
     frame ? (await store.signedGet(frame.key, { inline: true, expiresInSeconds: 3600 }).catch(() => null))?.url ?? null : null));
-  return { id: plan.id, revision: plan.revision, confirmed: plan.confirmed, script: plan.script, messages: plan.messages, frames,
+  return { id: plan.id, revision: plan.revision, confirmed: plan.confirmed, script: plan.script, messages: plan.messages, frames, frameLayout: "sequence-2x2",
     ...(deps.storyboard !== undefined ? { storyboard: deps.storyboard } : {}) };
 }
 /** Whether this server draws storyboard frames, so the app knows whether missing frames can be drawn. */
@@ -78,8 +78,8 @@ function validatePlan(script: PodcastPlanScript, input: PodcastCreationInput, id
   }
 }
 /** Deletes frames the script no longer uses and returns the ones it keeps. */
-async function pruneFrames(store: ObjectStore, plan: Pick<Plan, "script" | "frames">) {
-  const used = new Set(plan.script.segments.slice(0, MAX_STORYBOARD_FRAMES).map(segment => storyboardFrameHash(segment.camera)));
+async function pruneFrames(store: ObjectStore, plan: Pick<Plan, "script" | "frames" | "input">) {
+  const used = new Set(plan.script.segments.slice(0, MAX_STORYBOARD_FRAMES).map(segment => storyboardFrameHash(segment.camera, segment.caption, plan.input.videoStyle)));
   const kept: Record<string, PodcastPlanFrame> = {};
   for (const [hash, frame] of Object.entries(plan.frames)) {
     if (used.has(hash)) kept[hash] = frame;
@@ -101,7 +101,7 @@ export async function createPodcastPlan(db: Database, user: string, input: Podca
   try {
     const pricing = charge ? await ai.podcastPricing() : null;
     const script = podcastPlanScriptSchema.parse(await ai.writePodcast({
-      language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, storyboard: true,
+      language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, storyboard: true, videoStyle: input.videoStyle,
       recap: input.recap || !input.library || input.durationSeconds !== undefined,
       maxDurationSeconds: input.recap ? Math.min(179, input.durationSeconds ?? 179) : input.durationSeconds ?? 360, approximateDuration: !input.recap,
       chips: chips.map(chip => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })),
@@ -121,7 +121,7 @@ export async function revisePodcastPlan(db: Database, user: string, id: string, 
   const chips = await planSources(db, user, plan.input);
   // Revision can change text and camera directions; voice identities remain the reviewed choices.
   validatePlan(script, plan.input, chips.map(chip => chip.id), plan.script.speakers.map(speaker => speaker.voice));
-  const frames = await pruneFrames(deps.store ?? getObjectStore(), { script, frames: plan.frames });
+  const frames = await pruneFrames(deps.store ?? getObjectStore(), { script, frames: plan.frames, input: plan.input });
   const [updated] = await db.update(podcastPlans).set({ script, frames, revision: revision + 1, updatedAt: (deps.now?.() ?? new Date()).getTime() }).where(and(
     eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user), eq(podcastPlans.revision, revision), eq(podcastPlans.confirmed, false),
   )).returning();
@@ -140,7 +140,7 @@ export async function refinePodcastPlanChat(db: Database, user: string, id: stri
   try {
     const pricing = charge ? await ai.podcastPricing() : null;
     const refined = await ai.refinePodcastPlan({
-      language: LANGUAGE_NAMES[plan.input.language], script: plan.script, request: message,
+      language: LANGUAGE_NAMES[plan.input.language], videoStyle: plan.input.videoStyle, script: plan.script, request: message,
       chips: chips.map(chip => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })),
       history: plan.messages.map(({ role, text }) => ({ role, text })),
     }, { abortSignal: AbortSignal.timeout(120_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
@@ -150,7 +150,7 @@ export async function refinePodcastPlanChat(db: Database, user: string, id: stri
     const messages: PodcastPlanMessage[] = [...plan.messages,
       { id: randomUUID(), role: "user" as const, text: message, revision, createdAt: now },
       { id: randomUUID(), role: "assistant" as const, text: refined.reply, revision: revision + 1, createdAt: now }].slice(-MAX_PLAN_MESSAGES);
-    const frames = await pruneFrames(deps.store ?? getObjectStore(), { script, frames: plan.frames });
+    const frames = await pruneFrames(deps.store ?? getObjectStore(), { script, frames: plan.frames, input: plan.input });
     const [updated] = await db.update(podcastPlans).set({ script, frames, messages, revision: revision + 1, updatedAt: Date.parse(now) }).where(and(
       eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user), eq(podcastPlans.revision, revision), eq(podcastPlans.confirmed, false),
     )).returning();
@@ -177,7 +177,7 @@ export async function drawPodcastPlanFrames(db: Database, user: string, id: stri
   const titles = new Map(chips.map(chip => [chip.id, chip.title]));
   const missing = new Map<string, PodcastPlanScript["segments"][number]>();
   for (const segment of plan.script.segments.slice(0, MAX_STORYBOARD_FRAMES)) {
-    const hash = storyboardFrameHash(segment.camera);
+    const hash = storyboardFrameHash(segment.camera, segment.caption, plan.input.videoStyle);
     if (!plan.frames[hash] && !missing.has(hash)) missing.set(hash, segment);
   }
   if (!missing.size) return publicPodcastPlan(plan, { store, storyboard: true });
@@ -205,7 +205,7 @@ export async function drawPodcastPlanFrames(db: Database, user: string, id: stri
     }));
     // Content-keyed frames merge safely with a concurrent revision; pruning drops any it no longer uses.
     const latest = await getPodcastPlan(db, user, id);
-    const frames = await pruneFrames(store, { script: latest.script, frames: { ...latest.frames, ...drawn } });
+    const frames = await pruneFrames(store, { script: latest.script, frames: { ...latest.frames, ...drawn }, input: latest.input });
     const [updated] = await db.update(podcastPlans).set({ frames, updatedAt: (deps.now?.() ?? new Date()).getTime() }).where(and(eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user))).returning();
     const cost = attempts * ai.storyboardImageUsdPerImage();
     await charge?.settle(Object.keys(drawn).length ? Math.max(1, pointsForCost(cost)) : 0, { plan: true, frames: Object.keys(drawn).length, imageCostUsd: cost });
