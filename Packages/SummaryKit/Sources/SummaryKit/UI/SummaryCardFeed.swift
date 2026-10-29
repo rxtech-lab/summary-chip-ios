@@ -147,6 +147,16 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
                 if isFeedVisible && !viewport.isNavigating { viewport.offset = offset }
             }
+            // Day grouping can lift the last-loaded cards above the bottom, and their `onAppear`
+            // fires once, so also page whenever the bottom comes within a screen. The entry count
+            // makes it fire again when a page lands but the feed is still near its end.
+            .onScrollGeometryChange(for: Int?.self) { geometry in
+                let remaining = geometry.contentSize.height - geometry.contentOffset.y - geometry.containerSize.height
+                return remaining < max(geometry.containerSize.height, 400) ? entries.count : nil
+            } action: { old, count in
+                SummaryLog.feed.debug("near-end changed \(String(describing: old), privacy: .public) -> \(String(describing: count), privacy: .public)")
+                if count != nil { onReachEnd() }
+            }
             #if os(macOS)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                 viewport.viewportFrame = frame
@@ -300,7 +310,10 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                         .contextMenu { menuItems(entry.summary) }
                         .transition(.identity)
                         .onAppear {
-                            if tail.contains(entry.id) { onReachEnd() }
+                            if tail.contains(entry.id) {
+                                SummaryLog.feed.debug("tail card appeared \(entry.id, privacy: .public) of \(entries.count) entries")
+                                onReachEnd()
+                            }
                         }
                         #if os(macOS)
                         .onGeometryChange(for: CGRect.self) {
