@@ -36,6 +36,14 @@ struct XPostDraftTests {
         #expect(draft.text == "Episode\n\nhttps://example.com/s/public")
     }
 
+    @Test func omitsLinksToX() throws {
+        let post = try chip("a", extra: #","sourceUrl":"https://x.com/user/status/1""#)
+        let legacy = try chip("b", extra: #","sourceUrl":"https://mobile.twitter.com/user/status/2""#)
+        let web = try chip("c", extra: #","sourceUrl":"https://example.org/story""#)
+        let draft = XPostDraft(title: "Episode", summary: "Overview", sources: [post, legacy, web])
+        #expect(draft.text == "Episode\n\nOverview\n\nhttps://example.org/story")
+    }
+
     @Test func rejectsNonWebSourceAndPreservesFullOverview() throws {
         let source = try chip("a", extra: #","sourceUrl":"file:///secret.txt""#)
         let draft = XPostDraft(title: "Chip", summary: String(repeating: "中", count: 200), sources: [source])
