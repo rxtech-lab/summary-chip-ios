@@ -68,21 +68,24 @@ private struct XSharingModifier: ViewModifier {
             if let summary = request.summary, summary.kind == .podcast {
                 podcast = try await api.libraryPodcast(summaryID: summary.id)
             }
-            let draft: XPostDraft
+            let title: String, overview: String, sources: [Summary]
             if let podcast {
-                var sources: [Summary] = []
+                var chips: [Summary] = []
                 for id in podcast.sourceChipIDs {
                     try Task.checkCancellation()
-                    sources.append(try await api.summary(id: id))
+                    chips.append(try await api.summary(id: id))
                 }
-                let overview = podcast.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
-                draft = XPostDraft(title: podcast.title,
-                    summary: overview.flatMap { $0.isEmpty ? nil : $0 } ?? sources.map(\.summary).joined(separator: " "),
-                    sources: sources)
+                let podcastOverview = podcast.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
+                title = podcast.title
+                overview = podcastOverview.flatMap { $0.isEmpty ? nil : $0 } ?? chips.map(\.summary).joined(separator: " ")
+                sources = chips
             } else if let summary = request.summary {
-                draft = XPostDraft(title: summary.title, summary: summary.summary, sources: [summary])
+                (title, overview, sources) = (summary.title, summary.summary, [summary])
             } else { return }
             try Task.checkCancellation()
+            let cleaned = await XPostDateCleaner.clean(title: title, summary: overview)
+            try Task.checkCancellation()
+            let draft = XPostDraft(title: cleaned.title, summary: cleaned.summary, sources: sources)
             openURL(draft.url) { accepted in
                 if accepted { opened += 1 }
                 else { error = String(localized: "Couldn't open the X composer. Please check your browser and try again.") }
