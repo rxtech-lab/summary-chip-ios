@@ -10,7 +10,7 @@ struct SidebarMainView: View {
     /// Remembered across launches so the chat panel reopens the way the user left it.
     @AppStorage("chatPanelVisible") private var showsChat = true
     #else
-    @State private var showsChat = true
+    @State private var showsChat = false
     #endif
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
@@ -50,11 +50,12 @@ struct SidebarMainView: View {
                 }
             }
             .environment(\.chatPanelVisibility, $showsChat)
-            .inspector(isPresented: $showsChat) {
-                ChatView(environment: environment, isPanel: true)
-                    .environment(\.openLibraryItem, openFromSearch)
-                    .inspectorColumnWidth(min: 320, ideal: 380, max: 560)
-            }
+        }
+        // Keep chat presentation independent of the navigation sidebar's detail layout.
+        .inspector(isPresented: $showsChat) {
+            ChatView(environment: environment, isPanel: true)
+                .environment(\.openLibraryItem, openFromSearch)
+                .inspectorColumnWidth(min: 320, ideal: 380, max: 560)
         }
         .summarySearchPresentation(environment: environment, onOpenSummary: openFromSearch)
         .environment(\.openLibraryItem, openFromSearch)
@@ -146,6 +147,9 @@ struct ChatPanelToolbarContent: ToolbarContent {
                           systemImage: "sparkles")
                 }
                 .accessibilityIdentifier("toggle-chat-panel")
+                #if os(iOS)
+                .sensoryFeedback(.selection, trigger: isVisible.wrappedValue)
+                #endif
             }
         }
     }
