@@ -8,6 +8,7 @@ enum SummaryLog {
     static let api = Logger(subsystem: subsystem, category: "API")
     static let chat = Logger(subsystem: subsystem, category: "Chat")
     static let assets = Logger(subsystem: subsystem, category: "AssetLoader")
+    static let feed = Logger(subsystem: subsystem, category: "Feed")
 }
 
 extension URLRequest {
