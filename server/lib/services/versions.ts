@@ -11,6 +11,7 @@ import { VERSION_TITLE_PATHS, type VersionContent, type VersionContentByKind } f
 import { getOwnedTrip, saveDocument, validDocument, withStoredDefaults, type TripJson } from "./trips";
 import { updateMiniApp, getMiniApp } from "@/lib/mini-app/service";
 import { restorePaper, type PaperJson } from "./papers";
+import { restoreGraph, type GraphJson } from "./graphs";
 
 /** One row of `GET /api/v1/summaries/:id/versions`. */
 export interface VersionJson {
@@ -38,6 +39,7 @@ export interface RestoreJson {
   trip: TripJson | null;
   paper: PaperJson | null;
   miniApp?: Awaited<ReturnType<typeof getMiniApp>> | null;
+  graph?: GraphJson | null;
 }
 
 export const DEFAULT_VERSION_PAGE = 50;
@@ -151,6 +153,8 @@ export async function restoreVersion(
   } else if (row.kind === "mini_app") {
     const current = await getMiniApp(db, id, ownerId);
     result = { summary: null, trip: null, paper: null, miniApp: await updateMiniApp(db, id, ownerId, row.content, current.revision, "restore", version) };
+  } else if (row.kind === "graph") {
+    result = { summary: null, trip: null, paper: null, graph: await restoreGraph(db, ownerId, id, row.content as unknown as VersionContentByKind["graph"], { ...deps, ...restore }) };
   } else {
     const content = row.content as unknown as VersionContentByKind["summary"];
     result = {

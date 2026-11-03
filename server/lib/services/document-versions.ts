@@ -15,6 +15,7 @@ export interface VersionContentByKind {
   paper: PaperDocument;
   podcast: Pick<SummaryRow, "title" | "summary" | "highlights" | "category" | "tags" | "keywords">;
   mini_app: import("@/lib/contracts/mini-app").MiniAppDocument;
+  graph: import("@/lib/contracts/graph").GraphDocument;
 }
 
 export type VersionContent = VersionContentByKind[SummaryKind];
@@ -29,6 +30,7 @@ export const VERSION_TITLE_PATHS: Record<SummaryKind, string> = {
   trip: "$.document.title",
   paper: "$.title",
   mini_app: "$.title",
+  graph: "$.title",
 };
 
 export function summaryContent(row: VersionContentByKind["summary"]): VersionContentByKind["summary"] {

@@ -63,7 +63,7 @@ Configuration/              xcconfig files (API base URL, RxAuth client, …)
 users(id PK = RxAuth sub, email, name, created_at)
 summaries(
   id PK (uuid), slug UNIQUE (10 char, url-safe), owner_id FK users,
-  kind 'summary' | 'trip' | 'paper' (default 'summary'; a trip's diary lives in `trips`, a paper's LaTeX in `papers`),
+  kind 'summary' | 'trip' | 'paper' | 'mini_app' | 'podcast' | 'graph' (default 'summary'; a trip's diary lives in `trips`, a paper's LaTeX in `papers`, a graph's nodes and edges in `graphs`, see [graphs.md](graphs.md)),
   source_type  'url' | 'webpage' | 'pdf' | 'text',
   source_url, source_title, site_name, source_file_key (R2, pdf only),
   content_excerpt (≤ 8k chars of extracted text, for the chat's getSummary tool),

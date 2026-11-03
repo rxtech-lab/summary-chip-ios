@@ -11,6 +11,7 @@ struct LibraryView: View {
     @State private var showsNewTrip = false
     @State private var showsNewPodcast = false
     @State private var showsNewPaper = false
+    @State private var showsNewGraph = false
     @State private var showsNewMiniApp = false
     @State private var showsCredits = false
     @State private var sharingSummary: Summary?
@@ -133,6 +134,9 @@ struct LibraryView: View {
                 }
                 .sensoryFeedback(.success, trigger: planChanges)
                 .sensoryFeedback(.error, trigger: planError)
+                .sheet(isPresented: $showsNewGraph) {
+                    NewGraphSheet(api: environment.api, onCreated: openCreated)
+                }
                 .sheet(isPresented: $showsNewPaper) {
                     NewPaperSheet(api: environment.api, onCreated: openCreated)
                 }
@@ -186,6 +190,12 @@ struct LibraryView: View {
                 Label("New Paper", systemImage: "doc.richtext")
             }
             .accessibilityIdentifier("new-paper")
+            Button {
+                showsNewGraph = true
+            } label: {
+                Label("New Graph", systemImage: "point.3.connected.trianglepath.dotted")
+            }
+            .accessibilityIdentifier("new-graph")
             Button { podcastTaps += 1; showsNewPodcast = true } label: {
                 Label("New Podcast", systemImage: "waveform")
             }.accessibilityIdentifier("new-podcast")
@@ -255,6 +265,19 @@ struct LibraryView: View {
         Task {
             guard let summary = await environment.libraryItem(forCreated: paper) else { return }
             // Let the sheet finish dismissing before pushing.
+            try? await Task.sleep(for: .milliseconds(350))
+            stackPath.wrappedValue.append(summary)
+        }
+    }
+
+    /// Pushes a graph made in the New Graph sheet once the sheet has closed.
+    private func openCreated(_ graph: Graph) {
+        Task {
+            guard let summary = try? await environment.api.summary(id: graph.id) else {
+                await environment.library.reload()
+                return
+            }
+            environment.library.insert(summary)
             try? await Task.sleep(for: .milliseconds(350))
             stackPath.wrappedValue.append(summary)
         }

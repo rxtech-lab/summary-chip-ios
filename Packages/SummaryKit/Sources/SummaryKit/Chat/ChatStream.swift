@@ -33,12 +33,15 @@ public struct ChatRequestBody: Codable, Sendable {
     /// Chats with the trip agent about one of the user's trips; the agent can edit it.
     public var tripId: String?
     public var miniAppId: String?
-    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil, miniAppId: String? = nil) {
+    /// Chats with the graph agent about one of the user's graphs; the agent can edit it and light elements up.
+    public var graphId: String?
+    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil, miniAppId: String? = nil, graphId: String? = nil) {
         self.messages = messages
         self.summaryId = summaryId
         self.localContent = localContent
         self.tripId = tripId
         self.miniAppId = miniAppId
+        self.graphId = graphId
     }
 }
 
@@ -109,12 +112,12 @@ public final class ChatStreamClient: Sendable {
 
     public init(api: SummaryAPIClient) { self.api = api }
 
-    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil, miniAppID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
+    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil, miniAppID: String? = nil, graphID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
         let api = self.api
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
         let task = Task {
             do {
-                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID, miniAppId: miniAppID))
+                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID, miniAppId: miniAppID, graphId: graphID))
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 300
                 let bytes = try await Self.openStream(api: api, request: request)
@@ -262,6 +265,8 @@ public enum ChatToolOutput {
             return nil
         case "renderUI":
             return input["title"]?.stringValue
+        case "queryGraph", "selectGraphElements":
+            return input["query"]?.stringValue
         case "searchSummaries":
             let query = input["query"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let filters = [input["category"]?.stringValue, input["tag"]?.stringValue.map { "#\($0)" }].compactMap { $0 }
@@ -304,6 +309,15 @@ public enum ChatToolOutput {
         return (summary?.isEmpty == false ? summary : nil, applied)
     }
 
+    /// What the graph agent's `selectGraphElements` picked out: `.some(nil)` when it cleared the
+    /// selection, `nil` when the output isn't a selection.
+    public static func graphSelection(from output: JSONValue) -> GraphSelection?? {
+        guard output["error"] == nil, let value = output["graphSelection"] else { return nil }
+        if case .null = value { return .some(nil) }
+        guard let selection = try? value.decode(GraphSelection.self) else { return nil }
+        return .some(selection)
+    }
+
     /// Whether a `searchSummaries` output was ranked by meaning (vector search) rather than keywords alone.
     public static func isSemantic(_ output: JSONValue) -> Bool {
         if case .bool(true)? = output["semantic"] { return true }
@@ -342,6 +356,14 @@ public enum ChatToolOutput {
             return String(localized: "Reading the page…", bundle: .module)
         case "updateTrip":
             return String(localized: "Updating the trip…", bundle: .module)
+        case "updateGraph":
+            return String(localized: "Updating the graph…", bundle: .module)
+        case "queryGraph":
+            return String(localized: "Running the query…", bundle: .module)
+        case "selectGraphElements":
+            return String(localized: "Selecting in the graph…", bundle: .module)
+        case "readGraphElements":
+            return String(localized: "Reading the graph…", bundle: .module)
         default:
             return String(localized: "Working…", bundle: .module)
         }

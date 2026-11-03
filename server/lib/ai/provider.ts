@@ -809,6 +809,7 @@ export function illustrationInstruction(input: DesignInput): string {
   if (input.kind === "paper") return paperIllustrationInstruction(input);
   if (input.kind === "mini_app") return miniAppIllustrationInstruction(input);
   if (input.kind === "podcast") return podcastIllustrationInstruction(input);
+  if (input.kind === "graph") return graphIllustrationInstruction(input);
   const tone = input.mode === "dark" ? "deep, rich and fairly dark" : "light, airy and bright";
   return [
     "Create a 16:9 purely visual editorial illustration to be used as background artwork.",
@@ -863,6 +864,19 @@ function paperIllustrationInstruction(input: DesignInput): string {
     `Palette: ${input.colors.join(", ")}, used as the watercolor and accent colors over the paper tone.`,
     "Fill the entire canvas edge to edge with the notebook and desk, slightly angled or overlapping items for a collected-by-hand feel. No frame, border or plain blank areas.",
     "The image contains NO text of any kind (no handwriting, letters, characters in any script, numbers, equations or symbols); pages, figures and sticky notes are blank or purely pictorial, and plots have bare axes.",
+  ].join(" ");
+}
+
+/** A graph's cover: a luminous network around its subject, still text-free. */
+function graphIllustrationInstruction(input: DesignInput): string {
+  const tone = input.mode === "dark" ? "a deep night-sky background" : "a pale, airy background";
+  return [
+    "Create a 16:9 purely visual illustration of a knowledge graph.",
+    `Subject: connections between ${input.keywords.slice(0, 8).join(", ")}.`,
+    `Visual style: a softly glowing globe-like constellation of round nodes joined by fine curved lines on ${tone}, with small pictorial objects from the subject inside some of the nodes and gentle depth of field.`,
+    `Palette: ${input.colors.join(", ")}.`,
+    "Fill the entire canvas edge to edge. No frame, border or plain blank areas.",
+    NO_TEXT,
   ].join(" ");
 }
 

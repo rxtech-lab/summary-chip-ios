@@ -1,4 +1,6 @@
 import { miniChatTools, MINI_CHAT_GUIDE } from "./mini-app";
+import { getOwnedGraph } from "@/lib/services/graphs";
+import { graphChatInstructions, graphChatTools } from "./graph-agent";
 import { getMiniApp } from "@/lib/mini-app/service";
 import { randomUUID } from "node:crypto";
 import { convertToModelMessages, jsonSchema, stepCountIs, streamText, tool, type LanguageModelUsage, type UIMessage } from "ai";
@@ -48,6 +50,8 @@ export const chatRequestSchema = z.object({
   miniAppId: z.string().uuid().optional(),
   /** Chats with the trip agent about an owned trip. Takes precedence over `summaryId`. */
   tripId: z.string().min(1).max(100).optional(),
+  /** Chats with the graph agent about an owned graph. Takes precedence over `summaryId`. */
+  graphId: z.string().min(1).max(100).optional(),
 }).loose();
 
 export function sanitizeChatMessages(input: z.infer<typeof chatRequestSchema>["messages"]): UIMessage[] {
@@ -239,6 +243,7 @@ export interface StreamChatOptions {
   summaryId?: string;
   localContent?: string;
   tripId?: string;
+  graphId?: string;
   miniAppId?: string;
   billingEnvironment?: BillingEnvironment;
   /** The request's signal: a client that hangs up still pays for the steps already run. */
@@ -253,7 +258,8 @@ export async function streamChat(
 ): Promise<Response> {
   // Resolved before streaming so an inaccessible summary or trip is a plain 404 rather than a stream error.
   const trip = options.tripId ? await getOwnedTrip(db, options.tripId, userId) : undefined;
-  const focused = !trip && options.summaryId ? await getSummaryForViewer(db, options.summaryId, userId) : undefined;
+  const graph = options.graphId ? await getOwnedGraph(db, options.graphId, userId) : undefined;
+  const focused = !trip && !graph && options.summaryId ? await getSummaryForViewer(db, options.summaryId, userId) : undefined;
   // Only the owner links a local file to their summary.
   const local = focused?.ownerId === userId ? options.localContent : undefined;
   const ai = await getAiProvider();
@@ -271,6 +277,7 @@ export async function streamChat(
     ...chatUITools(),
     ...(local?.trim() ? localFileTools(local) : {}),
     ...(trip ? tripChatTools(db, userId, trip.summary.id, ai) : {}),
+    ...(graph ? graphChatTools(db, userId, graph.summary.id, ai) : {}),
   };
   const result = streamText({
     model: ai.chatModel(),
@@ -278,7 +285,8 @@ export async function streamChat(
       + (miniEnabled ? MINI_CHAT_GUIDE : "")
       + (mini ? `\nThe user is editing Mini App ${mini.id} at revision ${mini.revision}. Read it with getMiniApp before editing.` : "")
       + (focused ? focusedSummaryInstructions(focused, local) : "")
-      + (trip ? tripChatInstructions(trip.summary.id, trip.trip.document) : ""),
+      + (trip ? tripChatInstructions(trip.summary.id, trip.trip.document) : "")
+      + (graph ? graphChatInstructions(graph.summary.id, graph.graph.document) : ""),
     messages: await convertToModelMessages(messages, { tools }),
     tools,
     // Allow library lookup, web research, rendering, and a repair round in one turn.
