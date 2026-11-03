@@ -26,27 +26,34 @@ struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openLibraryItem) private var openLibraryItem
 
-    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
         let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip, miniAppID: miniAppID)
         model.onTripUpdated = onTripUpdated
+        model.onGraphUpdated = onGraphUpdated
+        model.onGraphSelection = onGraphSelection
         self._model = State(initialValue: model)
         self._transcriptEntries = State(initialValue: model.entries)
     }
 
+    /// While running these show as a chip over the transcript instead of a card in it.
+    static let statusChipTools: Set<String> = ["renderUI", "readWebPage", "updateTrip", "updateGraph", "queryGraph", "selectGraphElements", "readGraphElements"]
+
     private var trip: TripChat? { model.trip }
     /// A chat about one summary or trip, presented as a sheet over it.
-    private var isSheet: Bool { summary != nil || trip != nil || model.miniAppID != nil }
+    private var isSheet: Bool { summary != nil || trip != nil || model.miniAppID != nil || model.graph != nil }
 
     private var title: Text {
         if model.miniAppID != nil { return Text("Clip Builder") }
+        if model.graph != nil { return Text("Graph Agent") }
         if let trip { return trip.isExpense ? Text("Add Expense with AI") : Text("Trip Agent") }
         return summary == nil ? Text("Chat") : Text("Ask About This")
     }
 
     private var placeholder: String {
+        if model.graph != nil { return String(localized: "Ask, change or highlight the graph") }
         if let trip {
             return trip.isExpense ? String(localized: "Paste a receipt or describe a cost") : String(localized: "Ask, or paste a booking or link")
         }
@@ -99,7 +106,7 @@ struct ChatView: View {
                 }
         }
         .overlay(alignment: .top) {
-            if let activity = model.entries.last?.tools.last(where: { $0.isRunning && ["renderUI", "readWebPage", "updateTrip"].contains($0.toolName) }) {
+            if let activity = model.entries.last?.tools.last(where: { $0.isRunning && Self.statusChipTools.contains($0.toolName) }) {
                 ChatStatusChip(text: activity.label)
                     .equatable()
                     .padding(.top, 8)
@@ -122,7 +129,7 @@ struct ChatView: View {
         }
         .sensoryFeedback(.selection, trigger: interactionFeedback)
         .sensoryFeedback(trigger: model.entries.last?.tools.filter { $0.finished == true }) { _, tools in
-            guard let tool = tools?.last, ["renderUI", "searchWeb", "updateTrip"].contains(tool.toolName) else { return nil }
+            guard let tool = tools?.last, ["renderUI", "searchWeb", "updateTrip", "updateGraph", "selectGraphElements"].contains(tool.toolName) else { return nil }
             return tool.errorText == nil ? .success : .error
         }
         .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
@@ -408,7 +415,7 @@ private struct ChatEntryView: View, Equatable {
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(entry.tools.filter { !$0.isRunning || !["renderUI", "readWebPage", "updateTrip"].contains($0.toolName) }) { tool in
+                ForEach(entry.tools.filter { !$0.isRunning || !ChatView.statusChipTools.contains($0.toolName) }) { tool in
                     ChatToolCallCard(tool: tool, openSummary: openSummary, openTool: openTool)
                         .equatable()
                         .transaction { transaction in
@@ -562,6 +569,7 @@ private struct ChatToolCallCard: View, Equatable {
         case "readLocalFile": return "doc.plaintext"
         case "readWebPage": return "globe"
         case "updateTrip": return "suitcase"
+        case "updateGraph", "queryGraph", "selectGraphElements", "readGraphElements": return "point.3.connected.trianglepath.dotted"
         default: return "wrench.and.screwdriver"
         }
     }
@@ -596,6 +604,17 @@ private struct ChatToolCallCard: View, Equatable {
         case "readLocalFile":
             if tool.isRunning { return String(localized: "Reading the file…") }
             return tool.finished == true ? String(localized: "Read the file") : String(localized: "Reading stopped")
+        case "updateGraph":
+            if tool.isRunning { return String(localized: "Updating the graph…") }
+            return tool.errorText != nil ? String(localized: "Edit needs correction") : String(localized: "Updated the graph")
+        case "queryGraph":
+            if tool.isRunning { return String(localized: "Running the query…") }
+            return tool.errorText != nil ? String(localized: "Query needs correction") : String(localized: "Ran a query")
+        case "selectGraphElements":
+            if tool.isRunning { return String(localized: "Selecting in the graph…") }
+            return tool.errorText != nil ? String(localized: "Selection needs correction") : String(localized: "Selected in the graph")
+        case "readGraphElements":
+            return tool.isRunning ? String(localized: "Reading the graph…") : String(localized: "Read the graph")
         case "readWebPage":
             if tool.isRunning { return String(localized: "Reading the page…") }
             return tool.finished == true ? String(localized: "Read the page") : String(localized: "Reading stopped")

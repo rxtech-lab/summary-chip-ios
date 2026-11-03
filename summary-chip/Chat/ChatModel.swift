@@ -50,6 +50,11 @@ nonisolated struct TripChat: Hashable {
     var isExpense = false
 }
 
+/// The graph a chat with the graph agent is about. One conversation per graph.
+nonisolated struct GraphChat: Hashable {
+    let id: String
+}
+
 /// Agent conversation against `POST /api/v1/chat`, saved to `ChatTranscriptStore` so it
 /// survives relaunches until the user starts a new chat or signs out.
 @Observable
@@ -64,6 +69,12 @@ final class ChatModel {
     let trip: TripChat?
     /// Called after the trip agent saved an edit to `trip`.
     @ObservationIgnored var onTripUpdated: (() -> Void)?
+    /// Set when chatting with the graph agent; the agent can edit the graph and light elements up.
+    let graph: GraphChat?
+    /// Called after the graph agent saved an edit to `graph`.
+    @ObservationIgnored var onGraphUpdated: (() -> Void)?
+    /// Called with what the graph agent picked out; nil when it cleared the selection.
+    @ObservationIgnored var onGraphSelection: ((GraphSelection?) -> Void)?
     private(set) var entries: [ChatEntry] = []
     private(set) var isStreaming = false
     /// The last turn was refused because the points balance is empty.
@@ -71,19 +82,21 @@ final class ChatModel {
     var draft = ""
     private var task: Task<Void, Never>?
 
-    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil, miniAppID: String? = nil) {
+    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil, miniAppID: String? = nil, graph: GraphChat? = nil) {
         self.client = client
         self.store = store
-        self.summaryID = trip == nil ? summaryID : nil
+        self.summaryID = trip == nil && graph == nil ? summaryID : nil
+        self.graph = graph
         self.trip = trip
         self.miniAppID = miniAppID
-        storeKey = miniAppID.map { "mini-app:\($0)" } ?? trip.map { ChatTranscriptStore.key(tripID: $0.id) }
+        storeKey = miniAppID.map { "mini-app:\($0)" } ?? graph.map { "graph:\($0.id)" } ?? trip.map { ChatTranscriptStore.key(tripID: $0.id) }
             ?? summaryID.map(ChatTranscriptStore.key(summaryID:))
             ?? ChatTranscriptStore.libraryKey
         entries = Self.restored(store.load([ChatEntry].self, key: storeKey) ?? [])
     }
 
     var suggestions: [String] {
+        if graph != nil { return Self.graphSuggestions }
         if let trip { return trip.isExpense ? Self.expenseSuggestions : Self.tripSuggestions }
         return summaryID == nil ? Self.librarySuggestions : Self.summarySuggestions
     }
@@ -108,6 +121,13 @@ final class ChatModel {
         String(localized: "What should I book next?"),
         String(localized: "Build a table comparing a rail pass with paying each fare by IC card"),
         String(localized: "How much have I spent so far?"),
+    ]
+
+    static let graphSuggestions = [
+        String(localized: "Summarise what this graph shows"),
+        String(localized: "Which nodes are the most connected?"),
+        String(localized: "Highlight the nodes with no connections"),
+        String(localized: "Add a node for…"),
     ]
 
     static let expenseSuggestions = [
@@ -151,7 +171,7 @@ final class ChatModel {
         #endif
         do {
             let localContent = await Self.localContent(summaryID: summaryID)
-            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id, miniAppID: miniAppID) {
+            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id) {
                 apply(event, to: id)
             }
             finish(id)
@@ -247,6 +267,12 @@ final class ChatModel {
                     // Sent back to the agent to fix; the raw issues are for the model, not the reader.
                     entry.tools[index].errorText = String(localized: "Some edits didn't fit the trip, so the agent corrected them.")
                 }
+                if entry.tools[index].toolName == "updateGraph", entry.tools[index].errorText != nil {
+                    entry.tools[index].errorText = String(localized: "Some edits didn't fit the graph, so the agent corrected them.")
+                }
+                if entry.tools[index].toolName == "selectGraphElements", let selection = ChatToolOutput.graphSelection(from: output) {
+                    entry.tools[index].status = selection.map { String(localized: "\($0.nodeIds.count) nodes, \($0.edgeIds.count) edges") } ?? String(localized: "Showing the whole graph")
+                }
                 if let update = ChatToolOutput.tripUpdate(from: output) {
                     entry.tools[index].detail = update.summary
                     entry.tools[index].status = update.applied == 1 ? String(localized: "1 change saved") : String(localized: "\(update.applied) changes saved")
@@ -254,6 +280,10 @@ final class ChatModel {
             }
             if ChatToolOutput.tripUpdate(from: output).map({ $0.applied > 0 }) == true {
                 onTripUpdated?()
+                onGraphUpdated?()
+            }
+            if let selection = ChatToolOutput.graphSelection(from: output) {
+                onGraphSelection?(selection)
             }
         case .toolOutputError(let callID, let error):
             applyToolError(callID, error: error, to: id)

@@ -179,11 +179,48 @@ describe("/api/mcp", () => {
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
       "get_podcast", "create_podcast_version", "translate_podcast", "create_podcast", "create_podcast_file", "delete_podcast_file", "edit_podcast_file", "generate_podcast_music", "generate_podcast_speech", "get_podcast_project", "list_podcasts", "render_podcast_frame", "render_podcast_video", "get_podcast_video_render", "submit_podcast_video",
-      "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_trip", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_paper_reviews", "get_profile", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_trips", "list_versions", "regenerate_mini_app_cover", "restore_version", "search_summaries", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
+      "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_graph", "create_trip", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_graph", "get_paper_reviews", "get_profile", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_graphs", "list_trips", "list_versions", "regenerate_mini_app_cover", "query_graph", "restore_version", "search_summaries", "select_graph_elements", "update_graph", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_graph_image", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
     ].sort());
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
     expect(add.inputSchema.required).toEqual(expect.arrayContaining(["title", "summary", "text"]));
+  });
+
+  it("lets an agent build, query and light up a graph", async () => {
+    const { key } = await createKey();
+    const created = await callTool(key, "create_graph", { document: {
+      title: "Team",
+      nodes: [{ id: "ada", label: "Ada", types: ["Person"], properties: { age: 36 } }, { id: "bob", label: "Bob", types: ["Person"] }],
+      edges: [{ id: "e", source: "ada", target: "bob", label: "KNOWS" }],
+    } });
+    const graphId = (created.structuredContent as { graph: { id: string } }).graph.id;
+
+    const updated = await callTool(key, "update_graph", { graphId, operations: [
+      { op: "upsert_node", node: { id: "lab", label: "Lab", types: ["Place"] } },
+      { op: "update_node", id: "bob", changes: { properties: { age: 41 } } },
+      { op: "upsert_query", query: { id: "older", name: "Older", query: "MATCH (n) WHERE n.age > 40 RETURN n" } },
+    ] });
+    expect(updated.isError).toBeFalsy();
+    const stale = await callTool(key, "update_graph", { graphId, revision: 0, operations: [{ op: "delete", collection: "nodes", id: "lab" }] });
+    expect(stale.isError).toBe(true);
+    expect((stale.content as { text: string }[])[0].text).toContain("get_graph");
+
+    const queried = await callTool(key, "query_graph", { graphId, query: "MATCH (n) WHERE n.age > 40 RETURN n" });
+    expect(queried.structuredContent).toMatchObject({ result: { nodeIds: ["bob"], edgeIds: [] } });
+    const invalid = await callTool(key, "query_graph", { graphId, query: "DROP EVERYTHING" });
+    expect(invalid.isError).toBe(true);
+
+    const selected = await callTool(key, "select_graph_elements", { graphId, mode: "isolate", query: "MATCH (n:Person) RETURN n" });
+    expect(selected.structuredContent).toMatchObject({ selection: { mode: "isolate", nodeIds: ["ada", "bob"] } });
+    const read = await callTool(key, "get_graph", { graphId });
+    expect(read.structuredContent).toMatchObject({ graph: { revision: 1, selection: { mode: "isolate" } } });
+    const cleared = await callTool(key, "select_graph_elements", { graphId, clear: true });
+    expect(cleared.structuredContent).toMatchObject({ selection: null });
+
+    const refused = await callTool(key, "update_summary", { summaryId: graphId, title: "Renamed" });
+    expect(refused.isError).toBe(true);
+    const listed = await callTool(key, "list_graphs", {});
+    expect(listed.structuredContent).toMatchObject({ count: 1, graphs: [{ id: graphId, nodeCount: 3, edgeCount: 1, queryCount: 1 }] });
   });
 
   it("prepares owner-scoped presigned uploads for images, PDFs and other files", async () => {

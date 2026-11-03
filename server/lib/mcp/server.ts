@@ -1,5 +1,6 @@
 import { registerPodcastTools } from "./podcast";
 import { registerMiniAppTools } from "@/lib/mini-app/mcp";
+import { registerGraphTools } from "@/lib/graph/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -63,6 +64,7 @@ export const INSTRUCTIONS = "Podcast tools: list_podcasts accepts day or summary
   + "(natural language), list_summaries to browse the library newest first by source, category, tag or visibility, and "
   + "list_editors_picks to answer Editor’s Picks by date (today/yesterday or YYYY-MM-DD, device time zone by default; follow nextCursor for all picks), and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
+  + "Graphs are node-and-edge documents with JSON properties, images and JSON-rendered views: list_graphs and get_graph read them, create_graph starts one, update_graph adds, changes or removes nodes, edges and saved queries (each call is one version), query_graph runs a read-only Cypher-style query, select_graph_elements highlights or isolates elements in the app, and upload_graph_image stores an image for a node or edge (from create_upload's uploadKey or a public URL). "
   + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover; add_mini_app_records fills a table with initial data (or pass records to create_mini_app), list_mini_app_records reads it back, and upload_mini_app_file stores an image or file (from create_upload's uploadKey or a public URL) and returns a file reference to keep in a json field or initialState. Never include credentials in their JSON. "
   + "update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
   + "flights, hotels, expenses, custom views such as a fare comparison table, and alternative plans such as route 1 / route 2 "
@@ -204,6 +206,7 @@ function describe(error: unknown): string {
     if (error.code === "MINI_APP_INVALID") return `${error.message}: ${JSON.stringify(error.details)}. Use validate_mini_app to repair the definition.`;
     if (error.code === "MINI_RECORD_INVALID" && error.details) return `${error.message}. Fields: ${JSON.stringify((error.details as { fields?: unknown }).fields)}. Only declared fields are allowed; required ones must be set.`;
     if (error.code === "MINI_REVISION_CONFLICT") return `${error.message} Call get_mini_app, then update_mini_app with its revision.`;
+    if (error.code === "GRAPH_REVISION_CONFLICT") return `${error.message} Call get_graph for the latest document, then update_graph again. (${error.code})`;
     if (error.code === "TRIP_REVISION_CONFLICT") return `${error.message} Call get_trip for the latest document, then update_trip again. (${error.code})`;
     return `${error.message} (${error.code})`;
   }
@@ -223,7 +226,7 @@ const filters = {
   category: z.enum(CATEGORIES).optional().describe("Only chips in this category."),
   tag: z.string().trim().max(40).optional().describe("Only chips with this tag."),
   visibility: z.enum(VISIBILITIES).optional().describe("Only public or only private chips."),
-  kind: z.enum(SUMMARY_KINDS).optional().describe("summary: only summary cards. trip: only trip diaries (open them with get_trip). paper: only LaTeX papers (open them with get_paper). mini_app: native interactive apps (open them with get_mini_app)."),
+  kind: z.enum(SUMMARY_KINDS).optional().describe("summary: only summary cards. trip: only trip diaries (open them with get_trip). paper: only LaTeX papers (open them with get_paper). mini_app: native interactive apps (open them with get_mini_app). graph: node-and-edge graphs (open them with get_graph)."),
 };
 
 type Filters = { [K in keyof typeof filters]?: z.infer<(typeof filters)[K]> };
@@ -268,6 +271,7 @@ export function createMcpServer(context: McpContext): McpServer {
 
   registerMiniAppTools(server, db, principal.sub, run);
   registerPodcastTools(server, context, run);
+  registerGraphTools(server, { db, principal, billingEnvironment: context.billingEnvironment }, run);
 
   server.registerTool(TOOL_NAMES.getProfile, {
     title: "Chippy Account", description: "Return the Chippy account authenticated by this connection.", inputSchema: {},
@@ -366,6 +370,7 @@ export function createMcpServer(context: McpContext): McpServer {
     if (Object.values(patch).every((value) => value === undefined)) return { result: failure("Nothing to change: pass at least one field.") };
     const existing = await getOwnedSummary(db, args.summaryId, principal.sub);
     if (existing.kind === "trip") return { result: failure("This is a trip: edit it with update_trip.") };
+    if (existing.kind === "graph") return { result: failure("This is a graph: edit it with update_graph.") };
     if (existing.kind === "mini_app") return { result: failure("This is a Mini App: use update_mini_app.") };
     if (existing.kind === "paper") return { result: failure("This is a paper: edit it with update_paper.") };
     const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true, actor: "agent" });

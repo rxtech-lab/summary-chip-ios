@@ -83,6 +83,17 @@ export async function uploadTripImage(
   deps: { store?: ObjectStore; now?: () => Date } = {},
 ): Promise<UploadedTripImage> {
   const { summary } = await getOwnedTrip(db, tripId, ownerId);
+  return storeDocumentImage(db, ownerId, summary.id, input, deps);
+}
+
+/** Stores an image for a document the caller has already checked `ownerId` owns (a trip, a graph). */
+export async function storeDocumentImage(
+  db: Database,
+  ownerId: string,
+  documentId: string,
+  input: UploadTripImageInput,
+  deps: { store?: ObjectStore; now?: () => Date } = {},
+): Promise<UploadedTripImage> {
   const store = deps.store ?? getObjectStore();
   let bytes: Uint8Array;
   if (input.uploadKey) {
@@ -104,7 +115,7 @@ export async function uploadTripImage(
   } catch {
     throw invalidImage();
   }
-  const key = tripImageKey(summary.id, (deps.now?.() ?? new Date()).getTime());
+  const key = tripImageKey(documentId, (deps.now?.() ?? new Date()).getTime());
   await store.put(key, { bytes: new Uint8Array(encoded.data), contentType: "image/jpeg", cacheControl: TRIP_IMAGE_CACHE_CONTROL });
   return { url: tripImageUrl(key), width: encoded.info.width, height: encoded.info.height, byteSize: encoded.info.size };
 }

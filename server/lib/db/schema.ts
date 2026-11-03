@@ -15,9 +15,9 @@ export const IMAGE_STYLES = ["graphic", "illustration"] as const;
 export const VISIBILITIES = ["public", "private"] as const;
 /**
  * What a library item is: a summary card, a trip diary (its structured document lives in `trips`)
- * or a LaTeX paper (its source files live in `papers`).
+ * a LaTeX paper (its source files live in `papers`) or a graph (its nodes and edges live in `graphs`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "graph"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -261,6 +261,20 @@ export const trips = sqliteTable("trips", {
 });
 
 export type TripRow = typeof trips.$inferSelect;
+
+/**
+ * The nodes, edges and saved queries of a `kind = "graph"` summary (1:1). `revision` counts saves;
+ * `selection` is what an agent last picked out in the view, kept apart so picking isn't a new version.
+ */
+export const graphs = sqliteTable("graphs", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  document: text("document", { mode: "json" }).$type<import("@/lib/contracts/graph").GraphDocument>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  selection: text("selection", { mode: "json" }).$type<import("@/lib/contracts/graph").GraphSelection>(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+export type GraphRow = typeof graphs.$inferSelect;
 
 /**
  * The LaTeX source of a `kind = "paper"` summary (1:1): the working copy the app autosaves to.

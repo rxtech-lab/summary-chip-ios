@@ -52,6 +52,7 @@ struct SummaryChipApp: App {
                     #if DEBUG
                     if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") || ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--preview-graph") { return }
                     #if os(iOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-local-file") { return }
                     #endif
@@ -116,7 +117,9 @@ struct SummaryChipApp: App {
     @ViewBuilder
     private var standardAppContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") {
+        if ProcessInfo.processInfo.arguments.contains("--preview-graph") {
+            GraphPreviewHost()
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") {
             MiniAppLoadingPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") {
             MiniAppPreviewHost()

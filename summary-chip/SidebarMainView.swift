@@ -15,6 +15,7 @@ struct SidebarMainView: View {
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
     @State private var showsNewPaper = false
+    @State private var showsNewGraph = false
     @State private var showsNewMiniApp = false
     @State private var libraryPath: [Summary] = []
     @State private var miniAppsPath: [Summary] = []
@@ -80,6 +81,16 @@ struct SidebarMainView: View {
                 }
             }
         }
+        .sheet(isPresented: $showsNewGraph) {
+            NewGraphSheet(api: environment.api) { graph in
+                Task {
+                    guard let summary = try? await environment.api.summary(id: graph.id) else { return }
+                    environment.library.insert(summary)
+                    selection = .library
+                    libraryPath = [summary]
+                }
+            }
+        }
         .sheet(isPresented: $showsNewMiniApp) {
             NewMiniAppSheet(environment: environment) { app in
                 Task {
@@ -99,6 +110,7 @@ struct SidebarMainView: View {
         .focusedSceneValue(\.newSummaryAction, { showsNewSummary = true })
         .focusedSceneValue(\.newTripAction, { showsNewTrip = true })
         .focusedSceneValue(\.newPaperAction, { showsNewPaper = true })
+        .focusedSceneValue(\.newGraphAction, { showsNewGraph = true })
         .focusedSceneValue(\.newMiniAppAction, { showsNewMiniApp = true })
         .focusedSceneValue(\.chatPanelVisibility, $showsChat)
     }
@@ -177,6 +189,7 @@ extension FocusedValues {
     }
 
     @Entry var newPaperAction: (() -> Void)?
+    @Entry var newGraphAction: (() -> Void)?
     @Entry var newMiniAppAction: (() -> Void)?
 }
 
@@ -186,6 +199,7 @@ struct SummaryMacCommands: Commands {
     @FocusedValue(\.chatPanelVisibility) private var chatPanel
     @FocusedValue(\.newTripAction) private var newTrip
     @FocusedValue(\.newPaperAction) private var newPaper
+    @FocusedValue(\.newGraphAction) private var newGraph
     @FocusedValue(\.newMiniAppAction) private var newMiniApp
 
     var body: some Commands {
@@ -199,6 +213,8 @@ struct SummaryMacCommands: Commands {
             Button("New Paper", systemImage: "doc.richtext") { newPaper?() }
                 .keyboardShortcut("n", modifiers: [.command, .option])
                 .disabled(newPaper == nil)
+            Button("New Graph", systemImage: "point.3.connected.trianglepath.dotted") { newGraph?() }
+                .disabled(newGraph == nil)
             Button("New Clip", systemImage: "app.badge") { newMiniApp?() }
                 .disabled(newMiniApp == nil)
         }
