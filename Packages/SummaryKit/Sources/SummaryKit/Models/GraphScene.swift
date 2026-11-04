@@ -12,7 +12,7 @@ public enum GraphViewMode: String, Codable, Sendable, Hashable, CaseIterable, Id
     public var id: String { rawValue }
 }
 
-/// Node positions: unit vectors on the sphere for `.globe`, within [-1, 1]² with z = 0 for `.plane`.
+/// Node positions: unit vectors on the sphere for `.globe`, on a density-scaled plane with z = 0 for `.plane`.
 /// Deterministic, so a graph looks the same each time it opens; `previous` keeps existing nodes
 /// nearby after an edit instead of reshuffling the graph.
 public enum GraphLayout {
@@ -112,7 +112,7 @@ public enum GraphLayout {
             }
             for (a, b) in links {
                 let delta = points[b] - points[a]
-                let pull = delta * (simd_length(delta) / spacing)
+                let pull = delta * (max(0, simd_length(delta) - spacing) / spacing) * 0.35
                 forces[a] += pull
                 forces[b] -= pull
             }
@@ -144,7 +144,7 @@ public enum GraphLayout {
             }
             for (a, b) in links {
                 let delta = points[b] - points[a]
-                let pull = delta * (simd_length(delta) / spacing)
+                let pull = delta * (max(0, simd_length(delta) - spacing) / spacing) * 0.35
                 forces[a] += pull
                 forces[b] -= pull
             }
@@ -156,7 +156,9 @@ public enum GraphLayout {
             }
         }
         let extent = points.reduce(1e-6) { max($0, max(abs($1.x), abs($1.y))) }
-        points = points.map { SIMD3($0.x / extent, $0.y / extent, 0) }
+        // Grow the navigable world instead of squeezing every additional node into one viewport.
+        let spread = max(1, sqrt(Double(count) / 18))
+        points = points.map { SIMD3($0.x / extent * spread, $0.y / extent * spread, 0) }
     }
 }
 

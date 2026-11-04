@@ -13,6 +13,7 @@ struct MiniAppDetailView: View {
     @State private var loadingStatus = String(localized: "Loading…")
     @State private var error: String?
     @State private var showsEditor = false
+    @Environment(\.setSideAgentContext) private var setSideAgentContext
     @State private var showsChat = false
     @State private var management: MiniManagementSection?
     @State private var versions: DocumentVersionsModel
@@ -46,15 +47,26 @@ struct MiniAppDetailView: View {
         // hides so the Clip's tab bar is the only one.
         .toolbar(usesOwnTabs ? .hidden : .automatic, for: .tabBar)
         #endif
-        .task { await initialLoad() }
+         .task {
+            await initialLoad()
+            guard !Task.isCancelled, runtime?.app?.isOwner == true else { return }
+            let agent = ChatModel(client: environment.chatClient, store: environment.chatStore, miniAppID: appID)
+            agent.onTripUpdated = { Task { await reload() } }
+            setSideAgentContext?(agent)
+        }
         .sensoryFeedback(.success, trigger: isLoading) { old, new in old && !new }
         .toolbar {
+            if !isLoading, runtime?.app?.isOwner == true {
+                ToolbarItem(placement: .summaryTrailing) {
+                    AgentChatToggle { showsChat = true }
+                        .accessibilityIdentifier("mini-app-agent")
+                }
+            }
             // One More menu, so the Clip's own toolbar items keep the bar.
-            if !isLoading { ToolbarItem(placement: .primaryAction) {
+            if !isLoading { ToolbarItem(placement: .summaryTrailing) {
                 Menu {
                     if runtime?.app?.isOwner == true {
                         Section {
-                            Button("Edit with AI", systemImage: "sparkles") { showsChat = true }
                             Button("Edit Definition", systemImage: "curlybraces") { showsEditor = true }
                             VersionToolbarMenu(model: versions)
                         }

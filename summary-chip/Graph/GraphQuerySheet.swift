@@ -51,7 +51,10 @@ struct GraphQuerySheet: View {
                 if isRunning { ActionStatusOverlay(String(localized: "Running query…")) }
                 else if let status = model.status { ActionStatusOverlay(status) }
             }
-            .statusAlert("Couldn't Run Query", message: error) { error = nil }
+            .onChange(of: text) { _, _ in
+                error = nil
+                result = nil
+            }
             .sheet(item: $savingAs) { pending in
                 GraphSaveQuerySheet(model: model, query: pending.query)
             }
@@ -71,7 +74,10 @@ struct GraphQuerySheet: View {
 
     private var editor: some View {
         Section {
-            TextEditor(text: $text)
+            TextEditor(text: Binding(
+                get: { highlightedQuery(text) },
+                set: { text = String($0.characters) }
+            ))
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 110)
                 .autocorrectionDisabled()
@@ -80,6 +86,12 @@ struct GraphQuerySheet: View {
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
                 #endif
+            if let error {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("graph-query-error")
+            }
             Picker("Show Results", selection: $mode) {
                 Text("Highlight").tag(GraphSelectionMode.highlight)
                 Text("Show Only").tag(GraphSelectionMode.isolate)
@@ -161,7 +173,31 @@ struct GraphQuerySheet: View {
         "MATCH (n) WHERE degree(n) = 0 RETURN n",
     ]
 
+    /// One token pass keeps keywords inside strings and comments uncoloured as keywords.
+    private func highlightedQuery(_ source: String) -> AttributedString {
+        var value = AttributedString(source)
+        value.font = .system(.body, design: .monospaced)
+        value.foregroundColor = .primary
+        let pattern = #"//[^\n]*|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|\b(?:MATCH|WHERE|RETURN|LIMIT|AND|OR|NOT|AS|DISTINCT|ORDER|BY|ASC|DESC|IN|IS|NULL|TRUE|FALSE|CONTAINS|STARTS|ENDS|WITH|SKIP)\b|\b\d+(?:\.\d+)?\b|:[A-Za-z_][A-Za-z_0-9]*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return value }
+        for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)) {
+            guard let range = Range(match.range, in: source),
+                  let attributedRange = Range(range, in: value) else { continue }
+            let token = source[range]
+            let color: Color
+            if token.hasPrefix("//") { color = .secondary }
+            else if token.hasPrefix("\"") || token.hasPrefix("'") { color = .green }
+            else if token.hasPrefix(":") { color = .teal }
+            else if token.first?.isNumber == true { color = .orange }
+            else { color = .purple }
+            value[attributedRange].foregroundColor = color
+        }
+        return value
+    }
+
     private func run(_ query: String) async {
+        error = nil
+        result = nil
         isRunning = true
         defer { isRunning = false }
         do {

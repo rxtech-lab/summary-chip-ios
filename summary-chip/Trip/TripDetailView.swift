@@ -203,6 +203,12 @@ struct TripDetailView: View {
         .likeStatusOverlay($likeStatus, edge: .top)
         .task {
             await model.load()
+            if !Task.isCancelled, isOwner, let document = model.displayDocument {
+                let agent = ChatModel(client: environment.chatClient, store: environment.chatStore,
+                                      trip: TripChat(id: model.id, title: document.title))
+                agent.onTripUpdated = { [model] in Task { await model.agentDidEdit() } }
+                setSideAgentContext?(agent)
+            }
             await openOnRelevantDay()
         }
         .onAppear {
@@ -527,14 +533,14 @@ struct TripDetailView: View {
                 }
                 .accessibilityIdentifier("trip-add-menu")
             }
+        }
+        if canEdit, model.document != nil {
             ToolbarItem(placement: .summaryTrailing) {
-                Button { present(.agent) } label: {
-                    Label("Ask Trip Agent", systemImage: "sparkles")
-                }
-                .help("Ask Trip Agent")
-                .accessibilityIdentifier("trip-agent")
+                AgentChatToggle { present(.agent) }
+                    .accessibilityIdentifier("trip-agent")
             }
         }
+
         if model.document != nil {
             if !isCompact {
                 ToolbarItem(placement: .summaryTrailing) {
@@ -566,8 +572,6 @@ struct TripDetailView: View {
                                 Label("Add", systemImage: "plus")
                             }
                             .accessibilityIdentifier("trip-add-menu")
-                            Button { present(.agent) } label: { Label("Ask Trip Agent", systemImage: "sparkles") }
-                                .accessibilityIdentifier("trip-agent")
                         }
                         likeButton
                         Button { openSharing(.share) } label: { Label("Share", systemImage: "square.and.arrow.up") }
@@ -763,12 +767,30 @@ struct TripDetailView: View {
 
     // MARK: Sheets
 
+    @Environment(\.openSideAgent) private var openSideAgent
+    @Environment(\.setSideAgentContext) private var setSideAgentContext
+
     private func present(_ sheet: TripSheet) {
         // Read-only sheets open for anyone; settings only for the owner; editors only for the trip as written.
         switch sheet {
         case .dayDetail, .transportDetail, .placeDetail, .places, .notes, .sources, .currency, .share: break
         case .editSharing, .language, .versions: if !isOwner { return }
         default: if !canEdit { return }
+        }
+        if let openSideAgent, let document = model.displayDocument {
+            let expense: Bool?
+            switch sheet {
+            case .agent: expense = false
+            case .expenseAgent: expense = true
+            default: expense = nil
+            }
+            if let expense {
+                let agent = ChatModel(client: environment.chatClient, store: environment.chatStore,
+                                      trip: TripChat(id: model.id, title: document.title, isExpense: expense))
+                agent.onTripUpdated = { [model] in Task { await model.agentDidEdit() } }
+                openSideAgent(agent)
+                return
+            }
         }
         // On iPhone the diary sheet presents editors; make sure it's up.
         if isCompact && !showsDiary { showsDiary = true }

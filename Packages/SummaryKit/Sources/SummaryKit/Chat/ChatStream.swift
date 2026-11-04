@@ -46,14 +46,29 @@ public struct ChatRequestBody: Codable, Sendable {
 }
 
 /// The chunk types iOS understands (docs/ARCHITECTURE.md → Chat stream).
+public struct ChatTokenUsage: Codable, Sendable, Hashable {
+    public var input: Int?
+    public var output: Int?
+    public var cached: Int?
+
+    public static func formatted(_ count: Int?) -> String {
+        guard let count else { return "—" }
+        if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
+        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
+        return String(count)
+    }
+}
+
 public enum ChatStreamEvent: Sendable, Hashable {
     case textStart(id: String)
     case textDelta(id: String, delta: String)
     case textEnd(id: String)
+    case toolInputStart(toolCallId: String, toolName: String)
     case toolInputAvailable(toolCallId: String, toolName: String, input: JSONValue)
     case toolOutputAvailable(toolCallId: String, output: JSONValue)
     case toolOutputError(toolCallId: String, errorText: String)
     case error(String)
+    case usage(ChatTokenUsage)
     case finish
     /// `data: [DONE]`
     case done
@@ -86,6 +101,8 @@ public struct ChatStreamParser: Sendable {
             return .textDelta(id: value["id"]?.stringValue ?? "", delta: value["delta"]?.stringValue ?? "")
         case "text-end":
             return .textEnd(id: value["id"]?.stringValue ?? "")
+        case "tool-input-start":
+            return .toolInputStart(toolCallId: value["toolCallId"]?.stringValue ?? "", toolName: value["toolName"]?.stringValue ?? "")
         case "tool-input-available":
             return .toolInputAvailable(
                 toolCallId: value["toolCallId"]?.stringValue ?? "",
@@ -98,8 +115,12 @@ public struct ChatStreamParser: Sendable {
             return .toolOutputError(toolCallId: value["toolCallId"]?.stringValue ?? "", errorText: value["errorText"]?.stringValue ?? String(localized: "The tool could not finish.", bundle: .module))
         case "error":
             return .error(value["errorText"]?.stringValue ?? String(localized: "Something went wrong.", bundle: .module))
-        case "finish":
-            return .finish
+        case "message-metadata", "finish":
+            if let usage = value["messageMetadata"]?["usage"],
+               let decoded = try? usage.decode(ChatTokenUsage.self) {
+                return .usage(decoded)
+            }
+            return type == "finish" ? .finish : nil
         default:
             return nil
         }
@@ -342,6 +363,8 @@ public enum ChatToolOutput {
             return String(localized: "Searching summaries…", bundle: .module)
         case "getSummary":
             return String(localized: "Reading summary…", bundle: .module)
+        case "getRawText":
+            return String(localized: "Reading original text…", bundle: .module)
         case "listEditorsPicks":
             return String(localized: "Finding Editor’s Picks…", bundle: .module)
         case "listTrips":

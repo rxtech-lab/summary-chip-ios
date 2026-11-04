@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { focusedSummaryInstructions } from "@/lib/ai/chat";
+import { chatInstructions, focusedSummaryInstructions } from "@/lib/ai/chat";
+import { RAW_TEXT_PAGE_CHARS, rawTextPage } from "@/lib/services/views";
 import { grepLines, LOCAL_INLINE_LIMIT, localFileTools, readLines, splitLines } from "@/lib/ai/local-file";
 import type { SummaryRow } from "@/lib/db/schema";
 
@@ -43,6 +44,42 @@ describe("readLines", () => {
     const result = readLines(big, 1, 1_000);
     expect(result).toMatchObject({ startLine: 1, truncated: true });
     expect("endLine" in result && result.endLine).toBeLessThan(400);
+  });
+});
+
+describe("raw text", () => {
+  const row = (contentText: string, sourceType = "url") => ({ id: "s1", title: "Report", sourceTitle: null, siteName: null, sourceUrl: null, summary: "A report.", highlights: [], sourceType, contentText, contentExcerpt: "" }) as unknown as SummaryRow;
+
+  it("pages through the whole source without losing or splitting characters", () => {
+    const source = `${"a".repeat(RAW_TEXT_PAGE_CHARS - 1)}😀${"b".repeat(RAW_TEXT_PAGE_CHARS)}`;
+    const first = rawTextPage(row(source));
+    if (!("text" in first)) throw new Error(first.error);
+    expect(first).toMatchObject({ offset: 0, nextOffset: RAW_TEXT_PAGE_CHARS - 1, totalChars: source.length });
+    const second = rawTextPage(row(source), first.nextOffset!);
+    if (!("text" in second)) throw new Error(second.error);
+    expect(second.nextOffset).toBe(source.length - 2);
+    const third = rawTextPage(row(source), second.nextOffset!);
+    if (!("text" in third)) throw new Error(third.error);
+    expect(third.nextOffset).toBeNull();
+    expect(first.text + second.text + third.text).toBe(source);
+  });
+
+  it("reports a missing source and an offset past the end", () => {
+    expect(rawTextPage(row("", "local"))).toEqual({ error: expect.stringContaining("user's device") });
+    expect(rawTextPage(row(""))).toEqual({ error: expect.stringContaining("not stored") });
+    expect(rawTextPage(row("short"), 5)).toEqual({ error: expect.stringContaining("only 5 characters") });
+  });
+
+  it("tells the focused chat to read on with getRawText only when the source is longer than the preview", () => {
+    expect(focusedSummaryInstructions(row("Whole text"))).toContain("full raw source text");
+    expect(focusedSummaryInstructions(row("Whole text"))).not.toContain("Call getRawText");
+    const long = focusedSummaryInstructions(row(`${"a".repeat(LOCAL_INLINE_LIMIT)}SECRET_TAIL`));
+    expect(long).not.toContain("SECRET_TAIL");
+    expect(long).toContain(`Call getRawText with id "s1" and offset ${LOCAL_INLINE_LIMIT}`);
+  });
+
+  it("tells every chat to read the raw text", () => {
+    expect(chatInstructions()).toContain("call getRawText");
   });
 });
 

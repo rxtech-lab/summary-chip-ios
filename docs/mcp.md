@@ -63,7 +63,7 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 
 | Scope | Tools |
 |---|---|
-| `chippy:read` | `search_summaries`, `list_summaries`, `list_trips`, `get_trip`, `list_graphs`, `get_graph`, `query_graph`, `get_upload`, `list_versions`, `get_version`, `list_papers`, `get_paper`, `compile_paper`, `get_paper_reviews` |
+| `chippy:read` | `search_summaries`, `list_summaries`, `get_raw_text`, `list_trips`, `get_trip`, `list_graphs`, `get_graph`, `query_graph`, `get_upload`, `list_versions`, `get_version`, `list_papers`, `get_paper`, `compile_paper`, `get_paper_reviews` |
 | `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `create_graph`, `update_graph`, `select_graph_elements`, `upload_graph_image`, `update_place`, `choose_plan_option`, `restore_version`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source`, `create_paper`, `update_paper`, `finish_paper_review` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
@@ -182,6 +182,7 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `update_summary` | Changes some fields of one of the user's own chips (title, summary, key points, tags, keywords, category, visibility, link lifetime). Free. | `patchSummary` (as `PATCH /api/v1/summaries/:id`) |
 | `search_summaries` | Natural-language search (meaning + keywords), most relevant first. Up to 50 per page. | `listSummaries` with `q` |
 | `list_summaries` | The library newest first, filtered. Up to 200 per call. | `listSummaries` |
+| `get_raw_text` | A chip's original source text, 30,000 characters per call; continue with `nextOffset`. Own chips and others' chips the user opened. | `getRawTextForAgent` |
 | `list_trips` | The user's trips, ongoing and upcoming first, then past ones. | `listTrips` (as `GET /api/v1/trips`) |
 | `get_trip` | A trip's full TripDocument and its revision. | `getTrip` |
 | `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance or points). | `createTrip` (as `POST /api/v1/trips`) |

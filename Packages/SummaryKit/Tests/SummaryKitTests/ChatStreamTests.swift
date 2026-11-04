@@ -5,9 +5,27 @@ import Testing
 @Suite struct ChatStreamTests {
     let parser = ChatStreamParser()
 
+    @Test func parsesPendingToolBeforeInputIsReady() {
+        #expect(parser.parse(chunk: #"{"type":"tool-input-start","toolCallId":"call_1","toolName":"queryGraph"}"#)
+            == .toolInputStart(toolCallId: "call_1", toolName: "queryGraph"))
+    }
+
+    @Test func parsesUsageAndFormatsCounts() {
+        let event = parser.parse(chunk: #"{"type":"finish","messageMetadata":{"usage":{"input":12500,"output":2300,"cached":10000}}}"#)
+        guard case .usage(let usage) = event else { Issue.record("Expected usage"); return }
+        #expect(usage.input == 12500)
+        #expect(usage.output == 2300)
+        #expect(usage.cached == 10000)
+        #expect(ChatTokenUsage.formatted(usage.input) == "12.5K")
+        #expect(ChatTokenUsage.formatted(1_500_000) == "1.5M")
+        #expect(ChatTokenUsage.formatted(0) == "0")
+        #expect(ChatTokenUsage.formatted(nil) == "—")
+    }
+
     @Test func parsesFixtureStream() throws {
         let text = String(decoding: try fixture("chat-stream.txt"), as: UTF8.self)
-        let events = text.split(separator: "\n", omittingEmptySubsequences: false).compactMap { parser.parse(line: String($0)) }
+        var events = text.split(separator: "\n", omittingEmptySubsequences: false).compactMap { parser.parse(line: String($0)) }
+        #expect(events.removeFirst() == .toolInputStart(toolCallId: "call_1", toolName: "searchSummaries"))
         #expect(events.count == 8)
         guard case .toolInputAvailable(let callID, let tool, let input) = events[0] else {
             Issue.record("expected tool input, got \(events[0])"); return
@@ -47,6 +65,12 @@ import Testing
         #expect(parser.parse(line: "event: message") == nil)
         #expect(parser.parse(line: "data: not json") == nil)
         #expect(parser.parse(line: #"data: {"type":"reasoning-delta","delta":"x"}"#) == nil)
+    }
+
+    @Test func getRawTextOutputStaysOutOfTheCards() {
+        let output: JSONValue = .object(["id": .string("x"), "title": .string("T"), "text": .string("Body")])
+        #expect(ChatToolOutput.references(from: output).isEmpty)
+        #expect(ChatToolOutput.detail(toolName: "getRawText", input: .object(["id": .string("x")])) == nil)
     }
 
     @Test func getSummaryOutputBecomesCard() throws {
