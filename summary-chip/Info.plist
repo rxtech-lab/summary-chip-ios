@@ -42,10 +42,12 @@
 	</dict>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Chippy adds your trip's travel and hotel stays to your calendar and keeps them up to date when the trip changes.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Chippy saves podcast videos to your photo library when you choose Photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Chippy shows where you are on your trip map and opens the diary on the day you're at.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Chippy uses your microphone for live voice conversations with the agent.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Chippy saves podcast videos to your photo library when you choose Photos.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
@@ -71,12 +73,12 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
-	<key>UILaunchScreen</key>
-	<dict/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

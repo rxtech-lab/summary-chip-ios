@@ -210,6 +210,7 @@ targets:
         <<: *configInfo
         SummaryChipPushEnvironment: $(SUMMARY_CHIP_PUSH_ENVIRONMENT)
         NSLocationWhenInUseUsageDescription: Chippy shows where you are on your trip map and opens the diary on the day you're at.
+        NSMicrophoneUsageDescription: Chippy uses your microphone for live voice conversations with the agent.
         NSPhotoLibraryAddUsageDescription: Chippy saves podcast videos to your photo library when you choose Photos.
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true

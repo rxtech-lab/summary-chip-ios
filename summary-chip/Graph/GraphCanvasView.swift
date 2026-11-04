@@ -81,8 +81,7 @@ struct GraphCanvasView: View {
                         pauseAutomaticRotation()
                         switch value {
                         case .first(let tap):
-                            guard let element = model.hit(at: tap.location, in: size),
-                                  case .node = element else { return }
+                            guard let element = model.hit(at: tap.location, in: size) else { return }
                             onTap(element, size)
                         case .second(let tap):
                             guard let element = model.hit(at: tap.location, in: size) else {
@@ -328,6 +327,7 @@ struct GraphRenderer {
             degrees[edge.target, default: 0] += 1
         }
         drawEdges(in: &context, size: size, degrees: degrees)
+        drawEdgeLabels(in: &context, size: size)
         drawNodes(in: &context, size: size, degrees: degrees)
     }
 
@@ -341,8 +341,6 @@ struct GraphRenderer {
         var arrowsFront = Path()
         var arrowsStanding = Path()
         let detailed = document.edges.count <= Self.detailedEdgeLimit
-        var labels = 0
-        let labelsAllowed = document.edges.count <= 30 || camera.zoom >= 2
 
         for edge in document.edges where visibility.shows(edge: edge.id) {
             guard let a = positions[edge.source], let b = positions[edge.target] else { continue }
@@ -363,11 +361,7 @@ struct GraphRenderer {
                 let arrow = arrowhead(from: start.point, to: end.point, inset: radius(degree: degrees[edge.target] ?? 0, projection: end))
                 if stands || isInspected { arrowsStanding.addPath(arrow) } else if !dims { arrowsFront.addPath(arrow) }
             }
-            if isInspected || (labelsAllowed && !dims && labels < Self.maxLabels), start.depth + end.depth >= 0 {
-                labels += 1
-                let middle = CGPoint(x: (start.point.x + end.point.x) / 2, y: (start.point.y + end.point.y) / 2)
-                context.draw(Text(edge.label).font(.caption2).foregroundStyle(stands || isInspected ? Color.accentColor : .secondary), at: middle)
-            }
+
         }
         context.stroke(dim, with: .color(.primary.opacity(0.05)), lineWidth: 0.7)
         context.stroke(back, with: .color(.primary.opacity(0.18)), lineWidth: 0.9)
@@ -376,6 +370,49 @@ struct GraphRenderer {
         context.stroke(standing, with: .color(.accentColor), lineWidth: 2.2)
         context.fill(arrowsStanding, with: .color(.accentColor))
         context.stroke(inspectedPath, with: .color(.accentColor), lineWidth: 3.2)
+    }
+
+    /// Reserve space for inspected and selected relationships before ordinary labels.
+    /// Draw after all strokes so the line cannot cross through the text.
+    private func drawEdgeLabels(in context: inout GraphicsContext, size: CGSize) {
+        let labelsAllowed = document.edges.count <= 30 || camera.zoom >= 2
+        func priority(_ edge: GraphEdge) -> Int {
+            if inspected == .edge(edge.id) { return 2 }
+            return selectedElements.contains(.edge(edge.id)) || visibility.stands(edge: edge.id) ? 1 : 0
+        }
+        let candidates = document.edges.filter { edge in
+            visibility.shows(edge: edge.id)
+                && (priority(edge) > 0 || (labelsAllowed && !visibility.dims(edge: edge.id)))
+        }.sorted { lhs, rhs in
+            let left = priority(lhs), right = priority(rhs)
+            return left == right ? lhs.id < rhs.id : left > right
+        }
+        let viewport = CGRect(origin: .zero, size: size).insetBy(dx: 4, dy: 4)
+        var occupied: [CGRect] = []
+        for edge in candidates {
+            guard occupied.count < Self.maxLabels else { break }
+            guard !edge.label.isEmpty,
+                  let a = positions[edge.source], let b = positions[edge.target] else { continue }
+            let start = camera.project(a, in: size)
+            let end = camera.project(b, in: size)
+            guard start.depth + end.depth >= 0 else { continue }
+            let emphasized = priority(edge) > 0
+            let text = context.resolve(Text(edge.label)
+                .font(.caption.weight(emphasized ? .semibold : .regular))
+                .foregroundStyle(Color.primary))
+            let measured = text.measure(in: CGSize(width: min(240, max(1, size.width - 24)), height: 48))
+            let middle = CGPoint(x: (start.point.x + end.point.x) / 2, y: (start.point.y + end.point.y) / 2)
+            let bounds = CGRect(x: middle.x - measured.width / 2 - 6,
+                                y: middle.y - measured.height / 2 - 4,
+                                width: measured.width + 12, height: measured.height + 8)
+            // Keep the label at its edge's midpoint; omit collisions rather than imply a different edge.
+            guard viewport.contains(bounds), !occupied.contains(where: { $0.intersects(bounds) }) else { continue }
+            occupied.append(bounds.insetBy(dx: -4, dy: -3))
+            let panel = Path(roundedRect: bounds, cornerRadius: 5)
+            context.fill(panel, with: .color(.graphLabelBackground))
+            if emphasized { context.stroke(panel, with: .color(.accentColor), lineWidth: 1) }
+            context.draw(text, in: bounds.insetBy(dx: 6, dy: 4))
+        }
     }
 
     private func arrowhead(from: CGPoint, to: CGPoint, inset: Double) -> Path {

@@ -95,6 +95,7 @@ final class ChatModel {
     /// Called after the graph agent saved an edit to `graph`.
     @ObservationIgnored var onGraphUpdated: (() -> Void)?
     /// Called with what the graph agent picked out; nil when it cleared the selection.
+    @ObservationIgnored var onGraphUI: ((ChatRenderedUI) -> Void)?
     @ObservationIgnored var onGraphSelection: ((GraphSelection?) -> Void)?
     private(set) var entries: [ChatEntry] = []
     private(set) var isStreaming = false
@@ -195,6 +196,69 @@ final class ChatModel {
         task?.cancel()
         task = nil
         finish(nil)
+    }
+
+    func appendVoiceUser(_ text: String, id: String? = nil) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let id = id ?? UUID().uuidString
+        if entries.contains(where: { $0.id == id }) { return }
+        entries.append(ChatEntry(id: id, role: .user, text: text))
+        persist()
+    }
+
+    func beginVoiceAssistant() -> String {
+        let id = UUID().uuidString
+        entries.append(ChatEntry(id: id, role: .assistant, text: "", isStreaming: true))
+        return id
+    }
+
+    func setVoiceText(_ id: String, text: String) {
+        update(id) { $0.text = text }
+        persist()
+    }
+
+    func finishVoice() { finish(nil) }
+
+    /// Delegates library access and mutations to the same authenticated, billed agent as text chat.
+    func voiceContext() async -> ChatRequestBody {
+        var messages = Self.uiMessages(from: entries)
+        if let selectedGraphContext { messages.append(ChatUIMessage(role: .user, text: selectedGraphContext)) }
+        if messages.isEmpty { messages.append(ChatUIMessage(role: .user, text: "Start voice chat.")) }
+        return ChatRequestBody(messages: messages, summaryId: summaryID,
+            localContent: await Self.localContent(summaryID: summaryID), tripId: trip?.id,
+            miniAppId: miniAppID, graphId: graph?.id)
+    }
+
+    func recordVoiceTool(_ event: ChatStreamEvent, entryID: String) {
+        apply(event, to: entryID)
+        switch event {
+        case .toolOutputAvailable, .toolOutputError: update(entryID) { $0.isStreaming = false }
+        default: break
+        }
+        persist()
+    }
+
+    func voiceTool(_ query: String) async -> String {
+        let id = beginVoiceAssistant()
+        var messages = Self.uiMessages(from: entries.filter { $0.id != id })
+        messages.append(ChatUIMessage(role: .user, text: query + (selectedGraphContext.map { "\n" + $0 } ?? "")))
+        do {
+            let local = await Self.localContent(summaryID: summaryID)
+            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: local,
+                tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id) {
+                try Task.checkCancellation()
+                apply(event, to: id)
+            }
+        } catch {
+            update(id) { $0.errorText = error.localizedDescription }
+        }
+        update(id) { entry in
+            entry.isStreaming = false
+            for index in entry.tools.indices { entry.tools[index].isRunning = false }
+        }
+        persist()
+        guard let entry = entries.first(where: { $0.id == id }) else { return "The request was cancelled." }
+        return entry.errorText ?? String(entry.text.prefix(24000))
     }
 
     func newChat() {
@@ -320,6 +384,7 @@ final class ChatModel {
                 if let appID = output["app"]?["id"]?.stringValue { entry.tools[index].miniAppID = appID }
                 if entry.tools[index].toolName == "renderUI" {
                     entry.tools[index].renderedUI = ChatToolOutput.renderedUI(from: output)
+                    if let ui = entry.tools[index].renderedUI, ui.nodeId != nil { onGraphUI?(ui) }
                     entry.tools[index].renderedText = output["text"]?.stringValue
                 }
                 if entry.tools[index].toolName == "updateTrip", entry.tools[index].errorText != nil {

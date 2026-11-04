@@ -84,6 +84,18 @@
           }
         }
       }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Privacy - Microphone Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Chippy uses your microphone for live voice conversations with the agent."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

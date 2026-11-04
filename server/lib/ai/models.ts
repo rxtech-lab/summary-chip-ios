@@ -52,6 +52,10 @@ export function webSearchTool() {
   return gateway().tools.perplexitySearch({ maxResults: 6, maxTokensPerPage: 1024, maxTokens: 6000 });
 }
 
+export function voiceSearchModel(): LanguageModel {
+  return gateway()("google/gemini-2.5-flash");
+}
+
 const PRICING_TTL_MS = 60 * 60 * 1000;
 let pricingCache: { at: number; prices: Map<string, ModelPricing> } | undefined;
 
