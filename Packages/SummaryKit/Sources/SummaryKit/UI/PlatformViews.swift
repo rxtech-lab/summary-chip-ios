@@ -21,7 +21,8 @@ public extension Color {
 public extension ToolbarItemPlacement {
     static var summaryTrailing: ToolbarItemPlacement {
         #if os(macOS)
-        .primaryAction
+        // Leave the trailing primary-action position for the shared agent toggle.
+        .automatic
         #else
         .topBarTrailing
         #endif

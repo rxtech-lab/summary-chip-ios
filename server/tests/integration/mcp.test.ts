@@ -179,7 +179,7 @@ describe("/api/mcp", () => {
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
       "get_podcast", "create_podcast_version", "translate_podcast", "create_podcast", "create_podcast_file", "delete_podcast_file", "edit_podcast_file", "generate_podcast_music", "generate_podcast_speech", "get_podcast_project", "list_podcasts", "render_podcast_frame", "render_podcast_video", "get_podcast_video_render", "submit_podcast_video",
-      "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_graph", "create_trip", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_graph", "get_paper_reviews", "get_profile", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_graphs", "list_trips", "list_versions", "regenerate_mini_app_cover", "query_graph", "restore_version", "search_summaries", "select_graph_elements", "update_graph", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_graph_image", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
+      "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_graph", "create_trip", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_graph", "get_paper_reviews", "get_profile", "get_raw_text", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_graphs", "list_trips", "list_versions", "regenerate_mini_app_cover", "query_graph", "restore_version", "search_summaries", "select_graph_elements", "update_graph", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_graph_image", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
     ].sort());
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
@@ -420,6 +420,22 @@ describe("/api/mcp", () => {
     const bob = await createKey("Bob", env.tokens.bob);
     const bobUpdate = await callTool(bob.key, "update_summary", { summaryId: id, title: "Mine now" });
     expect(bobUpdate.isError).toBe(true);
+  });
+
+  it("reads a chip's raw text in pages, only for someone who may read it", async () => {
+    const { key } = await createKey();
+    const text = `${"a".repeat(30_000)}THE_TAIL`;
+    const added = await callTool(key, "add_summary", { ...CHIP, text });
+    const id = (added.structuredContent as { summary: { id: string } }).summary.id;
+
+    const first = await callTool(key, "get_raw_text", { id });
+    expect(first.isError).toBeFalsy();
+    expect(first.structuredContent).toMatchObject({ id, offset: 0, nextOffset: 30_000, totalChars: text.length });
+    const second = await callTool(key, "get_raw_text", { id, offset: 30_000 });
+    expect(second.structuredContent).toMatchObject({ text: "THE_TAIL", nextOffset: null });
+
+    const bob = await createKey("Bob", env.tokens.bob);
+    expect((await callTool(bob.key, "get_raw_text", { id })).isError).toBe(true);
   });
 
   it("lists and searches the library with filters and cursors", async () => {

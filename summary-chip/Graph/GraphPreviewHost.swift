@@ -89,6 +89,11 @@ nonisolated final class GraphPreviewStore: @unchecked Sendable {
         let method = request.httpMethod ?? "GET"
         let body = request.httpBody ?? request.httpBodyStream.map(Self.read) ?? Data()
         if path.suffix(1) == ["chat"] {
+            // The real selection tool persists its result before returning it to the chat.
+            graph["selection"] = [
+                "mode": "isolate", "nodeIds": ["ada", "babbage", "turing"],
+                "edgeIds": [String](), "query": "MATCH (n:Person) RETURN n",
+            ] as [String: Any]
             let lines = Self.chatEvents.split(separator: "\n").map { "data: \($0.trimmingCharacters(in: .whitespaces))\n\n" }.joined() + "data: [DONE]\n\n"
             return (200, Data(lines.utf8))
         }

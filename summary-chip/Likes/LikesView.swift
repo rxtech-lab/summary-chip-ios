@@ -25,11 +25,14 @@ struct LikesView: View {
             content
                 .navigationTitle("Likes")
                 .navigationDestination(for: Summary.self) { summary in
-                    if summary.isExpired {
-                        ExpiredSummaryView(environment: environment, summary: summary)
-                    } else {
-                        SummaryDestination(environment: environment, summary: summary)
+                    Group {
+                        if summary.isExpired {
+                            ExpiredSummaryView(environment: environment, summary: summary)
+                        } else {
+                            SummaryDestination(environment: environment, summary: summary)
+                        }
                     }
+                    .chatPanelToolbar()
                 }
                 .refreshable { await model.reload() }
                 .onChange(of: scenePhase) { _, phase in

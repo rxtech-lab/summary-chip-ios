@@ -1,5 +1,8 @@
 import SummaryKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// A graph: drawn in 3D or on a plane, with queries, an agent, and each element's info in a
 /// popover on wide layouts and a half sheet on iPhone.
@@ -10,13 +13,17 @@ struct GraphDetailView: View {
     @State private var model: GraphModel
     @State private var versions: DocumentVersionsModel
     @State private var chat: ChatModel
+    @Environment(\.openSideAgent) private var openSideAgent
+    @Environment(\.setSideAgentContext) private var setSideAgentContext
     @State private var sheet: GraphSheet?
     @State private var popover: GraphElementRef?
     @State private var showsCompactInspector = false
     @State private var popoverTask: Task<Void, Never>?
     @State private var canvasSize = CGSize.zero
     @State private var tapFeedback = 0
+    @State private var queryExpanded = false
     @State private var summary: Summary?
+    @State private var isLoadingShare = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -46,13 +53,21 @@ struct GraphDetailView: View {
             .navigationTitle(model.document?.title ?? title)
             .summaryInlineNavigationTitle()
             .toolbar { toolbar }
-            .task { await initialLoad() }
+            .task(id: graphID) {
+                await initialLoad()
+                guard !Task.isCancelled, model.isOwner else { return }
+                configureAgent()
+                setSideAgentContext?(chat)
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await model.refresh() } }
             }
             .overlay(alignment: .top) { noticeOverlay }
+            .overlay { if isLoadingShare { ActionStatusOverlay("Loading…") } }
             .overlay { if let status = model.status, sheet == nil { ActionStatusOverlay(status) } }
-            .safeAreaInset(edge: .bottom) { bottomBar }
+            .safeAreaInset(edge: .bottom) {
+                if versions.isPreviewing { VersionPreviewBanner(model: versions) }
+            }
             .animation(.spring(duration: 0.35), value: model.notice)
             .animation(.spring(duration: 0.35), value: model.selection)
             .sensoryFeedback(.selection, trigger: tapFeedback)
@@ -89,17 +104,47 @@ struct GraphDetailView: View {
     private var content: some View {
         if let document = model.document {
             ZStack {
-                GraphCanvasView(model: model, document: document) { element, size in
+                GraphCanvasView(model: model, document: document, selectedElements: chat.graphElements, onSelect: { element, additive in
+                    chat.graphDocument = document
+                    guard let element else {
+                        chat.graphElements = []
+                        return
+                    }
+                    if additive {
+                        if chat.graphElements.contains(element) { chat.graphElements.removeAll { $0 == element } }
+                        else { chat.graphElements.append(element) }
+                    } else {
+                        chat.graphElements = [element]
+                    }
+                }) { element, size in
                     canvasSize = size
                     tap(element, size: size)
                 }
+                .onChange(of: document) { _, updated in
+                    chat.graphDocument = updated
+                    chat.graphElements.removeAll { element in
+                        switch element {
+                        case .node(let id): return !updated.nodes.contains { $0.id == id }
+                        case .edge(let id): return !updated.edges.contains { $0.id == id }
+                        }
+                    }
+                }
+                .sensoryFeedback(.selection, trigger: chat.graphElements)
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
                 .popover(item: popoverBinding, attachmentAnchor: .rect(.rect(popoverAnchor)), arrowEdge: .top) { element in
                     popoverContent(element)
                 }
                 if document.nodes.isEmpty { emptyState }
                 else if !model.isLaidOut { ProgressView("Arranging the graph…") }
-                viewModePicker
+                VStack(alignment: .leading, spacing: 12) {
+                    queryBar
+                    if !document.nodes.isEmpty {
+                        GraphLegend(nodes: document.nodes)
+                    }
+                    viewModePicker
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 cameraControls
             }
         } else if let error = model.loadError {
@@ -123,22 +168,33 @@ struct GraphDetailView: View {
         } actions: {
             if model.canEdit {
                 Button("Add Node") { sheet = .newNode }
-                Button("Ask the Agent") { sheet = .agent }
+                Button("Ask the Agent") { showAgent() }
             }
         }
     }
 
     /// Floats over the graph so the bar keeps the graph's title.
     private var viewModePicker: some View {
-        Picker("View", selection: $model.mode) {
-            Text(verbatim: "3D").tag(GraphViewMode.globe)
-            Text(verbatim: "2D").tag(GraphViewMode.plane)
+        HStack(spacing: 10) {
+            Picker("View", selection: $model.mode) {
+                Text(verbatim: "3D").tag(GraphViewMode.globe)
+                Text(verbatim: "2D").tag(GraphViewMode.plane)
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .accessibilityIdentifier("graph-view-mode")
+
+            if model.mode == .globe {
+                Toggle(isOn: $model.autoRotate) {
+                    Label("Auto-Rotate", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                }
+                .toggleStyle(.button)
+                .labelStyle(.iconOnly)
+                .help(model.autoRotate ? "Turn off auto-rotate" : "Turn on auto-rotate")
+                .accessibilityIdentifier("graph-auto-rotate")
+                .sensoryFeedback(.selection, trigger: model.autoRotate)
+            }
         }
-        .pickerStyle(.segmented)
-        .fixedSize()
-        .accessibilityIdentifier("graph-view-mode")
-        .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
     }
 
     private var cameraControls: some View {
@@ -155,7 +211,10 @@ struct GraphDetailView: View {
     }
 
     private func cameraButton(_ title: LocalizedStringKey, systemImage: String, identifier: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            tapFeedback += 1
+            action()
+        } label: {
             Label(title, systemImage: systemImage)
                 .labelStyle(.iconOnly)
                 .font(.body.weight(.medium))
@@ -168,7 +227,7 @@ struct GraphDetailView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .summaryTrailing) {
             if model.canEdit {
                 Menu {
                     Button("Add Node", systemImage: "circle.badge.plus") { sheet = .newNode }
@@ -184,11 +243,11 @@ struct GraphDetailView: View {
             Button("Query", systemImage: "line.3.horizontal.decrease.circle") { sheet = .query }
                 .disabled(versions.isPreviewing)
                 .accessibilityIdentifier("graph-query")
+            if model.isOwner {
+                AgentChatToggle { showAgent() }
+                    .accessibilityIdentifier("graph-agent")
+            }
             Menu {
-                if model.isOwner {
-                    Button("Graph Agent", systemImage: "sparkles") { sheet = .agent }
-                        .accessibilityIdentifier("graph-agent")
-                }
                 Button("Elements", systemImage: "list.bullet") { sheet = .elements }
                     .accessibilityIdentifier("graph-elements")
                 Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.refresh() } }
@@ -209,8 +268,24 @@ struct GraphDetailView: View {
                         .accessibilityIdentifier("graph-delete")
                     }
                 }
-                if let url = model.graph?.shareUrl, model.graph?.visibility == .public {
-                    Section { ShareLink("Share", item: url) }
+                if model.graph != nil {
+                    Section {
+                        Button("Share…", systemImage: "square.and.arrow.up") {
+                            tapFeedback += 1
+                            Task {
+                                isLoadingShare = true
+                                defer { isLoadingShare = false }
+                                do {
+                                    summary = try await environment.api.summary(id: graphID)
+                                    sheet = .share
+                                } catch {
+                                    model.actionError = error.localizedDescription
+                                }
+                            }
+                        }
+                        .disabled(isLoadingShare)
+                        .accessibilityIdentifier("graph-share")
+                    }
                 }
             } label: {
                 Label("More", systemImage: "ellipsis.circle")
@@ -234,41 +309,91 @@ struct GraphDetailView: View {
         }
     }
 
-    /// The bar saying what's picked out, or that an old version is showing.
+    /// Floats the query selection controls over the graph without shrinking the canvas.
     @ViewBuilder
-    private var bottomBar: some View {
-        if versions.isPreviewing {
-            VersionPreviewBanner(model: versions)
-        } else if let selection = model.selection {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
+    private var queryBar: some View {
+        if !versions.isPreviewing, let selection = model.selection {
+            VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    tapFeedback += 1
+                    withAnimation(.easeInOut(duration: 0.2)) { queryExpanded.toggle() }
+                } label: {
+                    HStack {
+                        Label("Query", systemImage: "line.3.horizontal.decrease.circle")
+                        Spacer(minLength: 0)
+                        Image(systemName: queryExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(queryExpanded ? "Expanded" : "Collapsed")
+                .accessibilityHint("Show or hide query controls")
+                .accessibilityIdentifier("graph-selection-disclosure")
+
+                if queryExpanded {
                     Text("\(selection.nodeIds.count) nodes, \(selection.edgeIds.count) edges")
                         .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
                         .accessibilityIdentifier("graph-selection-count")
+
                     if let query = selection.query {
-                        Text(query).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                        Button {
+                            tapFeedback += 1
+                            sheet = .query
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(query)
+                                    .font(.caption.monospaced())
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(10)
+                            .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("View and edit full query")
+                        .accessibilityLabel("Edit query")
+                        .accessibilityValue(query)
+                        .accessibilityIdentifier("graph-selection-edit-query")
                     }
-                }
-                Spacer(minLength: 8)
-                Picker("Show", selection: Binding(get: { selection.mode }, set: { model.setSelectionMode($0) })) {
-                    Text("Highlight").tag(GraphSelectionMode.highlight)
-                    Text("Only").tag(GraphSelectionMode.isolate)
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
-                .accessibilityIdentifier("graph-selection-mode")
-                Button("Clear", systemImage: "xmark.circle.fill") { model.select(nil) }
-                    .labelStyle(.iconOnly)
+
+                    Divider()
+                    HStack(spacing: 12) {
+                        Text("Show")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Show", selection: Binding(get: { selection.mode }, set: {
+                            tapFeedback += 1
+                            model.setSelectionMode($0)
+                        })) {
+                            Text("Highlight").tag(GraphSelectionMode.highlight)
+                            Text("Only").tag(GraphSelectionMode.isolate)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .accessibilityIdentifier("graph-selection-mode")
+                    }
+                    Button("Clear Query") {
+                        tapFeedback += 1
+                        model.select(nil)
+                    }
                     .buttonStyle(.plain)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
+                    .help("Clear query and show all nodes")
                     .accessibilityIdentifier("graph-selection-clear")
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
-            .frame(maxWidth: 620)
+            .padding(12)
+            .frame(width: queryExpanded ? 220 : 120)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
@@ -282,11 +407,11 @@ struct GraphDetailView: View {
             model.inspected = nil
             return
         }
-        tapFeedback += 1
         open(element, size: size)
     }
 
     private func open(_ element: GraphElementRef, size: CGSize) {
+        tapFeedback += 1
         model.inspected = element
         if usesPopover {
             popover = nil
@@ -321,6 +446,39 @@ struct GraphDetailView: View {
     }
 
     private func popoverContent(_ element: GraphElementRef) -> some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            HStack {
+                Button("Open in Window", systemImage: "arrow.up.forward.square") {
+                    GraphInspectorWindow.show(model: model, element: element)
+                }
+                .accessibilityIdentifier("graph-inspector-open-window")
+                Spacer()
+                if model.canEdit {
+                    Menu {
+                        Button("Edit", systemImage: "pencil") { present(element.editSheet) }
+                            .accessibilityIdentifier("graph-inspector-edit")
+                        if case .node(let id) = element {
+                            Button("Add Edge From Here", systemImage: "arrow.triangle.branch") { present(.newEdge(source: id)) }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .accessibilityLabel("Actions")
+                    .accessibilityIdentifier("graph-inspector-actions")
+                }
+            }
+            .padding(12)
+            Divider()
+            ScrollView {
+                GraphInspectorContent(model: model, element: element) { open($0, size: canvasSize) }
+                    .padding()
+            }
+        }
+        .frame(width: 520, height: 600)
+        #else
         NavigationStack {
             ScrollView {
                 GraphInspectorContent(model: model, element: element) { open($0, size: canvasSize) }
@@ -330,8 +488,9 @@ struct GraphDetailView: View {
             .navigationTitle(element.kindTitle)
             .summaryInlineNavigationTitle()
         }
-        .frame(idealWidth: 360, minHeight: 280, idealHeight: 460)
+        .frame(width: 360, height: 400)
         .presentationCompactAdaptation(.popover)
+        #endif
     }
 
     @ViewBuilder
@@ -361,8 +520,17 @@ struct GraphDetailView: View {
 
     @ToolbarContentBuilder
     private func inspectorToolbar(_ element: GraphElementRef) -> some ToolbarContent {
+        #if os(macOS)
+        ToolbarItem(placement: .summaryTrailing) {
+            Button("Open in Window", systemImage: "arrow.up.forward.square") {
+                GraphInspectorWindow.show(model: model, element: element)
+            }
+            .help("Open details in a separate window")
+            .accessibilityIdentifier("graph-inspector-open-window")
+        }
+        #endif
         if model.canEdit {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .summaryTrailing) {
                 Menu {
                     Button("Edit", systemImage: "pencil") { present(element.editSheet) }
                         .accessibilityIdentifier("graph-inspector-edit")
@@ -388,6 +556,20 @@ struct GraphDetailView: View {
         }
     }
 
+    private func showAgent() {
+        if let openSideAgent {
+            configureAgent()
+            openSideAgent(chat)
+        } else {
+            sheet = .agent
+        }
+    }
+
+    private func configureAgent() {
+        chat.onGraphUpdated = { [model] in Task { await model.refresh() } }
+        chat.onGraphSelection = { [model] selection in model.apply(selection: selection) }
+    }
+
     // MARK: Sheets
 
     @ViewBuilder
@@ -410,7 +592,7 @@ struct GraphDetailView: View {
                 chat.draft = request
                 Task {
                     try? await Task.sleep(for: .milliseconds(350))
-                    self.sheet = .agent
+                    showAgent()
                 }
             }
         case .agent:
@@ -422,6 +604,14 @@ struct GraphDetailView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        case .share:
+            if let summary {
+                ShareModeSheet(summary: summary, api: environment.api) { updated in
+                    self.summary = updated
+                    environment.library.upsert(updated)
+                    Task { await model.refresh() }
+                }
+            }
         case .delete:
             if let summary {
                 DeleteSummarySheet(api: environment.api, summary: summary) {
@@ -448,6 +638,7 @@ enum GraphSheet: Identifiable, Hashable {
     case query
     case agent
     case delete
+    case share
 
     var id: String {
         switch self {
@@ -460,6 +651,7 @@ enum GraphSheet: Identifiable, Hashable {
         case .query: "query"
         case .agent: "agent"
         case .delete: "delete"
+        case .share: "share"
         }
     }
 }
@@ -477,5 +669,151 @@ private extension GraphElementRef {
         case .node(let id): .editNode(id)
         case .edge(let id): .editEdge(id)
         }
+    }
+}
+
+
+#if os(macOS)
+/// Retains one reusable agent window for this graph detail's lifetime.
+@MainActor
+private final class GraphAgentWindow {
+    private var window: NSWindow?
+
+    func show(_ content: some View) {
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered, defer: false
+        )
+        window.title = String(localized: "Graph Agent")
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 380, height: 420)
+        window.contentViewController = NSHostingController(rootView: content.frame(maxWidth: .infinity, maxHeight: .infinity))
+        self.window = window
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func close() {
+        window?.close()
+    }
+}
+#endif
+
+#if os(macOS)
+/// Each inspector owns its selection and stays alive until its window closes.
+@MainActor
+private final class GraphInspectorWindow: NSObject, NSWindowDelegate {
+    private static var windows: [UUID: GraphInspectorWindow] = [:]
+    private let id = UUID()
+    private var window: NSWindow?
+
+    static func show(model: GraphModel, element: GraphElementRef) {
+        let owner = GraphInspectorWindow()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered, defer: false
+        )
+        switch element {
+        case .node(let id): window.title = model.node(id)?.label ?? "Node"
+        case .edge(let id): window.title = model.edge(id)?.label ?? "Edge"
+        }
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 360, height: 360)
+        window.contentViewController = NSHostingController(rootView:
+            ScrollView {
+                GraphInspectorContent(model: model, element: element) { next in
+                    GraphInspectorWindow.show(model: model, element: next)
+                }
+                .padding(20)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        )
+        // Apply after hosting content, which can otherwise change the initial window size.
+        window.setContentSize(NSSize(width: 640, height: 640))
+        owner.window = window
+        window.delegate = owner
+        windows[owner.id] = owner
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        Self.windows[id] = nil
+    }
+}
+#endif
+
+/// Uses the canvas palette, including per-node color overrides.
+private struct GraphLegend: View {
+    let nodes: [GraphNode]
+    @State private var expanded = true
+
+    private struct Key: Hashable {
+        let types: [String]
+        let color: String?
+    }
+
+    private var entries: [GraphNode] {
+        var seen = Set<Key>()
+        return nodes.filter { node in
+            seen.insert(Key(types: node.types, color: node.color?.lowercased())).inserted
+        }.sorted {
+            let left = $0.types.joined(separator: ", ")
+            let right = $1.types.joined(separator: ", ")
+            return left == right ? ($0.color ?? "") < ($1.color ?? "") : left < right
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
+            } label: {
+                HStack {
+                    Label("Legend", systemImage: "circle.grid.2x2.fill")
+                    Spacer(minLength: 0)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                }
+                .font(.subheadline.weight(.semibold))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            .accessibilityIdentifier("graph-legend-toggle")
+            if expanded {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(entries) { node in
+                            HStack(alignment: .top, spacing: 8) {
+                                Circle()
+                                    .fill(GraphPalette.color(for: node))
+                                    .overlay { Circle().strokeBorder(.primary.opacity(0.3), lineWidth: 1) }
+                                    .frame(width: 12, height: 12)
+                                    .padding(.top, 2)
+                                Text(node.types.isEmpty ? String(localized: "Untyped") : node.types.joined(separator: " · "))
+                                    .font(.caption)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 180)
+            }
+        }
+        .padding(12)
+        .frame(width: expanded ? 220 : 120)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .sensoryFeedback(.selection, trigger: expanded)
+        .accessibilityIdentifier("graph-legend")
     }
 }

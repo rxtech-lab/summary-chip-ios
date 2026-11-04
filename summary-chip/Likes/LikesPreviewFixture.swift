@@ -109,6 +109,13 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
                  colors: ["#263238", "#78909C"], emoji: "📄", accent: "#90a4ae", isOwner: true,
                  expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-5 * 3600)),
         ]
+        if ProcessInfo.processInfo.arguments.contains("--preview-graph-chip") {
+            items.append(Item(id: GraphPreviewAPI.graphID, slug: "GraphChip1", kind: "graph", title: "Computing Pioneers",
+                              summary: "People and machines from early computing.",
+                              category: "Technology", tags: ["history"], source: "text",
+                              colors: ["#1A237E", "#5C6BC0"], emoji: "🕸️", accent: "#7986cb", isOwner: true,
+                              createdAt: now.addingTimeInterval(-1 * 3600)))
+        }
         if ProcessInfo.processInfo.arguments.contains("--preview-paged-feed"), let template = items.first(where: { $0.id == "s-coffee" }) {
             for index in 0..<40 {
                 var item = template
@@ -136,6 +143,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
     private func route(_ request: URLRequest) -> (Int, Data) {
         guard let url = request.url else { return notFound }
         let parts = url.pathComponents.filter { $0 != "/" }
+        if parts.contains("graphs") { return GraphPreviewStore.shared.respond(to: request) }
         let method = request.httpMethod ?? "GET"
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         guard parts.count >= 3, parts[0] == "api", parts[1] == "v1" else { return notFound }

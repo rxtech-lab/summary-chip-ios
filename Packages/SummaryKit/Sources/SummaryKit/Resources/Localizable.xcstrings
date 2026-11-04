@@ -2043,6 +2043,9 @@
         }
       }
     },
+    "Graph" : {
+      "comment" : "Badge on a library tile that is a graph"
+    },
     "Graphic" : {
       "comment" : "Image style option",
       "localizations" : {
@@ -2059,6 +2062,9 @@
           }
         }
       }
+    },
+    "Graphs" : {
+      "comment" : "Library kind filter: node-and-edge graphs"
     },
     "Has a podcast" : {
 
@@ -3533,6 +3539,22 @@
         }
       }
     },
+    "Reading original text…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取原文…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取原文…"
+          }
+        }
+      }
+    },
     "Reading the file…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3548,6 +3570,9 @@
           }
         }
       }
+    },
+    "Reading the graph…" : {
+
     },
     "Reading the page…" : {
 
@@ -3657,6 +3682,9 @@
           }
         }
       }
+    },
+    "Running the query…" : {
+
     },
     "Same as source" : {
       "comment" : "Summary language option: write in the source's language",
@@ -3807,6 +3835,9 @@
       }
     },
     "Searching the web…" : {
+
+    },
+    "Selecting in the graph…" : {
 
     },
     "Sends the preview image with the title and link as a caption." : {
@@ -5053,6 +5084,9 @@
     },
     "Update Chippy" : {
       "comment" : "Alert title: the app is too old for a feature"
+    },
+    "Updating the graph…" : {
+
     },
     "Updating the trip…" : {
 

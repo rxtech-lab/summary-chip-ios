@@ -205,6 +205,12 @@ struct SummaryDetailView: View {
     /// On iOS 27 these join the system overflow menu; elsewhere they get their own "More" menu.
     @ToolbarContentBuilder
     private var moreToolbarActions: some ToolbarContent {
+        ToolbarItem(placement: .summaryTrailing) {
+        if allowsChat {
+            AgentChatToggle { showsChat = true }
+            .accessibilityIdentifier("ask-summary")
+        }
+        }
         #if os(iOS)
         if #available(iOS 27.0, *) {
             ToolbarOverflowMenu { moreActions }
@@ -229,13 +235,6 @@ struct SummaryDetailView: View {
 
     @ViewBuilder
     private var moreActions: some View {
-        if allowsChat {
-            Button { showsChat = true } label: {
-                Label("Ask About This", systemImage: "sparkles")
-            }
-            .accessibilityIdentifier("ask-summary")
-            Divider()
-        }
         Menu {
             Button { showsShare = true } label: {
                 Label("Share…", systemImage: "square.and.arrow.up")

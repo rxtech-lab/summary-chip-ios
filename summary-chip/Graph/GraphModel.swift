@@ -31,6 +31,7 @@ final class GraphModel {
             scheduleLayout()
         }
     }
+    var autoRotate = true
     var camera = GraphCamera(mode: .globe)
     private(set) var selection: GraphSelection?
     private(set) var visibility = GraphVisibility(document: GraphDocument(title: ""), selection: nil)
@@ -204,7 +205,17 @@ final class GraphModel {
         return GraphHitTest.element(at: point, document: document, positions: positions, camera: camera, visibility: visibility, size: size)
     }
 
-    func stopCamera() { cameraTask?.cancel() }
+    func stopCamera() {
+        cameraTask?.cancel()
+        cameraTask = nil
+    }
+
+    /// A quiet orbit (one turn per two minutes), using the same camera as hit testing.
+    func rotateAutomatically(seconds: Double) {
+        guard mode == .globe, isLaidOut, inspected == nil, cameraTask == nil else { return }
+        let yaw = simd_quatd(angle: seconds * .pi / 60, axis: SIMD3(0, 1, 0))
+        camera.rotation = simd_normalize(yaw * camera.rotation)
+    }
 
     /// Eases the camera to `target`; a new gesture or focus cancels it.
     func animateCamera(to target: GraphCamera, duration: Double = 0.42) {
@@ -218,6 +229,7 @@ final class GraphModel {
                 let t = Double(frame) / Double(frames)
                 self.camera = start.interpolated(to: target, t: t * t * (3 - 2 * t))
             }
+            self?.cameraTask = nil
         }
     }
 

@@ -59,10 +59,10 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let onPlayDay: ((Date) -> Void)?
     let onSelect: ((Summary) -> Void)?
 
+    @State private var availableWidth: CGFloat = 800
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #else
-    @State private var availableWidth: CGFloat = 800
     @State private var timeline = SummaryTimelineMetrics()
     #endif
 
@@ -113,7 +113,8 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         #if os(macOS)
         let columnCount = max(2, min(5, Int(availableWidth / 260)))
         #else
-        let columnCount = sizeClass == .regular ? 3 : 2
+        // Regular width can still be a narrow column beside the sidebar and chat panel.
+        let columnCount = sizeClass == .regular ? max(1, min(3, Int(availableWidth / 200))) : 2
         #endif
         let sections = feedSections(columnCount: columnCount)
         // Columns end at different entries, so any of the final few appearing means we're at the end.
@@ -143,6 +144,9 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 .coordinateSpace(.named(summaryFeedContentSpace))
             }
             .accessibilityIdentifier("summary-card-feed")
+            #if os(iOS)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+            #endif
             .scrollPosition($scrollPosition)
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
                 if isFeedVisible && !viewport.isNavigating { viewport.offset = offset }

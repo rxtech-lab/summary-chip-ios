@@ -17,27 +17,35 @@ nonisolated final class GraphUITests: XCTestCase {
         return node
     }
 
-    private func screenshot(_ app: XCUIApplication, _ name: String) {
+    @MainActor private func expandQuerySelection(_ app: XCUIApplication) {
+        let disclosure = app.buttons["graph-selection-disclosure"]
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+        XCTAssertEqual(disclosure.value as? String, "Collapsed")
+        disclosure.tap()
+        XCTAssertTrue(app.staticTexts["graph-selection-count"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor private func screenshot(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
     }
 
-    @MainActor func testTappingANodeShowsItsInfoInAPopoverOnIPad() throws {
+    @MainActor func testDoubleTappingANodeShowsItsInfoInAPopoverOnIPad() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad layout")
         let app = launch()
-        anyNode(app).tap()
+        anyNode(app).doubleTap()
         XCTAssertTrue(app.popovers.firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["graph-inspector"].exists)
         XCTAssertFalse(app.buttons["graph-inspector-close"].exists)
         screenshot(app, "Graph Popover")
     }
 
-    @MainActor func testTappingANodeShowsItsInfoInAHalfSheet() throws {
+    @MainActor func testDoubleTappingANodeShowsItsInfoInAHalfSheet() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .phone, "iPhone layout")
         let app = launch()
-        anyNode(app).tap()
+        anyNode(app).doubleTap()
         let inspector = app.descendants(matching: .any)["graph-inspector"]
         XCTAssertTrue(inspector.waitForExistence(timeout: 5))
         screenshot(app, "Graph Node Info")
@@ -51,7 +59,7 @@ nonisolated final class GraphUITests: XCTestCase {
         let picker = app.segmentedControls["graph-view-mode"]
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         picker.buttons.element(boundBy: 1).tap()
-        anyNode(app).tap()
+        anyNode(app).doubleTap()
         XCTAssertTrue(app.descendants(matching: .any)["graph-inspector"].waitForExistence(timeout: 5))
         screenshot(app, "Graph 2D")
     }
@@ -72,6 +80,7 @@ nonisolated final class GraphUITests: XCTestCase {
         let run = app.buttons["graph-saved-query-machines"]
         XCTAssertTrue(run.waitForExistence(timeout: 5))
         run.tap()
+        expandQuerySelection(app)
         let count = app.staticTexts["graph-selection-count"]
         XCTAssertTrue(count.waitForExistence(timeout: 5))
         XCTAssertTrue(count.label.hasPrefix("2 nodes"))
@@ -91,8 +100,9 @@ nonisolated final class GraphUITests: XCTestCase {
         editor.tap()
         editor.typeText("BROKEN")
         app.buttons["graph-query-run"].tap()
-        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.alerts.firstMatch.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Expected MATCH'")).firstMatch.exists)
+        let error = app.descendants(matching: .any)["graph-query-error"].firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 5))
+        XCTAssertTrue(error.label.contains("Expected MATCH"))
     }
 
     @MainActor func testSavingAQueryKeepsItForLater() {
@@ -145,15 +155,18 @@ nonisolated final class GraphUITests: XCTestCase {
 
     @MainActor func testTheAgentCanShowOnlySomeNodes() {
         let app = launch()
-        app.buttons["graph-more"].tap()
-        app.buttons["graph-agent"].tap()
+        let agentButton = app.buttons["graph-agent"]
+        XCTAssertTrue(agentButton.waitForExistence(timeout: 5))
+        agentButton.tap()
         let input = app.textViews.firstMatch.exists ? app.textViews.firstMatch : app.textFields.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap()
         input.typeText("Show only the people")
         app.buttons["chat-send"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "showing only the people")).firstMatch.waitForExistence(timeout: 10))
-        // The half sheet leaves the graph visible: the selection is already on it.
+        // Close the agent sheet before interacting with the graph beneath it.
+        app.buttons["Close"].tap()
+        expandQuerySelection(app)
         XCTAssertTrue(app.staticTexts["graph-selection-count"].waitForExistence(timeout: 5))
         screenshot(app, "Graph Agent Selection")
     }

@@ -109,6 +109,16 @@
         }
       }
     },
+    "%@ (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$lld)"
+          }
+        }
+      }
+    },
     "%@ (Current)" : {
 
     },
@@ -383,6 +393,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 晚"
+          }
+        }
+      }
+    },
+    "%lld nodes, %lld edges" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld nodes, %2$lld edges"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个节点，%lld 条连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個節點，%lld 條連線"
           }
         }
       }
@@ -849,6 +881,22 @@
         }
       }
     },
+    "A read-only subset of Cypher: MATCH, WHERE, RETURN and LIMIT." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cypher 的只读子集：MATCH、WHERE、RETURN 和 LIMIT。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cypher 的唯讀子集：MATCH、WHERE、RETURN 和 LIMIT。"
+          }
+        }
+      }
+    },
     "A summary will be generated from this episode’s transcript." : {
       "localizations" : {
         "en" : {
@@ -969,6 +1017,22 @@
         }
       }
     },
+    "Actions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作"
+          }
+        }
+      }
+    },
     "Actions for %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1065,6 +1129,25 @@
         }
       }
     },
+    "Add a node for…" : {
+
+    },
+    "Add a node, or ask the graph agent to build the graph." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加节点，或让图谱助手构建图谱。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增節點，或讓圖譜助理建立圖譜。"
+          }
+        }
+      }
+    },
     "Add an API integration with Edit with AI, then connect your account here." : {
 
     },
@@ -1096,6 +1179,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新增日期來寫日記，或把預訂分享給 Chippy，讓助手幫你填寫。"
+          }
+        }
+      }
+    },
+    "Add Edge" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增連線"
+          }
+        }
+      }
+    },
+    "Add Edge From Here" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从此处添加连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從此處新增連線"
           }
         }
       }
@@ -1158,10 +1273,39 @@
       }
     },
     "Add Image" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增圖片"
+          }
+        }
+      }
     },
     "Add Image…" : {
 
+    },
+    "Add Images" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增圖片"
+          }
+        }
+      }
     },
     "Add Leg" : {
       "localizations" : {
@@ -1194,6 +1338,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新增時刻"
+          }
+        }
+      }
+    },
+    "Add Node" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增節點"
+          }
+        }
+      }
+    },
+    "Add nodes and edges yourself, or ask the graph agent to build it for you." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自行添加节点和连线，或让图谱助手为你构建。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自行新增節點和連線，或讓圖譜助理為你建立。"
           }
         }
       }
@@ -1827,6 +2003,9 @@
         }
       }
     },
+    "And %lld more" : {
+
+    },
     "Animation & Content" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1855,6 +2034,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "任何分類"
+          }
+        }
+      }
+    },
+    "Any JSON object. Queries read it as n.name or n.address.city." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任意 JSON 对象。查询可通过 n.name 或 n.address.city 读取。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任意 JSON 物件。查詢可透過 n.name 或 n.address.city 讀取。"
           }
         }
       }
@@ -2044,6 +2239,22 @@
     "Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys." : {
 
     },
+    "Arranging the graph…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在排列图谱…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在排列圖譜…"
+          }
+        }
+      }
+    },
     "Arrival" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2146,6 +2357,22 @@
     "Ask Again" : {
 
     },
+    "Ask Agent to Write It" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让助手编写"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讓助理編寫"
+          }
+        }
+      }
+    },
     "Ask anything — answers come from the original content." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2158,6 +2385,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隨意提問——答案來自原文內容。"
+          }
+        }
+      }
+    },
+    "Ask the Agent" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "询问助手"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詢問助理"
           }
         }
       }
@@ -2178,8 +2421,21 @@
         }
       }
     },
-    "Ask Trip Agent" : {
-
+    "Ask, change or highlight the graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提问、修改或高亮显示图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提問、修改或反白顯示圖譜"
+          }
+        }
+      }
     },
     "Ask, or paste a booking or link" : {
 
@@ -2232,8 +2488,24 @@
     "Authorized with OAuth" : {
 
     },
-    "Automatic" : {
+    "Auto-Rotate" : {
 
+    },
+    "Automatic" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動"
+          }
+        }
+      }
     },
     "Automatic Daily Recap" : {
 
@@ -2962,6 +3234,9 @@
         }
       }
     },
+    "Chippy Library" : {
+
+    },
     "Chippy now supports MCP. Let AI agents add summaries, search your Feed, and list your saved chips from anywhere. Open Settings → MCP Server to create an API key and copy your agent’s connection setup. Chippy doesn’t need to be open." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3017,7 +3292,20 @@
       }
     },
     "Chips" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要卡片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要卡片"
+          }
+        }
+      }
     },
     "Choose + → New Podcast to turn saved chips into an episode with voices, captions and artwork. Pick your stories and language, then listen or create a video to share." : {
 
@@ -3219,6 +3507,12 @@
         }
       }
     },
+    "Clear Query" : {
+
+    },
+    "Clear query and show all nodes" : {
+
+    },
     "Clear Search" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3236,7 +3530,20 @@
       }
     },
     "Clear Selection" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除选择"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除選取"
+          }
+        }
+      }
     },
     "Client disconnected" : {
 
@@ -3342,6 +3649,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關閉導覽"
+          }
+        }
+      }
+    },
+    "Collapsed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已折叠"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收合"
+          }
+        }
+      }
+    },
+    "Color" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "颜色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顏色"
           }
         }
       }
@@ -3535,7 +3874,20 @@
 
     },
     "Connect" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接"
+          }
+        }
+      }
     },
     "Connect Account" : {
 
@@ -3614,7 +3966,20 @@
 
     },
     "Connections" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接"
+          }
+        }
+      }
     },
     "Contents" : {
 
@@ -3749,6 +4114,22 @@
     },
     "Couldn't Complete Video Action" : {
 
+    },
+    "Couldn't Create Graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法创建图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法建立圖譜"
+          }
+        }
+      }
     },
     "Couldn't Delete" : {
       "localizations" : {
@@ -4074,6 +4455,22 @@
     "Couldn't Render Video" : {
 
     },
+    "Couldn't Run Query" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法运行查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法執行查詢"
+          }
+        }
+      }
+    },
     "Couldn't Save" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4326,6 +4723,22 @@
     "Creating a view…" : {
 
     },
+    "Creating graph…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在创建图谱…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在建立圖譜…"
+          }
+        }
+      }
+    },
     "Creating key…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4450,6 +4863,9 @@
         }
       }
     },
+    "Current Document" : {
+
+    },
     "Cursor & Others" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4462,6 +4878,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cursor 及其他"
+          }
+        }
+      }
+    },
+    "Custom Color" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义颜色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂顏色"
           }
         }
       }
@@ -4489,6 +4921,38 @@
         }
       }
     },
+    "Custom View (JSON)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义视图（JSON）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂檢視（JSON）"
+          }
+        }
+      }
+    },
+    "Custom view JSON" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义视图 JSON"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂檢視 JSON"
+          }
+        }
+      }
+    },
     "Daily Podcast" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4509,7 +4973,20 @@
 
     },
     "Data" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "資料"
+          }
+        }
+      }
     },
     "Date" : {
       "localizations" : {
@@ -4767,6 +5244,22 @@
         }
       }
     },
+    "Delete Edge" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除連線"
+          }
+        }
+      }
+    },
     "Delete Expense" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4795,6 +5288,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除檔案"
+          }
+        }
+      }
+    },
+    "Delete Graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除圖譜"
           }
         }
       }
@@ -4849,6 +5358,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除我的帳號"
+          }
+        }
+      }
+    },
+    "Delete Node" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除節點"
           }
         }
       }
@@ -4920,6 +5445,22 @@
     "Delete Podcast" : {
 
     },
+    "Delete Query" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除查詢"
+          }
+        }
+      }
+    },
     "Delete Record" : {
 
     },
@@ -4942,6 +5483,22 @@
         }
       }
     },
+    "Delete this edge?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此连线？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除此連線？"
+          }
+        }
+      }
+    },
     "Delete this line?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4958,6 +5515,22 @@
         }
       }
     },
+    "Delete this node?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此节点？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除此節點？"
+          }
+        }
+      }
+    },
     "Delete this planned podcast?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4970,6 +5543,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要刪除這個已規劃的 Podcast 嗎？"
+          }
+        }
+      }
+    },
+    "Delete this query?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此查询？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除此查詢？"
           }
         }
       }
@@ -5582,6 +6171,70 @@
         }
       }
     },
+    "Edge" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線"
+          }
+        }
+      }
+    },
+    "Edge deleted" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已刪除連線"
+          }
+        }
+      }
+    },
+    "Edge saved" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存連線"
+          }
+        }
+      }
+    },
+    "Edges" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線"
+          }
+        }
+      }
+    },
     "Edit" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5633,6 +6286,22 @@
     "Edit Definition" : {
 
     },
+    "Edit Edge" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯連線"
+          }
+        }
+      }
+    },
     "Edit Expense" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5681,6 +6350,25 @@
         }
       }
     },
+    "Edit needs correction" : {
+
+    },
+    "Edit Node" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯節點"
+          }
+        }
+      }
+    },
     "Edit Photo" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5725,6 +6413,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "編輯價格"
+          }
+        }
+      }
+    },
+    "Edit query" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯查詢"
           }
         }
       }
@@ -5822,9 +6526,6 @@
     "Edit View" : {
 
     },
-    "Edit with AI" : {
-
-    },
     "Edited" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5856,6 +6557,22 @@
     },
     "Editor’s Picks" : {
 
+    },
+    "Elements" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元素"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元素"
+          }
+        }
+      }
     },
     "Elements are { type, props, children }. Components: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link, Image, Gallery, Place. Or ask the trip agent to build one." : {
       "localizations" : {
@@ -5959,6 +6676,9 @@
         }
       }
     },
+    "Enter a JSON object, like {\"name\": \"Ada\"}." : {
+
+    },
     "Entrance" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5976,7 +6696,20 @@
       }
     },
     "Error" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "错误"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "錯誤"
+          }
+        }
+      }
     },
     "Error %lld of %lld · Line %lld" : {
       "localizations" : {
@@ -6039,6 +6772,22 @@
         }
       }
     },
+    "Examples" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "示例"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "範例"
+          }
+        }
+      }
+    },
     "Exchange Rates" : {
 
     },
@@ -6054,6 +6803,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "展開 Podcast 播放器"
+          }
+        }
+      }
+    },
+    "Expanded" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已展开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已展開"
           }
         }
       }
@@ -7280,6 +8045,70 @@
         }
       }
     },
+    "Graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖譜"
+          }
+        }
+      }
+    },
+    "Graph Agent" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图谱助手"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖譜助理"
+          }
+        }
+      }
+    },
+    "Graph Details" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图谱详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖譜詳細資訊"
+          }
+        }
+      }
+    },
+    "Graph Unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图谱不可用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖譜無法使用"
+          }
+        }
+      }
+    },
     "Green Car" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7292,6 +8121,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "綠色車廂"
+          }
+        }
+      }
+    },
+    "Has a Direction" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有方向"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有方向"
           }
         }
       }
@@ -7528,6 +8373,9 @@
         }
       }
     },
+    "Highlight the nodes with no connections" : {
+
+    },
     "HKD" : {
       "shouldTranslate" : false
     },
@@ -7622,6 +8470,22 @@
         }
       }
     },
+    "Image" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖片"
+          }
+        }
+      }
+    },
     "Image file" : {
 
     },
@@ -7644,7 +8508,26 @@
         }
       }
     },
+    "Images" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖片"
+          }
+        }
+      }
+    },
     "Importing image…" : {
+
+    },
+    "Improve this query and run it: %@" : {
 
     },
     "Include it from your main file with \\input{%@}." : {
@@ -7697,6 +8580,16 @@
         }
       }
     },
+    "Input %@ · Output %@ · Cached %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Input %1$@ · Output %2$@ · Cached %3$@"
+          }
+        }
+      }
+    },
     "Integration" : {
 
     },
@@ -7736,7 +8629,36 @@
 
     },
     "Item" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "項目"
+          }
+        }
+      }
+    },
+    "Its edges are removed with it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与其相连的连线也会被删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "與其相連的連線也會被刪除。"
+          }
+        }
+      }
     },
     "Its recording, captions and video are deleted. Share links play the other languages." : {
       "localizations" : {
@@ -8213,6 +9135,22 @@
         }
       }
     },
+    "Legend" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图例"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖例"
+          }
+        }
+      }
+    },
     "Legs" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8230,7 +9168,20 @@
       }
     },
     "Length" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "长度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長度"
+          }
+        }
+      }
     },
     "Library Actions" : {
 
@@ -8538,6 +9489,22 @@
     "Loading clients…" : {
 
     },
+    "Loading graph…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载图谱…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入圖譜…"
+          }
+        }
+      }
+    },
     "Loading image…" : {
 
     },
@@ -8717,7 +9684,20 @@
       }
     },
     "Loading…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入…"
+          }
+        }
+      }
     },
     "Local" : {
       "comment" : "Train category: stops at every station",
@@ -8957,7 +9937,20 @@
       }
     },
     "Map" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地圖"
+          }
+        }
+      }
     },
     "Margins" : {
       "extractionState" : "manual",
@@ -9251,6 +10244,22 @@
         }
       }
     },
+    "New Edge" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建连线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增連線"
+          }
+        }
+      }
+    },
     "New Expense" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9299,6 +10308,22 @@
         }
       }
     },
+    "New Graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增圖譜"
+          }
+        }
+      }
+    },
     "New Hotel" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9311,6 +10336,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新酒店"
+          }
+        }
+      }
+    },
+    "New Node" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增節點"
           }
         }
       }
@@ -9470,6 +10511,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "夜晚"
+          }
+        }
+      }
+    },
+    "No" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "否"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "否"
           }
         }
       }
@@ -9751,6 +10808,22 @@
         }
       }
     },
+    "No Longer in This Graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已不在此图谱中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已不在此圖譜中"
+          }
+        }
+      }
+    },
     "No matches" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9763,6 +10836,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有符合結果"
+          }
+        }
+      }
+    },
+    "No Matches" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无匹配项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有符合項目"
           }
         }
       }
@@ -9811,6 +10900,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有符合的摘要"
+          }
+        }
+      }
+    },
+    "No Nodes Yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚无节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚無節點"
           }
         }
       }
@@ -9985,6 +11090,70 @@
     },
     "No web results" : {
 
+    },
+    "Node" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "節點"
+          }
+        }
+      }
+    },
+    "Node deleted" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已刪除節點"
+          }
+        }
+      }
+    },
+    "Node saved" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存節點"
+          }
+        }
+      }
+    },
+    "Nodes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "节点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "節點"
+          }
+        }
+      }
     },
     "Non-reserved" : {
       "localizations" : {
@@ -10183,6 +11352,38 @@
     },
     "Nothing Changed" : {
 
+    },
+    "Nothing Here Yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里暂无内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這裡尚無內容"
+          }
+        }
+      }
+    },
+    "Nothing matched" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无匹配结果"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有符合的結果"
+          }
+        }
+      }
     },
     "Nothing specific" : {
       "localizations" : {
@@ -10419,6 +11620,22 @@
         }
       }
     },
+    "Only" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅显示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅顯示"
+          }
+        }
+      }
+    },
     "Only a hash of each key is stored, so a key can’t be shown again. Revoke a key you lost and create a new one." : {
       "localizations" : {
         "zh-Hans" : {
@@ -10528,6 +11745,22 @@
     "Open Clip" : {
 
     },
+    "Open details in a separate window" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在独立窗口中打开详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在獨立視窗中開啟詳細資訊"
+          }
+        }
+      }
+    },
     "Open file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10572,6 +11805,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在地圖中打開"
+          }
+        }
+      }
+    },
+    "Open in Window" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在窗口中打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在視窗中開啟"
           }
         }
       }
@@ -10900,6 +12149,22 @@
         }
       }
     },
+    "Optional. A view with {root, elements}, drawn natively above the properties. The graph agent can write one for you." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选。包含 {root, elements} 的视图，以原生界面显示在属性上方。图谱助手可以为你编写。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選填。包含 {root, elements} 的檢視，以原生介面顯示在屬性上方。圖譜助理可以為你編寫。"
+          }
+        }
+      }
+    },
     "Options" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11111,6 +12376,9 @@
           }
         }
       }
+    },
+    "Paper" : {
+
     },
     "Paper Settings" : {
       "localizations" : {
@@ -12053,6 +13321,54 @@
         }
       }
     },
+    "Properties" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "属性"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屬性"
+          }
+        }
+      }
+    },
+    "Properties (JSON)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "属性（JSON）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屬性（JSON）"
+          }
+        }
+      }
+    },
+    "Properties JSON" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "属性 JSON"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屬性 JSON"
+          }
+        }
+      }
+    },
     "Public API — no account needed" : {
 
     },
@@ -12130,7 +13446,61 @@
         }
       }
     },
+    "Query" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查詢"
+          }
+        }
+      }
+    },
+    "Query deleted" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已刪除查詢"
+          }
+        }
+      }
+    },
+    "Query needs correction" : {
+
+    },
+    "Query saved" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存查詢"
+          }
+        }
+      }
+    },
     "Queued" : {
+
+    },
+    "Ran a query" : {
 
     },
     "Rapid" : {
@@ -12155,8 +13525,37 @@
     "Rates From" : {
 
     },
+    "Raw JSON" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始 JSON"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始 JSON"
+          }
+        }
+      }
+    },
     "Read" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讀取"
+          }
+        }
+      }
     },
     "Read and write" : {
 
@@ -12169,6 +13568,22 @@
     },
     "Read only" : {
 
+    },
+    "Read original text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已读取原文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已讀取原文"
+          }
+        }
+      }
     },
     "Read summary" : {
       "localizations" : {
@@ -12202,6 +13617,9 @@
         }
       }
     },
+    "Read the graph" : {
+
+    },
     "Read the page" : {
 
     },
@@ -12225,7 +13643,36 @@
 
     },
     "Reader" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閱讀器"
+          }
+        }
+      }
+    },
+    "Reading original text…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取原文…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取原文…"
+          }
+        }
+      }
     },
     "Reading paper…" : {
 
@@ -12277,6 +13724,9 @@
           }
         }
       }
+    },
+    "Reading the graph…" : {
+
     },
     "Reading the page…" : {
 
@@ -12358,7 +13808,20 @@
 
     },
     "Refresh" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新整理"
+          }
+        }
+      }
     },
     "Refresh Rates" : {
 
@@ -12576,6 +14039,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "從喜歡中移除"
+          }
+        }
+      }
+    },
+    "Remove Image" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除图片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除圖片"
           }
         }
       }
@@ -12950,6 +14429,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重設為原始版面"
+          }
+        }
+      }
+    },
+    "Reset View" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置视图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設檢視"
           }
         }
       }
@@ -13349,6 +14844,38 @@
         }
       }
     },
+    "Run" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行"
+          }
+        }
+      }
+    },
+    "Run Again" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再次运行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再次執行"
+          }
+        }
+      }
+    },
     "Run this in Terminal. Add --scope user to use Chippy in every project." : {
       "localizations" : {
         "zh-Hans" : {
@@ -13361,6 +14888,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在「終端機」中執行此指令。加入 --scope user 即可在所有專案中使用 Chippy。"
+          }
+        }
+      }
+    },
+    "Running query…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在运行查询…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在執行查詢…"
+          }
+        }
+      }
+    },
+    "Running the query…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在运行查询…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在執行查詢…"
           }
         }
       }
@@ -13417,6 +14976,22 @@
     },
     "Save App" : {
 
+    },
+    "Save Query" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存查詢"
+          }
+        }
+      }
     },
     "Save To" : {
 
@@ -13500,6 +15075,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已儲存為第 %lld 版"
+          }
+        }
+      }
+    },
+    "Saved Queries" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的查询"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的查詢"
           }
         }
       }
@@ -13918,7 +15509,20 @@
 
     },
     "Section" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章节"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "章節"
+          }
+        }
+      }
     },
     "sections" : {
       "localizations" : {
@@ -13990,6 +15594,41 @@
       }
     },
     "Select text in the reader and choose Add Review to ask your agent for a change." : {
+
+    },
+    "Selected in the graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在图谱中选中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在圖譜中選取"
+          }
+        }
+      }
+    },
+    "Selecting in the graph…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在图谱中选择…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在圖譜中選取…"
+          }
+        }
+      }
+    },
+    "Selection needs correction" : {
 
     },
     "Send" : {
@@ -14296,6 +15935,25 @@
         }
       }
     },
+    "Show Only" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅显示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅顯示"
+          }
+        }
+      }
+    },
+    "Show or hide query controls" : {
+
+    },
     "Show PDF" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14312,8 +15970,40 @@
         }
       }
     },
+    "Show Results" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示结果"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示結果"
+          }
+        }
+      }
+    },
     "Show your summaries and podcasts selected as Editor’s Pick." : {
 
+    },
+    "Showing the whole graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在显示完整图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在顯示完整圖譜"
+          }
+        }
+      }
     },
     "Shown" : {
 
@@ -14539,6 +16229,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "軟體更新設定…"
+          }
+        }
+      }
+    },
+    "Some edits didn't fit the graph, so the agent corrected them." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分编辑不符合图谱要求，助手已进行修正。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分編輯不符合圖譜要求，助理已進行修正。"
           }
         }
       }
@@ -15142,6 +16848,22 @@
     "Summarise the trip day by day" : {
 
     },
+    "Summarise what this graph shows" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总结此图谱的内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "總結此圖譜的內容"
+          }
+        }
+      }
+    },
     "summarize" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15486,6 +17208,22 @@
     "The image was replaced." : {
 
     },
+    "The label is what a query matches, as in -[r:KNOWS]->." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签用于查询匹配，例如 -[r:KNOWS]->。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤用於查詢比對，例如 -[r:KNOWS]->。"
+          }
+        }
+      }
+    },
     "The line and its storyboard shot are removed from the plan." : {
       "localizations" : {
         "zh-Hans" : {
@@ -15498,6 +17236,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這一行及其分鏡鏡頭將從規劃中移除。"
+          }
+        }
+      }
+    },
+    "The link and preview stop working and the graph is removed permanently. To only stop sharing, make it private instead." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接和预览将失效，图谱将被永久删除。如果只想停止分享，请将其设为私密。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結和預覽將失效，圖譜將被永久刪除。如果只想停止分享，請將其設為私密。"
           }
         }
       }
@@ -16630,6 +18384,12 @@
     "Try another source or search." : {
 
     },
+    "Turn off auto-rotate" : {
+
+    },
+    "Turn on auto-rotate" : {
+
+    },
     "Turn this day's chips into a podcast with captions and artwork. Choose a language before generating." : {
       "localizations" : {
         "zh-Hans" : {
@@ -16685,6 +18445,38 @@
     },
     "Typeface" : {
 
+    },
+    "Types are what a query matches, as in (n:Person)." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型用于查询匹配，例如 (n:Person)。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "類型用於查詢比對，例如 (n:Person)。"
+          }
+        }
+      }
+    },
+    "Types, comma separated" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型，以逗号分隔"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "類型，以逗號分隔"
+          }
+        }
+      }
     },
     "Typography" : {
       "extractionState" : "manual",
@@ -16747,6 +18539,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未命名方案"
+          }
+        }
+      }
+    },
+    "Untyped" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未指定类型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未指定類型"
           }
         }
       }
@@ -16856,6 +18664,22 @@
         }
       }
     },
+    "Updated the graph" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新图谱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新圖譜"
+          }
+        }
+      }
+    },
     "Updated the trip" : {
 
     },
@@ -16877,6 +18701,22 @@
     },
     "Updating podcasts…" : {
 
+    },
+    "Updating the graph…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在更新图谱…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在更新圖譜…"
+          }
+        }
+      }
     },
     "Updating the trip…" : {
 
@@ -17257,7 +19097,20 @@
 
     },
     "Versions" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        }
+      }
     },
     "Video (MP4)" : {
       "localizations" : {
@@ -17294,6 +19147,22 @@
 
     },
     "View" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视图"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檢視"
+          }
+        }
+      }
+    },
+    "View and edit full query" : {
 
     },
     "View Details" : {
@@ -17712,6 +19581,22 @@
     "Which nights don't have a hotel yet?" : {
 
     },
+    "Which nodes are the most connected?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "哪些节点的连接最多？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "哪些節點的連接最多？"
+          }
+        }
+      }
+    },
     "Which shared links are about to expire?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -17799,6 +19684,22 @@
     "Write access" : {
 
     },
+    "Write and run a query that finds " : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编写并运行查询以查找 "
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編寫並執行查詢以尋找 "
+          }
+        }
+      }
+    },
     "Write LaTeX papers with a live PDF preview. Let your AI agent research, write and edit through MCP. Chippy cross-checks references for source accuracy and support for your cited claims. Start with + → New Paper, and review issues in the References sheet." : {
       "localizations" : {
         "zh-Hans" : {
@@ -17823,6 +19724,22 @@
     },
     "Wrong type at “%@”." : {
 
+    },
+    "Yes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是"
+          }
+        }
+      }
     },
     "You" : {
 

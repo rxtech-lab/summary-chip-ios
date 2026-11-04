@@ -13,33 +13,37 @@ struct ChatView: View {
     let summary: Summary?
     /// Shown as a column beside other content rather than as its own page or sheet.
     let isPanel: Bool
+    private let onClose: (() -> Void)?
     @State private var model: ChatModel
     @State private var transcriptEntries: [ChatEntry]
     @State private var transcriptUpdateTask: Task<Void, Never>?
     @State private var isAtBottom = true
     @State private var selectedReference: ChatSummaryReference?
     @State private var referenceToOpen: Summary?
+    @State private var contextDocument: Summary?
     @State private var inputBarHeight: CGFloat = 0
+    @State private var headerHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toolDetail: ChatToolActivity?
     @State private var interactionFeedback = 0
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openLibraryItem) private var openLibraryItem
 
-    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil, onClose: (() -> Void)? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
+        self.onClose = onClose
         let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip, miniAppID: miniAppID)
-        model.onTripUpdated = onTripUpdated
-        model.onGraphUpdated = onGraphUpdated
-        model.onGraphSelection = onGraphSelection
+        if let onTripUpdated { model.onTripUpdated = onTripUpdated }
+        if let onGraphUpdated { model.onGraphUpdated = onGraphUpdated }
+        if let onGraphSelection { model.onGraphSelection = onGraphSelection }
         self._model = State(initialValue: model)
         self._transcriptEntries = State(initialValue: model.entries)
     }
 
     /// While running these show as a chip over the transcript instead of a card in it.
-    static let statusChipTools: Set<String> = ["renderUI", "readWebPage", "updateTrip", "updateGraph", "queryGraph", "selectGraphElements", "readGraphElements"]
 
     private var trip: TripChat? { model.trip }
     /// A chat about one summary or trip, presented as a sheet over it.
@@ -85,6 +89,30 @@ struct ChatView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .top) {
+            if isPanel {
+                HStack {
+                    Spacer()
+                    Button {
+                        model.newChat()
+                        interactionFeedback += 1
+                    } label: {
+                        Label("New Chat", systemImage: "square.and.pencil")
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(width: 32, height: 32)
+                            .contentShape(Circle())
+                    }
+                    .help("New Chat")
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .disabled(model.entries.isEmpty)
+
+                }
+                .padding()
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+            }
+        }
         .onAppear { transcriptEntries = model.entries }
         .onChange(of: model.entries) { oldEntries, newEntries in
             updateTranscript(oldEntries: oldEntries, newEntries: newEntries)
@@ -104,14 +132,6 @@ struct ChatView: View {
                     guard abs(height - inputBarHeight) > 0.5 else { return }
                     inputBarHeight = height
                 }
-        }
-        .overlay(alignment: .top) {
-            if let activity = model.entries.last?.tools.last(where: { $0.isRunning && Self.statusChipTools.contains($0.toolName) }) {
-                ChatStatusChip(text: activity.label)
-                    .equatable()
-                    .padding(.top, 8)
-                    .allowsHitTesting(false)
-            }
         }
         .sheet(item: $toolDetail) { tool in
             ChatToolDetailSheet(tool: tool, environment: environment)
@@ -144,7 +164,7 @@ struct ChatView: View {
         .alert("Not Enough Points", isPresented: $model.needsTopUp) {
             Button("Top Up") {
                 // The top-up sheet is presented from the root, so close this chat sheet first.
-                if isSheet { dismiss() }
+                if isSheet { closeChat() }
                 environment.pendingTopUp = true
             }
             Button("Later", role: .cancel) {}
@@ -153,14 +173,15 @@ struct ChatView: View {
         }
         .summarySearchToolbar(isEnabled: !isSheet && !isPanel)
         .toolbar {
-            if isSheet {
+            if isSheet && !isPanel && onClose == nil {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("Close") { closeChat() }
                 }
             }
             if !isSheet && !isPanel {
                 ToolbarSpacer(.fixed, placement: .summaryTrailing)
             }
+            if !isPanel {
             ToolbarItem(placement: .summaryTrailing) {
                 Button {
                     model.newChat()
@@ -170,6 +191,15 @@ struct ChatView: View {
                 }
                 .disabled(model.entries.isEmpty)
             }
+            }
+        }
+    }
+
+    private func closeChat() {
+        if let onClose {
+            onClose()
+        } else if !isPanel {
+            dismiss()
         }
     }
 
@@ -179,7 +209,7 @@ struct ChatView: View {
         referenceToOpen = nil
         if isSheet {
             // Close the summary/trip chat as well before changing its underlying page.
-            dismiss()
+            closeChat()
             Task {
                 do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
                 openLibraryItem(summary)
@@ -241,19 +271,20 @@ struct ChatView: View {
             }
             .padding()
         }
+        .contentMargins(.top, isPanel ? headerHeight : 0, for: .scrollContent)
         .contentMargins(.bottom, inputBarHeight, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
     }
 
     private var transcript: some View {
-        // Let the SDK pin the latest question and manage native scrolling.
+        // Let the SDK follow the bottom until the user scrolls back into history.
         GeometryReader { geometry in
             // Constrain horizontal result strips to the transcript's width.
             let rowWidth = max(0, geometry.size.width - 32)
             MessageList(
                 messages: transcriptEntries,
                 isStreaming: model.isStreaming,
-                scrollToBottomAnimated: false,
+                scrollToBottomAnimated: !reduceMotion,
                 bottomInset: inputBarHeight,
                 isAtBottom: $isAtBottom
             ) { entry in
@@ -263,27 +294,28 @@ struct ChatView: View {
                 }, openTool: {
                     toolDetail = $0
                     interactionFeedback += 1
+                }, runQuery: model.graph == nil ? nil : { query in
+                    guard let graph = model.graph else { return }
+                    let result = try await environment.api.queryGraph(id: graph.id, query: query)
+                    let selection = GraphSelection(mode: .highlight, nodeIds: result.nodeIds, edgeIds: result.edgeIds, query: query)
+                    try await environment.api.setGraphSelection(id: graph.id, selection: selection)
+                    model.onGraphSelection?(selection)
                 })
                     .equatable()
                     .id(entry.id)
                     .frame(width: rowWidth, alignment: .leading)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
+                    .padding(.top, isPanel && entry.id == transcriptEntries.first?.id ? headerHeight : 0)
                     // While streaming text grows a row, its cell resizes a beat later. Keep
                     // the row at its natural height and pinned to the cell's top so the
                     // cards above the text never shift or get squeezed meanwhile.
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                     .transition(.identity)
-                    .transaction {
-                        $0.animation = nil
-                        $0.disablesAnimations = true
-                    }
+
             }
-            .transaction {
-                $0.animation = nil
-                $0.disablesAnimations = true
-            }
+
         }
     }
 
@@ -294,11 +326,11 @@ struct ChatView: View {
             return
         }
         // Keep the pending deadline while tokens arrive so a continuous stream
-        // still advances every half second instead of waiting until it goes quiet.
+        // still advances every 80 milliseconds instead of waiting until it goes quiet.
         guard transcriptUpdateTask == nil else { return }
         transcriptUpdateTask = Task { @MainActor in
             do {
-                try await Task.sleep(for: .milliseconds(500))
+                try await Task.sleep(for: .milliseconds(80))
                 try Task.checkCancellation()
             } catch {
                 return
@@ -318,7 +350,102 @@ struct ChatView: View {
         !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var contextDocumentID: String? {
+        model.summaryID ?? model.trip?.id ?? model.graph?.id ?? model.miniAppID
+    }
+
+    private var contextDocumentTitle: String? {
+        guard let id = contextDocumentID else { return nil }
+        return environment.library.items.first(where: { $0.id == id })?.title
+            ?? summary?.title ?? model.trip?.title
+            ?? contextDocument?.title
+    }
+
+    private var contextIcon: String {
+        if model.graph != nil { return "point.3.connected.trianglepath.dotted" }
+        if model.trip != nil { return "map" }
+        if model.miniAppID != nil { return "app.badge" }
+        return "doc.text"
+    }
+
+    private var contextBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 6) {
+                if contextDocumentID != nil {
+                    Label {
+                        Text(contextDocumentTitle ?? String(localized: "Current Document"))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: 180, alignment: .leading)
+                    } icon: {
+                        Image(systemName: contextIcon)
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.regularMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.primary.opacity(0.2), lineWidth: 1))
+                    .accessibilityIdentifier("chat-context-document")
+                } else {
+                    Label("Chippy Library", systemImage: "books.vertical")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .overlay(Capsule().strokeBorder(.primary.opacity(0.2), lineWidth: 1))
+                        .accessibilityIdentifier("chat-context-library")
+                }
+                ForEach(model.graphElements) { element in
+                    Button {
+                        model.graphElements.removeAll { $0 == element }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: {
+                                if case .node = element { return "circle.fill" }
+                                return "line.diagonal"
+                            }())
+                            Text(model.graphElementLabel(element))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .frame(maxWidth: 180, alignment: .leading)
+                            Image(systemName: "xmark").font(.caption2)
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .overlay(Capsule().strokeBorder(.primary.opacity(0.2), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove " + model.graphElementLabel(element))
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .scrollIndicators(.hidden)
+        .sensoryFeedback(.selection, trigger: model.graphElements)
+        .task(id: contextDocumentID) {
+            contextDocument = nil
+            guard let id = contextDocumentID, contextDocumentTitle == nil else { return }
+            let document = try? await environment.api.summary(id: id)
+            guard !Task.isCancelled, contextDocumentID == id else { return }
+            contextDocument = document
+        }
+    }
+
     private var inputBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            contextBar
+            composer
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+
+    private var composer: some View {
         HStack(alignment: .bottom, spacing: 10) {
             TextField(placeholder, text: $model.draft, axis: .vertical)
                 .lineLimit(1...5)
@@ -354,8 +481,6 @@ struct ChatView: View {
                 .accessibilityIdentifier("chat-send")
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 }
 
@@ -394,8 +519,10 @@ private struct ChatSummarySheet: View {
 
 private struct ChatEntryView: View, Equatable {
     let entry: ChatEntry
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let openSummary: (String) -> Void
     let openTool: (ChatToolActivity) -> Void
+    var runQuery: ((String) async throws -> Void)? = nil
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.entry == rhs.entry
@@ -415,22 +542,29 @@ private struct ChatEntryView: View, Equatable {
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(entry.tools.filter { !$0.isRunning || !ChatView.statusChipTools.contains($0.toolName) }) { tool in
-                    ChatToolCallCard(tool: tool, openSummary: openSummary, openTool: openTool)
-                        .equatable()
-                        .transaction { transaction in
-                            transaction.animation = nil
-                            transaction.disablesAnimations = true
-                        }
-                }
-                if entry.isStreaming || !entry.text.isEmpty {
-                    // Keep the live renderer mounted and show each chunk immediately.
-                    MarkdownView(
-                        text: entry.text,
-                        showsTrailingCursor: entry.isStreaming,
-                        fadeNewText: false
-                    )
+                ForEach(entry.displayParts) { part in
+                    if let toolID = part.toolID,
+                       let tool = entry.tools.first(where: { $0.id == toolID }) {
+                        ChatToolCallCard(tool: tool, openSummary: openSummary, openTool: openTool, runQuery: runQuery)
+                            .equatable()
+                            .transaction { transaction in
+                                transaction.animation = nil
+                                transaction.disablesAnimations = true
+                            }
+                    } else if part.toolID == nil {
+                        MarkdownView(
+                            text: part.text,
+                            showsTrailingCursor: entry.isStreaming && part.id == entry.displayParts.last?.id,
+                            fadeNewText: !reduceMotion
+                        )
                         .textSelection(.enabled)
+                    }
+                }
+                if let usage = entry.usage {
+                    Text("Input \(ChatTokenUsage.formatted(usage.input)) · Output \(ChatTokenUsage.formatted(usage.output)) · Cached \(ChatTokenUsage.formatted(usage.cached))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("chat-token-usage")
                 }
                 // A running tool card already shows its status.
                 if entry.isStreaming, !entry.tools.contains(where: \.isRunning) {
@@ -454,6 +588,10 @@ private struct ChatToolCallCard: View, Equatable {
     let tool: ChatToolActivity
     let openSummary: (String) -> Void
     let openTool: (ChatToolActivity) -> Void
+    var runQuery: ((String) async throws -> Void)? = nil
+    @State private var isRerunning = false
+    @State private var rerunError: String?
+    @State private var completedRuns = 0
     @Environment(\.openMiniApp) private var openMiniApp
 
     // Text deltas change the parent entry, but not a completed tool's content.
@@ -465,6 +603,34 @@ private struct ChatToolCallCard: View, Equatable {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if let runQuery, !tool.isRunning,
+               ["queryGraph", "selectGraphElements"].contains(tool.toolName),
+               let query = tool.detail, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                HStack {
+                    Spacer()
+                    Button {
+                        guard !isRerunning else { return }
+                        isRerunning = true
+                        Task { @MainActor in
+                            defer { isRerunning = false }
+                            do {
+                                try await runQuery(query)
+                                completedRuns += 1
+                            } catch { rerunError = error.localizedDescription }
+                        }
+                    } label: {
+                        Label("Run Again", systemImage: "play.fill")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .tint(.accentColor)
+                    .disabled(isRerunning)
+                    .accessibilityIdentifier("chat-query-rerun-\(tool.id)")
+                }
+            }
             if let draft = tool.miniAppDraft {
                 Button { openTool(tool) } label: { Label("Preview \(draft.title)", systemImage: "app.badge") }
             } else if let appID = tool.miniAppID {
@@ -519,6 +685,12 @@ private struct ChatToolCallCard: View, Equatable {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.quaternary) }
+        .overlay { if isRerunning { ActionStatusOverlay("Running query…") } }
+        .statusAlert("Couldn't Run Query", message: rerunError) { rerunError = nil }
+        .sensoryFeedback(.impact(weight: .light), trigger: isRerunning) { _, new in new }
+        .sensoryFeedback(.success, trigger: completedRuns)
+        .sensoryFeedback(.error, trigger: rerunError) { _, new in new != nil }
+
     }
 
     private var header: some View {
@@ -564,6 +736,7 @@ private struct ChatToolCallCard: View, Equatable {
         case "searchSummaries": return tool.isSemantic == true ? "sparkle.magnifyingglass" : "magnifyingglass"
         case "listEditorsPicks": return "star.circle"
         case "getSummary": return "doc.text.magnifyingglass"
+        case "getRawText": return "doc.plaintext"
         case "listTrips", "getTrip": return "suitcase"
         case "grepLocalFile": return "text.magnifyingglass"
         case "readLocalFile": return "doc.plaintext"
@@ -592,6 +765,9 @@ private struct ChatToolCallCard: View, Equatable {
         case "getSummary":
             if tool.isRunning { return String(localized: "Reading summary…") }
             return tool.finished == true ? String(localized: "Read summary") : String(localized: "Reading stopped")
+        case "getRawText":
+            if tool.isRunning { return String(localized: "Reading original text…") }
+            return tool.finished == true ? String(localized: "Read original text") : String(localized: "Reading stopped")
         case "listTrips":
             if tool.isRunning { return String(localized: "Finding your trips…") }
             return tool.finished == true ? String(localized: "Listed your trips") : String(localized: "Search stopped")

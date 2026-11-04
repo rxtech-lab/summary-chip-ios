@@ -211,17 +211,59 @@ export async function getTripForChat(db: Database, userId: string, id: string) {
 }
 
 /** A summary the caller owns, or a public one they have viewed; includes the content excerpt. */
-export async function getSummaryForChat(db: Database, userId: string, id: string): Promise<{ summary: SummaryJson & { contentExcerpt: string } }> {
+/** A summary an agent may read for this user: their own, or one they can read and have opened. */
+async function findReadableForAgent(db: Database, userId: string, id: string): Promise<SummaryRow> {
   const rows = await db.select().from(summaries).where(eq(summaries.id, id)).limit(1);
   const row = rows[0];
   if (!row) throw notFound();
-  let grantToken: string | null = null;
-  if (row.ownerId !== userId) {
-    if (!await canViewerRead(db, row, userId)) throw notFound();
-    const view = await db.select({ userId: summaryViews.userId }).from(summaryViews)
-      .where(and(eq(summaryViews.userId, userId), eq(summaryViews.summaryId, id))).limit(1);
-    if (!view[0]) throw notFound();
-    grantToken = await findGrantToken(db, id, userId);
-  }
+  if (row.ownerId === userId) return row;
+  if (!await canViewerRead(db, row, userId)) throw notFound();
+  const view = await db.select({ userId: summaryViews.userId }).from(summaryViews)
+    .where(and(eq(summaryViews.userId, userId), eq(summaryViews.summaryId, id))).limit(1);
+  if (!view[0]) throw notFound();
+  return row;
+}
+
+export async function getSummaryForChat(db: Database, userId: string, id: string): Promise<{ summary: SummaryJson & { contentExcerpt: string } }> {
+  const row = await findReadableForAgent(db, userId, id);
+  const grantToken = row.ownerId === userId ? null : await findGrantToken(db, id, userId);
   return { summary: { ...toSummaryJson(row, userId, null, undefined, null, grantToken), contentExcerpt: row.contentExcerpt } };
+}
+
+/** Characters of original text one raw-text read returns. */
+export const RAW_TEXT_PAGE_CHARS = 30_000;
+
+export type RawTextPage =
+  | { id: string; title: string; text: string; offset: number; nextOffset: number | null; totalChars: number }
+  | { error: string };
+
+/** One page of a summary's original source text. `nextOffset` is null on the last page. */
+export function rawTextPage(
+  row: Pick<SummaryRow, "id" | "title" | "sourceType" | "contentText" | "contentExcerpt">,
+  offset = 0,
+  pageChars = RAW_TEXT_PAGE_CHARS,
+): RawTextPage {
+  const source = row.contentText || row.contentExcerpt;
+  if (!source) {
+    return { error: row.sourceType === "local"
+      ? "The original is a file on the user's device and is not stored."
+      : "The original text was not stored for this summary." };
+  }
+  if (offset >= source.length) return { error: `The original text has only ${source.length} characters.` };
+  let end = Math.min(offset + pageChars, source.length);
+  // Never split a surrogate pair across two pages.
+  const last = source.charCodeAt(end - 1);
+  if (end < source.length && end - 1 > offset && last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return {
+    id: row.id,
+    title: row.title,
+    text: source.slice(offset, end),
+    offset,
+    nextOffset: end < source.length ? end : null,
+    totalChars: source.length,
+  };
+}
+
+export async function getRawTextForAgent(db: Database, userId: string, id: string, offset = 0): Promise<RawTextPage> {
+  return rawTextPage(await findReadableForAgent(db, userId, id), offset);
 }

@@ -77,6 +77,14 @@ import Testing
         }
     }
 
+    @Test func largePlaneUsesMoreNavigableSpace() {
+        let ids = (0..<140).map { "n\($0)" }
+        let points = GraphLayout.positions(nodeIDs: ids, edges: [], mode: .plane)
+        let extent = points.values.map { max(abs($0.x), abs($0.y)) }.max()!
+        #expect(extent > 1.5)
+        #expect(points.values.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z == 0 })
+    }
+
     @Test func isDeterministic() {
         let first = GraphLayout.positions(nodeIDs: ring, edges: ringEdges, mode: .globe)
         let second = GraphLayout.positions(nodeIDs: ring, edges: ringEdges, mode: .globe)

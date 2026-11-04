@@ -1,3 +1,5 @@
+import * as graphsRoute from "@/app/api/v1/graphs/route";
+import * as graphRoute from "@/app/api/v1/graphs/[id]/route";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
@@ -189,5 +191,29 @@ describe("share links", () => {
     await summaryRoute.PATCH(apiRequest("PATCH", `/api/v1/summaries/${summary.id}`, { token: env.tokens.alice, body: { visibility: "private" } }), params({ id: summary.id }));
     expect((await openPublic(summary.slug)).status).toBe(404);
     expect((await openPublic(tokenOf(link.url))).status).toBe(200);
+  });
+});
+
+describe("graph share links", () => {
+  it("opens a private graph in the recipient library and revokes access on expiry", async () => {
+    const created = await graphsRoute.POST(apiRequest("POST", "/api/v1/graphs", {
+      token: env.tokens.alice,
+      body: { document: { title: "Shared graph", nodes: [], edges: [] }, visibility: "private" },
+    }));
+    expect(created.status).toBe(201);
+    const { graph } = await created.json();
+    const response = await createLink(graph.id, { ttlDays: 7 });
+    expect(response.status).toBe(201);
+    const link = await response.json();
+    expect(link.ttlDays).toBe(7);
+    const key = tokenOf(link.url);
+    expect((await view(key, env.tokens.bob)).status).toBe(200);
+    expect(await viewedIds(env.tokens.bob)).toContain(graph.id);
+    const read = () => graphRoute.GET(apiRequest("GET", `/api/v1/graphs/${graph.id}`, { token: env.tokens.bob }), params({ id: graph.id }));
+    expect((await read()).status).toBe(200);
+    await env.handle.db.update(shareLinks).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(shareLinks.id, link.id));
+    expect((await openPublic(key)).status).toBe(404);
+    expect((await read()).status).toBe(404);
+    expect(await viewedIds(env.tokens.bob)).not.toContain(graph.id);
   });
 });

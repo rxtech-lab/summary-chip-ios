@@ -76,7 +76,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         tapToolbarItem(app, id: "new-summary", label: "New")
-        tapMenuItem(app, id: "new-summary-menu-summary", label: "New Summary")
+        tapMenuItem(app, id: "new-summary-menu-summary", label: "Summary")
         let field = app.textFields["new-summary-input"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         for content in ["https://example.com/news", "A substantial note about the news today."] {
@@ -191,7 +191,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         app.launchArguments = ["--preview-likes", "--preview-podcast-playback", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         tapToolbarItem(app, id: "new-summary", label: "New")
-        tapMenuItem(app, id: "new-podcast", label: "New Podcast")
+        tapMenuItem(app, id: "new-podcast", label: "Podcast")
         XCTAssertTrue(app.buttons["podcast-select-chips"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["podcast-generation-submit"].isEnabled)
         app.buttons["podcast-select-chips"].tap()

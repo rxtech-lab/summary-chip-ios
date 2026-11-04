@@ -9,7 +9,7 @@ struct GraphInspectorContent: View {
     let onOpen: (GraphElementRef) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 20) {
             switch element {
             case .node(let id):
                 if let node = model.node(id) { nodeContent(node) } else { gone }
@@ -27,8 +27,11 @@ struct GraphInspectorContent: View {
 
     @ViewBuilder
     private func nodeContent(_ node: GraphNode) -> some View {
-        Text(node.label).font(.title3.weight(.semibold)).textSelection(.enabled)
-        if !node.types.isEmpty { GraphTypeChips(types: node.types) }
+        VStack(alignment: .leading, spacing: 8) {
+            Text(node.label).font(.title2.weight(.semibold)).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            if !node.types.isEmpty { GraphTypeChips(types: node.types) }
+        }
         data(images: node.images, view: node.view, properties: node.properties)
         let links = model.document?.edges.filter { $0.source == node.id || $0.target == node.id } ?? []
         if !links.isEmpty {
@@ -39,13 +42,23 @@ struct GraphInspectorContent: View {
                         onOpen(.edge(edge.id))
                     } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: edge.source == node.id ? "arrow.up.right" : "arrow.down.left").foregroundStyle(.secondary)
+                            Image(systemName: edge.source == node.id ? "arrow.up.right" : "arrow.down.left")
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(.tint)
+                                .frame(width: 28, height: 28)
+                                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+                                .accessibilityHidden(true)
                             VStack(alignment: .leading) {
-                                Text(model.node(other)?.label ?? other).lineLimit(1)
+                                Text(model.node(other)?.label ?? other).font(.body.weight(.medium)).lineLimit(2)
                                 Text(edge.label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             }
                             Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
                         }
+                        .padding(.vertical, 6)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -57,7 +70,7 @@ struct GraphInspectorContent: View {
 
     @ViewBuilder
     private func edgeContent(_ edge: GraphEdge) -> some View {
-        Text(edge.label).font(.title3.weight(.semibold)).textSelection(.enabled)
+        Text(edge.label).font(.title2.weight(.semibold)).textSelection(.enabled)
         HStack(spacing: 8) {
             endpoint(edge.source)
             Image(systemName: edge.directed ? "arrow.right" : "arrow.left.and.right").foregroundStyle(.secondary).accessibilityHidden(true)
@@ -78,17 +91,26 @@ struct GraphInspectorContent: View {
         if !images.isEmpty { GraphImageStrip(images: images) }
         if let view { NativeJSONViewRenderer(spec: view, currency: "USD") }
         if !properties.isEmpty {
-            GraphInfoSection(title: "Properties") {
-                GraphJSONObjectView(object: properties, depth: 0)
+            if view != nil {
+                DisclosureGroup("Properties") {
+                    GraphJSONObjectView(object: properties, depth: 0)
+                        .padding(.top, 8)
+                }
+            } else {
+                GraphInfoSection(title: "Properties") {
+                    GraphJSONObjectView(object: properties, depth: 0)
+                }
             }
             DisclosureGroup("Raw JSON") {
                 Text(verbatim: GraphJSON.pretty(.object(properties)))
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 4)
+                    .padding(10)
+                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
             }
-            .font(.subheadline)
+            .font(.caption)
+            .foregroundStyle(.secondary)
             .accessibilityIdentifier("graph-raw-json")
         }
     }
@@ -101,8 +123,14 @@ private struct GraphInfoSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-            content
+            VStack(alignment: .leading, spacing: 10) {
+                content
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -171,7 +199,7 @@ enum GraphJSONError: LocalizedError {
     var errorDescription: String? { String(localized: "Enter a JSON object, like {\"name\": \"Ada\"}.") }
 }
 
-/// Native rendering of schemaless data: any JSON a node holds becomes rows, without a schema.
+/// Type-aware cards for schemaless JSON, including nested objects and collections.
 struct GraphJSONObjectView: View {
     let object: [String: JSONValue]
     let depth: Int
@@ -193,12 +221,12 @@ private struct GraphJSONRow: View {
     var body: some View {
         switch value {
         case .object(let object) where depth < 6 && !object.isEmpty:
-            DisclosureGroup(key) {
+            DisclosureGroup(displayTitle) {
                 AnyView(GraphJSONObjectView(object: object, depth: depth + 1)).padding(.top, 4)
             }
             .font(.subheadline)
         case .array(let items) where depth < 6 && !items.isEmpty && items.contains(where: Self.isContainer):
-            DisclosureGroup("\(key) (\(items.count))") {
+            DisclosureGroup("\(displayTitle) (\(items.count))") {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(items.prefix(100).enumerated()), id: \.offset) { index, item in
                         AnyView(GraphJSONRow(key: "\(index + 1)", value: item, depth: depth + 1))
@@ -208,13 +236,21 @@ private struct GraphJSONRow: View {
             }
             .font(.subheadline)
         default:
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(key).font(.subheadline).foregroundStyle(.secondary)
-                Spacer(minLength: 8)
-                leaf.font(.subheadline).multilineTextAlignment(.trailing).textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(displayTitle).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                leaf.font(.body).multilineTextAlignment(.leading).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background.opacity(0.55), in: RoundedRectangle(cornerRadius: 10))
             .accessibilityElement(children: .combine)
         }
+    }
+
+    private var displayTitle: String {
+        key.replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ").capitalized
     }
 
     private static func isContainer(_ value: JSONValue) -> Bool {
@@ -227,7 +263,7 @@ private struct GraphJSONRow: View {
     @ViewBuilder private var leaf: some View {
         switch value {
         case .string(let text):
-            if let url = URL(string: text), url.scheme == "https", url.host() != nil { Link(text, destination: url).lineLimit(2) }
+            if let url = URL(string: text), url.scheme == "https", url.host() != nil { Link(text, destination: url) }
             else { Text(text) }
         case .number(let number):
             Text(number == number.rounded() && abs(number) < 1e15 ? String(Int64(number)) : String(number)).monospacedDigit()

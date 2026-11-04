@@ -70,7 +70,7 @@ export function registerGraphTools(server: McpServer, context: { db: Database; p
     ...meta("update_graph", "Update Graph", false, true),
     description: "Edit a graph with operations applied in order, as one change: set_meta, upsert_node / upsert_edge / upsert_query (a full record; the same id replaces it, a new id adds it), "
       + "update_node / update_edge (id, changes: only the fields to change; properties merge and a null property is removed), and delete (collection: nodes|edges|queries, id). Deleting a node removes its edges. "
-      + "Each edit saves a version. Pass revision to refuse the edit if the graph changed meanwhile. Free.",
+      + "Each node and edge owns an independent view: save its UI with update_node or update_edge and changes:{view:{root,elements}}; set view:null to restore default properties. Use the native trip view catalog, excluding Place which requires trip context. Patch only view to preserve other fields. Each edit saves a version. Pass revision to refuse the edit if the graph changed meanwhile. Free.",
     inputSchema: {
       graphId,
       operations: z.array(graphOperationSchema).min(1).max(MAX_GRAPH_OPERATIONS).describe("Operations, applied in order."),

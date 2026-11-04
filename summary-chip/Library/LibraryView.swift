@@ -65,6 +65,7 @@ struct LibraryView: View {
                 .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
                 .navigationDestination(for: Summary.self) { summary in
                     SummaryDestination(environment: environment, summary: summary)
+                        .chatPanelToolbar()
                 }
                 .refreshable { await model.reload() }
                 .onChange(of: scenePhase) { _, phase in
@@ -172,39 +173,55 @@ struct LibraryView: View {
 
     private var newDocumentMenu: some View {
         Menu {
-            Button {
-                showsNewSummary = true
-            } label: {
-                Label("New Summary", systemImage: "text.quote")
+            Section {
+                Button {
+                    showsNewSummary = true
+                } label: {
+                    Label("Summary", systemImage: "text.quote")
+                }
+                .accessibilityIdentifier("new-summary-menu-summary")
+                Button {
+                    showsNewPaper = true
+                } label: {
+                    Label("Paper", systemImage: "doc.richtext")
+                }
+                .accessibilityIdentifier("new-paper")
+                Button {
+                    showsNewGraph = true
+                } label: {
+                    Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                .accessibilityIdentifier("new-graph")
             }
-            .accessibilityIdentifier("new-summary-menu-summary")
-            Button {
-                showsNewTrip = true
-            } label: {
-                Label("New Trip", systemImage: "map")
+            Section {
+                Button {
+                    showsNewTrip = true
+                } label: {
+                    Label("Trip", systemImage: "map")
+                }
+                .accessibilityIdentifier("new-trip")
             }
-            .accessibilityIdentifier("new-trip")
-            Button {
-                showsNewPaper = true
-            } label: {
-                Label("New Paper", systemImage: "doc.richtext")
-            }
-            .accessibilityIdentifier("new-paper")
-            Button {
-                showsNewGraph = true
-            } label: {
-                Label("New Graph", systemImage: "point.3.connected.trianglepath.dotted")
-            }
-            .accessibilityIdentifier("new-graph")
-            Button { podcastTaps += 1; showsNewPodcast = true } label: {
-                Label("New Podcast", systemImage: "waveform")
-            }.accessibilityIdentifier("new-podcast")
-            Button { showsNewMiniApp = true } label: { Label("New Clip", systemImage: "app.badge") }
+            Section {
+                Button { showsNewPodcast = true } label: {
+                    Label("Podcast", systemImage: "waveform")
+                }
+                .accessibilityIdentifier("new-podcast")
+                Button { showsNewMiniApp = true } label: {
+                    Label("Clip", systemImage: "app.badge")
+                }
                 .accessibilityIdentifier("new-mini-app")
+            }
         } label: {
             Label("New", systemImage: "plus")
         }
+        .menuIndicator(.hidden)
         .accessibilityIdentifier("new-summary")
+        .sensoryFeedback(.selection, trigger: showsNewSummary) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewPaper) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewGraph) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewTrip) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewPodcast) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewMiniApp) { _, presented in presented }
     }
 
     private func presentGenerated(_ podcast: DailyPodcast) {

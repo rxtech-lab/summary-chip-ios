@@ -27,6 +27,7 @@ struct SettingsView: View {
             .toolbar { ChatPanelToolbarContent(isVisible: chatPanelVisibility) }
             .navigationDestination(for: LegalDocument.self) { document in
                 LegalDocumentView(document: document, baseURL: environment.configuration.apiBaseURL)
+                    .chatPanelToolbar()
             }
             .sheet(isPresented: $showsDeleteAccount) {
                 DeleteAccountSheet(environment: environment, state: $deletion)

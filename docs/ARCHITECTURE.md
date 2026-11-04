@@ -425,6 +425,10 @@ Tools the agent exposes (outputs are shown as cards on iOS):
 * `searchSummaries({query, category?, tag?, scope: "all"|"mine"|"viewed", limit?})` →
   `{ results: [ {id, slug, title, summary, category, tags, siteName, sourceUrl, shareUrl, ogImageUrl, createdAt, viewedAt?} ] }`
 * `getSummary({id})` → `{ summary: Summary-like object incl. contentExcerpt }`
+* `getRawText({id, offset?})` → `{ id, title, text, offset, nextOffset, totalChars }` (or `{error}`).
+  One 30,000-character page of the stored source text, with the same access rules as `getSummary`.
+  The instructions tell the agent to read it to understand an item. The focused chat inlines the
+  opening 20,000 characters and points the agent here for the rest.
 * `listTrips({})` → `{ results: [library card + trip dates, subtitle, revision, dayCount, placeCount] }`.
   Lists owned trip diaries (including private ones), ongoing/upcoming first and then past ones,
   without keyword or embedding filters. The agent uses this for requests such as "find my trip".

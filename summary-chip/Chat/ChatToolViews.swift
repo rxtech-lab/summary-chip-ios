@@ -72,9 +72,13 @@ struct ChatToolDetailSheet: View {
     }
 }
 
-/// In-progress status shown as a static capsule.
+/// In-progress status with a gentle text shimmer that respects Reduce Motion.
 struct ChatStatusChip: View, Equatable {
     let text: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.text == rhs.text }
+
 
     var body: some View {
         HStack(spacing: 6) {
@@ -83,6 +87,26 @@ struct ChatStatusChip: View, Equatable {
             Text(text)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .overlay {
+                    if !reduceMotion {
+                        GeometryReader { geometry in
+                            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                                let phase = context.date.timeIntervalSinceReferenceDate
+                                    .truncatingRemainder(dividingBy: 1.8) / 1.8
+                                LinearGradient(
+                                    colors: [.clear, .primary.opacity(0.85), .clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                                .frame(width: geometry.size.width * 0.6)
+                                .offset(x: geometry.size.width * (phase * 1.6 - 0.6))
+                            }
+                        }
+                        .mask(Text(text).lineLimit(1))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    }
+                }
         }
         .font(.subheadline.weight(.medium))
         .padding(.horizontal, 12)
