@@ -16,6 +16,7 @@ struct GraphDetailView: View {
     @Environment(\.openSideAgent) private var openSideAgent
     @Environment(\.setSideAgentContext) private var setSideAgentContext
     @State private var sheet: GraphSheet?
+    @State private var generatedUI: ChatRenderedUI?
     @State private var popover: GraphElementRef?
     @State private var showsCompactInspector = false
     @State private var popoverTask: Task<Void, Never>?
@@ -131,8 +132,12 @@ struct GraphDetailView: View {
                 }
                 .sensoryFeedback(.selection, trigger: chat.graphElements)
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
-                .popover(item: popoverBinding, attachmentAnchor: .rect(.rect(popoverAnchor)), arrowEdge: .top) { element in
-                    popoverContent(element)
+                .popover(item: popoverBinding, attachmentAnchor: .rect(.rect(popoverAnchor)), arrowEdge: .bottom) { element in
+                    if let ui = generatedUI, element == .node(ui.nodeId ?? "") {
+                        ChatGeneratedUIPopover(ui: ui)
+                    } else {
+                        popoverContent(element)
+                    }
                 }
                 if document.nodes.isEmpty { emptyState }
                 else if !model.isLaidOut { ProgressView("Arranging the graph…") }
@@ -434,6 +439,7 @@ struct GraphDetailView: View {
         Binding(get: { popover }, set: { next in
             let closing = popover
             popover = next
+            if next == nil { generatedUI = nil }
             if next == nil, let closing, model.inspected == closing { model.inspected = nil }
         })
     }
@@ -566,6 +572,12 @@ struct GraphDetailView: View {
     }
 
     private func configureAgent() {
+        chat.onGraphUI = { ui in
+            guard let id = ui.nodeId, model.document?.nodes.contains(where: { $0.id == id }) == true else { return }
+            generatedUI = ui
+            popover = .node(id)
+            tapFeedback += 1
+        }
         chat.onGraphUpdated = { [model] in Task { await model.refresh() } }
         chat.onGraphSelection = { [model] selection in model.apply(selection: selection) }
     }

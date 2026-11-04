@@ -3758,6 +3758,9 @@
         }
       }
     },
+    "Completed" : {
+
+    },
     "Completing purchase…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3943,7 +3946,16 @@
         }
       }
     },
+    "Connected" : {
+
+    },
     "Connected Clients" : {
+
+    },
+    "Connecting" : {
+
+    },
+    "Connecting…" : {
 
     },
     "Connection" : {
@@ -4113,6 +4125,9 @@
 
     },
     "Couldn't Complete Video Action" : {
+
+    },
+    "Couldn't Continue Voice Chat" : {
 
     },
     "Couldn't Create Graph" : {
@@ -6989,6 +7004,9 @@
         }
       }
     },
+    "Failed" : {
+
+    },
     "Fare" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9419,6 +9437,9 @@
     "Load More" : {
 
     },
+    "Loading" : {
+
+    },
     "Loading %@…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10018,6 +10039,9 @@
           }
         }
       }
+    },
+    "Microphone input level" : {
+
     },
     "Minutes" : {
 
@@ -13199,6 +13223,9 @@
     "Preparing video…" : {
 
     },
+    "Preparing your voice session" : {
+
+    },
     "Preview" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14892,6 +14919,9 @@
         }
       }
     },
+    "Running" : {
+
+    },
     "Running query…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16470,6 +16500,9 @@
         }
       }
     },
+    "Start voice chat" : {
+
+    },
     "Start with" : {
 
     },
@@ -16601,6 +16634,9 @@
           }
         }
       }
+    },
+    "Stop voice chat" : {
+
     },
     "Storage" : {
       "localizations" : {
@@ -19284,6 +19320,9 @@
           }
         }
       }
+    },
+    "Voice session duration" : {
+
     },
     "Waiting for your agent" : {
 

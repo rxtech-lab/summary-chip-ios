@@ -408,6 +408,7 @@ public struct ChatWebReference: Codable, Sendable, Hashable, Identifiable {
 
 /// A validated JSON component tree, rendered with the same native catalog as trip views.
 public struct ChatRenderedUI: Codable, Sendable, Hashable {
+    public var nodeId: String? = nil
     public var title: String
     public var currency: String
     public var spec: TripViewSpec

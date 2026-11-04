@@ -53,7 +53,10 @@ export const chatRequestSchema = z.object({
   graphId: z.string().min(1).max(100).optional(),
 }).loose();
 
-export function sanitizeChatMessages(input: z.infer<typeof chatRequestSchema>["messages"]): UIMessage[] {
+export function sanitizeChatMessages(
+  input: z.infer<typeof chatRequestSchema>["messages"],
+  options: { historyOnly?: boolean } = {},
+): UIMessage[] {
   const messages: UIMessage[] = [];
   for (const [index, message] of input.entries()) {
     const text = message.parts
@@ -67,7 +70,8 @@ export function sanitizeChatMessages(input: z.infer<typeof chatRequestSchema>["m
   }
   const capped = messages.slice(-MAX_CHAT_MESSAGES);
   while (capped.length && capped[0].role !== "user") capped.shift();
-  if (capped.length === 0 || capped[capped.length - 1].role !== "user") {
+  // Voice setup supplies history; the next user turn arrives through the microphone.
+  if (!options.historyOnly && (capped.length === 0 || capped[capped.length - 1].role !== "user")) {
     throw new ApiError(400, "INVALID_MESSAGES", "The conversation must end with a user message containing text");
   }
   return capped;
@@ -278,12 +282,7 @@ export interface StreamChatOptions {
   abortSignal?: AbortSignal;
 }
 
-export async function streamChat(
-  db: Database,
-  userId: string,
-  messages: UIMessage[],
-  options: StreamChatOptions = {},
-): Promise<Response> {
+export async function prepareChat(db: Database, userId: string, options: StreamChatOptions = {}) {
   // Resolved before streaming so an inaccessible summary or trip is a plain 404 rather than a stream error.
   const trip = options.tripId ? await getOwnedTrip(db, options.tripId, userId) : undefined;
   const graph = options.graphId ? await getOwnedGraph(db, options.graphId, userId) : undefined;
@@ -291,12 +290,7 @@ export async function streamChat(
   // Only the owner links a local file to their summary.
   const local = focused?.ownerId === userId ? options.localContent : undefined;
   const ai = await getAiProvider();
-  const model = ai.chatModelId();
-  const turnId = randomUUID();
   const mini = options.miniAppId ? await getMiniApp(db, options.miniAppId, userId) : undefined;
-  // Refuses an empty balance (402) before the model runs.
-  const charge = await reserveChatPoints(userId, turnId, model, options.billingEnvironment);
-  const billing = charge ? chatBilling(ai, charge) : undefined;
   const miniEnabled = process.env.MINI_APPS_ENABLED === "true" || process.env.NODE_ENV === "test";
   const tools = {
     ...(miniEnabled ? miniChatTools(db, userId) : {}),
@@ -307,14 +301,27 @@ export async function streamChat(
     ...(trip ? tripChatTools(db, userId, trip.summary.id, ai) : {}),
     ...(graph ? graphChatTools(db, userId, graph.summary.id, ai) : {}),
   };
-  const result = streamText({
-    model: ai.chatModel(),
-    instructions: chatInstructions()
+  const instructions = chatInstructions()
       + (miniEnabled ? MINI_CHAT_GUIDE : "")
       + (mini ? `\nThe user is editing Mini App ${mini.id} at revision ${mini.revision}. Read it with getMiniApp before editing.` : "")
       + (focused ? focusedSummaryInstructions(focused, local) : "")
       + (trip ? tripChatInstructions(trip.summary.id, trip.trip.document) : "")
-      + (graph ? graphChatInstructions(graph.summary.id, graph.graph.document) : ""),
+      + (graph ? graphChatInstructions(graph.summary.id, graph.graph.document) : "");
+  return { ai, tools, instructions };
+}
+
+export async function streamChat(
+  db: Database,
+  userId: string,
+  messages: UIMessage[],
+  options: StreamChatOptions = {},
+): Promise<Response> {
+  const { ai, tools, instructions } = await prepareChat(db, userId, options);
+  const charge = await reserveChatPoints(userId, randomUUID(), ai.chatModelId(), options.billingEnvironment);
+  const billing = charge ? chatBilling(ai, charge) : undefined;
+  const result = streamText({
+    model: ai.chatModel(),
+    instructions,
     messages: await convertToModelMessages(messages, { tools }),
     tools,
     // Allow library lookup, web research, rendering, and a repair round in one turn.

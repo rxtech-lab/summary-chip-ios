@@ -155,3 +155,54 @@ struct ChatReferenceCard: View {
         }
     }
 }
+
+struct ChatSummaryReference: Identifiable { let id: String }
+
+/// References open in a separate presentation, with navigation independent of the chat's host.
+struct ChatSummarySheet: View {
+    let environment: AppEnvironment
+    let reference: ChatSummaryReference
+    let allowsChat: Bool
+    let onOpenTrip: ((Summary) -> Void)?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            SummaryLoaderView(environment: environment, id: reference.id, allowsChat: allowsChat, onOpenTrip: onOpenTrip)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { dismiss() }
+                    }
+                }
+        }
+        .summarySheetSize()
+    }
+}
+
+/// Shared generated UI presentation, anchored above the invoking agent node.
+struct ChatGeneratedUIPopover: View {
+    let ui: ChatRenderedUI
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                TripViewRenderer(spec: ui.spec, currency: ui.currency)
+                    .padding()
+            }
+            .accessibilityIdentifier("chat-native-ui")
+            .navigationTitle(ui.title)
+            .summaryInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .frame(idealWidth: 360, idealHeight: 440)
+        #if os(macOS)
+        .frame(width: 400, height: 480)
+        #endif
+        .presentationCompactAdaptation(.popover)
+    }
+}
