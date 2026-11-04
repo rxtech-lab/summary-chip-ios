@@ -1,6 +1,6 @@
 import SummaryKit
 import SwiftUI
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
@@ -163,7 +163,7 @@ enum PaperEditorDecorations {
         return rects
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     private static func pathWithOval(_ rect: CGRect) -> UIBezierPath { UIBezierPath(ovalIn: rect) }
     private static func strokeLine(through points: [CGPoint], width: CGFloat) {
         let path = UIBezierPath()

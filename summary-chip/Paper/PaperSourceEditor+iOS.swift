@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import SummaryKit
 import SwiftUI
 import UIKit
@@ -23,7 +23,9 @@ struct PlatformSourceEditor: UIViewRepresentable {
         view.smartInsertDeleteType = .no
         view.spellCheckingType = .no
         view.keyboardType = .asciiCapable
+        #if !os(visionOS)
         view.keyboardDismissMode = .interactive
+        #endif
         view.alwaysBounceVertical = true
         view.backgroundColor = .systemBackground
         view.delegate = context.coordinator
@@ -77,7 +79,9 @@ struct PlatformSourceEditor: UIViewRepresentable {
         private var completion: LaTeXCompletionContext?
 
         func attachBar(to view: PaperUITextView) {
+            #if !os(visionOS)
             view.inputAccessoryView = bar
+            #endif
             bar.onPick = { [weak self, weak view] suggestion in
                 guard let self, let view else { return }
                 pick(suggestion, in: view)

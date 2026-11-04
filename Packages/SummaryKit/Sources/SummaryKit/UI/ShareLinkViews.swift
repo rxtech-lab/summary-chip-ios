@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 
 /// Where a list of share links is saved: a summary's links (which may be invite-only) or a podcast
@@ -202,7 +202,7 @@ public struct ShareLinksView: View {
     }
 
     private func copy(_ link: SummaryShareLink) {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         UIPasteboard.general.url = link.url
         #else
         NSPasteboard.general.clearContents()
@@ -432,7 +432,7 @@ public struct ShareLinkEditorSheet: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
-                #if os(iOS)
+                #if os(iOS) || os(visionOS)
                 UIPasteboard.general.url = link.url
                 #else
                 NSPasteboard.general.clearContents()
@@ -502,7 +502,7 @@ public struct ShareLinkEditorSheet: View {
             HStack {
                 TextField(String(localized: "Add email", bundle: .module), text: $newEmail, prompt: Text("name@example.com", bundle: .module))
                     .textContentType(.emailAddress)
-                    #if os(iOS)
+                    #if os(iOS) || os(visionOS)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     #endif

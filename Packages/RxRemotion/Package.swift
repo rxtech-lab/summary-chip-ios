@@ -4,7 +4,7 @@ import PackageDescription
 // Vendored from film-workflow's RxRemotion and extended to iOS. See README.md.
 let package = Package(
     name: "RxRemotion",
-    platforms: [.iOS(.v26), .macOS(.v26)],
+    platforms: [.iOS(.v26), .macOS(.v26), .visionOS(.v26)],
     products: [
         .library(name: "RxRemotion", targets: ["RxRemotion"]),
         .library(name: "RxRemotionUI", targets: ["RxRemotionUI"]),

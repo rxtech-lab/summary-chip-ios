@@ -94,7 +94,7 @@ struct MiniAppDetailView: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .glassEffect(.regular, in: Capsule())
+                    .platformGlassEffect(.regular, in: Capsule())
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .accessibilityIdentifier("mini-app-cover-status")

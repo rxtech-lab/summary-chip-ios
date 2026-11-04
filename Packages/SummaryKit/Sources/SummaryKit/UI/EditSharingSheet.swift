@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 
 /// Dedicated sheet for the summary's own link: visibility and lifetime (`PATCH /api/v1/summaries/:id`).

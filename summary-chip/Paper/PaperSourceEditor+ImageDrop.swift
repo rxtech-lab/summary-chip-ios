@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 // Native text views handle drops before their SwiftUI container. Route image drops into the
 // figure sheet so file URLs or attachments never become LaTeX source, while retaining text drops.
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 
 extension PlatformSourceEditor.Coordinator {

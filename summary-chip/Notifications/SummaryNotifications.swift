@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 import UserNotifications
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
@@ -133,7 +133,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
         registrationTask = Task {
             await previous?.value
             guard currentGeneration == generation, acceptsRegistrations, enabled, authorized, let environment, environment.authenticationState == .signedIn, let token else { return }
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             let platform = "ios"
             #else
             let platform = "macos"
@@ -179,7 +179,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func registerWithApple() {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         UIApplication.shared.registerForRemoteNotifications()
         #else
         NSApplication.shared.registerForRemoteNotifications()
@@ -187,7 +187,7 @@ final class SummaryNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func unregisterWithApple() {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         UIApplication.shared.unregisterForRemoteNotifications()
         #else
         NSApplication.shared.unregisterForRemoteNotifications()
@@ -261,7 +261,7 @@ extension Notification.Name {
     static let summaryTripPushReceived = Notification.Name("summaryTripPushReceived")
 }
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 final class SummaryAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         SummaryNotifications.shared.registered(deviceToken: deviceToken)

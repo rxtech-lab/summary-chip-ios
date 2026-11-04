@@ -17,7 +17,7 @@ struct PaperAssetView: View {
                 if file.fileExtension == "pdf" {
                     PaperPDFView(data: data)
                 } else {
-                    #if os(iOS)
+                    #if os(iOS) || os(visionOS)
                     if let image = UIImage(data: data) {
                         Image(uiImage: image).resizable().scaledToFit().padding()
                     } else { unavailable }

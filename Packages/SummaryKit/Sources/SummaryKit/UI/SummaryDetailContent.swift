@@ -1,7 +1,7 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import QuickLook
 import SwiftUI
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
@@ -302,7 +302,7 @@ public struct SummaryDetailContent: View {
         do {
             let file = try await loader.downloadOGImage(for: summary)
             // Decode before touching the clipboard so a failed download cannot replace its contents.
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             guard let image = UIImage(contentsOfFile: file.path) else { throw SummaryAPIError.invalidResponse }
             UIPasteboard.general.image = image
             #else

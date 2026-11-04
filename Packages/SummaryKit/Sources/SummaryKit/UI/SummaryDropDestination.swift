@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -68,7 +68,7 @@ public struct SummaryDropHighlight: View {
     }
 }
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 /// A file dropped from Files or another app. iOS lends it only during the drop, so it's staged.
 struct DroppedLocalFile: Transferable {
     let url: URL

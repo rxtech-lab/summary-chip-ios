@@ -215,8 +215,17 @@ final class LiveVoiceModel {
         if let entryID { chat?.recordVoiceTool(.toolInputAvailable(toolCallId: id, toolName: name, input: input), entryID: entryID) }
         toolTasks[id] = Task { [weak self] in
             guard let self, let api = self.api, let context = self.context else { return }
+            defer {
+                if self.generation == revision {
+                    self.toolTasks[id] = nil
+                    if self.toolTasks.isEmpty { self.audio?.setToolActivity(false) }
+                }
+            }
             let output: String
             do {
+                // Execute received calls immediately; narration playback must not gate work.
+                try Task.checkCancellation()
+                guard self.generation == revision else { return }
                 let result = try await api.executeLiveChatTool(context: context, name: name, callID: id, input: input)
                 try Task.checkCancellation()
                 guard self.generation == revision else { return }
@@ -231,8 +240,8 @@ final class LiveVoiceModel {
             do {
                 try await self.send(["type": "conversation-item-create", "item": ["type": "function-call-output", "callId": id, "name": name, "output": output]])
             } catch { self.fail(error.localizedDescription) }
-            self.toolTasks[id] = nil
         }
+        audio?.setToolActivity(true)
     }
 
     private func receiveCustomEvent(_ event: [String: Any]) {
@@ -242,6 +251,7 @@ final class LiveVoiceModel {
                 toolTasks[id]?.cancel(); toolTasks[id] = nil
                 if currentToolID == id { currentToolID = nil }
             }
+            if toolTasks.isEmpty { audio?.setToolActivity(false) }
         }
         if let content = raw?["serverContent"] as? [String: Any], content["interrupted"] as? Bool == true { audio?.interrupt(); assistantID = nil; currentToolID = nil }
     }

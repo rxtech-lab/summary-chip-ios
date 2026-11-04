@@ -1,5 +1,5 @@
 {
-  "originHash" : "60ceab590c3445702546ea3b87a55617b0eb95b7ae98eac5d46c91d5f1a463b4",
+  "originHash" : "b0bf1966f6424749abca582b5ddb01246a261844f85098b94e253ce347453b45",
   "pins" : [
     {
       "identity" : "kingfisher",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rxtech-lab/RxAgentSDK",
       "state" : {
-        "revision" : "15cd2bde13eef44e9fa02e1c7197ba771ad6e53e",
-        "version" : "1.0.8"
+        "revision" : "9a0161ab1806d494de97a201f3b5c83291e455a9",
+        "version" : "1.2.1"
       }
     },
     {
@@ -24,8 +24,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rxtech-lab/RxAuthSwift",
       "state" : {
-        "revision" : "c917e47df83292b9f4d6d03a80218d33da8f4886",
-        "version" : "1.3.1"
+        "revision" : "fad1772fcd4a4e9a252cd21ba180a92c5775d67c"
       }
     },
     {
@@ -33,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/rxtech-lab/RxSubscriptionIOS",
       "state" : {
-        "revision" : "cae18f034945030f1c513830f174f9f77b524ec3",
-        "version" : "1.2.0"
+        "revision" : "64afaf3205c0c1e2002c769eb86b67c513921c4d",
+        "version" : "1.2.1"
       }
     },
     {
@@ -51,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
-        "version" : "1.15.1"
+        "revision" : "c9c6bb9d275ec0d95c3ad16391f3f045dc623104",
+        "version" : "1.16.2"
       }
     },
     {

@@ -18,12 +18,14 @@ if (process.argv.includes("--graph-tools")) {
   config = { ...config, instructions: "Say hello. Do not call tools during this connection check.", tools };
 }
 const session = await createLiveChatSession(config);
-const checkAudio = process.argv.includes("--audio") || !!inputAudio;
+const checkNarration = process.argv.includes("--tool-narration");
+const checkAudio = process.argv.includes("--audio") || !!inputAudio || checkNarration;
 await new Promise<void>((resolve, reject) => {
   const socket = new WebSocket(session.url, session.protocols);
   let ready = false;
   let finished = false;
   let receivedAudio = false;
+  let receivedTool = false;
   const finish = (error?: Error) => {
     if (finished) return;
     finished = true;
@@ -50,16 +52,24 @@ await new Promise<void>((resolve, reject) => {
           })().catch(error => finish(error));
           continue;
         }
-        socket.send(JSON.stringify({ type: "conversation-item-create", item: { type: "text-message", role: "user", text: "Say hello in one short sentence." } }));
+        socket.send(JSON.stringify({ type: "conversation-item-create", item: { type: "text-message", role: "user", text: checkNarration ? "Search my library for chips about astronomy. Use askChippy now." : "Say hello in one short sentence." } }));
       }
       if (["audio-delta", "audio-chunk"].includes(event.type) && typeof event.delta === "string") {
         receivedAudio ||= Buffer.from(event.delta, "base64").length > 0;
       }
-      if (event.type === "response-done" && receivedAudio) finish();
+      if (checkNarration && event.type === "function-call-arguments-done") {
+        receivedTool = true;
+        // Synthetic result only: this check never executes a real user tool.
+        socket.send(JSON.stringify({ type: "conversation-item-create", item: { type: "function-call-output", callId: event.callId, name: event.name, output: JSON.stringify({ results: [], message: "No matching chips in this synthetic test library." }) } }));
+      }
+      if (checkNarration && event.type === "response-done" && !receivedTool) {
+        finish(new Error("Voice turn ended without a tool call (announcement-only response)")); return;
+      }
+      if (event.type === "response-done" && receivedAudio && (!checkNarration || receivedTool)) finish();
       if (event.type === "error") finish(new Error("Provider rejected live session setup"));
     }
   };
   socket.onerror = () => finish(new Error("Live WebSocket failed"));
   socket.onclose = (event) => { if (!finished) finish(new Error(`Live socket closed: ${event.code} ${event.reason}`)); };
 });
-console.log(checkAudio ? "Live audio response verified:" : "Live Gateway setup acknowledged:", session.model);
+console.log(checkNarration ? "Live tool call and spoken response verified:" : checkAudio ? "Live audio response verified:" : "Live Gateway setup acknowledged:", session.model);

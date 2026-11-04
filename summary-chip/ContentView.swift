@@ -115,7 +115,10 @@ struct ContentView: View {
 
     @ViewBuilder
     private var signedInContent: some View {
-        #if os(macOS)
+        #if os(visionOS)
+        MainTabView(environment: environment)
+
+        #elseif os(macOS)
         SidebarMainView(environment: environment)
         #else
         if horizontalSizeClass == .regular {

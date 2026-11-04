@@ -86,10 +86,10 @@ struct TripTourView: View {
                     Text("The tour doesn't cover this day yet. Regenerate it to include the trip as it is now.")
                 } actions: {
                     Button("Regenerate Tour") { confirmsRegenerate = true }
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.platformGlassProminent)
                 }
                 .padding(24)
-                .glassEffect(.regular, in: .rect(cornerRadius: 28))
+                .platformGlassEffect(.regular, in: .rect(cornerRadius: 28))
                 .padding(24)
             }
         }
@@ -174,7 +174,7 @@ struct TripTourView: View {
             }
             .labelStyle(.iconOnly)
             .font(.body.weight(.semibold))
-            .buttonStyle(.glass)
+            .buttonStyle(.platformGlass)
             .buttonBorderShape(.circle)
             .controlSize(.large)
             .keyboardShortcut(.cancelAction)
@@ -194,7 +194,7 @@ struct TripTourView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .frame(maxWidth: 420, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: 20))
+            .platformGlassEffect(.regular, in: .rect(cornerRadius: 20))
             Spacer(minLength: 0)
             Button {
                 confirmsRegenerate = true
@@ -203,7 +203,7 @@ struct TripTourView: View {
             }
             .labelStyle(.iconOnly)
             .font(.body.weight(.semibold))
-            .buttonStyle(.glass)
+            .buttonStyle(.platformGlass)
             .buttonBorderShape(.circle)
             .controlSize(.large)
             .disabled(player.tour == nil || player.phase == .loading)
@@ -421,7 +421,7 @@ private struct TripTourCaption: View {
                 }
                 .labelStyle(.iconOnly)
                 .font(.footnote.weight(.semibold))
-                .buttonStyle(.glass)
+                .buttonStyle(.platformGlass)
                 .buttonBorderShape(.circle)
                 .accessibilityIdentifier("trip-tour-minimize")
             }
@@ -433,7 +433,7 @@ private struct TripTourCaption: View {
             controls
         }
         .padding(isMinimized ? 14 : 18)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        .platformGlassEffect(.regular, in: .rect(cornerRadius: 28))
         .animation(.easeInOut(duration: 0.5), value: index)
         .animation(.easeInOut(duration: 0.3), value: isMinimized ? currentSentence.position : 0)
     }
@@ -504,7 +504,7 @@ private struct TripTourCaption: View {
                     .frame(width: 34, height: 34)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(.glassProminent)
+            .buttonStyle(.platformGlassProminent)
             .buttonBorderShape(.circle)
             .controlSize(.large)
             .accessibilityIdentifier("trip-tour-play")

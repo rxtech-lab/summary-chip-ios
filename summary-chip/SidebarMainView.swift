@@ -232,7 +232,9 @@ struct ChatPanelToolbarContent: ToolbarContent {
 
     var body: some ToolbarContent {
         if let isVisible {
+#if !os(visionOS)
             ToolbarSpacer(.fixed, placement: placement)
+#endif
             ToolbarItem(placement: placement) {
                 Button {
                     withAnimation { isVisible.wrappedValue.toggle() }

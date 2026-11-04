@@ -21,7 +21,9 @@ final class LocationProvider {
     }
 
     var isAuthorized: Bool {
-        #if os(iOS)
+        #if os(visionOS)
+        authorization == .authorizedWhenInUse
+        #elseif os(iOS)
         authorization == .authorizedWhenInUse || authorization == .authorizedAlways
         #else
         authorization == .authorized || authorization == .authorizedAlways

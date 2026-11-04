@@ -60,108 +60,8 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        NavigationStack(path: stackPath) {
-            content
-                .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
-                .navigationDestination(for: Summary.self) { summary in
-                    SummaryDestination(environment: environment, summary: summary)
-                        .chatPanelToolbar()
-                }
-                .refreshable { await model.reload() }
-                .onChange(of: scenePhase) { _, phase in
-                    // Pick up summaries made elsewhere (share extension, web) whenever the app is reopened.
-                    guard phase == .active, model.hasLoaded else { return }
-                    Task { await model.reload() }
-                }
-                .onChange(of: path?.wrappedValue ?? localPath) { _, path in
-                    // Details update the shared library; refresh the dedicated tab when returning.
-                    if isMiniApps && path.isEmpty { Task { await model.reload() } }
-                }
-                .toolbar { libraryToolbar }
-                .sensoryFeedback(.selection, trigger: podcastTaps)
-                .sheet(isPresented: $showsFilters) {
-                    LibraryFilterSheet(model: model) { applyFilter($0) }
-                }
-                .sheet(isPresented: $showsNewSummary) {
-                    NewSummarySheet(environment: environment)
-                }
-                .sheet(isPresented: $showsNewTrip) {
-                    NewTripSheet(api: environment.api) { trip in
-                        Task {
-                            guard let summary = await environment.libraryItem(forCreated: trip) else { return }
-                            // Let the sheet finish dismissing before pushing.
-                            try? await Task.sleep(for: .milliseconds(350))
-                            stackPath.wrappedValue.append(summary)
-                        }
-                    }
-                }
-                .sheet(isPresented: $showsNewMiniApp) {
-                    NewMiniAppSheet(environment: environment) { app in
-                        Task {
-                            guard let summary = try? await environment.api.summary(id: app.id) else { return }
-                            environment.library.upsert(summary)
-                            if isMiniApps { model.insert(summary) }
-                            try? await Task.sleep(for: .milliseconds(350))
-                            if !isMiniApps, let openLibraryItem {
-                                openLibraryItem(summary)
-                                return
-                            }
-                            stackPath.wrappedValue.append(summary)
-                        }
-                    }
-                }
-                .sheet(isPresented: $showsNewPodcast, onDismiss: refreshPlans) {
-                    DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true, onGenerated: presentGenerated)
-                }
-                .sheet(item: $resumedPlan, onDismiss: refreshPlans) { resumed in
-                    DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: resumed.library,
-                                                resumingPlan: resumed.plan, onGenerated: presentGenerated)
-                }
-                .confirmationDialog("Delete this planned podcast?", isPresented: Binding(get: { deletingPlan != nil }, set: { if !$0 { deletingPlan = nil } }),
-                                    titleVisibility: .visible, presenting: deletingPlan) { plan in
-                    Button("Delete Plan", role: .destructive) { deletePlan(plan) }
-                    Button("Cancel", role: .cancel) {}
-                } message: { _ in
-                    Text("Its script, storyboard and frames are removed. Points already spent on planning aren't refunded.")
-                }
-                .alert("Couldn't Open Plan", isPresented: Binding(get: { planError != nil }, set: { if !$0 { planError = nil } })) {
-                    Button("OK", role: .cancel) { planError = nil }
-                } message: { Text(planError ?? "") }
-                .overlay {
-                    if let planStatus {
-                        ProgressView(planStatus).padding(24)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    }
-                }
-                .sensoryFeedback(.success, trigger: planChanges)
-                .sensoryFeedback(.error, trigger: planError)
-                .sheet(isPresented: $showsNewGraph) {
-                    NewGraphSheet(api: environment.api, onCreated: openCreated)
-                }
-                .sheet(isPresented: $showsNewPaper) {
-                    NewPaperSheet(api: environment.api, onCreated: openCreated)
-                }
-                .sheet(isPresented: $showsCredits) {
-                    SummaryCreditsSheet(environment: environment)
-                }
-                .xSharing($xSharingRequest, api: environment.api)
-                .sheet(item: $sharingSummary) { summary in
-                    ShareModeSheet(summary: summary, api: environment.api) { updated in
-                        environment.library.upsert(updated)
-                        if isMiniApps { model.upsert(updated) }
-                    }
-                }
-                .sheet(item: $deletingSummary) { summary in
-                    DeleteSummarySheet(api: environment.api, summary: summary) {
-                        model.remove(id: summary.id)
-                        if isMiniApps { environment.library.remove(id: summary.id) }
-                        environment.likes.remove(id: summary.id)
-                        deletedCount += 1
-                    }
-                }
-                .sensoryFeedback(.success, trigger: deletedCount)
-                .sensoryFeedback(.selection, trigger: model.filter)
-                .likeStatusOverlay($likeStatus)
+        FeedNavigationContainer(environment: environment, path: stackPath) {
+            sharingContent
         }
         // Load with the navigation container, rather than reloading page one when detail is popped.
         .task {
@@ -169,6 +69,168 @@ struct LibraryView: View {
             await model.reload()
             didLoadInitially = model.hasLoaded
         }
+    }
+
+    // Opaque view boundaries keep each presentation chain small enough to type-check independently.
+    private var navigationContent: some View {
+        feedSurface
+            #if !os(visionOS)
+            .navigationTitle(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
+            .navigationDestination(for: Summary.self) { summary in
+                SummaryDestination(environment: environment, summary: summary)
+                    .chatPanelToolbar()
+            }
+            #endif
+            .refreshable { await model.reload() }
+            .onChange(of: scenePhase) { _, phase in
+                // Pick up summaries made elsewhere (share extension, web) whenever the app is reopened.
+                guard phase == .active, model.hasLoaded else { return }
+                Task { await model.reload() }
+            }
+            .onChange(of: path?.wrappedValue ?? localPath) { _, path in
+                // Details update the shared library; refresh the dedicated tab when returning.
+                if isMiniApps && path.isEmpty { Task { await model.reload() } }
+            }
+            #if !os(visionOS)
+            .toolbar { libraryToolbar }
+            #endif
+            .sensoryFeedback(.selection, trigger: podcastTaps)
+    }
+
+    @ViewBuilder
+    private var feedSurface: some View {
+        #if os(visionOS)
+        VStack(alignment: .leading, spacing: 16) {
+            Text(isMiniApps ? String(localized: "Clips") : String(localized: "Feed"))
+                .font(.largeTitle.bold())
+                .padding(.horizontal, 24)
+            content
+                .clipped()
+        }
+        .padding(.top, 24)
+        // Reserve space outside the scroll viewport for the bottom ornament.
+        .padding(.bottom, 80)
+        .ornament(attachmentAnchor: .scene(.bottom)) {
+            HStack(spacing: 16) {
+                Button { showsCredits = true } label: {
+                    Label("\(pointsTitle) pts", systemImage: "sparkles")
+                }
+                createButton
+                if let openSearch { SummarySearchButton(action: openSearch) }
+                Button("Filters", systemImage: "line.3.horizontal.decrease") { showsFilters = true }
+                backgroundJobsButton
+                Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.reload() } }
+            }
+            .labelStyle(.iconOnly)
+            .padding(12)
+            .glassBackgroundEffect(in: Capsule())
+        }
+        #else
+        content
+        #endif
+    }
+
+    private var creationContent: some View {
+        navigationContent
+            .sheet(isPresented: $showsFilters) {
+                LibraryFilterSheet(model: model) { applyFilter($0) }
+            }
+            .sheet(isPresented: $showsNewSummary) {
+                NewSummarySheet(environment: environment)
+            }
+            .sheet(isPresented: $showsNewTrip) {
+                NewTripSheet(api: environment.api) { trip in
+                    Task {
+                        guard let summary = await environment.libraryItem(forCreated: trip) else { return }
+                        // Let the sheet finish dismissing before pushing.
+                        try? await Task.sleep(for: .milliseconds(350))
+                        stackPath.wrappedValue.append(summary)
+                    }
+                }
+            }
+            .sheet(isPresented: $showsNewMiniApp) {
+                NewMiniAppSheet(environment: environment) { app in
+                    Task {
+                        guard let summary = try? await environment.api.summary(id: app.id) else { return }
+                        environment.library.upsert(summary)
+                        if isMiniApps { model.insert(summary) }
+                        try? await Task.sleep(for: .milliseconds(350))
+                        if !isMiniApps, let openLibraryItem {
+                            openLibraryItem(summary)
+                            return
+                        }
+                        stackPath.wrappedValue.append(summary)
+                    }
+                }
+            }
+    }
+
+    private var podcastContent: some View {
+        creationContent
+            .sheet(isPresented: $showsNewPodcast, onDismiss: refreshPlans) {
+                DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true, onGenerated: presentGenerated)
+            }
+            .sheet(item: $resumedPlan, onDismiss: refreshPlans) { resumed in
+                DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: resumed.library,
+                                            resumingPlan: resumed.plan, onGenerated: presentGenerated)
+            }
+    }
+
+    private var planFeedbackContent: some View {
+        podcastContent
+            .confirmationDialog("Delete this planned podcast?", isPresented: Binding(get: { deletingPlan != nil }, set: { if !$0 { deletingPlan = nil } }),
+                                titleVisibility: .visible, presenting: deletingPlan) { plan in
+                Button("Delete Plan", role: .destructive) { deletePlan(plan) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("Its script, storyboard and frames are removed. Points already spent on planning aren't refunded.")
+            }
+            .alert("Couldn't Open Plan", isPresented: Binding(get: { planError != nil }, set: { if !$0 { planError = nil } })) {
+                Button("OK", role: .cancel) { planError = nil }
+            } message: { Text(planError ?? "") }
+            .overlay {
+                if let planStatus {
+                    ProgressView(planStatus).padding(24)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+            .sensoryFeedback(.success, trigger: planChanges)
+            .sensoryFeedback(.error, trigger: planError)
+    }
+
+    private var documentCreationContent: some View {
+        planFeedbackContent
+            .sheet(isPresented: $showsNewGraph) {
+                NewGraphSheet(api: environment.api, onCreated: openCreated)
+            }
+            .sheet(isPresented: $showsNewPaper) {
+                NewPaperSheet(api: environment.api, onCreated: openCreated)
+            }
+            .sheet(isPresented: $showsCredits) {
+                SummaryCreditsSheet(environment: environment)
+            }
+    }
+
+    private var sharingContent: some View {
+        documentCreationContent
+            .xSharing($xSharingRequest, api: environment.api)
+            .sheet(item: $sharingSummary) { summary in
+                ShareModeSheet(summary: summary, api: environment.api) { updated in
+                    environment.library.upsert(updated)
+                    if isMiniApps { model.upsert(updated) }
+                }
+            }
+            .sheet(item: $deletingSummary) { summary in
+                DeleteSummarySheet(api: environment.api, summary: summary) {
+                    model.remove(id: summary.id)
+                    if isMiniApps { environment.library.remove(id: summary.id) }
+                    environment.likes.remove(id: summary.id)
+                    deletedCount += 1
+                }
+            }
+            .sensoryFeedback(.success, trigger: deletedCount)
+            .sensoryFeedback(.selection, trigger: model.filter)
+            .likeStatusOverlay($likeStatus)
     }
 
     private var newDocumentMenu: some View {
@@ -454,7 +516,9 @@ struct LibraryView: View {
                     Text(error).font(.footnote).foregroundStyle(.red).padding()
                 }
             }
+            #if !os(visionOS)
             .background(Color.summaryGroupedBackground)
+            #endif
         }
     }
 

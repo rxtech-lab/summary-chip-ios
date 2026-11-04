@@ -83,7 +83,7 @@ struct VersionPreviewBanner: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
+            .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .transition(.move(edge: .bottom).combined(with: .opacity))

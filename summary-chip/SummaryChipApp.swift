@@ -5,7 +5,7 @@ import SwiftUI
 
 @main
 struct SummaryChipApp: App {
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     @UIApplicationDelegateAdaptor(SummaryAppDelegate.self) private var appDelegate
     #else
     @NSApplicationDelegateAdaptor(SummaryAppDelegate.self) private var appDelegate
@@ -33,7 +33,7 @@ struct SummaryChipApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             appContent
                 .miniAppPresenter(environment: environment)
                 #if os(macOS)
@@ -53,7 +53,7 @@ struct SummaryChipApp: App {
                     if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") || ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-graph") { return }
-                    #if os(iOS)
+                    #if os(iOS) || os(visionOS)
                     if ProcessInfo.processInfo.arguments.contains("--preview-local-file") { return }
                     #endif
                     if ProcessInfo.processInfo.arguments.contains("--preview-education") { return }
@@ -78,6 +78,10 @@ struct SummaryChipApp: App {
                     Task { await environment.sessionExpired() }
                 }
         }
+        #if os(visionOS)
+        .windowStyle(.plain)
+        .defaultSize(width: 1100, height: 760)
+        #endif
         #if os(macOS)
         .defaultSize(width: 1100, height: 760)
         .commands {
@@ -91,6 +95,9 @@ struct SummaryChipApp: App {
                 }
             }
         }
+        #endif
+        #if os(visionOS)
+        SpatialGraphWindows(environment: environment)
         #endif
         #if os(macOS)
         MiniAppWindow(environment: environment)

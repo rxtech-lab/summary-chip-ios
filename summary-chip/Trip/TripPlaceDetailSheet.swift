@@ -249,7 +249,7 @@ struct TripPlaceDetailSheet: View {
 
     private func copyCoordinate() {
         let text = "\(place.coordinate.lat), \(place.coordinate.lng)"
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         UIPasteboard.general.string = text
         #else
         NSPasteboard.general.clearContents()

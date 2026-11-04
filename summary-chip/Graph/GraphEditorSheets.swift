@@ -140,7 +140,7 @@ private struct GraphElementDataSections: View {
                 .autocorrectionDisabled()
                 .accessibilityLabel(Text("Properties JSON"))
                 .accessibilityIdentifier("graph-properties-editor")
-                #if os(iOS)
+                #if os(iOS) || os(visionOS)
                 .textInputAutocapitalization(.never)
                 #endif
         } header: {
@@ -154,7 +154,7 @@ private struct GraphElementDataSections: View {
                 .frame(minHeight: 90)
                 .autocorrectionDisabled()
                 .accessibilityLabel(Text("Custom view JSON"))
-                #if os(iOS)
+                #if os(iOS) || os(visionOS)
                 .textInputAutocapitalization(.never)
                 #endif
         } header: {

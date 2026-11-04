@@ -44,3 +44,12 @@ export function appStoreUrl(): string | null {
   const appId = process.env.APP_STORE_ID?.trim();
   return appId && /^\d+$/.test(appId) ? `https://apps.apple.com/app/id${appId}` : null;
 }
+
+/** Conservative token estimates include serialized tool results and schemas. */
+export const CHAT_CONTEXT = {
+  thresholdTokens: 80_000,
+  chunkTokens: 16_000,
+  recentTokens: 12_000,
+  summaryTokens: 1_000,
+  charsPerToken: 2,
+} as const;

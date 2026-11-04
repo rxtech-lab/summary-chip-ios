@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import SummaryKit
 import UIKit
 
@@ -20,7 +20,9 @@ final class PaperCompletionBar: UIInputView {
 
     private let scroll = UIScrollView()
     private let stack = UIStackView()
+    #if os(iOS)
     private let feedback = UISelectionFeedbackGenerator()
+    #endif
     private var shown: ([LaTeXSuggestion], Info?)?
 
     init() {
@@ -100,7 +102,9 @@ final class PaperCompletionBar: UIInputView {
             return attributes
         }
         let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in
+            #if os(iOS)
             self?.feedback.selectionChanged()
+            #endif
             action()
         })
         button.widthAnchor.constraint(lessThanOrEqualToConstant: 240).isActive = true

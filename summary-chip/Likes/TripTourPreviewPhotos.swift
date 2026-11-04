@@ -1,7 +1,7 @@
 #if DEBUG
 import Foundation
 import SummaryKit
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
@@ -17,7 +17,7 @@ nonisolated final class TripTourPreviewPhotos: URLProtocol {
         guard isEnabled else { return }
         var loaded: [String: Data] = [:]
         for name in ["FeatureTripDiary", "WelcomeSafari"] {
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             loaded[name] = UIImage(named: name)?.pngData()
             #else
             loaded[name] = NSImage(named: name)?.tiffRepresentation.flatMap {

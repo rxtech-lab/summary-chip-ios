@@ -1,6 +1,6 @@
 import MediaPlayer
 import SummaryKit
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
@@ -122,7 +122,7 @@ final class PodcastNowPlaying {
     }
 
     private nonisolated static func artwork(_ data: Data) -> MPMediaItemArtwork? {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         guard let image = UIImage(data: data) else { return nil }
         #else
         guard let image = NSImage(data: data) else { return nil }

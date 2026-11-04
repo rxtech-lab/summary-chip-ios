@@ -107,15 +107,7 @@ struct LiveVoiceControls: View {
                         .accessibilityLabel("Voice session duration")
                 }
                 .frame(width: 62)
-                HStack(spacing: 3) {
-                    ForEach(0..<25) { index in
-                        Capsule().fill(.cyan.gradient)
-                            .frame(width: 3, height: 3 + voice.inputLevel * (12 + 20 * abs(sin(Double(index) * 0.8))))
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: voice.inputLevel)
-                .accessibilityLabel(voice.isConnecting ? "Connecting" : "Microphone input level")
+                VoiceInputWaveform(level: voice.inputLevel, isConnecting: voice.isConnecting)
                 Button(role: .destructive) { voice.stop() } label: {
                     Image(systemName: "stop.fill").frame(width: 44, height: 44)
                 }
@@ -208,7 +200,7 @@ struct LiveVoiceControls: View {
             }
             .frame(height: min(responseHeight, max(44, responseContentHeight)))
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         // The glass hugs short content while the reserved space keeps the globe stable.
         .frame(height: responseHeight, alignment: .bottom)
@@ -271,7 +263,22 @@ private final class VoiceGlobeScene {
 
     init() {
         scene.background.contents = PlatformGlobeColor.clear
-        buildHologram()
+        if let url = Bundle.main.url(forResource: "ChippySciFiGlobe", withExtension: "usdz"),
+           let asset = try? SCNScene(url: url) {
+            let root = asset.rootNode.clone()
+            let (minimum, maximum) = root.boundingBox
+            let extent = max(maximum.x - minimum.x, max(maximum.y - minimum.y, maximum.z - minimum.z))
+            if extent > 0 {
+                let scale = 2 / extent
+                root.scale = SCNVector3(scale, scale, scale)
+                root.position = SCNVector3(-(minimum.x + maximum.x) * scale / 2,
+                                          -(minimum.y + maximum.y) * scale / 2,
+                                          -(minimum.z + maximum.z) * scale / 2)
+            }
+            orb.addChildNode(root)
+        } else {
+            buildHologram()
+        }
         let tilt = SCNNode()
         tilt.eulerAngles.z = 0.15
         tilt.addChildNode(orb)
@@ -425,7 +432,7 @@ private struct TransparentVoiceGlobeView {
     func makeGlobeView() -> SCNView {
         let view = SCNView(frame: .zero)
         view.backgroundColor = .clear
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         view.isOpaque = false
         #endif
         view.scene = scene
@@ -450,7 +457,7 @@ extension TransparentVoiceGlobeView: UIViewRepresentable {
 #endif
 
 /// Uses the agent playback level, independently of the microphone meter below.
-private struct AgentVoiceWaves: View {
+struct AgentVoiceWaves: View {
     let level: Double
     let isSpeaking: Bool
     let reduceMotion: Bool
@@ -481,5 +488,24 @@ private struct AgentVoiceWaves: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// Shared microphone visualization for Mac and spatial voice controls.
+struct VoiceInputWaveform: View {
+    let level: Double
+    var isConnecting = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<25) { index in
+                Capsule().fill(.cyan.gradient)
+                    .frame(width: 3, height: 3 + min(1, max(0, level)) * (12 + 20 * abs(sin(Double(index) * 0.8))))
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 40)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: level)
+        .accessibilityLabel(isConnecting ? "Connecting" : "Microphone input level")
     }
 }

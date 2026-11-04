@@ -173,7 +173,7 @@ struct DailyPodcastSheet: View {
 
     #if os(macOS)
     private var macPlayerBar: some View {
-        GlassEffectContainer(spacing: 12) {
+        PlatformGlassContainer(spacing: 12) {
             HStack(spacing: 12) {
                 Button("Done") { dismiss() }
                 Spacer(minLength: 8)
@@ -341,7 +341,7 @@ struct DailyPodcastSheet: View {
                 self.readyVideo = nil
                 player.replace(readyVideo)
             } label: { Label("Video Ready – Watch", systemImage: "play.rectangle.fill") }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.platformGlassProminent)
                 .padding()
                 .accessibilityIdentifier("podcast-video-ready")
         } else if designProgress != nil || renderState != nil {
@@ -411,7 +411,7 @@ private struct MacPlayerGlassButtonStyle: ButtonStyle {
             .padding(.horizontal, 14)
             .frame(minWidth: 34, minHeight: 34)
             .contentShape(.capsule)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .platformGlassEffect(.regular.interactive(), in: .capsule)
             .opacity(configuration.isPressed ? 0.8 : 1)
     }
 }
