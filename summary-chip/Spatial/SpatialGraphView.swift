@@ -182,8 +182,8 @@ struct SpatialGraphWindows: SwiftUI.Scene {
                     .onDisappear { finishGraph(id) }
             }
         }
-        .windowStyle(.plain)
-        .defaultSize(width: 900, height: 700)
+        .windowStyle(.volumetric)
+        .defaultSize(width: 1, height: 1, depth: 1, in: .meters)
 
         WindowGroup("Node", id: "graph-node", for: SpatialGraphNodeID.self) { $selection in
             if let selection {
@@ -328,6 +328,141 @@ private struct SpatialGraphNodeWindow: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .environment(\.summaryAssetLoader, environment.assetLoader)
+    }
+}
+#endif
+
+#if os(visionOS)
+/// Real geometry gives each eye its own perspective, including when walking around the graph.
+struct SpatialGraphRealityView: View {
+    @Bindable var model: GraphModel
+    let document: GraphDocument
+    let onTap: (GraphElementRef?, CGSize) -> Void
+    @State private var dragStart: simd_quatd?
+    @State private var initialZoom: Double?
+    @State private var scene = SpatialGraphEntityCache()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        GeometryReader { geometry in
+            RealityView { content in
+                updateGraph()
+                content.add(scene.container)
+            } update: { content in
+                updateGraph()
+            }
+            .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded { value in
+                let name = value.entity.name
+                if name.hasPrefix("node:") {
+                    onTap(.node(String(name.dropFirst(5))), geometry.size)
+                } else if name.hasPrefix("edge:") {
+                    onTap(.edge(String(name.dropFirst(5))), geometry.size)
+                }
+            })
+            .simultaneousGesture(DragGesture().targetedToAnyEntity()
+                .onChanged { value in
+                    model.stopCamera()
+                    if dragStart == nil { dragStart = model.camera.rotation }
+                    let yaw = simd_quatd(angle: Double(value.translation.width) / 200, axis: [0, 1, 0])
+                    let pitch = simd_quatd(angle: Double(value.translation.height) / 200, axis: [1, 0, 0])
+                    model.camera.rotation = yaw * pitch * (dragStart ?? model.camera.rotation)
+                }.onEnded { _ in dragStart = nil })
+            .simultaneousGesture(MagnifyGesture().targetedToAnyEntity().onChanged { value in
+                model.stopCamera()
+                if initialZoom == nil { initialZoom = model.camera.zoom }
+                model.camera.zoom = min(2, max(0.3, (initialZoom ?? 1) * value.gestureValue.magnification))
+            }.onEnded { _ in initialZoom = nil })
+            .task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(33))
+                    if !reduceMotion && scenePhase == .active && model.autoRotate && dragStart == nil && initialZoom == nil {
+                        model.rotateAutomatically(seconds: 0.033)
+                    }
+                }
+            }
+        }
+    }
+
+    private func updateGraph() {
+        let visibleNodes = document.nodes.filter { model.visibility.shows(node: $0.id) }.map(\.id)
+        let visibleEdges = document.edges.filter { model.visibility.shows(edge: $0.id) }.map(\.id)
+        if scene.document != document || scene.positions != model.positions
+            || scene.visibleNodes != visibleNodes || scene.visibleEdges != visibleEdges {
+            scene.graph.children.removeAll()
+            let geometry = makeGraph()
+            scene.graph.addChild(geometry)
+            scene.document = document
+            scene.positions = model.positions
+            scene.visibleNodes = visibleNodes
+            scene.visibleEdges = visibleEdges
+        }
+        scene.graph.orientation = simd_quatf(vector: SIMD4<Float>(model.camera.rotation.vector))
+        scene.graph.scale = SIMD3(repeating: Float(min(2, max(0.3, model.camera.zoom))))
+    }
+
+    private func makeGraph() -> Entity {
+        let root = Entity()
+        func position(_ id: String) -> SIMD3<Float> {
+            let point = model.positions[id] ?? .zero
+            return SIMD3(Float(point.x), -Float(point.y), Float(point.z)) * 0.4
+        }
+        for node in document.nodes where model.visibility.shows(node: node.id) {
+            let sphere = ModelEntity(mesh: .generateSphere(radius: 0.02), materials: [
+                SimpleMaterial(color: UIColor(GraphPalette.color(for: node)), isMetallic: false)
+            ])
+            sphere.name = "node:" + node.id
+            sphere.position = position(node.id)
+            sphere.components.set(CollisionComponent(shapes: [.generateSphere(radius: 0.035)]))
+            sphere.components.set(InputTargetComponent())
+            sphere.components.set(HoverEffectComponent())
+            root.addChild(sphere)
+            let label = ModelEntity(mesh: .generateText(node.label, extrusionDepth: 0.1,
+                font: .systemFont(ofSize: 12), containerFrame: .zero, alignment: .center,
+                lineBreakMode: .byTruncatingTail), materials: [UnlitMaterial(color: .white)])
+            label.scale = SIMD3(repeating: 0.0015)
+            label.position = sphere.position + SIMD3(0.026, 0, 0)
+            root.addChild(label)
+        }
+        for edge in document.edges where model.visibility.shows(edge: edge.id) {
+            guard model.positions[edge.source] != nil, model.positions[edge.target] != nil else { continue }
+            let start = position(edge.source), end = position(edge.target)
+            let delta = end - start
+            let length = simd_length(delta)
+            guard length > 0.0001 else { continue }
+            let rod = ModelEntity(mesh: .generateBox(size: [0.002, length, 0.002], cornerRadius: 0.001),
+                                  materials: [SimpleMaterial(color: .gray, isMetallic: false)])
+            rod.name = "edge:" + edge.id
+            rod.position = (start + end) / 2
+            rod.orientation = simd_quatf(from: [0, 1, 0], to: delta / length)
+            rod.generateCollisionShapes(recursive: false)
+            rod.components.set(InputTargetComponent())
+            root.addChild(rod)
+        }
+        return root
+    }
+}
+#endif
+
+#if os(visionOS)
+/// Preserve entity identities during camera updates so an active gesture keeps its target.
+@MainActor
+private final class SpatialGraphEntityCache {
+    let container = Entity()
+    let graph = Entity()
+    var document: GraphDocument?
+    var positions: [String: SIMD3<Double>] = [:]
+    var visibleNodes: [String] = []
+    var visibleEdges: [String] = []
+
+    init() {
+        container.addChild(graph)
+        // A broad target behind the graph lets users start a drag or pinch between nodes.
+        let surface = Entity()
+        surface.position.z = -0.48
+        surface.components.set(CollisionComponent(shapes: [.generateBox(size: [0.96, 0.96, 0.01])]))
+        surface.components.set(InputTargetComponent())
+        container.addChild(surface)
     }
 }
 #endif
