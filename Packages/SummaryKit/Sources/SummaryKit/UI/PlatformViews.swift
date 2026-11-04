@@ -23,6 +23,8 @@ public extension ToolbarItemPlacement {
         #if os(macOS)
         // Leave the trailing primary-action position for the shared agent toggle.
         .automatic
+        #elseif os(visionOS)
+        .bottomOrnament
         #else
         .topBarTrailing
         #endif
@@ -31,6 +33,8 @@ public extension ToolbarItemPlacement {
     static var summaryLeading: ToolbarItemPlacement {
         #if os(macOS)
         .navigation
+        #elseif os(visionOS)
+        .bottomOrnament
         #else
         .topBarLeading
         #endif
@@ -40,7 +44,7 @@ public extension ToolbarItemPlacement {
 public extension View {
     @ViewBuilder
     func summaryInlineNavigationTitle() -> some View {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         navigationBarTitleDisplayMode(.inline)
         #else
         self
@@ -49,7 +53,7 @@ public extension View {
 
     @ViewBuilder
     func summaryInputCapitalization() -> some View {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         textInputAutocapitalization(.never)
         #else
         self
@@ -58,7 +62,7 @@ public extension View {
 
     @ViewBuilder
     func summaryHideTabBar() -> some View {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         toolbar(.hidden, for: .tabBar)
         #else
         self

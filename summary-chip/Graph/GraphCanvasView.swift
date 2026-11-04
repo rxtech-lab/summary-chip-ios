@@ -62,7 +62,9 @@ struct GraphCanvasView: View {
                     selectedElements: Set(selectedElements)
                 ).draw(in: &context, size: size)
             }
+            #if !os(visionOS)
             .background { GraphBackdrop(camera: model.camera).allowsHitTesting(false).accessibilityHidden(true) }
+            #endif
             .contentShape(Rectangle())
             #if os(macOS)
             .background {

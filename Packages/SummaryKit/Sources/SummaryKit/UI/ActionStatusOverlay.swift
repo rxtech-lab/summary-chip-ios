@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 
 /// Progress overlay for in-flight actions. Outcomes that need acknowledging use `statusAlert`.

@@ -75,7 +75,7 @@ struct TripPhotoViewer: View {
                 .font(.headline)
                 .frame(width: 44, height: 44)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.platformGlass)
         .buttonBorderShape(.circle)
         .keyboardShortcut(.cancelAction)
         .accessibilityLabel("Close")
@@ -98,7 +98,7 @@ struct TripPhotoViewer: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .glassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .platformGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(20)
             .allowsHitTesting(false)
         }
@@ -208,7 +208,7 @@ struct ZoomableContent<Content: View>: View {
                 .disabled(scale >= Self.maxScale)
                 .accessibilityLabel("Zoom In")
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.platformGlass)
         .padding(16)
     }
 

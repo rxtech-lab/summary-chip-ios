@@ -24,6 +24,7 @@
 		0DD7683F3155D438CDD97038 /* ChatStreamingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92CEBF504F3F08A90F21655D /* ChatStreamingUITests.swift */; };
 		0DE3A037B780496E2AE33FC6 /* GraphModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F091E1DA3EA16E1DF36AE52D /* GraphModel.swift */; };
 		0FA006E202C2548060232A91 /* SummaryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 11A91FEC1A6F21A06E07AA2E /* SummaryKit */; };
+		0FE0F7AE96D0925ED6E6C54B /* FeedNavigationContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5924225FCF91D13D9627D3CC /* FeedNavigationContainer.swift */; };
 		1527B842A732CEAB80A0C9D3 /* DayEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC8DB98FCE639E0092D5022 /* DayEditorSheet.swift */; };
 		1579CAC416F08503897B5675 /* SummaryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6EBCB13481C544DB8725F26 /* SummaryDetailView.swift */; };
 		15B1056B11B85B147B35E133 /* SummaryChipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886A9B63B05F64D3BB5CD9C7 /* SummaryChipApp.swift */; };
@@ -167,6 +168,7 @@
 		9F0EA9CC1D1013114E22494F /* TripEditorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6165D5EEFE21F50D353DBE4 /* TripEditorModel.swift */; };
 		A00A94EE5C2FCED68572606B /* PodcastNowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F6345BA5BFF3A572FCB2223 /* PodcastNowPlaying.swift */; };
 		A112FEB21084F38266ED6DE0 /* ExpiredSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A1E82976A1D45A28B24431 /* ExpiredSummaryView.swift */; };
+		A2B1DF1193E1DD012515B12F /* SpatialGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D243AA960BA62E1ECD7F73F /* SpatialGraphView.swift */; };
 		A40212A0F93F0C25157C5FE2 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BDDEFD839800D2C35B62FE /* ChatView.swift */; };
 		A764E3595ADB70374738A904 /* TripMapCameraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEF01AC803F12B398A189AB /* TripMapCameraTests.swift */; };
 		A8D1F992B9ECCC01EEBA2747 /* PaperReaderPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D5B0955F005049CA4144D2 /* PaperReaderPreviewHost.swift */; };
@@ -187,6 +189,7 @@
 		C07D0758570700338E8522EC /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834E013F2DE722C876CEECE6 /* LibraryView.swift */; };
 		C0FDC5BA50421007A1766230 /* PaperSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3984744E08F8E312452E82F6 /* PaperSheets.swift */; };
 		C1109D45C7E2374DD9E3D56A /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AB13FBC7E7504A0E9D7186 /* ScreenshotTests.swift */; };
+		C6B95CA497AE0FC7CFC30127 /* SpatialLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6AFD85A9D357140A81A0A22 /* SpatialLibraryView.swift */; };
 		C723705078F709EBE7A4ED72 /* LocalFileUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81068B73DA4992674C619696 /* LocalFileUITests.swift */; };
 		C79F0E94E211994C23BEDC21 /* PaperImageImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35B2DC4D2CF3B92E7D0AFEA /* PaperImageImportTests.swift */; };
 		C88B85D17A4B54E3C71639D7 /* TripMapCameraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEF01AC803F12B398A189AB /* TripMapCameraTests.swift */; };
@@ -223,6 +226,7 @@
 		E620586B187E44C1ED844963 /* FlightLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753822015A09F12B53D4B840 /* FlightLiveActivities.swift */; };
 		E64745EFDD2773655182DA1E /* TripPlacePreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EC082039EF2E2203D74004F /* TripPlacePreviewCard.swift */; };
 		E6ED9477CE955254A784CC3A /* PaperEditorPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90EAEA0DCDAE37E441E52ABE /* PaperEditorPreviewHost.swift */; };
+		E781295F7588002F961DB008 /* PlatformGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ED076AFBB9AC4A64929E84 /* PlatformGlass.swift */; };
 		E7E928CC896FE451474DAE21 /* SummaryCreditsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F89723DDC4FB1451D0A2FF /* SummaryCreditsSheet.swift */; };
 		E93A3C6C0D30415FD90F2FCD /* ChatToolViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04F70E39AD207406D594E78 /* ChatToolViews.swift */; };
 		E96DD2B37FEB0C38ACD0CCDE /* MessagesRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A141BAA3550BC60119519E0 /* MessagesRootView.swift */; };
@@ -360,6 +364,7 @@
 		15B1F99A4236914FF14FC2C3 /* GraphEditorSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphEditorSheets.swift; sourceTree = "<group>"; };
 		15EC783A2AE36D6B2435F648 /* SummaryClip.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SummaryClip.entitlements; sourceTree = "<group>"; };
 		17A09A8EF15597BF62F35D16 /* PaperExportUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperExportUITests.swift; sourceTree = "<group>"; };
+		17ED076AFBB9AC4A64929E84 /* PlatformGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformGlass.swift; sourceTree = "<group>"; };
 		198ED71EADFA22321D3EA812 /* PaperPDFView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperPDFView.swift; sourceTree = "<group>"; };
 		1D08C0CD350C91CAE437AA2A /* PaperEditorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperEditorUITests.swift; sourceTree = "<group>"; };
 		1D3FE4C76685F4031C0720C1 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -424,6 +429,7 @@
 		557473BD08A367A02835DC46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5782EBFD2551E11B613425D7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5786DDD23C5CB21FC9921038 /* PaperDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperDetailView.swift; sourceTree = "<group>"; };
+		5924225FCF91D13D9627D3CC /* FeedNavigationContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedNavigationContainer.swift; sourceTree = "<group>"; };
 		5A01AC90F517CEDCD4CF362D /* TripViewEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripViewEditorSheet.swift; sourceTree = "<group>"; };
 		5A141BAA3550BC60119519E0 /* MessagesRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesRootView.swift; sourceTree = "<group>"; };
 		5A386A5087F84852057C81DE /* MiniAppNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppNodeView.swift; sourceTree = "<group>"; };
@@ -473,6 +479,7 @@
 		8C2B653216E19F14C5C929DE /* SummaryEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryEntity.swift; sourceTree = "<group>"; };
 		8C701057B10532B2E37EAD1A /* TripDiaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDiaryView.swift; sourceTree = "<group>"; };
 		8C8FF0F4471FD744AB0702AE /* HotelExpenseEditorSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotelExpenseEditorSheets.swift; sourceTree = "<group>"; };
+		8D243AA960BA62E1ECD7F73F /* SpatialGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialGraphView.swift; sourceTree = "<group>"; };
 		8D42210D723B71EE116A900D /* TripTourLandmarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTourLandmarks.swift; sourceTree = "<group>"; };
 		8E7D873A75A2C0A06A725C53 /* DailyPodcastPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPodcastPlayer.swift; sourceTree = "<group>"; };
 		8E802279780E1BBB8687A43F /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
@@ -523,6 +530,7 @@
 		BE764A94FE8C7A474FEAAE42 /* GraphQuerySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphQuerySheet.swift; sourceTree = "<group>"; };
 		BFFF385C09123668D86580C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C26C179DEA44BFEF3EC74966 /* PaperLanguageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperLanguageSheet.swift; sourceTree = "<group>"; };
+		C6AFD85A9D357140A81A0A22 /* SpatialLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialLibraryView.swift; sourceTree = "<group>"; };
 		C7AAD7EA997406CAF406B1F7 /* GraphCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphCanvasView.swift; sourceTree = "<group>"; };
 		CB465ADF91B8E1FFEEE5481E /* summary-chip.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "summary-chip.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC03184942FC1C8E64D4999F /* PaperAssetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperAssetView.swift; sourceTree = "<group>"; };
@@ -673,6 +681,7 @@
 				5DC5FB6857E837DA55909EF3 /* Search */,
 				C8C7C89938A9021FACE5B578 /* Services */,
 				17E58B455690B814026BF8CE /* Settings */,
+				EC0C700EAA269B8C2B43D044 /* Spatial */,
 				9CD4733B8EFEC9B553D4856E /* Trip */,
 				807E62C30B7F0B829102AAE0 /* Updates */,
 				8F0616A3B395F955EE2AE18B /* Versions */,
@@ -1109,6 +1118,17 @@
 				6BD9E4F3CA762BE9EAB67977 /* SmartShare.entitlements */,
 			);
 			path = SmartShare;
+			sourceTree = "<group>";
+		};
+		EC0C700EAA269B8C2B43D044 /* Spatial */ = {
+			isa = PBXGroup;
+			children = (
+				5924225FCF91D13D9627D3CC /* FeedNavigationContainer.swift */,
+				17ED076AFBB9AC4A64929E84 /* PlatformGlass.swift */,
+				8D243AA960BA62E1ECD7F73F /* SpatialGraphView.swift */,
+				C6AFD85A9D357140A81A0A22 /* SpatialLibraryView.swift */,
+			);
+			path = Spatial;
 			sourceTree = "<group>";
 		};
 		F4D6C2F4F8C2BBDBBF47482A /* summary-chipTests */ = {
@@ -1586,6 +1606,7 @@
 				581251E0D6B63462FC075975 /* DocumentVersionsModel.swift in Sources */,
 				7E370DB6D7CAF007E6986F60 /* EducationSheet.swift in Sources */,
 				A112FEB21084F38266ED6DE0 /* ExpiredSummaryView.swift in Sources */,
+				0FE0F7AE96D0925ED6E6C54B /* FeedNavigationContainer.swift in Sources */,
 				E620586B187E44C1ED844963 /* FlightLiveActivities.swift in Sources */,
 				41B37588EE14979AFC018A9C /* FlightViews.swift in Sources */,
 				8ED25CE6ED1AE39B3E8DF8BA /* GraphCanvasView.swift in Sources */,
@@ -1659,6 +1680,7 @@
 				67F1B9E2E742DD1CA354DBF9 /* PaperSourceEditor.swift in Sources */,
 				7F129D40E695560FE5DA42F8 /* PaperSplitView.swift in Sources */,
 				679A30C564951D5B3EB7EBE9 /* PlaceEditorSheet.swift in Sources */,
+				E781295F7588002F961DB008 /* PlatformGlass.swift in Sources */,
 				66801DE883DA2B826F2121F1 /* PodcastLanguagesSheet.swift in Sources */,
 				546066CBB221669F3986661D /* PodcastMotionRenderer.swift in Sources */,
 				A00A94EE5C2FCED68572606B /* PodcastNowPlaying.swift in Sources */,
@@ -1676,6 +1698,8 @@
 				1909FE48CBED1DE162A19E88 /* SettingsView.swift in Sources */,
 				DA4511A1E03DBBA9E93DFAAE /* SidebarMainView.swift in Sources */,
 				2CEAA41C97A094BD52A600DB /* SourceMarkdownSheet.swift in Sources */,
+				A2B1DF1193E1DD012515B12F /* SpatialGraphView.swift in Sources */,
+				C6B95CA497AE0FC7CFC30127 /* SpatialLibraryView.swift in Sources */,
 				15B1056B11B85B147B35E133 /* SummaryChipApp.swift in Sources */,
 				E7E928CC896FE451474DAE21 /* SummaryCreditsSheet.swift in Sources */,
 				4440EE9D31D0E97B46EAF48E /* SummaryCreditsStore.swift in Sources */,
@@ -1894,6 +1918,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Chippy;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]" = Chippy;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=xros*]" = ChippyVision;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=xrsimulator*]" = ChippyVision;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "summary-chip/summary-chip.entitlements";
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "summary-chip-macOS/summary-chip-macOS.entitlements";
@@ -1916,11 +1942,11 @@
 				"PRODUCT_NAME[sdk=macosx*]" = Chippy;
 				"REGISTER_APP_GROUPS[sdk=macosx*]" = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
 			};
 			name = Release;
 		};
@@ -2035,6 +2061,7 @@
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -2248,6 +2275,7 @@
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -2315,6 +2343,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Chippy;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=macosx*]" = Chippy;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=xros*]" = ChippyVision;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=xrsimulator*]" = ChippyVision;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "summary-chip/summary-chip.entitlements";
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "summary-chip-macOS/summary-chip-macOS.entitlements";
@@ -2337,11 +2367,11 @@
 				"PRODUCT_NAME[sdk=macosx*]" = Chippy;
 				"REGISTER_APP_GROUPS[sdk=macosx*]" = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
 			};
 			name = Debug;
 		};
@@ -2517,8 +2547,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rxtech-lab/RxAuthSwift";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.3.1;
+				kind = revision;
+				revision = fad1772fcd4a4e9a252cd21ba180a92c5775d67c;
 			};
 		};
 		B906D7A50BC8FCEB62B91C40 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
@@ -2534,7 +2564,7 @@
 			repositoryURL = "https://github.com/rxtech-lab/RxAgentSDK";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.8;
+				minimumVersion = 1.2.1;
 			};
 		};
 		FA13726B74DCD14F58EAF0DE /* XCRemoteSwiftPackageReference "RxSubscriptionIOS" */ = {
@@ -2542,7 +2572,7 @@
 			repositoryURL = "https://github.com/rxtech-lab/RxSubscriptionIOS";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.2.0;
+				minimumVersion = 1.2.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

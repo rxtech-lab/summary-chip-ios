@@ -1,5 +1,8 @@
 import SummaryKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// Everything about a node or edge: pictures, its JSON-rendered view and its properties. The body of
 /// both the popover (macOS, iPad, wide iPhones) and the half sheet (iPhone).
@@ -290,3 +293,48 @@ private extension JSONValue {
         }
     }
 }
+
+#if os(macOS)
+/// Each inspector owns its selection and stays alive until its window closes.
+@MainActor
+final class GraphInspectorWindow: NSObject, NSWindowDelegate {
+    private static var windows: [UUID: GraphInspectorWindow] = [:]
+    private let id = UUID()
+    private var window: NSWindow?
+
+    static func show(model: GraphModel, element: GraphElementRef) {
+        let owner = GraphInspectorWindow()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered, defer: false
+        )
+        switch element {
+        case .node(let id): window.title = model.node(id)?.label ?? "Node"
+        case .edge(let id): window.title = model.edge(id)?.label ?? "Edge"
+        }
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 360, height: 360)
+        window.contentViewController = NSHostingController(rootView:
+            ScrollView {
+                GraphInspectorContent(model: model, element: element) { next in
+                    GraphInspectorWindow.show(model: model, element: next)
+                }
+                .padding(20)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        )
+        // Apply after hosting content, which can otherwise change the initial window size.
+        window.setContentSize(NSSize(width: 640, height: 640))
+        owner.window = window
+        window.delegate = owner
+        windows[owner.id] = owner
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        Self.windows[id] = nil
+    }
+}
+#endif

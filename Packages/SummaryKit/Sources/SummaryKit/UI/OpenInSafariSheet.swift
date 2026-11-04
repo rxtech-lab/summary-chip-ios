@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 #if os(macOS)
 import AppKit
@@ -70,7 +70,7 @@ public struct OpenInSafariSheet: View {
             }
             .navigationTitle(Text("Open in Safari", bundle: .module))
             .summaryInlineNavigationTitle()
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel", bundle: .module), role: .cancel) { onCancel() }

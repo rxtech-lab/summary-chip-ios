@@ -67,7 +67,7 @@ struct SearchView: View {
             }
         }
         .padding(.horizontal, 16)
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         .padding(.top, 24)
         #else
         .padding(.top, 16)
@@ -104,13 +104,13 @@ struct SearchView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .platformGlassEffect(.regular.interactive(), in: .capsule)
         .animation(.easeInOut(duration: 0.15), value: model.searchText.isEmpty)
     }
 
     @ViewBuilder
     private var closeButton: some View {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         Button("Cancel", action: onClose)
             .fontWeight(.medium)
             .accessibilityIdentifier("close-search")
@@ -184,7 +184,9 @@ struct SearchView: View {
                         .padding()
                 }
             }
+#if !os(visionOS)
             .scrollDismissesKeyboard(.immediately)
+#endif
         }
     }
 
@@ -196,7 +198,7 @@ struct SearchView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .platformGlassEffect(.regular, in: .rect(cornerRadius: 18))
     }
 }
 
@@ -242,7 +244,7 @@ private struct SummarySearchPresentation: ViewModifier {
     let environment: AppEnvironment
     let onOpenSummary: (Summary) -> Void
     @State private var showsSearch = false
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     /// Opened once the sheet has finished dismissing, so the push isn't lost mid-transition.
     @State private var pendingSummary: Summary?
     #endif

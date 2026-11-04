@@ -44,7 +44,7 @@ struct DailyPodcastPresentation: ViewModifier {
                 if openingChip || openingPodcast {
                     ProgressView(openingPodcast ? "Loading podcast…" : "Opening chip…")
                         .padding(24)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                        .platformGlassEffect(.regular, in: .rect(cornerRadius: 20))
                 }
             }
             .alert("Couldn't Open Item", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
@@ -176,7 +176,7 @@ struct DailyPodcastMiniPlayer: View {
         .labelStyle(.iconOnly)
         .buttonStyle(.plain)
         .padding(inTabAccessory ? EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 4) : EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
-        .glassEffect(inTabAccessory ? .identity : .regular, in: .rect(cornerRadius: 24))
+        .platformGlassEffect(inTabAccessory ? .identity : .regular, in: .rect(cornerRadius: 24))
         .sensoryFeedback(.selection, trigger: taps)
     }
 

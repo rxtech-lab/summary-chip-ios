@@ -108,7 +108,7 @@ struct ChatView: View {
                     }
                     .help("New Chat")
                     .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .platformGlassEffect(.regular.interactive(), in: Circle())
                     .disabled(model.entries.isEmpty || voice.isActive)
 
                 }
@@ -190,9 +190,11 @@ struct ChatView: View {
                     Button("Close") { closeChat() }
                 }
             }
+            #if !os(visionOS)
             if !isSheet && !isPanel {
                 ToolbarSpacer(.fixed, placement: .summaryTrailing)
             }
+            #endif
             if !isPanel {
             ToolbarItem(placement: .summaryTrailing) {
                 Button {
@@ -285,7 +287,9 @@ struct ChatView: View {
         }
         .contentMargins(.top, isPanel ? headerHeight : 0, for: .scrollContent)
         .contentMargins(.bottom, inputBarHeight, for: .scrollContent)
+#if !os(visionOS)
         .scrollDismissesKeyboard(.interactively)
+#endif
     }
 
     private var transcript: some View {
@@ -487,7 +491,7 @@ struct ChatView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .padding(.trailing, 38)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(alignment: .trailing) {
                     Button {
                         inputFocused = false

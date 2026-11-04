@@ -373,7 +373,7 @@ struct PaperReviewDiffView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 8)
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.platformGlassProminent)
                 .buttonBorderShape(.capsule)
                 .disabled(isSaving)
                 .padding(.bottom, 16)

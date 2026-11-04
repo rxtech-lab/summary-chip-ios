@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 
 /// A shared summary as a card: OG image, title, two-line excerpt, category chip,
@@ -392,6 +392,10 @@ public struct SummaryTileView: View {
         }
         .shadow(color: .black.opacity(0.07), radius: 14, y: 5)
         .contentShape(shape)
+        #if os(visionOS)
+        // Keep cards on the window plane so native sheets and ornaments stay in front.
+        .hoverEffect(.highlight)
+        #endif
         .accessibilityElement(children: .combine)
         .accessibilityHint(Text(dateKind.label(stamp)))
         .transition(.identity)

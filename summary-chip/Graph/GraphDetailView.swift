@@ -10,6 +10,7 @@ struct GraphDetailView: View {
     let environment: AppEnvironment
     let graphID: String
     let title: String
+    var spatialPanel: String? = nil
     @State private var model: GraphModel
     @State private var versions: DocumentVersionsModel
     @State private var chat: ChatModel
@@ -25,24 +26,26 @@ struct GraphDetailView: View {
     @State private var queryExpanded = false
     @State private var summary: Summary?
     @State private var isLoadingShare = false
+    @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
 
-    init(environment: AppEnvironment, graphID: String, title: String = "") {
+    init(environment: AppEnvironment, graphID: String, title: String = "", sharedModel: GraphModel? = nil, spatialPanel: String? = nil) {
+        self.spatialPanel = spatialPanel
         self.environment = environment
         self.graphID = graphID
         self.title = title
-        _model = State(initialValue: GraphModel(id: graphID, api: environment.api))
+        _model = State(initialValue: sharedModel ?? GraphModel(id: graphID, api: environment.api))
         _versions = State(initialValue: DocumentVersionsModel(api: environment.api, id: graphID))
         _chat = State(initialValue: ChatModel(client: environment.chatClient, store: environment.chatStore, graph: GraphChat(id: graphID)))
     }
 
     /// iPhone gets a half sheet; macOS, iPad and a wide iPhone (Pro Max, foldable) get a popover.
     private var usesPopover: Bool {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         sizeClass != .compact
         #else
         true
@@ -53,7 +56,7 @@ struct GraphDetailView: View {
         content
             .navigationTitle(model.document?.title ?? title)
             .summaryInlineNavigationTitle()
-            .toolbar { toolbar }
+            .toolbar { if spatialPanel == nil { toolbar } }
             .task(id: graphID) {
                 await initialLoad()
                 guard !Task.isCancelled, model.isOwner else { return }
@@ -104,6 +107,23 @@ struct GraphDetailView: View {
     @ViewBuilder
     private var content: some View {
         if let document = model.document {
+            if spatialPanel == "controls" {
+                VStack(spacing: 12) {
+                    Text(model.document?.title ?? title)
+                        .font(.headline).lineLimit(2)
+                    queryBar
+                    HStack(alignment: .top, spacing: 12) {
+                        GraphLegend(nodes: document.nodes)
+                        viewModePicker
+                        cameraButtons
+                    }
+                    HStack(spacing: 12) { toolbarActions }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.bordered)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+            } else {
             ZStack {
                 GraphCanvasView(model: model, document: document, selectedElements: chat.graphElements, onSelect: { element, additive in
                     chat.graphDocument = document
@@ -141,6 +161,7 @@ struct GraphDetailView: View {
                 }
                 if document.nodes.isEmpty { emptyState }
                 else if !model.isLaidOut { ProgressView("Arranging the graph…") }
+                if spatialPanel == nil {
                 VStack(alignment: .leading, spacing: 12) {
                     queryBar
                     if !document.nodes.isEmpty {
@@ -151,6 +172,8 @@ struct GraphDetailView: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 cameraControls
+                }
+            }
             }
         } else if let error = model.loadError {
             ContentUnavailableView {
@@ -203,6 +226,12 @@ struct GraphDetailView: View {
     }
 
     private var cameraControls: some View {
+        cameraButtons
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+    }
+
+    private var cameraButtons: some View {
         VStack(spacing: 0) {
             cameraButton("Zoom In", systemImage: "plus", identifier: "graph-zoom-in") { model.animateCamera(to: model.camera.zoomed(by: 1.5), duration: 0.2) }
             Divider().frame(width: 28)
@@ -210,9 +239,7 @@ struct GraphDetailView: View {
             Divider().frame(width: 28)
             cameraButton("Reset View", systemImage: "arrow.counterclockwise", identifier: "graph-reset-view") { model.resetCamera() }
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func cameraButton(_ title: LocalizedStringKey, systemImage: String, identifier: String, action: @escaping () -> Void) -> some View {
@@ -230,9 +257,17 @@ struct GraphDetailView: View {
         .accessibilityIdentifier(identifier)
     }
 
+}
+
+// Graph actions, inspectors and editing workflows.
+private extension GraphDetailView {
     @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .summaryTrailing) {
+    var toolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .summaryTrailing) { toolbarActions }
+    }
+
+    @ViewBuilder
+    var toolbarActions: some View {
             if model.canEdit {
                 Menu {
                     Button("Add Node", systemImage: "circle.badge.plus") { sheet = .newNode }
@@ -297,7 +332,6 @@ struct GraphDetailView: View {
             }
             .menuIndicator(.hidden)
             .accessibilityIdentifier("graph-more")
-        }
     }
 
     @ViewBuilder
@@ -307,7 +341,7 @@ struct GraphDetailView: View {
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .glassEffect(.regular, in: Capsule())
+                .platformGlassEffect(.regular, in: Capsule())
                 .padding(.top, 8)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .accessibilityIdentifier("graph-notice")
@@ -412,6 +446,15 @@ struct GraphDetailView: View {
             model.inspected = nil
             return
         }
+        #if os(visionOS)
+        if case .node(let nodeID) = element {
+            popover = nil
+            showsCompactInspector = false
+            tapFeedback += 1
+            openWindow(id: "graph-node", value: SpatialGraphNodeID(graphID: graphID, nodeID: nodeID))
+            return
+        }
+        #endif
         open(element, size: size)
     }
 
@@ -563,12 +606,16 @@ struct GraphDetailView: View {
     }
 
     private func showAgent() {
+        #if os(visionOS)
+        sheet = .agent
+        #else
         if let openSideAgent {
             configureAgent()
             openSideAgent(chat)
         } else {
             sheet = .agent
         }
+        #endif
     }
 
     private func configureAgent() {
@@ -608,6 +655,10 @@ struct GraphDetailView: View {
                 }
             }
         case .agent:
+            #if os(visionOS)
+            SpatialVoiceView(environment: environment, graph: GraphChat(id: graphID),
+                             onUpdated: { [model] in Task { await model.refresh() } })
+            #else
             ChatView(
                 environment: environment,
                 model: chat,
@@ -616,6 +667,7 @@ struct GraphDetailView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+            #endif
         case .share:
             if let summary {
                 ShareModeSheet(summary: summary, api: environment.api) { updated in
@@ -718,50 +770,7 @@ private final class GraphAgentWindow {
 }
 #endif
 
-#if os(macOS)
-/// Each inspector owns its selection and stays alive until its window closes.
-@MainActor
-private final class GraphInspectorWindow: NSObject, NSWindowDelegate {
-    private static var windows: [UUID: GraphInspectorWindow] = [:]
-    private let id = UUID()
-    private var window: NSWindow?
 
-    static func show(model: GraphModel, element: GraphElementRef) {
-        let owner = GraphInspectorWindow()
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered, defer: false
-        )
-        switch element {
-        case .node(let id): window.title = model.node(id)?.label ?? "Node"
-        case .edge(let id): window.title = model.edge(id)?.label ?? "Edge"
-        }
-        window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 360, height: 360)
-        window.contentViewController = NSHostingController(rootView:
-            ScrollView {
-                GraphInspectorContent(model: model, element: element) { next in
-                    GraphInspectorWindow.show(model: model, element: next)
-                }
-                .padding(20)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        )
-        // Apply after hosting content, which can otherwise change the initial window size.
-        window.setContentSize(NSSize(width: 640, height: 640))
-        owner.window = window
-        window.delegate = owner
-        windows[owner.id] = owner
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        Self.windows[id] = nil
-    }
-}
-#endif
 
 /// Uses the canvas palette, including per-node color overrides.
 private struct GraphLegend: View {

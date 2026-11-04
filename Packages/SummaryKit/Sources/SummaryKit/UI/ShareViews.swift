@@ -1,13 +1,13 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import LinkPresentation
 import SwiftUI
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
 #endif
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 
 /// `UIActivityViewController` for SwiftUI sheets (works inside app extensions too).
 public struct ActivityView: UIViewControllerRepresentable {
@@ -155,7 +155,7 @@ public enum ShareCaption {
 /// Activity items for the "Everything" mode. Every app gets the link with rich metadata; apps that
 /// take text or images also get the full summary and the preview image. Messages and the
 /// clipboard only get the link, since they build their own preview card from it.
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 enum RichShareItems {
     static func make(for summary: Summary, imageFile: URL?) -> [Any] {
         var items: [Any] = [LinkItemSource(summary: summary, imageFile: imageFile)]
@@ -385,7 +385,7 @@ public struct ShareActionsSection: View {
                 errorMessage = String(localized: "Couldn't download the preview image. \(error.localizedDescription)", bundle: .module)
             }
         case .copy:
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             UIPasteboard.general.url = summary.shareUrl
             #else
             NSPasteboard.general.clearContents()

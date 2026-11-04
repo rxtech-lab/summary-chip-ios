@@ -170,7 +170,7 @@ struct TripDetailView: View {
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .glassEffect(.regular, in: Capsule())
+                        .platformGlassEffect(.regular, in: Capsule())
                         .padding(.top, 8)
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .accessibilityIdentifier("trip-notice")
@@ -279,7 +279,9 @@ struct TripDetailView: View {
 
     @ViewBuilder
     private func content(_ document: TripDocument) -> some View {
-        #if os(iOS)
+        #if os(visionOS)
+        spatialLayout(document)
+        #elseif os(iOS)
         if isCompact {
             compactLayout(document)
         } else {
@@ -289,6 +291,26 @@ struct TripDetailView: View {
         regularLayout(document)
         #endif
     }
+
+    #if os(visionOS)
+    private func spatialLayout(_ document: TripDocument) -> some View {
+        VStack(spacing: 32) {
+            diary(document) { height in min(180, height * 0.28) }
+                .safeAreaInset(edge: .top) {
+                    TripDiaryBar(document: document, activeDayID: activeDayID, onSelect: jump)
+                }
+                .frame(height: 340)
+                .glassBackgroundEffect()
+            map(document)
+                .frame(width: 800, height: 500)
+                .rotation3DEffect(.degrees(90), axis: (x: 1, y: 0, z: 0), anchor: .top)
+                .frame(height: 260, alignment: .top)
+                .offset(z: 100)
+        }
+        .sheet(item: $activeSheet) { sheet in sheetContent(sheet) }
+        .overlay { if isExportingPDF { ActionStatusOverlay(String(localized: "Preparing PDF…")) } }
+    }
+    #endif
 
     /// Map (about 45%) beside the diary.
     private func regularLayout(_ document: TripDocument) -> some View {
@@ -326,7 +348,7 @@ struct TripDetailView: View {
                         if pane == .diary {
                             TripDiaryBar(document: document, activeDayID: activeDayID, onSelect: jump)
                                 .clipShape(.rect(cornerRadius: 26))
-                                .glassEffect(.regular, in: .rect(cornerRadius: 26))
+                                .platformGlassEffect(.regular, in: .rect(cornerRadius: 26))
                                 .padding(.horizontal, 10)
                                 .padding(.top, 6)
                         }
@@ -536,8 +558,14 @@ struct TripDetailView: View {
         }
         if canEdit, model.document != nil {
             ToolbarItem(placement: .summaryTrailing) {
-                AgentChatToggle { present(.agent) }
-                    .accessibilityIdentifier("trip-agent")
+                Group {
+                    #if os(visionOS)
+                    Button("Live voice", systemImage: "waveform") { present(.agent) }
+                    #else
+                    AgentChatToggle { present(.agent) }
+                    #endif
+                }
+                .accessibilityIdentifier("trip-agent")
             }
         }
 
@@ -804,11 +832,15 @@ struct TripDetailView: View {
 
     /// The trip agent's chat, like the other agents'; its edits reload the trip underneath.
     private func tripAgent(document: TripDocument, isExpense: Bool) -> some View {
+        #if os(visionOS)
+        SpatialVoiceView(environment: environment, trip: TripChat(id: model.id, title: document.title, isExpense: isExpense), onUpdated: { [model] in Task { await model.agentDidEdit() } })
+        #else
         ChatView(
             environment: environment,
             trip: TripChat(id: model.id, title: document.title, isExpense: isExpense),
             onTripUpdated: { [model] in Task { await model.agentDidEdit() } }
         )
+        #endif
     }
 
     /// Sheets look records up in the trip as the user follows it; edits still go to the whole trip.

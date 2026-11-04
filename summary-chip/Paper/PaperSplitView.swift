@@ -25,7 +25,7 @@ struct PaperSplitView<Editor: View, Preview: View>: View {
     }
 
     private var dividerWidth: CGFloat {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         44
         #else
         12

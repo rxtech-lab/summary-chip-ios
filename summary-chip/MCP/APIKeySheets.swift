@@ -1,6 +1,6 @@
 import SummaryKit
 import SwiftUI
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import UIKit
 #else
 import AppKit
@@ -32,7 +32,7 @@ struct CreateAPIKeySheet: View {
             }
             .formStyle(.grouped)
             .navigationTitle(created == nil ? String(localized: "New API Key") : String(localized: "API Key Created"))
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
@@ -188,7 +188,7 @@ struct RenameAPIKeySheet: View {
             }
             .formStyle(.grouped)
             .navigationTitle("Rename Key")
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
@@ -292,7 +292,7 @@ enum MCPClientKind: String, CaseIterable, Identifiable {
 
 enum MCPPasteboard {
     static func copy(_ value: String) {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         UIPasteboard.general.string = value
         #else
         NSPasteboard.general.clearContents()

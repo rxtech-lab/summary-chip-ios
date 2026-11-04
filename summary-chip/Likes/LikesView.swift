@@ -21,8 +21,9 @@ struct LikesView: View {
     private var model: LikesModel { environment.likes }
 
     var body: some View {
-        NavigationStack(path: (path ?? $localPath).presentingMiniApps(with: openMiniApp)) {
-            content
+        FeedNavigationContainer(environment: environment, path: (path ?? $localPath).presentingMiniApps(with: openMiniApp)) {
+            feedSurface
+                #if !os(visionOS)
                 .navigationTitle("Likes")
                 .navigationDestination(for: Summary.self) { summary in
                     Group {
@@ -34,12 +35,14 @@ struct LikesView: View {
                     }
                     .chatPanelToolbar()
                 }
+                #endif
                 .refreshable { await model.reload() }
                 .onChange(of: scenePhase) { _, phase in
                     // Pick up stars made on other devices whenever the app is reopened.
                     guard phase == .active, model.hasLoaded else { return }
                     Task { await model.reload() }
                 }
+                #if !os(visionOS)
                 .toolbar {
                     if let openSearch {
                         ToolbarItem(placement: .summaryTrailing) {
@@ -48,6 +51,7 @@ struct LikesView: View {
                     }
                     ChatPanelToolbarContent(isVisible: chatPanelVisibility)
                 }
+                #endif
                 .xSharing($xSharingRequest, api: environment.api)
                 .sheet(item: $sharingSummary) { summary in
                     ShareModeSheet(summary: summary, api: environment.api) { updated in
@@ -63,6 +67,31 @@ struct LikesView: View {
             await model.reload()
             didLoadInitially = model.hasLoaded
         }
+    }
+
+    @ViewBuilder
+    private var feedSurface: some View {
+        #if os(visionOS)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Likes").font(.largeTitle.bold()).padding(.horizontal, 24)
+            content
+                .clipped()
+        }
+        .padding(.top, 24)
+        // Reserve space outside the scroll viewport for the bottom ornament.
+        .padding(.bottom, 80)
+        .ornament(attachmentAnchor: .scene(.bottom)) {
+            HStack(spacing: 16) {
+                if let openSearch { SummarySearchButton(action: openSearch) }
+                Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.reload() } }
+            }
+            .labelStyle(.iconOnly)
+            .padding(12)
+            .glassBackgroundEffect(in: Capsule())
+        }
+        #else
+        content
+        #endif
     }
 
     @ViewBuilder
@@ -101,7 +130,9 @@ struct LikesView: View {
                     Text(error).font(.footnote).foregroundStyle(.red).padding()
                 }
             }
+            #if !os(visionOS)
             .background(Color.summaryGroupedBackground)
+            #endif
             .accessibilityIdentifier("likes-feed")
         }
     }

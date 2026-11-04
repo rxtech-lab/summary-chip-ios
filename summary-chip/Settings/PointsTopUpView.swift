@@ -1,6 +1,7 @@
 import RxSubscriptionIOS
 import SummaryKit
 import SwiftUI
+import StoreKit
 
 /// App-owned top-up screen: current balance first, then each pack as a row whose button shows its price.
 struct PointsTopUpView: View {
@@ -9,6 +10,7 @@ struct PointsTopUpView: View {
     let onPurchased: () async -> Void
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.purchase) private var purchaseAction
     @State private var topUps: [TopUpProduct] = []
     @State private var storePrices: [String: String] = [:]
     @State private var isLoading = false
@@ -194,7 +196,7 @@ struct PointsTopUpView: View {
         defer { purchasingID = nil }
         do {
             if let productID = storeProductID(for: topUp) {
-                switch try await client.purchaseApple(productID: productID) {
+                switch try await client.purchaseApple(productID: productID, purchaseAction: purchaseAction) {
                 case .completed:
                     await onPurchased()
                     status = String(localized: "\(amountTitle(for: topUp)) added to your balance.")

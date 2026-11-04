@@ -28,7 +28,7 @@ struct PaperReferenceHit: Identifiable, Equatable {
     var id: String { reference.key }
 }
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 private struct PDFKitRepresentable: UIViewRepresentable {
     let data: Data
     let flagged: [PaperReference]
@@ -188,7 +188,7 @@ final class PaperPDFDisplay: NSObject {
         onHover?(hit)
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     /// A pointer hovering (iPad) or a tap shows the popover; a tap elsewhere hides it.
     func attach(to view: PDFView) {
         let hover = UIHoverGestureRecognizer(target: self, action: #selector(hovered(_:)))
@@ -214,7 +214,7 @@ final class PaperPDFDisplay: NSObject {
     #endif
 }
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 extension PaperPDFDisplay: UIGestureRecognizerDelegate {
     /// PDFKit's own taps (links, selection) keep working.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }

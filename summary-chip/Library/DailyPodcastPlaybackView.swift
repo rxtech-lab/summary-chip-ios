@@ -56,7 +56,7 @@ struct DailyPodcastPlaybackView: View {
                         taps += 1
                         onOpenChip(id)
                     } label: { Label("Open Chip", systemImage: "doc.text.magnifyingglass") }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.platformGlass)
                     .accessibilityIdentifier("podcast-open-chip")
                     #endif
                     timeline
@@ -64,7 +64,7 @@ struct DailyPodcastPlaybackView: View {
                 }
                 .padding(20)
                 .frame(maxWidth: 680)
-                .glassEffect(.regular.tint(.black.opacity(0.25)), in: .rect(cornerRadius: 24))
+                .platformGlassEffect(.regular.tint(.black.opacity(0.25)), in: .rect(cornerRadius: 24))
                 .padding(16)
                 .padding(.bottom, safeArea.safeAreaInsets.bottom)
                 }

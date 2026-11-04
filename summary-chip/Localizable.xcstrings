@@ -4285,6 +4285,9 @@
     "Couldn’t Load Clients" : {
 
     },
+    "Couldn’t load graph" : {
+
+    },
     "Couldn't Load Jobs" : {
 
     },
@@ -7196,6 +7199,9 @@
         }
       }
     },
+    "Filters" : {
+
+    },
     "Find any summary in your Feed by its title, text or tag." : {
       "localizations" : {
         "zh-Hans" : {
@@ -8094,6 +8100,9 @@
           }
         }
       }
+    },
+    "Graph Controls" : {
+
     },
     "Graph Details" : {
       "localizations" : {
@@ -9418,6 +9427,9 @@
         }
       }
     },
+    "Listening…" : {
+
+    },
     "Live Status" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9433,6 +9445,12 @@
           }
         }
       }
+    },
+    "Live voice" : {
+
+    },
+    "Load more" : {
+
     },
     "Load More" : {
 
@@ -10043,6 +10061,9 @@
     "Microphone input level" : {
 
     },
+    "Microphone paused while the agent speaks" : {
+
+    },
     "Minutes" : {
 
     },
@@ -10626,6 +10647,9 @@
       }
     },
     "No Chips" : {
+
+    },
+    "No chips yet" : {
 
     },
     "No clips match the current filters." : {
@@ -11947,6 +11971,9 @@
         }
       }
     },
+    "Opening graph…" : {
+
+    },
     "Opening hours" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11962,6 +11989,9 @@
           }
         }
       }
+    },
+    "Opening live voice…" : {
+
     },
     "Opening paper…" : {
       "localizations" : {
@@ -13473,6 +13503,9 @@
         }
       }
     },
+    "Push the bubble away" : {
+
+    },
     "Query" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14460,6 +14493,9 @@
         }
       }
     },
+    "Reset view" : {
+
+    },
     "Reset View" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15290,6 +15326,12 @@
       }
     },
     "Script ready" : {
+
+    },
+    "Scroll horizontally" : {
+
+    },
+    "Scroll vertically" : {
 
     },
     "Search" : {
@@ -16500,6 +16542,9 @@
         }
       }
     },
+    "Start live voice" : {
+
+    },
     "Start voice chat" : {
 
     },
@@ -16634,6 +16679,9 @@
           }
         }
       }
+    },
+    "Stop live voice" : {
+
     },
     "Stop voice chat" : {
 
@@ -19320,6 +19368,9 @@
           }
         }
       }
+    },
+    "Voice chat unavailable" : {
+
     },
     "Voice session duration" : {
 

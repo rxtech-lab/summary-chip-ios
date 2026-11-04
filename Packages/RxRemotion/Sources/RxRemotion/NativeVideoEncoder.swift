@@ -14,9 +14,15 @@ actor NativeVideoEncoder {
         try NativeVideoEncoder(output: output, composition: composition, codec: codec)
     }
     private init(output: URL, composition c: RemotionComposition, codec: RemotionRenderSettings.Codec) throws {
+        #if os(visionOS)
+        guard codec != .proRes4444 else { throw RemotionError.unsupported("ProRes encoding is unavailable on Vision Pro") }
+        let videoCodec = AVVideoCodecType.h264
+        #else
+        let videoCodec = codec == .proRes4444 ? AVVideoCodecType.proRes4444 : AVVideoCodecType.h264
+        #endif
         let writer = try AVAssetWriter(outputURL: output, fileType: .mov)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: codec == .proRes4444 ? AVVideoCodecType.proRes4444 : AVVideoCodecType.h264,
+            AVVideoCodecKey: videoCodec,
             AVVideoWidthKey: c.width, AVVideoHeightKey: c.height,
             AVVideoColorPropertiesKey: [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
                                        AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,

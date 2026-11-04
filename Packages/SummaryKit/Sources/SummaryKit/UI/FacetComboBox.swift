@@ -92,7 +92,7 @@ public struct FacetComboBox: View {
     private let label: (String) -> String
     @Binding private var selection: String?
     @State private var model: FacetSearchModel
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     @State private var showsPicker = false
     #endif
 
@@ -155,7 +155,7 @@ public struct FacetComboBox: View {
     }
 }
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 /// The iPhone sheet (iPad popover) behind `FacetComboBox`: type to search, scroll to load more.
 private struct FacetSearchSheet: View {
     @Bindable var model: FacetSearchModel

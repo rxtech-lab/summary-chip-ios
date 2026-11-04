@@ -53,7 +53,9 @@ struct PaperReaderPreviewHost: View {
                 #if os(iOS)
                 PaperReaderTextToolbar(placement: .bottomBar)
                 if reviews != nil {
+#if !os(visionOS)
                     ToolbarSpacer(.flexible, placement: .bottomBar)
+#endif
                     ToolbarItem(placement: .bottomBar) {
                         Button { showsReviews = true } label: { Label("Reviews", systemImage: "bubble.left.and.text.bubble.right") }
                             .help("Reviews")

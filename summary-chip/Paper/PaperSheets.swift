@@ -236,7 +236,9 @@ struct PaperPreviewSheet: View {
                         #if os(iOS)
                         PaperReaderTextToolbar(placement: .bottomBar)
                         if model.isOwner {
+#if !os(visionOS)
                             ToolbarSpacer(.flexible, placement: .bottomBar)
+#endif
                             ToolbarItem(placement: .bottomBar) {
                                 PaperReviewsButton(model: model) { showsReviews = true }
                             }
@@ -337,7 +339,7 @@ struct PaperPreviewPane: View {
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .glassEffect(.regular, in: Capsule())
+                    .platformGlassEffect(.regular, in: Capsule())
                     .padding(.top, 8)
                     .transition(.opacity)
                     .accessibilityIdentifier("paper-compiling")
@@ -356,7 +358,7 @@ struct PaperPreviewPane: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.orange)
-        .glassEffect(.regular.interactive(), in: Capsule())
+        .platformGlassEffect(.regular.interactive(), in: Capsule())
         .accessibilityIdentifier("paper-issues-button")
     }
 }

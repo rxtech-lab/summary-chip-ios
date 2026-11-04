@@ -301,7 +301,7 @@ struct PaperFigureViewerItem: Identifiable {
 extension View {
     /// Shows a figure full screen (a large sheet on the Mac) to zoom into.
     func paperFigureViewer(item: Binding<PaperFigureViewerItem?>) -> some View {
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
         fullScreenCover(item: item) { PaperFigureViewer(item: $0) }
         #else
         sheet(item: item) { PaperFigureViewer(item: $0) }
@@ -329,7 +329,7 @@ private struct PaperFigureViewer: View {
             Button { dismiss() } label: {
                 Image(systemName: "xmark").font(.headline).frame(width: 44, height: 44)
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.platformGlass)
             .buttonBorderShape(.circle)
             .keyboardShortcut(.cancelAction)
             .accessibilityLabel("Close")
@@ -342,7 +342,7 @@ private struct PaperFigureViewer: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .glassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .platformGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .padding(20)
                     .allowsHitTesting(false)
             }

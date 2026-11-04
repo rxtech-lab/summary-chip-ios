@@ -51,7 +51,9 @@ struct PodcastPlanSheet: View {
                     .frame(maxWidth: 760)
                     .frame(maxWidth: .infinity)
                 }
+#if !os(visionOS)
                 .scrollDismissesKeyboard(.interactively)
+#endif
                 .onChange(of: plan.revision) { withAnimation { proxy.scrollTo("plan", anchor: .top) } }
                 .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("plan", anchor: .top) } } }
             }

@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 
 /// "Not what you expected?" after generating: deletes the new summary. In the app a link
@@ -44,7 +44,7 @@ public struct DiscardSummarySheet: View {
             }
             .navigationTitle(Text("Discard Summary", bundle: .module))
             .summaryInlineNavigationTitle()
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel", bundle: .module), role: .cancel) { dismiss() }.disabled(isDiscarding)

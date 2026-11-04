@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 import Observation
 
@@ -60,7 +60,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let onSelect: ((Summary) -> Void)?
 
     @State private var availableWidth: CGFloat = 800
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #else
     @State private var timeline = SummaryTimelineMetrics()
@@ -110,7 +110,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     }
 
     private var feed: some View {
-        #if os(macOS)
+        #if os(macOS) || os(visionOS)
         let columnCount = max(2, min(5, Int(availableWidth / 260)))
         #else
         // Regular width can still be a narrow column beside the sidebar and chat panel.
@@ -144,7 +144,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 .coordinateSpace(.named(summaryFeedContentSpace))
             }
             .accessibilityIdentifier("summary-card-feed")
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
             #endif
             .scrollPosition($scrollPosition)
@@ -305,7 +305,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                         }
                         #endif
                         .buttonStyle(.plain)
-                        #if os(iOS)
+                        #if os(iOS) || os(visionOS)
                         .contentShape(
                             .contextMenuPreview,
                             RoundedRectangle(cornerRadius: SummaryTileView.cornerRadius, style: .continuous)

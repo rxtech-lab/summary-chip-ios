@@ -159,7 +159,7 @@ struct PaperReferenceStatusButton: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .platformGlassEffect(.regular.interactive(), in: Capsule())
             .accessibilityIdentifier("paper-references-button")
         }
     }

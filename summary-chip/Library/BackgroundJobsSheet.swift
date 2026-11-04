@@ -228,11 +228,13 @@ private struct BackgroundJobDetail: View {
         .toolbar {
             if let job {
                 ToolbarItem(placement: .bottomBar) { openPodcastButton }
+#if !os(visionOS)
                 ToolbarSpacer(.flexible, placement: .bottomBar)
+#endif
                 if job.canWatch {
-                    ToolbarItem(placement: .bottomBar) { watchButton.buttonStyle(.glassProminent) }
+                    ToolbarItem(placement: .bottomBar) { watchButton.buttonStyle(.platformGlassProminent) }
                 } else if job.status == "failed" {
-                    ToolbarItem(placement: .bottomBar) { retryButton.buttonStyle(.glassProminent) }
+                    ToolbarItem(placement: .bottomBar) { retryButton.buttonStyle(.platformGlassProminent) }
                 }
             }
         }
@@ -352,14 +354,14 @@ private struct BackgroundJobDetail: View {
             .accessibilityIdentifier("background-job-render")
     }
 
-    #if os(macOS)
+    #if os(macOS) || os(visionOS)
     /// Floating Liquid Glass actions over the activity log.
     private func macActionBar(_ job: BackgroundJob) -> some View {
-        GlassEffectContainer(spacing: 12) {
+        PlatformGlassContainer(spacing: 12) {
             HStack(spacing: 12) {
-                openPodcastButton.buttonStyle(.glass)
-                if job.canWatch { watchButton.buttonStyle(.glassProminent) }
-                else if job.status == "failed" { retryButton.buttonStyle(.glassProminent) }
+                openPodcastButton.buttonStyle(.platformGlass)
+                if job.canWatch { watchButton.buttonStyle(.platformGlassProminent) }
+                else if job.status == "failed" { retryButton.buttonStyle(.platformGlassProminent) }
             }
             .labelStyle(.titleAndIcon)
             .controlSize(.large)

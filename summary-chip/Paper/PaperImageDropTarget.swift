@@ -19,7 +19,7 @@ struct PaperImageDropTarget: ViewModifier {
                                 Label("Drop to Add Image", systemImage: "photo.badge.plus")
                                     .font(.headline)
                                     .padding()
-                                    .glassEffect(.regular, in: Capsule())
+                                    .platformGlassEffect(.regular, in: Capsule())
                             }
                             .padding(4)
                             .allowsHitTesting(false)

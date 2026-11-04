@@ -390,7 +390,7 @@ struct TripMapControls: View {
     let onLocate: () -> Void
 
     var body: some View {
-        GlassEffectContainer(spacing: 8) {
+        PlatformGlassContainer(spacing: 8) {
             VStack(spacing: 8) {
                 Button(action: onFollow) {
                     Label(following ? String(localized: "Following") : String(localized: "Follow"),
@@ -408,7 +408,7 @@ struct TripMapControls: View {
             }
             .labelStyle(.iconOnly)
             .font(.body.weight(.semibold))
-            .buttonStyle(.glass)
+            .buttonStyle(.platformGlass)
             .buttonBorderShape(.circle)
             .controlSize(.large)
         }

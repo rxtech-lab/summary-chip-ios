@@ -1,4 +1,4 @@
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -390,7 +390,7 @@ private extension SummaryCreationFlow {
                 }
             }
 
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
             Section {
                 Button {
                     generate()
@@ -439,7 +439,7 @@ private extension SummaryCreationFlow {
                     .summaryInputCapitalization()
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("new-summary-input")
-                #if os(iOS)
+                #if os(iOS) || os(visionOS)
                 PasteButton(payloadType: String.self) { @Sendable strings in
                     // Transferable delivery may run off-main; never inherit a main-actor
                     // assertion on the callback invoked by the system paste machinery.

@@ -139,7 +139,7 @@ struct DailyPodcastDownloadSheet: View {
                 }
             }
             .padding(24)
-            .glassEffect(.regular, in: .rect(cornerRadius: 20))
+            .platformGlassEffect(.regular, in: .rect(cornerRadius: 20))
         }
     }
 

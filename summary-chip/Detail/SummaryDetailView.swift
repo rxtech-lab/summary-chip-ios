@@ -451,7 +451,11 @@ struct SummaryDestination: View {
         } else if summary.kind == .miniApp {
             MiniAppDetailView(environment: environment, appID: summary.id, title: summary.title)
         } else if summary.kind == .graph {
+            #if os(visionOS)
+            SpatialGraphLauncher(graphID: summary.id)
+            #else
             GraphDetailView(environment: environment, graphID: summary.id, title: summary.title)
+            #endif
         } else if summary.kind == .podcast {
             LibraryPodcastDetail(environment: environment, summary: summary)
         } else if summary.kind == .paper {

@@ -94,7 +94,7 @@ struct PaperDetailView: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .glassEffect(.regular, in: Capsule())
+                    .platformGlassEffect(.regular, in: Capsule())
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .accessibilityIdentifier("paper-notice")
@@ -325,12 +325,18 @@ extension PaperDetailView {
                 ToolbarItem(placement: .summaryTrailing) {
                     PaperPreviewModePicker()
                 }
+#if !os(visionOS)
                 .sharedBackgroundVisibility(.hidden)
+#endif
+#if !os(visionOS)
                 ToolbarSpacer(.fixed, placement: .summaryTrailing)
+#endif
                 if previewMode == .reader {
                     #if os(iOS)
                     // Under the reader, in the bottom bar, as in the iPhone preview sheet.
+#if !os(visionOS)
                     ToolbarSpacer(.flexible, placement: .bottomBar)
+#endif
                     PaperReaderTextToolbar(placement: .bottomBar)
                     #else
                     PaperReaderTextToolbar()
@@ -529,7 +535,7 @@ private struct PaperSaveStatus: View {
         .foregroundStyle(state.isFailure ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .glassEffect(.regular, in: Capsule())
+        .platformGlassEffect(.regular, in: Capsule())
         .animation(.spring(duration: 0.3), value: isCheckingReferences)
         .accessibilityIdentifier("paper-save-status")
     }
