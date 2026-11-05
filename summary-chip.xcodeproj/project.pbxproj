@@ -33,6 +33,7 @@
 		15B1056B11B85B147B35E133 /* SummaryChipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886A9B63B05F64D3BB5CD9C7 /* SummaryChipApp.swift */; };
 		15CD6D8C2C32E31DAC0D82DF /* ChippyLocalAgentRunner.xpc in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = E310E8E75A6C6D3E69E82243 /* ChippyLocalAgentRunner.xpc */; platformFilters = (macos, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		160D7E864946E534A9BF22C0 /* PodcastPlanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E6D98DC00C55A56C105B77D /* PodcastPlanSheet.swift */; };
+		16ADD12558CAFC88F0368999 /* GraphLegend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15733C5856DF1CE7B03872E /* GraphLegend.swift */; };
 		1909FE48CBED1DE162A19E88 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC562F4A3D8B71669C2B33C1 /* SettingsView.swift */; };
 		1916CC21EE3E03CCD1549E80 /* GraphPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE335743025C67DA3BBF2E8 /* GraphPreviewHost.swift */; };
 		19B7243C5CEB2A7D0242155D /* RxRemotion in Frameworks */ = {isa = PBXBuildFile; productRef = 4D589AF64ADAB67F0A058596 /* RxRemotion */; };
@@ -576,6 +577,7 @@
 		AECD8D0A6EC00EB7D1DF5514 /* PodcastVideoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastVideoSheet.swift; sourceTree = "<group>"; };
 		AF6A4D83041F62CEE34E1B0F /* MiniAppConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniAppConnections.swift; sourceTree = "<group>"; };
 		B020D357DEB7A2B71035E513 /* LocalAgentKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LocalAgentKit; path = Packages/LocalAgentKit; sourceTree = SOURCE_ROOT; };
+		B15733C5856DF1CE7B03872E /* GraphLegend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphLegend.swift; sourceTree = "<group>"; };
 		B194B2074C79CA1979AF3B0F /* PaperSourceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaperSourceEditor.swift; sourceTree = "<group>"; };
 		B38F74CB6F8F78C4208382A3 /* OnboardingPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPreviewHost.swift; sourceTree = "<group>"; };
 		B3C721ECFE4AC6D1EF900AB9 /* SearchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchModel.swift; sourceTree = "<group>"; };
@@ -1024,6 +1026,7 @@
 				48201BC9A6FD4567D3AC53BE /* GraphDetailView.swift */,
 				15B1F99A4236914FF14FC2C3 /* GraphEditorSheets.swift */,
 				BCEDA45506C26B362AC166EC /* GraphInspectorView.swift */,
+				B15733C5856DF1CE7B03872E /* GraphLegend.swift */,
 				F091E1DA3EA16E1DF36AE52D /* GraphModel.swift */,
 				BAE335743025C67DA3BBF2E8 /* GraphPreviewHost.swift */,
 				BE764A94FE8C7A474FEAAE42 /* GraphQuerySheet.swift */,
@@ -1793,6 +1796,7 @@
 				5F61EB210C460232A265D654 /* GraphDetailView.swift in Sources */,
 				F049149621418ADDB83156D4 /* GraphEditorSheets.swift in Sources */,
 				1FF309B1CE0F44E5636C6C05 /* GraphInspectorView.swift in Sources */,
+				16ADD12558CAFC88F0368999 /* GraphLegend.swift in Sources */,
 				0DE3A037B780496E2AE33FC6 /* GraphModel.swift in Sources */,
 				1916CC21EE3E03CCD1549E80 /* GraphPreviewHost.swift in Sources */,
 				CC557F68BBB7238368443DD8 /* GraphQuerySheet.swift in Sources */,
