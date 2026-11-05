@@ -102,7 +102,7 @@ struct AudiobookPlanSheet: View {
                                 })) { Text("\(index + 1). \(plan.plan.chapters[index].title)") }
                             }
                         } footer: {
-                            Text("Each selection is saved as a separate recording. Reopen this plan from the library to generate more chapters.")
+                            Text("Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more.")
                         }
                     }
                     .navigationTitle("Generate Chapters")

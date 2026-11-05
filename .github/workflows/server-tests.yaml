@@ -41,6 +41,14 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      # The audiobook rendering test exercises real FFmpeg and ffprobe.
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
+          ffmpeg -version
+          ffprobe -version
+
       - name: Vitest
         run: bun run test
 

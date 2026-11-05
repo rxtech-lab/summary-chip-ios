@@ -1,11 +1,13 @@
 import SummaryKit
 import SwiftUI
 
-/// The book's chapters. Tapping one jumps there, and the current one is marked.
+/// The book's chapters. Tapping one jumps there, and the current one is marked. A chapter generated more than once opens its versions.
 struct AudiobookChaptersSheet: View {
+    let api: SummaryAPIClient
     @Bindable var player: DailyPodcastPlayer
     @Environment(\.dismiss) private var dismiss
     @State private var taps = 0
+    @State private var versionsChapter: DailyPodcast.Chapter?
 
     private var chapters: [DailyPodcast.Chapter] { player.podcast?.chapters ?? [] }
     private var current: Int? { player.podcast?.chapterIndex(at: player.currentTime) }
@@ -14,41 +16,129 @@ struct AudiobookChaptersSheet: View {
         NavigationStack {
             List {
                 ForEach(chapters.indices, id: \.self) { index in
-                    Button {
-                        taps += 1
-                        player.seek(to: chapters[index].startSeconds)
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: index == current ? "speaker.wave.2.fill" : "book")
-                                .foregroundStyle(index == current ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(chapters[index].title).font(.body).multilineTextAlignment(.leading)
-                                if let synopsis = chapters[index].synopsis {
-                                    Text(synopsis).font(.caption).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading)
+                    HStack(spacing: 12) {
+                        Button {
+                            taps += 1
+                            player.seek(to: chapters[index].startSeconds)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: index == current ? "speaker.wave.2.fill" : "book")
+                                    .foregroundStyle(index == current ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(chapters[index].title).font(.body).multilineTextAlignment(.leading)
+                                    if let synopsis = chapters[index].synopsis {
+                                        Text(synopsis).font(.caption).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading)
+                                    }
                                 }
+                                Spacer(minLength: 8)
+                                Text(Duration.seconds(chapters[index].startSeconds).formatted(.time(pattern: .hourMinuteSecond)))
+                                    .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                             }
-                            Spacer(minLength: 8)
-                            Text(Duration.seconds(chapters[index].startSeconds).formatted(.time(pattern: .hourMinuteSecond)))
-                                .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(index == current ? .isSelected : [])
+                        .accessibilityIdentifier("audiobook-chapter-\(index)")
+                        if let count = chapters[index].versions?.count, count > 1 {
+                            Button { taps += 1; versionsChapter = chapters[index] } label: {
+                                Label("\(count) Versions", systemImage: "square.stack").labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("audiobook-chapter-versions-\(index)")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(index == current ? .isSelected : [])
-                    .accessibilityIdentifier("audiobook-chapter-\(index)")
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Chapters")
             .summaryInlineNavigationTitle()
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .sheet(item: $versionsChapter) { chapter in
+                AudiobookChapterVersionsSheet(api: api, player: player, chapter: chapter) { dismiss() }
+            }
             .sensoryFeedback(.selection, trigger: taps)
         }
         .frame(minWidth: 360, idealWidth: 480, minHeight: 480, maxHeight: .infinity)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+}
+
+/// Every recording of one chapter. Choosing one rebuilds the book around it and plays from that chapter, without voicing or charging anything.
+struct AudiobookChapterVersionsSheet: View {
+    let api: SummaryAPIClient
+    @Bindable var player: DailyPodcastPlayer
+    let chapter: DailyPodcast.Chapter
+    let onSelected: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var choosing = false
+    @State private var error: String?
+    @State private var taps = 0
+    @State private var successes = 0
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(chapter.versions ?? []) { version in
+                        Button { select(version) } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(version.title).multilineTextAlignment(.leading)
+                                    Text("\(version.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(Duration.seconds(version.durationSeconds).formatted(.time(pattern: .minuteSecond)))")
+                                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 8)
+                                if version.id == chapter.versionId { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(version.id == chapter.versionId ? .isSelected : [])
+                    }
+                } footer: {
+                    Text("The audiobook plays the version you choose. Choosing one is free.")
+                }
+            }
+            .disabled(choosing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Chapter Versions")
+            .summaryInlineNavigationTitle()
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.disabled(choosing) } }
+            .overlay {
+                if choosing { ProgressView("Updating audiobook…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) }
+            }
+            .alert("Couldn't Update Audiobook", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+                Button("OK", role: .cancel) { error = nil }
+            } message: { Text(error ?? "") }
+            .sensoryFeedback(.selection, trigger: taps)
+            .sensoryFeedback(.success, trigger: successes)
+            .sensoryFeedback(.error, trigger: error)
+        }
+        .interactiveDismissDisabled(choosing)
+        .frame(minWidth: 320, idealWidth: 480, minHeight: 360, maxHeight: .infinity)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
+    }
+
+    private func select(_ version: DailyPodcast.Chapter.Version) {
+        guard version.id != chapter.versionId, let podcast = player.podcast, let chapterID = chapter.bookChapterId else { return }
+        taps += 1
+        choosing = true
+        Task {
+            defer { choosing = false }
+            do {
+                let book = try await api.selectAudiobookChapterVersion(podcast, chapter: chapterID, version: version.id)
+                player.replace(book)
+                if let start = book.chapters?.first(where: { $0.bookChapterId == chapterID })?.startSeconds { player.seek(to: start) }
+                player.toggle()
+                successes += 1
+                dismiss()
+                onSelected()
+            } catch { self.error = error.localizedDescription }
+        }
     }
 }
 

@@ -281,9 +281,11 @@ export function chipArtPath(chip: Pick<SummaryRow, "artImageKey" | "slug">) {
   return chip.artImageKey ? `/s/${chip.slug}/art.png` : null;
 }
 /** The episode's recording in `language`; the original when omitted. */
-export function episodeAudioPath(podcast: Pick<DailyPodcast, "key" | "day">, language?: string) {
+export function episodeAudioPath(podcast: Pick<DailyPodcast, "key" | "day" | "audiobook">, language?: string) {
   const query = new URLSearchParams(podcast.day);
   if (language) query.set("language", language);
+  // A book's recording is rebuilt in place; players cache audio by this URL.
+  if (podcast.audiobook?.revision) query.set("revision", String(podcast.audiobook.revision));
   return `/api/v1/daily-podcasts/${podcast.key}/audio?${query}`;
 }
 /** Object key of a translation's files under the episode. */

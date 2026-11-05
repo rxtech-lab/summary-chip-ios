@@ -73,11 +73,15 @@ export const createAudiobookSchema = z.object({
   planMode: z.boolean().default(false),
 }).strict().refine(input => input.chipIds.length + (input.pdfSources?.length ?? 0) > 0 && input.chipIds.length + (input.pdfSources?.length ?? 0) <= MAX_AUDIOBOOK_SOURCES, "Choose between 1 and 20 sources.");
 export type AudiobookCreationInput = z.infer<typeof createAudiobookSchema>;
+/** What a plan row stores: the request, plus which book a generation of chosen chapters joins and what it chose. */
+export type AudiobookPlanInput = AudiobookCreationInput & { bookId?: string; selection?: string };
 
 export const reviseAudiobookPlanSchema = z.object({ revision: z.number().int().nonnegative(), plan: audiobookPlanSchema }).strict();
 export const refineAudiobookPlanSchema = z.object({ revision: z.number().int().nonnegative(), message: z.string().trim().min(1).max(2000) }).strict();
 export const confirmAudiobookPlanSchema = z.object({ revision: z.number().int().nonnegative(), chapters: z.array(z.number().int().nonnegative()).min(1).max(200).optional() }).strict();
 export const createAudiobookTranslationSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema, includeVideo: z.boolean().optional() }).strict();
+/** Chooses which recording of a chapter the book plays. `language` is the one to return the book in. */
+export const selectAudiobookChapterVersionSchema = z.object({ day: podcastDaySchema, chapter: z.string().min(1).max(40), version: z.string().min(1).max(120), language: podcastLanguageSchema.optional() }).strict();
 export const audiobookVoiceSampleSchema = z.object({ voice: z.string().min(1).max(80), language: z.enum(TRANSLATION_LANGUAGES).default("en") });
 
 export interface AudiobookOptions {
@@ -111,4 +115,6 @@ export interface AudiobookJob {
   error: { code: string; message: string } | null;
   createdAt: string;
   updatedAt: string;
+  /** Identifies a generation of chosen chapters, so a repeated tap joins it and a failed one resumes. Never sent to clients. */
+  selection?: string;
 }

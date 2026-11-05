@@ -114,7 +114,19 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
         public var endSegment: Int
         public var startSeconds: Double
         public var endSeconds: Double
+        /// Which part of the book this is, the same across its recordings. Older books omit it.
+        public var bookChapterId: String?
+        /// The recording playing, and every recording of this chapter, newest first.
+        public var versionId: String?
+        public var versions: [Version]?
         public var id: Int { startSegment }
+
+        public struct Version: Codable, Sendable, Equatable, Identifiable {
+            public var id: String
+            public var title: String
+            public var createdAt: Date
+            public var durationSeconds: Double
+        }
     }
     /// The chapter being played at `time`.
     public func chapterIndex(at time: Double) -> Int? {
@@ -439,6 +451,18 @@ extension SummaryAPIClient {
     // MARK: Translations
 
     /// The episode in another of its languages. Never calls a model or spends points.
+    /// Chooses which recording of a chapter the book plays. The server rebuilds the book's recording, so this can take a while.
+    public func selectAudiobookChapterVersion(_ podcast: DailyPodcast, chapter: String, version: String) async throws -> DailyPodcast {
+        struct Body: Encodable { var day: PodcastDayBounds; var chapter: String; var version: String; var language: String? }
+        let language = podcast.language == podcast.sourceLanguage ? nil : podcast.language
+        var update = try json("/api/v1/audiobooks/\(podcast.key.urlPathEscaped)/chapters", method: "PATCH",
+            body: Body(day: try podcastDayBounds(podcast), chapter: chapter, version: version, language: language))
+        update.timeoutInterval = 300
+        let result: PodcastEnvelope = try await send(update)
+        guard let episode = result.podcast else { throw SummaryAPIError.invalidResponse }
+        return episode
+    }
+
     public func podcastEpisode(_ podcast: DailyPodcast, language: String) async throws -> DailyPodcast {
         let day = try podcastDayBounds(podcast)
         var query = [URLQueryItem(name: "start", value: day.start), URLQueryItem(name: "end", value: day.end)]

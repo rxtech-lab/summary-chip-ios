@@ -142,6 +142,27 @@ export interface PodcastChapter {
   endSegment: number;
   startSeconds: number;
   endSeconds: number;
+  /** Which part of the book this is, the same across its recordings. Absent on books made before chapters had versions. */
+  bookChapterId?: string;
+  /** The recording playing, and every recording of this chapter, newest first. */
+  versionId?: string;
+  versions?: AudiobookChapterVersion[];
+}
+export interface AudiobookChapterVersion {
+  id: string;
+  title: string;
+  createdAt: string;
+  durationSeconds: number;
+}
+/** One saved recording of a chapter, in every language it was spoken in. The book plays one recording per chapter. */
+export interface AudiobookTake extends AudiobookChapterVersion {
+  chapterId: string;
+  firstPassage: number;
+  lastPassage: number;
+  /** Speakers its turns index into, which a revised plan may have changed. */
+  speakers: PodcastScript["speakers"];
+  /** Scenes by the turn of this recording they start on. */
+  scenes: { turn: number; prompt: string; motion: AudiobookSceneMotion }[];
 }
 /** A piece of an audiobook's soundtrack; segments name the cue that plays under them. */
 export interface AudiobookMusicCue {
@@ -163,6 +184,13 @@ export interface AudiobookDetails {
   videoTheme: AudiobookVideoTheme;
   visualGuide: string;
   scenes: AudiobookScene[];
+  /** The plan every generation of this book came from; absent on recordings not yet merged into a book. */
+  bookId?: string;
+  /** Goes up each time the recording is rebuilt, so saved writes can't overlap and players don't keep the old audio. */
+  revision?: number;
+  takes?: AudiobookTake[];
+  /** Recordings chosen over a chapter's newest, by chapter. */
+  selected?: Record<string, string>;
 }
 export interface DailyPodcast extends PodcastScript {
   /** Absent only on legacy documents; library episodes are regular, others daily. */

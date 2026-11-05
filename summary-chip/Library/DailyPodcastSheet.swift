@@ -64,7 +64,7 @@ struct DailyPodcastSheet: View {
                 }
             }
             .sheet(isPresented: $showsChapters) {
-                AudiobookChaptersSheet(player: player)
+                AudiobookChaptersSheet(api: api, player: player)
             }
             .sheet(isPresented: $showsLinkedChips, onDismiss: {
                 if let id = pendingLinkedChipID {

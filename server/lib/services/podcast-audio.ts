@@ -78,3 +78,22 @@ export function joinPodcastAudio(parts: Uint8Array[]) {
   });
   return { bytes, cues, durationSeconds: elapsed };
 }
+
+/** Cuts a recording at frame boundaries, without re-encoding. Ranges are in seconds on the recording's timeline. */
+export function slicePodcastAudio(bytes: Uint8Array, ranges: { startSeconds: number; endSeconds: number }[]): Uint8Array[] {
+  const all = frames(bytes);
+  const starts: number[] = [];
+  let elapsed = 0;
+  for (const frame of all) { starts.push(elapsed); elapsed += frame.samples / frame.rate; }
+  return ranges.map(({ startSeconds, endSeconds }) => {
+    // Chapter times are rounded when saved, so a frame belongs to the range its middle falls in.
+    const inside = all.filter((frame, index) => {
+      const middle = starts[index] + frame.samples / frame.rate / 2;
+      return middle >= startSeconds && middle < endSeconds;
+    });
+    const part = new Uint8Array(inside.reduce((sum, frame) => sum + frame.bytes.length, 0));
+    let at = 0;
+    for (const frame of inside) { part.set(frame.bytes, at); at += frame.bytes.length; }
+    return part;
+  });
+}

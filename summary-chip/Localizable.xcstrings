@@ -4,6 +4,21 @@
     "" : {
 
     },
+    "%lld Versions" : {
+
+    },
+    "Chapter Versions" : {
+
+    },
+    "Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more." : {
+
+    },
+    "The audiobook plays the version you choose. Choosing one is free." : {
+
+    },
+    "Updating audiobook…" : {
+
+    },
     "· %@" : {
       "shouldTranslate" : false
     },
@@ -6430,9 +6445,6 @@
 
     },
     "Each seed gives this model a different voice. Play a sample to hear it. Your choice applies from the next voice chat." : {
-
-    },
-    "Each selection is saved as a separate recording. Reopen this plan from the library to generate more chapters." : {
 
     },
     "Each speaker needs a different voice, up to %lld." : {
