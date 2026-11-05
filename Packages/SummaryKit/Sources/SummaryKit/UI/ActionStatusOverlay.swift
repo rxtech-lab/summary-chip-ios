@@ -5,18 +5,40 @@ import SwiftUI
 public struct ActionStatusOverlay: View {
     let message: String
     let isWorking: Bool
+    let progress: Double?
+    let cancelTitle: LocalizedStringKey
+    let onCancel: (() -> Void)?
 
-    public init(_ message: String, isWorking: Bool = true) {
+    /// Pass `progress` (0...1) for a determinate bar, and `onCancel` to offer a way out inside the overlay.
+    public init(
+        _ message: String,
+        isWorking: Bool = true,
+        progress: Double? = nil,
+        cancelTitle: LocalizedStringKey = "Cancel",
+        onCancel: (() -> Void)? = nil
+    ) {
         self.message = message
         self.isWorking = isWorking
+        self.progress = progress
+        self.cancelTitle = cancelTitle
+        self.onCancel = onCancel
     }
 
     public var body: some View {
         ZStack {
             Color.black.opacity(0.12).ignoresSafeArea()
             VStack(spacing: 16) {
-                if isWorking { ProgressView() }
-                Text(message).font(.subheadline.weight(.semibold)).multilineTextAlignment(.center)
+                if progress == nil, isWorking { ProgressView() }
+                Text(message)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+                if let progress {
+                    ProgressView(value: min(max(progress, 0), 1)).progressViewStyle(.linear)
+                }
+                if let onCancel {
+                    Button(cancelTitle, action: onCancel).keyboardShortcut(.cancelAction)
+                }
             }
             .padding(24)
             .frame(maxWidth: 320)

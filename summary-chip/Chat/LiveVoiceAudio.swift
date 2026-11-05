@@ -25,6 +25,8 @@ final class LiveVoiceAudio {
     private var meterTask: Task<Void, Never>?
     private let playbackLevel = OSAllocatedUnfairLock(initialState: 0.0)
     private var queuedFrames: AVAudioFrameCount = 0
+    /// Audio given to `play` that hasn't been heard yet.
+    var queuedSeconds: TimeInterval { Double(queuedFrames) / 24000 }
     private var playbackGeneration = UUID()
     private var configurationObserver: NSObjectProtocol?
     var onFailure: (() -> Void)?

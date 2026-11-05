@@ -86,11 +86,11 @@ struct LiveVoiceControls: View {
             VStack(spacing: 5) {
                 HStack(spacing: 8) {
                     if voice.isConnecting { VoiceActivitySpinner(reduceMotion: reduceMotion) }
-                    Text(voice.isConnecting ? "Connecting…" : "Connected")
+                    Text(headline)
                         .font(.headline)
                 }
-                Text(voice.isConnecting ? "Preparing your voice session" :
-                     (voice.microphoneWarning ?? (voice.providerHeardSpeech ? connectedStatus : (voice.hasMicrophoneInput && voice.sentAudioSeconds > 0 ? "Sending microphone audio…" : "Speak to check your microphone…"))))
+                Text(voice.activityDetail ?? (voice.isConnecting ? "Preparing your voice session" :
+                     (voice.microphoneWarning ?? (voice.providerHeardSpeech ? connectedStatus : (voice.hasMicrophoneInput && voice.sentAudioSeconds > 0 ? "Sending microphone audio…" : "Speak to check your microphone…")))))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -206,16 +206,26 @@ struct LiveVoiceControls: View {
         .frame(height: responseHeight, alignment: .bottom)
     }
 
+    private var headline: String {
+        if let agent = voice.localAgentName {
+            return voice.isConnecting ? String(localized: "Connecting to \(agent)…") : agent
+        }
+        return voice.isConnecting ? String(localized: "Connecting…") : String(localized: "Connected")
+    }
+
     private var connectedStatus: String {
         #if os(macOS)
-        "Speak after Chippy finishes; microphone pauses during replies."
+        if let agent = voice.localAgentName {
+            return String(localized: "Speak after \(agent) finishes; microphone pauses during replies.")
+        }
+        return "Speak after Chippy finishes; microphone pauses during replies."
         #else
         "Speech received by Chippy"
         #endif
     }
 
     private func updateRotation() {
-        globe.setConnecting(voice.isConnecting, reduceMotion: reduceMotion)
+        globe.setRotating(reduceMotion: reduceMotion)
     }
 }
 
@@ -300,24 +310,14 @@ private final class VoiceGlobeScene {
         scene.rootNode.addChildNode(fill)
     }
 
-    func setConnecting(_ connecting: Bool, reduceMotion: Bool) {
+    func setRotating(reduceMotion: Bool) {
         setSurfaceMotion(enabled: !reduceMotion)
-
-        let angle = orb.presentation.eulerAngles.y
-        orb.removeAllActions()
-        orb.eulerAngles.y = angle
         if reduceMotion {
-            orb.eulerAngles.y = 0
-        } else if connecting {
+            let angle = orb.presentation.eulerAngles.y
+            orb.removeAction(forKey: "spin")
+            orb.eulerAngles.y = angle
+        } else if orb.action(forKey: "spin") == nil {
             orb.runAction(.repeatForever(.rotateBy(x: 0, y: .pi * 2, z: 0, duration: 5)), forKey: "spin")
-        } else {
-            // Finish the current revolution forward, easing into the front view.
-            let turn = Double.pi * 2
-            let remainder = (Double(angle).truncatingRemainder(dividingBy: turn) + turn)
-                .truncatingRemainder(dividingBy: turn)
-            let action = SCNAction.rotateBy(x: 0, y: CGFloat(remainder < 0.001 ? 0 : turn - remainder), z: 0, duration: 0.8)
-            action.timingMode = .easeOut
-            orb.runAction(action, forKey: "settle")
         }
     }
 

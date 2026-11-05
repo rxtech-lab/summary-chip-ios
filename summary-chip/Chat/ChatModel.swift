@@ -219,11 +219,13 @@ final class ChatModel {
 
     func finishVoice() { finish(nil) }
 
+    nonisolated static let voiceStartPlaceholder = "Start voice chat."
+
     /// Delegates library access and mutations to the same authenticated, billed agent as text chat.
     func voiceContext() async -> ChatRequestBody {
         var messages = Self.uiMessages(from: entries)
         if let selectedGraphContext { messages.append(ChatUIMessage(role: .user, text: selectedGraphContext)) }
-        if messages.isEmpty { messages.append(ChatUIMessage(role: .user, text: "Start voice chat.")) }
+        if messages.isEmpty { messages.append(ChatUIMessage(role: .user, text: Self.voiceStartPlaceholder)) }
         return ChatRequestBody(messages: messages, summaryId: summaryID,
             localContent: await Self.localContent(summaryID: summaryID), tripId: trip?.id,
             miniAppId: miniAppID, graphId: graph?.id)

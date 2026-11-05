@@ -53,12 +53,14 @@ packages:
     path: Packages/RxRemotion
   SummaryKit:
     path: Packages/SummaryKit
+  LocalAgentKit:
+    path: Packages/LocalAgentKit
   RxAuthSwift:
     url: https://github.com/rxtech-lab/RxAuthSwift
     revision: fad1772fcd4a4e9a252cd21ba180a92c5775d67c
   RxAgentSDK:
     url: https://github.com/rxtech-lab/RxAgentSDK
-    from: 1.2.1
+    from: 1.3.0
 
 # Info.plist keys every target reads through SummaryConfiguration.
 x-config-info: &configInfo
@@ -80,6 +82,43 @@ x-shared-entitlements: &sharedEntitlements
     - group.com.rxlab.summary-chip
 
 targets:
+  # Launches Claude Code, Codex and the speech worker. It's deliberately not sandboxed: anything a
+  # sandboxed app starts inherits its sandbox, which agents can't work under. See docs/macos.md.
+  ChippyLocalAgentRunner:
+    type: xpc-service
+    platform: macOS
+    sources:
+      - path: LocalAgentRunner
+        excludes:
+          - Info.plist
+          - "*.py"
+      - path: LocalAgentRunner/kokoro_worker.py
+        buildPhase: resources
+    dependencies:
+      - package: LocalAgentKit
+      - package: RxAgentSDK
+        product: RxAgentSDK
+    info:
+      path: LocalAgentRunner/Info.plist
+      properties:
+        CFBundleDisplayName: Chippy Local Agent Runner
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        XPCService:
+          ServiceType: Application
+          # Agents need the user's login keychain, where they keep their sign-in.
+          JoinExistingSession: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.LocalAgentRunner
+        PRODUCT_NAME: ChippyLocalAgentRunner
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        SKIP_INSTALL: YES
+
   MacSmartShare:
     type: app-extension
     platform: macOS
@@ -148,6 +187,7 @@ targets:
       - target: summary-chip
       - package: RxRemotion
       - package: SummaryKit
+      - package: LocalAgentKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chip.macOSTests
@@ -188,6 +228,13 @@ targets:
       - package: Sparkle
         destinationFilters: [macOS]
       - package: SummaryKit
+      - package: LocalAgentKit
+      - target: ChippyLocalAgentRunner
+        destinationFilters: [macOS]
+        embed: true
+        copy:
+          destination: productsDirectory
+          subpath: $(CONTENTS_FOLDER_PATH)/XPCServices
       - package: RxAuthSwift
         product: RxAuthSwift
       - package: RxAuthSwift
@@ -429,6 +476,7 @@ targets:
       - target: summary-chip
       - package: RxRemotion
       - package: SummaryKit
+      - package: LocalAgentKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rxlab.summary-chipTests
@@ -470,6 +518,7 @@ schemes:
         - summary-chip-macOSTests
         - summary-chip-macOSUITests
         - package: SummaryKit/SummaryKitTests
+        - package: LocalAgentKit/LocalAgentKitTests
     profile:
       config: Release
     archive:
@@ -488,6 +537,7 @@ schemes:
         - summary-chipTests
         - summary-chipUITests
         - package: SummaryKit/SummaryKitTests
+        - package: LocalAgentKit/LocalAgentKitTests
     profile:
       config: Release
     archive:

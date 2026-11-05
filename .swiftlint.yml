@@ -20,6 +20,9 @@ included:
   - ChippyWidgets
   - Packages/SummaryKit/Sources
   - Packages/SummaryKit/Tests
+  - LocalAgentRunner
+  - Packages/LocalAgentKit/Sources
+  - Packages/LocalAgentKit/Tests
 
 # Line counts below exclude blank and comment-only lines.
 file_length:
