@@ -248,6 +248,21 @@ public struct GraphCamera: Sendable, Hashable {
         return next
     }
 
+    /// Frames a group with padding, keeping its projected bounds at the viewport centre.
+    public func centered(on points: [SIMD3<Double>], in size: CGSize) -> GraphCamera {
+        guard !points.isEmpty, size.width > 0, size.height > 0 else { return self }
+        let middle = points.reduce(.zero, +) / Double(points.count)
+        var next = focused(on: middle, zoom: 1, in: size)
+        let projected = points.map { next.project($0, in: size).point }
+        let minX = projected.map(\.x).min()!, maxX = projected.map(\.x).max()!
+        let minY = projected.map(\.y).min()!, maxY = projected.map(\.y).max()!
+        let fit = min(size.width * 0.75 / max(maxX - minX, 1), size.height * 0.75 / max(maxY - minY, 1))
+        next.zoom = min(2.2, max(Self.minZoom, fit))
+        let boundsCentre = SIMD2((minX + maxX) / 2 - size.width / 2, (minY + maxY) / 2 - size.height / 2)
+        next.pan = (next.pan - boundsCentre) * next.zoom
+        return next
+    }
+
     /// The camera `t` of the way (0…1) to `other`.
     public func interpolated(to other: GraphCamera, t: Double) -> GraphCamera {
         var next = other

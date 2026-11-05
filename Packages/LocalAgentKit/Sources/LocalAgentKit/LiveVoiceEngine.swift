@@ -2,14 +2,14 @@ import Foundation
 
 /// Who answers in live voice. The raw value is what's saved as the user's last pick.
 public enum LiveVoiceEngine: String, CaseIterable, Identifiable, Sendable {
-    case chippy, claudeCode, codex
+    case chippy, claudeCode, codex, codexRealtime
 
     public var id: String { rawValue }
     public var localAgent: LocalAgentKind? {
         switch self {
         case .chippy: nil
         case .claudeCode: .claudeCode
-        case .codex: .codex
+        case .codex, .codexRealtime: .codex
         }
     }
 

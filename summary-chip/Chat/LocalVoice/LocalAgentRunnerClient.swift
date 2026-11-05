@@ -67,6 +67,11 @@ final class LocalAgentRunnerClient {
         try await start(id: id, handler: handler) { proxy, reply in proxy.startAgent(id: id, request: encoded, reply: reply) }
     }
 
+    func startRealtime(_ launch: LocalAgentLaunch, offer: String, id: String, handler: ProcessHandler) async throws {
+        let data = try JSONEncoder().encode(launch)
+        try await start(id: id, handler: handler) { proxy, reply in proxy.startRealtime(id: id, request: data, offer: offer, reply: reply) }
+    }
+
     func models(for kind: LocalAgentKind) async throws -> [AgentModelOption] {
         let data: Data = try await request { proxy, reply in proxy.agentModels(kind: kind.rawValue, reply: reply) }
         return try JSONDecoder().decode([AgentModelOption].self, from: data)

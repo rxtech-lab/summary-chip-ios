@@ -2,11 +2,13 @@
 import Foundation
 import LocalAgentKit
 import SummaryKit
+import RxAgentCore
+import RxAgentVoice
 
 /// Live voice without the cloud voice model: Apple transcribes what's said, a local agent
 /// answers, and a downloaded Kokoro model reads the answer aloud.
 @MainActor
-final class LocalLiveVoiceSession {
+final class LocalLiveVoiceSession: SpeechRecognizing, SpeechSynthesizing, VoiceResponder {
     enum SetupRequired: Error { case agent, voice }
 
     private let agent: LocalAgentKind
@@ -16,10 +18,14 @@ final class LocalLiveVoiceSession {
     private let speech: LocalSpeechPlayer
     private var driver: (any LocalAgentDriver)?
     private var detector = UtteranceDetector()
-    private var chunker = SpokenTextChunker()
     private var reading: Task<Void, Never>?
-    private var isTurnActive = false
+    private var connection: (any VoiceConnection)?
+    private var events: Task<Void, Never>?
+    private var utterances: AsyncStream<String>.Continuation?
+    private var response: AsyncStream<AgentEvent>.Continuation?
+    private var synthesis: AsyncThrowingStream<VoiceAudioFrame, Error>.Continuation?
     private var audio: LiveVoiceAudio?
+    private var chunker = SpokenTextChunker()
 
     var onEvent: ((LocalAgentEvent) -> Void)?
     var onUtterance: ((String) -> Void)?
@@ -48,37 +54,51 @@ final class LocalLiveVoiceSession {
         speech.voice = LocalVoiceChoices.chosenVoice(for: setup.selectedVoiceModel)
         speech.seed = LocalVoiceChoices.chosenSeed(for: setup.selectedVoiceModel)
         speech.queuedAudio = { [weak self] in self?.audio?.queuedSeconds ?? 0 }
-        speech.onAudio = { [weak self] pcm in self?.play(pcm) }
+        // Played directly because a reply is spoken as it's written, before there's a synthesis to carry it.
+        speech.onAudio = { [weak self] in self?.play($0) }
+        speech.onFinished = { [weak self] in self?.synthesis?.finish(); self?.synthesis = nil }
+        speech.onSpeechError = { [weak self] in self?.synthesis?.finish(throwing: LocalVoiceFailure($0)) }
         speech.onFailure = { [weak self] in self?.onFailure?($0) }
         try await speech.start()
         try Task.checkCancellation()
 
         status(String(localized: "Starting \(agent.displayName)"))
-        let driver: any LocalAgentDriver = switch agent {
-        case .claudeCode: ClaudeCodeDriver(launch: launch, runner: runner)
-        case .codex: CodexDriver(launch: launch, directory: Self.workspace)
-        }
+        let driver = SDKAgentDriver(launch: launch, runner: runner)
         driver.onEvent = { [weak self] in self?.handle($0) }
         self.driver = driver
         try await driver.start()
         try Task.checkCancellation()
 
         status(String(localized: "Preparing speech recognition"))
-        try await recognizer.start(localeIdentifier: language.localeIdentifier)
-    }
-
-    /// The runner's working folder is created by the runner; Codex only needs its path.
-    private static var workspace: String {
-        // The sandbox remaps Application Support, so build the real path from the account's home.
-        let home = getpwuid(getuid()).flatMap { $0.pointee.pw_dir.map { String(cString: $0) } } ?? NSHomeDirectory()
-        return URL(filePath: home).appending(path: "Library/Application Support/Chippy/LocalVoice/workspace").path
+        let engine = PipelineVoiceEngine(recognizer: self, synthesizer: self, responder: self)
+        connection = try await engine.connect(.init())
+        guard let connection else { return }
+        if Task.isCancelled { await connection.close(); throw CancellationError() }
+        events = Task { [weak self] in
+            for await event in connection.events {
+                guard !Task.isCancelled, let self else { return }
+                switch event {
+                case .userTranscript(_, let text, _): self.audio?.interrupt(); self.onUtterance?(text)
+                case .assistantText(_, let text): self.onEvent?(.textDelta(text))
+                case .assistantAudio(_, let frame): self.play(frame.data)
+                case .assistantDone: self.onEvent?(.turnFinished)
+                case .failed(let error): self.onFailure?(String(describing: error))
+                default: break
+                }
+            }
+        }
     }
 
     func attach(_ audio: LiveVoiceAudio) {
         self.audio = audio
     }
 
-    func receive(pcm: Data) {
+    func receive(pcm: Data) async throws {
+        try await connection?.send(audio: .init(data: pcm, format: .init(sampleRate: 16_000)))
+    }
+
+    func append(_ frame: VoiceAudioFrame) async throws {
+        let pcm = frame.data
         recognizer.append(pcm)
         let duration = Double(pcm.count / 2) / 16000
         switch detector.process(rms: UtteranceDetector.rms(pcm16: pcm), duration: duration) {
@@ -102,14 +122,20 @@ final class LocalLiveVoiceSession {
             do {
                 let text = try await read()
                 guard !Task.isCancelled else { return }
-                self?.accept(text)
+                self?.utterances?.yield(text)
             } catch {
                 if !Task.isCancelled { self?.onFailure?(error.localizedDescription) }
             }
         }
     }
 
-    func stop() {
+    func stopSynchronously() {
+        events?.cancel(); events = nil
+        let old = connection; connection = nil
+        Task { await old?.close() }
+        utterances?.finish(); utterances = nil
+        response?.finish(); response = nil
+        synthesis?.finish(); synthesis = nil
         reading?.cancel()
         reading = nil
         recognizer.stop()
@@ -122,20 +148,39 @@ final class LocalLiveVoiceSession {
         onFailure = nil
     }
 
-    private func accept(_ text: String) {
-        // Noise is loud enough to look like speech but yields no words, and mustn't cut off a reply.
-        guard text.contains(where: { $0.isLetter || $0.isNumber }) else { return }
-        // Speaking during a reply or a running tool takes over, as it does with the cloud voice.
-        if isTurnActive || speech.isBusy || (audio?.queuedSeconds ?? 0) > 0 {
-            if isTurnActive { driver?.interrupt() }
-            speech.cancelAll()
-            audio?.interrupt()
-            chunker = SpokenTextChunker()
-        }
-        isTurnActive = true
-        onUtterance?(text)
-        driver?.send(text)
+    nonisolated var inputFormat: VoicePCMFormat { .init(sampleRate: 16_000) }
+
+    func start() async throws -> AsyncStream<String> {
+        try await recognizer.start(localeIdentifier: language.localeIdentifier)
+        let (stream, continuation) = AsyncStream<String>.makeStream()
+        utterances = continuation
+        return stream
     }
+
+    func stop() async { stopSynchronously() }
+
+    func discard() async { try? await recognizer.discardAudio() }
+
+    func respond(to text: String) async throws -> AsyncStream<AgentEvent> {
+        let (stream, continuation) = AsyncStream<AgentEvent>.makeStream()
+        response = continuation
+        driver?.send(text)
+        return stream
+    }
+
+    func cancel() async { driver?.interrupt(); response?.finish(); response = nil }
+
+    /// The pipeline calls this with the finished reply, most of which is already spoken. So this only
+    /// reads what's left, and its stream carries no audio: it ends when the speech does.
+    func synthesize(_ text: String) async throws -> AsyncThrowingStream<VoiceAudioFrame, Error> {
+        let (stream, continuation) = AsyncThrowingStream<VoiceAudioFrame, Error>.makeStream()
+        synthesis = continuation
+        chunker.flush().forEach(speech.enqueue)
+        if !speech.isBusy { continuation.finish() }
+        return stream
+    }
+
+    func cancelAll() async { chunker = SpokenTextChunker(); speech.cancelAll(); synthesis?.finish(); synthesis = nil; audio?.interrupt() }
 
     private func play(_ pcm: Data) {
         do {
@@ -148,19 +193,19 @@ final class LocalLiveVoiceSession {
     private func handle(_ event: LocalAgentEvent) {
         switch event {
         case .textDelta(let delta):
+            guard let response else { return }
+            response.yield(.textDelta(delta))
             chunker.append(delta).forEach(speech.enqueue)
-        case .textEnded:
+        case .toolStarted:
+            // What the agent said before this tool shouldn't wait for the tool to finish.
             chunker.flush().forEach(speech.enqueue)
-        case .turnFinished:
-            isTurnActive = false
-            chunker.flush().forEach(speech.enqueue)
-        case .failed:
-            isTurnActive = false
-        case .sessionStarted, .toolStarted, .toolFinished:
-            break
+            onEvent?(event)
+        case .turnFinished: response?.finish(); response = nil
+        case .failed(let message): response?.yield(.failed(.agentReported(message))); response?.finish(); response = nil
+        default: onEvent?(event)
         }
-        onEvent?(event)
     }
+
 }
 
 /// The agent's standing instructions and whatever the user was looking at when the session started.
@@ -183,6 +228,14 @@ enum LocalAgentInstructions {
         Its tools can be loaded on demand and may not be listed yet: before saying a tool is unavailable, search your tools for it \
         (for example with a tool search) and then call it. \
         Ask before changing or deleting anything when the request is ambiguous. Never claim a change succeeded without a successful tool result.
+
+        In Codex Realtime, use chippy_ui.get_user_selection to read the live graph selection whenever the user says
+        "this node", "selected", or "these". Selection can change during the call; never rely on the starting selection.
+        Use chippy_ui.open_node_detail with nodeId and presentation "window" or "popover" to open the node’s existing full detail view.
+        Use chippy_ui.center_graph_nodes with nodeIds to center one or more nodes in the viewport.
+        Use chippy_ui.show_node_tooltip with nodeId, title and text to show a temporary native popover above a node.
+        Do not use computer use, browser automation, screenshots, clicks, or keyboard automation. Use Chippy tools only
+        to interact with this app. If a tool is unavailable, explain that limitation instead of automating the UI.
 
         Graph changes appear automatically in the app. After a successful graph change, briefly confirm what changed. \
         Never ask the user to refresh or reload the graph, or say they will see updates once the graph is refreshed.

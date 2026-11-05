@@ -2,9 +2,9 @@ import Foundation
 
 /// Translates what a local agent's tools return into what the chat transcript and open documents expect.
 public enum LocalToolOutput {
-    /// `search_summaries` becomes `searchSummaries`, the name the transcript has labels for.
+    /// `mcp__chippy_app__search_summaries` becomes `searchSummaries`, the name the transcript has labels for.
     public static func chatToolName(_ name: String) -> String {
-        let parts = name.split(separator: "_")
+        let parts = displayToolName(name).split(separator: "_")
         guard let first = parts.first, parts.count > 1 else { return name }
         return String(first) + parts.dropFirst().map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
     }
@@ -12,6 +12,7 @@ public enum LocalToolOutput {
     /// JSON for the transcript. Chippy's MCP tools can return a sentence before their JSON, and
     /// an agent's own tools usually return plain text, which gets wrapped.
     public static func chatOutput(toolName: String, output: String) -> Data {
+        let output = mcpText(in: output) ?? output
         guard var payload = payload(in: output) else {
             return (try? JSONSerialization.data(withJSONObject: ["text": output])) ?? Data("{}".utf8)
         }
@@ -27,6 +28,13 @@ public enum LocalToolOutput {
     public static func changesOpenDocument(toolName: String) -> Bool {
         toolName.hasPrefix("update") || toolName.hasPrefix("addToTrip")
             || toolName == "choosePlanOption" || toolName == "restoreVersion"
+    }
+
+    /// Codex reports a whole MCP result, `{"content":[{"type":"text","text":"…"}]}`, rather than its text.
+    private static func mcpText(in output: String) -> String? {
+        guard let content = object(output)?["content"] as? [[String: Any]] else { return nil }
+        let text = content.compactMap { $0["text"] as? String }
+        return text.isEmpty ? nil : text.joined(separator: "\n")
     }
 
     private static func payload(in output: String) -> [String: Any]? {

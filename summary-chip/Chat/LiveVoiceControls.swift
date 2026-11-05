@@ -7,6 +7,7 @@ struct LiveVoiceControls: View {
     var contentHeight: CGFloat = 600
     let voice: LiveVoiceModel
     let currentTool: ChatToolActivity?
+    let tools: [ChatToolActivity]
     let openTool: (ChatToolActivity) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -15,6 +16,39 @@ struct LiveVoiceControls: View {
     @State private var responseScroll = ScrollPosition(y: 0)
     @State private var responseOffset: CGFloat = 0
     @State private var userScrolledResponse = false
+
+    private func toolChip(_ currentTool: ChatToolActivity) -> some View {
+        Button {
+            if currentTool.renderedUI == nil { openTool(currentTool) }
+        } label: {
+            HStack(spacing: 8) {
+                if currentTool.isRunning {
+                    VoiceActivitySpinner(reduceMotion: reduceMotion)
+                } else {
+                    Image(systemName: currentTool.errorText == nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(currentTool.errorText == nil ? Color.green : Color.orange)
+                        .frame(width: 18, height: 18)
+                }
+                Text(currentTool.toolName.isEmpty ? currentTool.label : currentTool.toolName)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(minHeight: 20)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(.cyan.opacity(0.3), lineWidth: 1))
+            .shadow(color: .cyan.opacity(0.2), radius: 10)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("voice-current-tool")
+        .accessibilityValue(currentTool.isRunning ? "Running" : (currentTool.errorText == nil ? "Completed" : "Failed"))
+        .sensoryFeedback(trigger: currentTool.finished) { _, finished in
+            guard finished == true else { return nil }
+            return currentTool.errorText == nil ? .success : .error
+        }
+    }
 
     private var hasToolUI: Bool {
         currentTool?.renderedUI != nil || currentTool?.miniAppDraft != nil
@@ -33,66 +67,19 @@ struct LiveVoiceControls: View {
             }
             .frame(height: stageHeight)
 
-            TransparentVoiceGlobeView(scene: globe.scene, camera: globe.camera)
-                .frame(width: 144, height: 144)
-                .allowsHitTesting(false)
-                .shadow(color: .cyan.opacity(0.22), radius: 6 + voice.level * 8)
-                .scaleEffect(reduceMotion ? 1 : 1 + voice.level * 0.12)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: voice.level)
-                // Peak speech rings reach 109 points from the center, including
-                // their stroke. Give the Canvas a 224-point drawing area.
-                .padding(40)
-                .background {
-                    AgentVoiceWaves(level: voice.level, isSpeaking: voice.isSpeaking, reduceMotion: reduceMotion)
-                }
-                .accessibilityHidden(true)
-                .frame(maxWidth: .infinity)
-                .overlay(alignment: .bottomTrailing) {
-                    if let currentTool {
-                        Button {
-                            if currentTool.renderedUI == nil { openTool(currentTool) }
-                        } label: {
-                            HStack(spacing: 8) {
-                                if currentTool.isRunning {
-                                    VoiceActivitySpinner(reduceMotion: reduceMotion)
-                                } else {
-                                    Image(systemName: currentTool.errorText == nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                                        .foregroundStyle(currentTool.errorText == nil ? Color.green : Color.orange)
-                                        .frame(width: 18, height: 18)
-                                }
-                                Text(currentTool.label)
-                                    .font(.caption.weight(.medium))
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                            }
-                            .frame(minHeight: 20)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(.regularMaterial, in: Capsule())
-                            .overlay(Capsule().strokeBorder(.cyan.opacity(0.3), lineWidth: 1))
-                            .shadow(color: .cyan.opacity(0.2), radius: 10)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("voice-current-tool")
-                        .accessibilityValue(currentTool.isRunning ? "Running" : (currentTool.errorText == nil ? "Completed" : "Failed"))
-                        .offset(y: -6)
-                    }
-                }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: currentTool?.id)
-                .sensoryFeedback(trigger: currentTool?.finished) { _, finished in
-                    guard finished == true else { return nil }
-                    return currentTool?.errorText == nil ? .success : .error
-                }
+            toolGlobe
             VStack(spacing: 5) {
                 HStack(spacing: 8) {
                     if voice.isConnecting { VoiceActivitySpinner(reduceMotion: reduceMotion) }
                     Text(headline)
                         .font(.headline)
                 }
-                Text(voice.activityDetail ?? (voice.isConnecting ? "Preparing your voice session" :
-                     (voice.microphoneWarning ?? (voice.providerHeardSpeech ? connectedStatus : (voice.hasMicrophoneInput && voice.sentAudioSeconds > 0 ? "Sending microphone audio…" : "Speak to check your microphone…")))))
+                Text(voice.activityDetail ?? (voice.isConnecting ? "Preparing voice…" :
+                     (voice.microphoneWarning ?? (voice.providerHeardSpeech ? connectedStatus : (voice.hasMicrophoneInput && voice.sentAudioSeconds > 0 ? "Sending audio…" : "Speak to test mic…")))))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .multilineTextAlignment(.center)
             .lineLimit(2)
@@ -127,6 +114,50 @@ struct LiveVoiceControls: View {
     }
     // The stage uses the available height; tool results never add height to the sheet.
     private var stageHeight: CGFloat { max(responseHeight, contentHeight - 456) }
+
+    /// Stable slots keep each call on its own side as newer calls arrive.
+    private var toolGlobe: some View {
+        GeometryReader { geometry in
+            ZStack {
+                TransparentVoiceGlobeView(scene: globe.scene, camera: globe.camera)
+                    .frame(width: 144, height: 144)
+                    .shadow(color: .cyan.opacity(0.22), radius: 6 + voice.level * 8)
+                    .scaleEffect(reduceMotion ? 1 : 1 + voice.level * 0.12)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: voice.level)
+                    .padding(40)
+                    .background {
+                        AgentVoiceWaves(level: voice.level, isSpeaking: voice.isSpeaking, reduceMotion: reduceMotion)
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .zIndex(0)
+
+                ForEach(Array(tools.enumerated().suffix(8)), id: \.element.id) { index, tool in
+                    let behind = !tool.isRunning && index < tools.count - 1
+                    let side = index % 4
+                    let chipWidth = min(180.0, max(100.0, geometry.size.width * 0.42))
+                    let horizontal = max(0, (geometry.size.width - chipWidth) / 2 - 4)
+                    let x: CGFloat = side == 2 ? -horizontal : (side == 3 ? horizontal : 0)
+                    let y: CGFloat = side == 0 ? -86 : (side == 1 ? 86 : (index % 8 < 4 ? -18 : 18))
+                    toolChip(tool)
+                        .frame(maxWidth: chipWidth)
+                        .scaleEffect(behind ? 0.72 : 1)
+                        .rotation3DEffect(.degrees(reduceMotion ? 0 : (behind ? 28 : -8)),
+                                          axis: (x: side < 2 ? 1 : 0, y: side < 2 ? 0 : 1, z: 0),
+                                          perspective: 0.6)
+                        .blur(radius: behind ? 2.5 : 0)
+                        .opacity(behind ? 0.38 : 1)
+                        .offset(x: x * (behind ? 0.62 : 1), y: y * (behind ? 0.62 : 1))
+                        .zIndex(behind ? -1 : Double(index + 1))
+                        .transition(.opacity.combined(with: .scale(scale: reduceMotion ? 1 : 0.75)))
+                        .animation(reduceMotion ? nil : .spring(response: 0.65, dampingFraction: 0.85), value: behind)
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .animation(reduceMotion ? nil : .spring(response: 0.65, dampingFraction: 0.85), value: tools.map(\.id))
+        }
+        .frame(height: 224)
+    }
 
     private var toolPanel: some View {
     Group {
@@ -215,10 +246,7 @@ struct LiveVoiceControls: View {
 
     private var connectedStatus: String {
         #if os(macOS)
-        if let agent = voice.localAgentName {
-            return String(localized: "Speak after \(agent) finishes; microphone pauses during replies.")
-        }
-        return "Speak after Chippy finishes; microphone pauses during replies."
+        return "Mic pauses during replies"
         #else
         "Speech received by Chippy"
         #endif

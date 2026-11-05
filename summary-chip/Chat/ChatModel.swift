@@ -95,6 +95,8 @@ final class ChatModel {
     /// Called after the graph agent saved an edit to `graph`.
     @ObservationIgnored var onGraphUpdated: (() -> Void)?
     /// Called with what the graph agent picked out; nil when it cleared the selection.
+    @ObservationIgnored var onGraphOpenNode: ((String, String) -> Bool)?
+    @ObservationIgnored var onGraphCenter: (([String]) -> Bool)?
     @ObservationIgnored var onGraphUI: ((ChatRenderedUI) -> Void)?
     @ObservationIgnored var onGraphSelection: ((GraphSelection?) -> Void)?
     private(set) var entries: [ChatEntry] = []

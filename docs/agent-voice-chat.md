@@ -33,3 +33,47 @@ Verified during implementation: iOS Simulator and macOS Debug builds, TypeScript
 Audio startup fix: macOS logs for error -10875 showed VoiceProcessingIO rejecting mismatched client input/output formats. The main mixer now connects explicitly to the output node using the microphone format, so the 24 kHz model audio is resampled before the voice-processing output. Startup failures tear down the graph and report a readable audio-device error. Configuration notifications queued during successful startup do not end the session.
 
 Gemini Live tool schemas use a shallow `argumentsJson` string envelope; complete argument schemas remain in tool descriptions and the server decodes and validates calls against the original contracts. Sending the original nested graph/UI schemas reproduced an upstream 1011 close; the envelope passed a live graph-catalog audio check (`--audio --graph-tools`). That check does not execute tools or read a user graph.
+
+## RxAgentSDK integration
+
+The Xcode project uses the published RxAgentSDK package, version 1.4.0 or later.
+
+- Gemini uses the SDK's `GeminiVoiceEngine` and `VoiceConnection` for its gateway
+  transport. Chippy retains microphone/playback, transcript rendering, tool
+  execution through its authenticated API, and document refresh callbacks.
+- Claude Code and Codex with local speech use `PipelineVoiceEngine`. Chippy adapts
+  its Apple recognizer, utterance detector, and downloaded TTS worker to the SDK
+  speech protocols. The SDK pipeline only synthesizes a completed response, so
+  `LocalLiveVoiceSession` speaks each sentence as it arrives and uses the pipeline's
+  call to read what's left.
+- Agent text turns use SDK `ClaudeCodeClient` / `CodexClient` in the XPC runner.
+  Normalized events cross XPC; the application no longer parses CLI wire events.
+- Codex Realtime is a separate Mac picker option. It uses WebRTC because Codex
+  only accepts a ChatGPT sign-in on that transport (WebSocket needs API key auth).
+  The XPC runner runs `codex app-server` and relays the SDP answer and transcripts.
+  The app owns the peer connection (`CodexRealtimePeer`), so microphone, speaker and
+  echo cancellation are WebRTC's, not `LiveVoiceAudio`. It uses the installed Codex
+  account and does not need a local TTS model. The API is experimental and account
+  access can change, so failures point to Codex · Local Speech as the alternative.
+  The realtime model delegates work to the Codex thread, which runs the MCP tools. The
+  runner forwards that thread's `mcpToolCall` items, so tool cards and graph updates
+  work as in the other local modes. Since `LiveVoiceAudio` isn't running here, the tool
+  sound has its own output-only player (`RealtimeToolCue`). It starts with the first
+  tool and stops when the thread's turn ends, and waits while the model is speaking.
+  WebRTC needs `com.apple.security.network.server`; without it the sandbox makes ICE
+  fail, which appears as a connection timeout.
+
+### Test on device before release
+
+Open Agent Chat → voice agent selection. Test Gemini, Claude Code, Codex · Local
+Speech, and Codex Realtime. Check microphone permission, transcript ordering,
+Chippy library tools, audio playback, interruption, stop during startup, restart,
+and changing engines after stopping. Check a non-English local speech language
+and a long response. Codex realtime availability depends on the installed CLI and
+account. Builds and protocol tests do not establish live provider or audio-device
+behavior. Local recognition/TTS and Codex modes are Mac-only; iOS and visionOS
+continue to use Gemini.
+
+The staged SDK also contains integration fixes for Gemini batched events,
+function-result names and interrupted playback, plus forwarding Codex realtime
+instructions. Both repositories must be included in the eventual release review.

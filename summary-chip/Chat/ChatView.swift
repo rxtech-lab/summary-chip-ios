@@ -473,6 +473,7 @@ struct ChatView: View {
                     contentHeight: max(600, geometry.size.height),
                     voice: voice,
                     currentTool: model.entries.flatMap(\.tools).last { $0.id == voice.currentToolID },
+                    tools: model.entries.flatMap(\.tools).filter { !voice.previousToolIDs.contains($0.id) },
                     openTool: {
                         toolDetail = $0
                         interactionFeedback += 1
