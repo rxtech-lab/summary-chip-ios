@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var showsNotifications = false
     @State private var showsDailyRecap = false
     @State private var showsMCPServer = false
+    @State private var showsVoiceModels = false
     @State private var formWidth: CGFloat = 0
     private static let maxContentWidth: CGFloat = 680
     @Environment(\.chatPanelVisibility) private var chatPanelVisibility
@@ -36,6 +37,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
             .sheet(isPresented: $showsDailyRecap) { DailyRecapSettingsSheet(api: environment.api) }
             .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(api: environment.api) }
+            #if os(macOS)
+            .sheet(isPresented: $showsVoiceModels) { VoiceModelsSheet() }
+            #endif
             .sheet(item: $helpSheet) { sheet in
                 switch sheet {
                 case .welcome:
@@ -115,6 +119,11 @@ struct SettingsView: View {
             }
 
             Section {
+                SettingsActionRow(String(localized: "Voice Models"), systemImage: "waveform", tint: .purple,
+                                  detail: String(localized: "Download and manage models for local voice chat.")) {
+                    Button("Manage…") { showsVoiceModels = true }
+                        .accessibilityIdentifier("voice-model-settings")
+                }
                 SettingsActionRow(String(localized: "Offline Cache"), systemImage: "internaldrive.fill", tint: .blue,
                                   detail: cacheSize.map { String(localized: "\($0.formatted(.byteCount(style: .file))) used") } ?? String(localized: "Calculating…")) {
                     Button("Clear Cache…") {

@@ -84,6 +84,17 @@
                ReferencedContainer = "container:Packages/SummaryKit">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "LocalAgentKitTests"
+               BuildableName = "LocalAgentKitTests"
+               BlueprintName = "LocalAgentKitTests"
+               ReferencedContainer = "container:Packages/LocalAgentKit">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

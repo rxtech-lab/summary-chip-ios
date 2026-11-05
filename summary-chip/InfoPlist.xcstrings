@@ -96,6 +96,18 @@
           }
         }
       }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "comment" : "Privacy - Speech Recognition Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Chippy uses on-device speech recognition to hear you when a local agent answers in live voice."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

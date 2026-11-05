@@ -1,4 +1,5 @@
 import Foundation
+import LocalAgentKit
 import Observation
 import OSLog
 import SummaryKit
@@ -18,6 +19,17 @@ final class LiveVoiceModel {
     private let voiceLogger = Logger(subsystem: "com.rxlab.summary-chip", category: "VoiceChat")
     private var microphoneWatchdog: Task<Void, Never>?
     private(set) var latestResponse = ""
+    /// A local agent's name, shown while it's the one answering.
+    private(set) var localAgentName: String?
+    /// What a local session is doing right now, when the usual status doesn't say enough.
+    private(set) var activityDetail: String?
+    /// A local agent or voice isn't ready, which is for the picker to resolve rather than an error.
+    var needsLocalSetup = false
+    #if os(macOS)
+    private var localSession: LocalLiveVoiceSession?
+    private var localToolNames: [String: String] = [:]
+    private var localToolEntries: [String: String] = [:]
+    #endif
     var error: String?
     private(set) var currentToolID: String?
     private(set) var previousToolIDs = Set<String>()
@@ -33,7 +45,7 @@ final class LiveVoiceModel {
     private var api: SummaryAPIClient?
     private var context: ChatRequestBody?
 
-    func start(api: SummaryAPIClient, chat: ChatModel) {
+    func start(api: SummaryAPIClient, chat: ChatModel, engine: LiveVoiceEngine = .chippy, language: LocalVoiceLanguage = .all[0]) {
         guard !isActive, !chat.isStreaming else { return }
         self.chat = chat
         self.api = api
@@ -44,6 +56,13 @@ final class LiveVoiceModel {
         currentToolID = nil
         startedAt = nil; assistantID = nil; handledCalls = []
         let revision = UUID(); generation = revision
+        localAgentName = nil; activityDetail = nil
+        #if os(macOS)
+        if let agent = engine.localAgent {
+            startLocal(agent: agent, language: language, api: api, chat: chat, revision: revision)
+            return
+        }
+        #endif
         task = Task {
             do {
                 guard await LiveVoiceAudio.requestPermission() else {
@@ -103,6 +122,11 @@ final class LiveVoiceModel {
         toolTasks = [:]
         socket?.cancel(with: .normalClosure, reason: nil); socket = nil
         audio?.stop(); audio = nil
+        #if os(macOS)
+        localSession?.stop(); localSession = nil
+        localToolNames = [:]; localToolEntries = [:]
+        #endif
+        activityDetail = nil
         chat?.finishVoice()
         currentToolID = nil
         isActive = false; isConnecting = false; level = 0; isSpeaking = false
@@ -124,7 +148,9 @@ final class LiveVoiceModel {
         if type != "custom" { voiceLogger.debug("Received voice event: \(type, privacy: .public)") }
         switch type {
         case "session-created", "session-updated", "session-started":
-            try startCapture(revision: revision)
+            try startCapture(revision: revision) { [weak self] data in
+                try await self?.send(["type": "input-audio-append", "audio": data.base64EncodedString()])
+            }
         case "speech-started":
             currentToolID = nil
             audio?.interrupt()
@@ -154,7 +180,7 @@ final class LiveVoiceModel {
         }
     }
 
-    private func startCapture(revision: UUID) throws {
+    private func startCapture(revision: UUID, timeLimit: TimeInterval? = 600, deliver: @escaping (Data) async throws -> Void) throws {
         guard isConnecting else { return }
         let audio = LiveVoiceAudio()
         self.audio = audio
@@ -178,7 +204,7 @@ final class LiveVoiceModel {
             do {
                 for await data in stream {
                     guard let self, !Task.isCancelled, self.generation == revision else { return }
-                    if let startedAt = self.startedAt, Date().timeIntervalSince(startedAt) >= 600 {
+                    if let timeLimit, let startedAt = self.startedAt, Date().timeIntervalSince(startedAt) >= timeLimit {
                         self.fail("Voice session reached 10 minutes. Start a new session to continue."); return
                     }
                     var energy = 0.0
@@ -194,7 +220,7 @@ final class LiveVoiceModel {
                     let rms = sqrt(energy / Double(max(1, data.count / 2)))
                     // A linear amplitude meter hides quiet but valid microphone audio.
                     self.inputLevel = rms > 0 ? min(1, max(0, (20 * log10(rms) + 60) / 60)) : 0
-                    try await self.send(["type": "input-audio-append", "audio": data.base64EncodedString()])
+                    try await deliver(data)
                     let previousSeconds = Int(self.sentAudioSeconds)
                     self.sentAudioSeconds += Double(data.count) / 32000
                     if Int(self.sentAudioSeconds) / 5 > previousSeconds / 5 {
@@ -266,3 +292,104 @@ final class LiveVoiceModel {
         if let assistantID { chat?.setVoiceText(assistantID, text: latestResponse) }
     }
 }
+
+#if os(macOS)
+// MARK: - Local agents
+
+extension LiveVoiceModel {
+    private func startLocal(agent: LocalAgentKind, language: LocalVoiceLanguage, api: SummaryAPIClient, chat: ChatModel, revision: UUID) {
+        localAgentName = agent.displayName
+        task = Task {
+            let session = LocalLiveVoiceSession(agent: agent, language: language)
+            localSession = session
+            session.onEvent = { [weak self] in self?.receiveLocal($0) }
+            session.onUtterance = { [weak self] text in
+                guard let self else { return }
+                self.providerHeardSpeech = true
+                self.currentToolID = nil
+                self.assistantID = nil
+                self.latestResponse = ""
+                self.activityDetail = String(localized: "\(agent.displayName) is working…")
+                self.audio?.setToolActivity(true)
+                self.chat?.finishVoice()
+                self.chat?.appendVoiceUser(text)
+            }
+            session.onFailure = { [weak self] message in
+                guard let self, self.generation == revision else { return }
+                self.fail(message)
+            }
+            do {
+                guard await LiveVoiceAudio.requestPermission() else {
+                    throw LocalVoiceFailure(String(localized: "Allow microphone access in Settings to start voice chat."))
+                }
+                let context = await chat.voiceContext()
+                try await session.prepare(api: api, context: context) { [weak self] in self?.activityDetail = $0 }
+                guard generation == revision, !Task.isCancelled else { return }
+                // There's no cloud session to pay for here, so no time limit either.
+                try startCapture(revision: revision, timeLimit: nil) { data in session.receive(pcm: data) }
+                if let audio { session.attach(audio) }
+                activityDetail = nil
+            } catch is LocalLiveVoiceSession.SetupRequired {
+                guard generation == revision else { return }
+                stop()
+                needsLocalSetup = true
+            } catch {
+                guard generation == revision, !Task.isCancelled, !(error is CancellationError) else { return }
+                fail(error.localizedDescription)
+            }
+        }
+    }
+
+    private func receiveLocal(_ event: LocalAgentEvent) {
+        switch event {
+        case .sessionStarted, .textEnded:
+            break
+        case .textDelta(let delta):
+            activityDetail = nil
+            // The agent is answering now, so its reply takes over from the cue.
+            audio?.setToolActivity(false)
+            appendAssistant(delta)
+        case .toolStarted(let id, let name, let input):
+            let toolName = LocalToolOutput.chatToolName(name)
+            let entryID = chat?.beginVoiceAssistant()
+            // Text after this tool belongs in a new bubble, so the transcript keeps its order.
+            assistantID = nil
+            currentToolID = id
+            localToolNames[id] = toolName
+            localToolEntries[id] = entryID
+            let value = (try? JSONDecoder().decode(JSONValue.self, from: input)) ?? .null
+            if let entryID { chat?.recordVoiceTool(.toolInputAvailable(toolCallId: id, toolName: toolName, input: value), entryID: entryID) }
+            audio?.setToolActivity(true)
+        case .toolFinished(let id, let output, let isError):
+            finishLocalTool(id: id, output: output, isError: isError)
+        case .turnFinished:
+            assistantID = nil
+            activityDetail = nil
+            chat?.finishVoice()
+            audio?.setToolActivity(false)
+        case .failed(let message):
+            fail(message)
+        }
+    }
+
+    private func finishLocalTool(id: String, output: String, isError: Bool) {
+        guard let entryID = localToolEntries.removeValue(forKey: id) else { return }
+        let name = localToolNames.removeValue(forKey: id)
+        if isError {
+            chat?.recordVoiceTool(.toolOutputError(toolCallId: id, errorText: output), entryID: entryID)
+        } else {
+            let data = LocalToolOutput.chatOutput(toolName: name ?? "", output: output)
+            let value = (try? JSONDecoder().decode(JSONValue.self, from: data)) ?? .object(["text": .string(output)])
+            chat?.recordVoiceTool(.toolOutputAvailable(toolCallId: id, output: value), entryID: entryID)
+            // The cloud agent reports edits in its own output format, which these tools don't use.
+            if name.map(LocalToolOutput.changesOpenDocument) == true {
+                chat?.onTripUpdated?()
+                chat?.onGraphUpdated?()
+            }
+        }
+        // The cue keeps going after a tool returns. Local tools often finish while the "let me check"
+        // sentence is still playing, and stopping here would mean the cue never gets heard at all.
+    }
+
+}
+#endif

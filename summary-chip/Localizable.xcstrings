@@ -183,6 +183,9 @@
         }
       }
     },
+    "%@ is working…" : {
+
+    },
     "%@ left" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1744,6 +1747,9 @@
         }
       }
     },
+    "Agent Default" : {
+
+    },
     "Agents using this key stop working immediately. This can’t be undone." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1891,6 +1897,9 @@
     "Allow Chippy to use your location in Settings, then try again." : {
 
     },
+    "Allow microphone access in Settings to start voice chat." : {
+
+    },
     "Allow notifications for Chippy in system Settings to receive summary alerts." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2021,6 +2030,9 @@
           }
         }
       }
+    },
+    "Answered By" : {
+
     },
     "Any category" : {
       "localizations" : {
@@ -2169,6 +2181,9 @@
         }
       }
     },
+    "Apple's speech recognition hears you and your selected voice model from Hugging Face replies, both on this Mac. The first session also creates a “Live Voice” API key so the agent can reach your library. You can revoke it in Settings → MCP Server." : {
+
+    },
     "Applies to the PDF preview and PDF / Word exports in every language. Custom rendering uses XeLaTeX. Text stays editable; pagination may differ between formats." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2237,6 +2252,9 @@
       }
     },
     "Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys." : {
+
+    },
+    "Architecture" : {
 
     },
     "Arranging the graph…" : {
@@ -2558,6 +2576,9 @@
         }
       }
     },
+    "Available Voices" : {
+
+    },
     "Back" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2735,6 +2756,9 @@
     "Break down the costs by category" : {
 
     },
+    "Browse" : {
+
+    },
     "Build" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2878,6 +2902,12 @@
         }
       }
     },
+    "Cancel Download" : {
+
+    },
+    "Cancelling download…" : {
+
+    },
     "Caption" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3014,6 +3044,9 @@
         }
       }
     },
+    "Check Again" : {
+
+    },
     "Check for Updates…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3113,6 +3146,12 @@
     "Checking" : {
 
     },
+    "Checking available models…" : {
+
+    },
+    "Checking files and download size…" : {
+
+    },
     "Checking flight…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3146,6 +3185,9 @@
       }
     },
     "Checking references…" : {
+
+    },
+    "Checking…" : {
 
     },
     "Checkout opens securely in your browser. Points are added to your account once payment completes." : {
@@ -3313,6 +3355,9 @@
     "Choose a local image file." : {
 
     },
+    "Choose a Voice Model" : {
+
+    },
     "Choose an image to replace this file." : {
 
     },
@@ -3395,6 +3440,9 @@
         }
       }
     },
+    "Choose who answers in voice chat" : {
+
+    },
     "Chosen" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3442,6 +3490,9 @@
           }
         }
       }
+    },
+    "Claude Code stopped unexpectedly." : {
+
     },
     "Clear %@ of cached data?" : {
       "localizations" : {
@@ -3652,6 +3703,18 @@
           }
         }
       }
+    },
+    "Cloud voice, uses your Chippy points" : {
+
+    },
+    "Codex couldn't start a conversation." : {
+
+    },
+    "Codex has no model this account can use." : {
+
+    },
+    "Codex stopped unexpectedly." : {
+
     },
     "Collapsed" : {
       "localizations" : {
@@ -3955,6 +4018,12 @@
     "Connecting" : {
 
     },
+    "Connecting %@ to your library" : {
+
+    },
+    "Connecting to %@…" : {
+
+    },
     "Connecting…" : {
 
     },
@@ -4122,6 +4191,9 @@
 
     },
     "Couldn't Change Language" : {
+
+    },
+    "Couldn't Check This Model" : {
 
     },
     "Couldn't Complete Video Action" : {
@@ -4307,6 +4379,9 @@
         }
       }
     },
+    "Couldn't Load Models" : {
+
+    },
     "Couldn't load more. Try again" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4340,6 +4415,9 @@
       }
     },
     "Couldn't Load the Change" : {
+
+    },
+    "Couldn't Load Voice Models" : {
 
     },
     "Couldn't load your clips" : {
@@ -4464,6 +4542,9 @@
         }
       }
     },
+    "Couldn't Play Sample" : {
+
+    },
     "Couldn't Play Tour" : {
 
     },
@@ -4538,6 +4619,9 @@
         }
       }
     },
+    "Couldn't Set Up Local Voice" : {
+
+    },
     "Couldn't Share Trip" : {
 
     },
@@ -4609,6 +4693,9 @@
       }
     },
     "Couldn't Update Podcasts" : {
+
+    },
+    "Couldn't Update Voice Model" : {
 
     },
     "Cover updated" : {
@@ -5262,6 +5349,9 @@
         }
       }
     },
+    "Delete downloaded model?" : {
+
+    },
     "Delete Edge" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5363,6 +5453,12 @@
           }
         }
       }
+    },
+    "Delete Model" : {
+
+    },
+    "Delete Model…" : {
+
     },
     "Delete My Account" : {
       "localizations" : {
@@ -5702,6 +5798,9 @@
     "Deleting job log…" : {
 
     },
+    "Deleting model…" : {
+
+    },
     "Deleting plan…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6020,6 +6119,9 @@
     "Download" : {
 
     },
+    "Download and manage models for local voice chat." : {
+
+    },
     "Download PDF" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6053,6 +6155,9 @@
         }
       }
     },
+    "Download size" : {
+
+    },
     "Downloaded" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6069,7 +6174,20 @@
         }
       }
     },
+    "Downloading %@… %lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Downloading %1$@… %2$lld%%"
+          }
+        }
+      }
+    },
     "Downloading podcast…" : {
+
+    },
+    "Downloading the voice model… %lld%%" : {
 
     },
     "Drag to resize the editor and preview." : {
@@ -6171,6 +6289,9 @@
       }
     },
     "Each OAuth authorization is shown separately. These are permissions, not online sessions. Manage API-key clients under API Keys." : {
+
+    },
+    "Each seed gives this model a different voice. Play a sample to hear it. Your choice applies from the next voice chat." : {
 
     },
     "Economy" : {
@@ -7658,6 +7779,9 @@
         }
       }
     },
+    "Found in the README by Apple Intelligence on this Mac. If the model doesn't accept a voice, it speaks in its default voice instead. Your choice applies from the next voice chat." : {
+
+    },
     "Frames: %@" : {
 
     },
@@ -8557,6 +8681,9 @@
     "Improve this query and run it: %@" : {
 
     },
+    "In Use" : {
+
+    },
     "Include it from your main file with \\input{%@}." : {
       "localizations" : {
         "zh-Hans" : {
@@ -8590,6 +8717,9 @@
         }
       }
     },
+    "Incomplete download" : {
+
+    },
     "Indigo" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8616,6 +8746,15 @@
           }
         }
       }
+    },
+    "Install uv with “brew install uv” to prepare the speech runtime." : {
+
+    },
+    "Installed" : {
+
+    },
+    "Installing the voice runtime…" : {
+
     },
     "Integration" : {
 
@@ -9411,6 +9550,9 @@
         }
       }
     },
+    "Listed in the model's files. Your choice applies from the next voice chat." : {
+
+    },
     "Listed your trips" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9585,6 +9727,9 @@
         }
       }
     },
+    "Loading model card…" : {
+
+    },
     "Loading more activity" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9638,6 +9783,9 @@
           }
         }
       }
+    },
+    "Loading the on-device voice" : {
+
     },
     "Loading top-ups…" : {
       "localizations" : {
@@ -9754,6 +9902,9 @@
           }
         }
       }
+    },
+    "Local agents use their own account and limits. During voice they can read files and use your Chippy library, but other changes are denied unless you've already allowed them in the agent's settings." : {
+
     },
     "Local file" : {
       "localizations" : {
@@ -10070,6 +10221,9 @@
     "Missing “%@”." : {
 
     },
+    "MLX · Text to Speech" : {
+
+    },
     "Mode" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10085,6 +10239,24 @@
           }
         }
       }
+    },
+    "Model" : {
+
+    },
+    "Model Default" : {
+
+    },
+    "Model Files" : {
+
+    },
+    "Model files are downloaded from Hugging Face to Application Support. The shared speech runtime is an additional download on first use. Playback depends on MLX Audio support; some models require reference audio or voice instructions. End voice chat before changing models." : {
+
+    },
+    "Models" : {
+
+    },
+    "Models you download from Browse appear here." : {
+
     },
     "Moments" : {
       "localizations" : {
@@ -10719,6 +10891,9 @@
         }
       }
     },
+    "No Downloaded Models" : {
+
+    },
     "No File Open" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10936,6 +11111,9 @@
         }
       }
     },
+    "No matching MLX speech models." : {
+
+    },
     "No Matching Summaries" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11136,6 +11314,9 @@
     "No Versions Yet" : {
 
     },
+    "No Voice Models" : {
+
+    },
     "No web results" : {
 
     },
@@ -11235,6 +11416,9 @@
         }
       }
     },
+    "None listed" : {
+
+    },
     "Not available" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11286,6 +11470,9 @@
         }
       }
     },
+    "Not downloaded" : {
+
+    },
     "Not Enough Points" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11301,6 +11488,9 @@
           }
         }
       }
+    },
+    "Not found. Install the %@ command to use it." : {
+
     },
     "Not paid" : {
       "localizations" : {
@@ -11634,6 +11824,21 @@
           }
         }
       }
+    },
+    "On This Mac" : {
+
+    },
+    "On-device speech recognition couldn't use the microphone's audio." : {
+
+    },
+    "On-device speech recognition doesn't support this language." : {
+
+    },
+    "On-device speech recognition isn't available on this Mac." : {
+
+    },
+    "On-Device Voice" : {
+
     },
     "One Column" : {
       "extractionState" : "manual",
@@ -12962,6 +13167,9 @@
         }
       }
     },
+    "Play Sample" : {
+
+    },
     "Play Tour" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12977,6 +13185,9 @@
           }
         }
       }
+    },
+    "Playing sample…" : {
+
     },
     "Podcast" : {
 
@@ -13215,6 +13426,9 @@
         }
       }
     },
+    "Preparing model and speech runtime…" : {
+
+    },
     "Preparing PDF…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13234,6 +13448,9 @@
     "Preparing podcast…" : {
 
     },
+    "Preparing sample…" : {
+
+    },
     "Preparing script and storyboard…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13249,6 +13466,9 @@
           }
         }
       }
+    },
+    "Preparing speech recognition" : {
+
     },
     "Preparing video…" : {
 
@@ -13626,6 +13846,9 @@
     "Read more" : {
 
     },
+    "Read on Hugging Face" : {
+
+    },
     "Read only" : {
 
     },
@@ -13791,6 +14014,9 @@
     "Reading the page…" : {
 
     },
+    "Reading the README…" : {
+
+    },
     "Reading the trip…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13806,6 +14032,15 @@
           }
         }
       }
+    },
+    "README" : {
+
+    },
+    "README unavailable" : {
+
+    },
+    "README Unavailable" : {
+
     },
     "Ready" : {
 
@@ -14427,6 +14662,9 @@
     "Replacing image…" : {
 
     },
+    "Requires a Mac with Apple silicon." : {
+
+    },
     "Research papers, in LaTeX" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14618,6 +14856,9 @@
           }
         }
       }
+    },
+    "Resume Download" : {
+
     },
     "Retry" : {
 
@@ -14990,6 +15231,9 @@
         }
       }
     },
+    "Sample" : {
+
+    },
     "Sans Serif" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15353,6 +15597,12 @@
     "Search chips" : {
 
     },
+    "Search Hugging Face models" : {
+
+    },
+    "Search Hugging Face or select a downloaded model." : {
+
+    },
     "Search Maps" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15474,6 +15724,9 @@
           }
         }
       }
+    },
+    "Searching Hugging Face…" : {
+
     },
     "Searching the file…" : {
       "localizations" : {
@@ -15668,6 +15921,12 @@
     "Select text in the reader and choose Add Review to ask your agent for a change." : {
 
     },
+    "Selected" : {
+
+    },
+    "Selected for voice chat" : {
+
+    },
     "Selected in the graph" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15699,6 +15958,9 @@
           }
         }
       }
+    },
+    "Selecting model…" : {
+
     },
     "Selection needs correction" : {
 
@@ -16468,6 +16730,9 @@
         }
       }
     },
+    "Speak after %@ finishes; microphone pauses during replies." : {
+
+    },
     "Speaker" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16549,6 +16814,9 @@
 
     },
     "Start with" : {
+
+    },
+    "Starting %@" : {
 
     },
     "Starting…" : {
@@ -17388,6 +17656,9 @@
         }
       }
     },
+    "The local agent service stopped unexpectedly." : {
+
+    },
     "The MCP server lets AI agents such as Claude add, search and list your summaries from anywhere." : {
       "localizations" : {
         "zh-Hans" : {
@@ -17404,7 +17675,13 @@
         }
       }
     },
+    "The model files will be removed from this Mac. You can download them again." : {
+
+    },
     "The narration is written again from the trip as it is now. This uses points." : {
+
+    },
+    "The on-device voice stopped unexpectedly." : {
 
     },
     "The paper compiles." : {
@@ -17713,6 +17990,9 @@
         }
       }
     },
+    "This is your selected model. Download it again or select another model before using local voice." : {
+
+    },
     "This isn't valid JSON." : {
 
     },
@@ -17747,6 +18027,9 @@
           }
         }
       }
+    },
+    "This model speaks in its default voice." : {
+
     },
     "This paper can't be edited." : {
 
@@ -18449,6 +18732,12 @@
     "Try a different search." : {
 
     },
+    "Try a random seed" : {
+
+    },
+    "Try a Random Seed" : {
+
+    },
     "Try Again" : {
       "localizations" : {
         "zh-Hans" : {
@@ -18469,6 +18758,9 @@
 
     },
     "Turn off auto-rotate" : {
+
+    },
+    "Turn on Apple Intelligence to find this model's voices in its README." : {
 
     },
     "Turn on auto-rotate" : {
@@ -18999,6 +19291,9 @@
         }
       }
     },
+    "Use for Voice Chat" : {
+
+    },
     "Use Original Layout" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19079,6 +19374,9 @@
           }
         }
       }
+    },
+    "Uses the model set in %@" : {
+
     },
     "Using the paper's original layout. Choose Rendering Options to customize PDF and Word." : {
       "extractionState" : "manual",
@@ -19369,7 +19667,19 @@
         }
       }
     },
+    "Voice agent" : {
+
+    },
+    "Voice Agent" : {
+
+    },
     "Voice chat unavailable" : {
+
+    },
+    "Voice Models" : {
+
+    },
+    "Voice Seed" : {
 
     },
     "Voice session duration" : {

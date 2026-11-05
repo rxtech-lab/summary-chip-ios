@@ -1,5 +1,6 @@
 import AgentMarkdownUI
 import AgentMessageListUI
+import LocalAgentKit
 import SummaryKit
 import SwiftUI
 
@@ -14,6 +15,9 @@ struct ChatView: View {
     let isPanel: Bool
     private let onClose: (() -> Void)?
     @State private var voice = LiveVoiceModel()
+    @AppStorage(LiveVoiceSettings.engineKey) private var savedVoiceEngine = LiveVoiceEngine.chippy.rawValue
+    @AppStorage(LiveVoiceSettings.languageKey) private var savedVoiceLanguage = ""
+    @State private var showsVoiceEngines = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: ChatModel
     @State private var transcriptEntries: [ChatEntry]
@@ -145,6 +149,14 @@ struct ChatView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: voice.isActive)
         .sensoryFeedback(.error, trigger: voice.error)
         .statusAlert("Couldn't Continue Voice Chat", message: voice.error) { voice.error = nil }
+        #if os(macOS)
+        .sheet(isPresented: $showsVoiceEngines) { LiveVoiceEngineSheet() }
+        .onChange(of: voice.needsLocalSetup) { _, needsSetup in
+            guard needsSetup else { return }
+            voice.needsLocalSetup = false
+            showsVoiceEngines = true
+        }
+        #endif
         .sheet(item: $toolDetail) { tool in
             ChatToolDetailSheet(tool: tool, environment: environment)
         }
@@ -481,6 +493,23 @@ struct ChatView: View {
         .padding(.vertical, 8)
     }
 
+    /// Only the Mac can run local agents, so iOS and visionOS always use the cloud voice.
+    private var voiceEngine: LiveVoiceEngine {
+        #if os(macOS)
+        LiveVoiceEngine(saved: savedVoiceEngine)
+        #else
+        .chippy
+        #endif
+    }
+
+    private var voiceButtonsWidth: CGFloat {
+        #if os(macOS)
+        70
+        #else
+        38
+        #endif
+    }
+
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 10) {
             TextField(placeholder, text: $model.draft, axis: .vertical)
@@ -490,19 +519,36 @@ struct ChatView: View {
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .padding(.trailing, 38)
+                .padding(.trailing, voiceButtonsWidth)
                 .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(alignment: .trailing) {
-                    Button {
-                        inputFocused = false
-                        voice.start(api: environment.api, chat: model)
-                    } label: {
-                        Image(systemName: "mic.fill").frame(width: 36, height: 40)
+                    HStack(spacing: 0) {
+                        #if os(macOS)
+                        Button {
+                            showsVoiceEngines = true
+                            interactionFeedback += 1
+                        } label: {
+                            Image(systemName: voiceEngine.symbolName).frame(width: 32, height: 40)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("Choose who answers in voice chat")
+                        .accessibilityLabel("Voice agent")
+                        .accessibilityValue(voiceEngine.title)
+                        .accessibilityIdentifier("chat-voice-agent")
+                        #endif
+                        Button {
+                            inputFocused = false
+                            let language = LocalVoiceLanguage.resolve(saved: savedVoiceLanguage.isEmpty ? nil : savedVoiceLanguage)
+                            voice.start(api: environment.api, chat: model, engine: voiceEngine, language: language)
+                        } label: {
+                            Image(systemName: "mic.fill").frame(width: 36, height: 40)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(model.isStreaming)
+                        .accessibilityLabel("Start voice chat")
+                        .accessibilityIdentifier("chat-voice-start")
                     }
-                    .buttonStyle(.plain)
-                    .disabled(model.isStreaming)
-                    .accessibilityLabel("Start voice chat")
-                    .accessibilityIdentifier("chat-voice-start")
                 }
                 .onSubmit { model.send() }
                 .submitLabel(.send)
