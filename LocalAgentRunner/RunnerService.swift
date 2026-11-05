@@ -25,7 +25,11 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
     private let queue = DispatchQueue(label: "com.rxlab.summary-chip.runner")
     private weak var connection: NSXPCConnection?
     private var processes: [String: RunnerProcess] = [:]
+    private var realtime: [String: SDKRealtimeSession] = [:]
+    private var agents: [String: SDKAgentSession] = [:]
     private var setup: Task<Void, Never>?
+    private var cancelledAgentIDs = Set<String>()
+    private var invalidated = false
     init(connection: NSXPCConnection) {
         self.connection = connection
     }
@@ -70,9 +74,41 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
             }
             let directory = VoiceInstaller.root.appending(path: "workspace")
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let merged = environment.merging(LocalAgentCommand.environment(for: launch)) { _, new in new }
-            reply(run(id: id, executable: executable, arguments: LocalAgentCommand.arguments(for: launch),
-                      environment: merged, directory: directory))
+            let session = SDKAgentSession(launch: launch, binary: executable.path, environment: environment, directory: directory) { [weak self] line in
+                self?.client?.processLine(id: id, line: line)
+            }
+            let accepted = queue.sync {
+                guard !invalidated, !cancelledAgentIDs.contains(id) else { return false }
+                agents[id] = session
+                return true
+            }
+            if accepted { reply(nil) }
+            else { await session.close(); reply("Voice session cancelled.") }
+        }
+    }
+
+    func startRealtime(id: String, request: Data, offer: String, reply: @escaping @Sendable (String?) -> Void) {
+        guard let launch = try? JSONDecoder().decode(LocalAgentLaunch.self, from: request), launch.kind == .codex else {
+            reply("Invalid Codex voice request."); return
+        }
+        let session = SDKRealtimeSession()
+        queue.sync { realtime[id] = session }
+        Task {
+            do {
+                let environment = await UserEnvironment.shared.values()
+                guard let binary = UserEnvironment.find("codex", in: environment) else { throw NSError(domain: "Codex", code: 1, userInfo: [NSLocalizedDescriptionKey: "Install Codex first."]) }
+                let directory = VoiceInstaller.root.appending(path: "workspace")
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try await session.start(launch: launch, offer: offer, binary: binary.path, environment: environment, directory: directory) { [weak self] data in
+                    self?.client?.processLine(id: id, line: data)
+                }
+                reply(nil)
+            } catch {
+                // Left in the list, a failed session would block voice downloads and samples for good.
+                queue.sync { _ = realtime.removeValue(forKey: id) }
+                await session.close()
+                reply(error.localizedDescription)
+            }
         }
     }
 
@@ -83,7 +119,7 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
             return
         }
         // A second model in memory, and two voices at once, wouldn't help anyone.
-        if modelID != nil, !queue.sync(execute: { processes.isEmpty }) {
+        if modelID != nil, !queue.sync(execute: { processes.isEmpty && agents.isEmpty && realtime.isEmpty }) {
             reply("End voice chat before playing a sample.")
             return
         }
@@ -138,17 +174,25 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
     }
 
     func write(id: String, data: Data) {
-        queue.async { [self] in processes[id]?.write(data) }
+        queue.async { [self] in
+            if let agent = agents[id] { Task { await agent.receive(data) } }
+            else { processes[id]?.write(data) }
+        }
     }
 
     func terminate(id: String) {
         // Gone from the list at once: whatever's asked next shouldn't have to wait for it to exit.
-        queue.async { [self] in processes.removeValue(forKey: id)?.terminate() }
+        queue.async { [self] in
+            cancelledAgentIDs.insert(id)
+            processes.removeValue(forKey: id)?.terminate()
+            if let session = realtime.removeValue(forKey: id) { Task { await session.close() } }
+            if let agent = agents.removeValue(forKey: id) { Task { await agent.close() } }
+        }
     }
 
     func downloadVoiceModel(repository: String, revision: String, reply: @escaping @Sendable (String?) -> Void) {
         queue.async { [self] in
-            guard setup == nil, processes.isEmpty else { reply("End voice chat and wait for the current download first."); return }
+            guard setup == nil, processes.isEmpty, agents.isEmpty, realtime.isEmpty else { reply("End voice chat and wait for the current download first."); return }
             setup = Task.detached { [weak self] in
                 var failure: String?
                 do {
@@ -170,7 +214,7 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
     func manageVoiceModel(id: String, action: String, reply: @escaping @Sendable (String?) -> Void) {
         queue.async { [self] in
             guard let model = VoiceInstaller.catalogue.first(where: { $0.id == id }) else { reply("Unknown voice model."); return }
-            guard setup == nil, processes.isEmpty else {
+            guard setup == nil, processes.isEmpty, agents.isEmpty, realtime.isEmpty else {
                 reply("End voice chat and wait for any download to finish before changing models."); return
             }
             switch action {
@@ -198,7 +242,7 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
 
     private func prepareVoice(model: LocalVoiceModel, reply: @escaping @Sendable (String?) -> Void) {
         queue.async { [self] in
-            guard setup == nil, processes.isEmpty else {
+            guard setup == nil, processes.isEmpty, agents.isEmpty, realtime.isEmpty else {
                 reply("The on-device voice is already being set up.")
                 return
             }
@@ -228,8 +272,13 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
 
     func terminateAll() {
         queue.async { [self] in
+            invalidated = true
             setup?.cancel()
             for process in processes.values { process.terminate() }
+            for agent in agents.values { Task { await agent.close() } }
+            agents = [:]
+            for session in realtime.values { Task { await session.close() } }
+            realtime = [:]
         }
     }
 }

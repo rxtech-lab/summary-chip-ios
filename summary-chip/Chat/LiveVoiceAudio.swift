@@ -224,9 +224,16 @@ final class LiveVoiceAudio {
     }
 
     private func playToolCue() {
+        guard let buffer = Self.toolCueBuffer() else { return }
+        toolPlaybackGate.begin()
+        toolPlayer.scheduleBuffer(buffer)
+        toolPlayer.play()
+    }
+
+    static func toolCueBuffer() -> AVAudioPCMBuffer? {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1),
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4320),
-              let samples = buffer.floatChannelData?[0] else { return }
+              let samples = buffer.floatChannelData?[0] else { return nil }
         buffer.frameLength = 4320
         // Two soft notes with smooth envelopes, synthesized locally without assets.
         for index in 0..<4320 {
@@ -235,9 +242,7 @@ final class LiveVoiceAudio {
             let envelope = pow(sin(.pi * noteTime / 0.09), 2)
             samples[index] = Float(0.035 * envelope * sin(2 * .pi * frequency * noteTime))
         }
-        toolPlaybackGate.begin()
-        toolPlayer.scheduleBuffer(buffer)
-        toolPlayer.play()
+        return buffer
     }
 
     func interrupt() {

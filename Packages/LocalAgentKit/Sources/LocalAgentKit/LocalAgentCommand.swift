@@ -12,14 +12,19 @@ public struct LocalAgentLaunch: Codable, Sendable, Equatable {
     public var resumeSessionID: String?
     /// Nil leaves the choice to the agent's own settings.
     public var model: String?
+    /// Nil uses the Codex realtime default voice.
+    public var realtimeVoice: String?
+    public var appToolsURL: URL? = nil
+    public var appToolsToken: String? = nil
 
-    public init(kind: LocalAgentKind, mcpURL: URL, mcpToken: String, instructions: String, resumeSessionID: String? = nil, model: String? = nil) {
+    public init(kind: LocalAgentKind, mcpURL: URL, mcpToken: String, instructions: String, resumeSessionID: String? = nil, model: String? = nil, realtimeVoice: String? = nil) {
         self.kind = kind
         self.mcpURL = mcpURL
         self.mcpToken = mcpToken
         self.instructions = instructions
         self.resumeSessionID = resumeSessionID
         self.model = model
+        self.realtimeVoice = realtimeVoice
     }
 }
 
@@ -46,7 +51,7 @@ public enum LocalAgentCommand {
     }
 
     public static func environment(for launch: LocalAgentLaunch) -> [String: String] {
-        [tokenEnvironmentKey: launch.mcpToken]
+        [tokenEnvironmentKey: launch.mcpToken, "CHIPPY_APP_TOOLS_TOKEN": launch.appToolsToken ?? ""]
     }
 
     private static func claudeArguments(_ launch: LocalAgentLaunch) -> [String] {
@@ -71,13 +76,21 @@ public enum LocalAgentCommand {
     private static func codexArguments(_ launch: LocalAgentLaunch) -> [String] {
         let quotedURL = String(decoding: (try? JSONEncoder().encode(launch.mcpURL.absoluteString)) ?? Data(), as: UTF8.self)
             .replacingOccurrences(of: "\\/", with: "/")
-        return [
+        var arguments = [
             "app-server", "--listen", "stdio://",
             "-c", "mcp_servers.\(mcpServerName).url=\(quotedURL)",
             "-c", "mcp_servers.\(mcpServerName).bearer_token_env_var=\"\(tokenEnvironmentKey)\"",
             // Approvals are off for the session, so Chippy's writes need approving up front.
             "-c", "mcp_servers.\(mcpServerName).default_tools_approval_mode=\"approve\"",
         ]
+        if let url = launch.appToolsURL {
+            let quoted = String(decoding: (try? JSONEncoder().encode(url.absoluteString)) ?? Data(), as: UTF8.self)
+                .replacingOccurrences(of: "\\/", with: "/")
+            arguments += ["-c", "mcp_servers.chippy_ui.url=\(quoted)",
+                          "-c", "mcp_servers.chippy_ui.bearer_token_env_var=\"CHIPPY_APP_TOOLS_TOKEN\"",
+                          "-c", "mcp_servers.chippy_ui.default_tools_approval_mode=\"approve\""]
+        }
+        return arguments
     }
 }
 

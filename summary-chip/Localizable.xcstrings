@@ -3491,9 +3491,6 @@
         }
       }
     },
-    "Claude Code stopped unexpectedly." : {
-
-    },
     "Clear %@ of cached data?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3707,13 +3704,10 @@
     "Cloud voice, uses your Chippy points" : {
 
     },
-    "Codex couldn't start a conversation." : {
+    "Codex Default" : {
 
     },
-    "Codex has no model this account can use." : {
-
-    },
-    "Codex stopped unexpectedly." : {
+    "Codex Realtime Voice" : {
 
     },
     "Collapsed" : {
@@ -13473,9 +13467,6 @@
     "Preparing video…" : {
 
     },
-    "Preparing your voice session" : {
-
-    },
     "Preview" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16729,9 +16720,6 @@
           }
         }
       }
-    },
-    "Speak after %@ finishes; microphone pauses during replies." : {
-
     },
     "Speaker" : {
       "localizations" : {
@@ -20345,6 +20333,9 @@
       }
     },
     "Your audio was saved, but video design was unavailable. Retry Video to generate a video for this recording." : {
+
+    },
+    "Your choice applies to the next voice session. Voice availability depends on your Codex account." : {
 
     },
     "Your day, in a short recap" : {

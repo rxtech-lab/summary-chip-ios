@@ -78,6 +78,7 @@ final class LocalVoiceSetupModel {
 struct LiveVoiceEngineSheet: View {
     @AppStorage(LiveVoiceSettings.engineKey) private var savedEngine = LiveVoiceEngine.chippy.rawValue
     @AppStorage(LiveVoiceSettings.languageKey) private var savedLanguage = ""
+    @AppStorage(LiveVoiceSettings.realtimeVoiceKey) private var realtimeVoice = ""
     @Environment(\.dismiss) private var dismiss
     @State private var setup = LocalVoiceSetupModel()
     @State private var selectionFeedback = 0
@@ -91,7 +92,7 @@ struct LiveVoiceEngineSheet: View {
             Form {
                 Section {
                     ForEach(LiveVoiceEngine.allCases) { row($0) }
-                    if let agent = engine.localAgent, isAvailable(engine) {
+                    if let agent = engine.localAgent, engine != .codexRealtime, isAvailable(engine) {
                         AgentModelPicker(agent: agent, setup: setup).id(agent)
                     }
                 } header: {
@@ -101,7 +102,23 @@ struct LiveVoiceEngineSheet: View {
                         Text("Local agents use their own account and limits. During voice they can read files and use your Chippy library, but other changes are denied unless you've already allowed them in the agent's settings.")
                     }
                 }
-                if engine.localAgent != nil { voiceSection }
+                if engine == .codexRealtime {
+                    Section {
+                        Picker("Voice", selection: $realtimeVoice) {
+                            Text("Codex Default").tag("")
+                            ForEach(LiveVoiceSettings.realtimeVoices, id: \.self) { voice in
+                                Text(voice.capitalized).tag(voice)
+                            }
+                        }
+                        .accessibilityIdentifier("voice-agent-codex-voice")
+                        .sensoryFeedback(.selection, trigger: realtimeVoice)
+                    } header: {
+                        Text("Codex Realtime Voice")
+                    } footer: {
+                        Text("Your choice applies to the next voice session. Voice availability depends on your Codex account.")
+                    }
+                }
+                if engine.localAgent != nil && engine != .codexRealtime { voiceSection }
             }
             .formStyle(.grouped)
             .navigationTitle("Voice Agent")
@@ -128,7 +145,12 @@ struct LiveVoiceEngineSheet: View {
         .sensoryFeedback(.success, trigger: setup.status?.voiceReady) { old, new in old == false && new == true }
         .statusAlert("Couldn't Set Up Local Voice", message: setup.errorMessage) { setup.errorMessage = nil }
         .sheet(isPresented: $showsModels, onDismiss: { Task { await setup.refresh() } }) { VoiceModelsSheet() }
-        .task { await setup.refresh() }
+        .task {
+            if !realtimeVoice.isEmpty && !LiveVoiceSettings.realtimeVoices.contains(realtimeVoice) {
+                realtimeVoice = ""
+            }
+            await setup.refresh()
+        }
     }
 
     private func row(_ option: LiveVoiceEngine) -> some View {
@@ -242,7 +264,8 @@ extension LiveVoiceEngine {
         switch self {
         case .chippy: "Chippy"
         case .claudeCode: "Claude Code"
-        case .codex: "Codex"
+        case .codex: "Codex · Local Speech"
+        case .codexRealtime: "Codex Realtime"
         }
     }
 
@@ -250,6 +273,7 @@ extension LiveVoiceEngine {
         switch self {
         case .chippy: "cloud"
         case .claudeCode, .codex: "laptopcomputer"
+        case .codexRealtime: "waveform"
         }
     }
 }

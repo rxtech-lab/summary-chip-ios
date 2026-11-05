@@ -141,7 +141,7 @@ struct GraphDetailView: View {
                     canvasSize = size
                     tap(element, size: size)
                 }
-                .onChange(of: document) { _, updated in
+                .onChange(of: document, initial: true) { _, updated in
                     chat.graphDocument = updated
                     chat.graphElements.removeAll { element in
                         switch element {
@@ -619,6 +619,33 @@ private extension GraphDetailView {
     }
 
     private func configureAgent() {
+        chat.onGraphOpenNode = { id, presentation in
+            guard model.document?.nodes.contains(where: { $0.id == id }) == true else { return false }
+            let element = GraphElementRef.node(id)
+            #if os(macOS)
+            if presentation == "window" {
+                GraphInspectorWindow.show(model: model, element: element)
+                tapFeedback += 1
+                return true
+            }
+            #endif
+            guard presentation == "popover", canvasSize.width > 0, canvasSize.height > 0,
+                  model.positions[id] != nil, model.visibility.shows(node: id) else { return false }
+            popoverTask?.cancel()
+            generatedUI = nil
+            model.autoRotate = false
+            open(element, size: canvasSize)
+            return true
+        }
+        chat.onGraphCenter = { ids in
+            guard canvasSize.width > 0, canvasSize.height > 0,
+                  ids.allSatisfy({ model.positions[$0] != nil && model.visibility.shows(node: $0) }) else { return false }
+            let target = model.camera.centered(on: ids.compactMap { model.positions[$0] }, in: canvasSize)
+            model.autoRotate = false
+            model.animateCamera(to: target)
+            tapFeedback += 1
+            return true
+        }
         chat.onGraphUI = { ui in
             guard let id = ui.nodeId, model.document?.nodes.contains(where: { $0.id == id }) == true else { return }
             generatedUI = ui

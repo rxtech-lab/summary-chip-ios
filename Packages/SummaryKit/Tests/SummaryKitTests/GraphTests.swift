@@ -224,3 +224,15 @@ import Testing
         #expect(visibility.dims(node: "c"))
     }
 }
+
+@Test func centersMultipleNodesAndFitsTheirProjectedBounds() {
+    let size = CGSize(width: 600, height: 400)
+    for mode in [GraphViewMode.plane, .globe] {
+        let points = [SIMD3<Double>(0.8, 0.5, 0.3), SIMD3<Double>(-0.4, -0.6, 0.7)]
+        let camera = GraphCamera(mode: mode).centered(on: points, in: size)
+        let projected = points.map { camera.project($0, in: size).point }
+        #expect(abs((projected[0].x + projected[1].x) / 2 - 300) < 1e-6)
+        #expect(abs((projected[0].y + projected[1].y) / 2 - 200) < 1e-6)
+        #expect(projected.allSatisfy { $0.x >= 0 && $0.x <= 600 && $0.y >= 0 && $0.y <= 400 })
+    }
+}

@@ -1,8 +1,15 @@
 import Foundation
 import LocalAgentKit
+import RxAgentVoice
+import RxAgentCore
 import Observation
 import OSLog
 import SummaryKit
+#if os(macOS)
+import AppKit
+#else
+import AudioToolbox
+#endif
 
 @MainActor @Observable
 final class LiveVoiceModel {
@@ -26,6 +33,7 @@ final class LiveVoiceModel {
     /// A local agent or voice isn't ready, which is for the picker to resolve rather than an error.
     var needsLocalSetup = false
     #if os(macOS)
+    private var appTools: VoiceAppTools?
     private var localSession: LocalLiveVoiceSession?
     private var localToolNames: [String: String] = [:]
     private var localToolEntries: [String: String] = [:]
@@ -33,7 +41,7 @@ final class LiveVoiceModel {
     var error: String?
     private(set) var currentToolID: String?
     private(set) var previousToolIDs = Set<String>()
-    private var socket: URLSessionWebSocketTask?
+    private var connection: (any VoiceConnection)?
     private var audio: LiveVoiceAudio?
     private var task: Task<Void, Never>?
     private var captureTask: Task<Void, Never>?
@@ -58,7 +66,7 @@ final class LiveVoiceModel {
         let revision = UUID(); generation = revision
         localAgentName = nil; activityDetail = nil
         #if os(macOS)
-        if let agent = engine.localAgent {
+        if let agent = engine.localAgent, engine != .codexRealtime {
             startLocal(agent: agent, language: language, api: api, chat: chat, revision: revision)
             return
         }
@@ -69,41 +77,28 @@ final class LiveVoiceModel {
                     throw NSError(domain: "Voice", code: 1, userInfo: [NSLocalizedDescriptionKey: "Allow microphone access in Settings to start voice chat."])
                 }
                 try Task.checkCancellation()
-                let context = await chat.voiceContext()
-                self.context = context
-                let session = try await api.createLiveChatSession(context: context)
-                try Task.checkCancellation()
-                guard generation == revision else { return }
-                let socket = URLSession.shared.webSocketTask(with: session.url, protocols: session.protocols ?? [])
-                socket.maximumMessageSize = 2 * 1024 * 1024
-                self.socket = socket
-                socket.resume()
-                let config = try JSONSerialization.jsonObject(with: JSONEncoder().encode(session.config))
-                try await send(["type": "session-update", "config": config])
-                // A bounded timeout also covers a connection that never acknowledges setup.
+                // Started before connecting, so it also covers a setup step that never returns.
                 let timeout = Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(20))
+                    try? await Task.sleep(for: .seconds(30))
                     guard !Task.isCancelled, let self, self.generation == revision, self.isConnecting else { return }
                     self.fail("Voice connection timed out. Please try again.")
                 }
                 defer { timeout.cancel() }
-                while !Task.isCancelled {
-                    let message = try await socket.receive()
-                    guard generation == revision else { return }
-                    let bytes: Data
-                    switch message {
-                    case .data(let value): bytes = value
-                    case .string(let value): bytes = Data(value.utf8)
-                    @unknown default: continue
-                    }
-                    let raw = try JSONSerialization.jsonObject(with: bytes)
-                    let events = (raw as? [[String: Any]]) ?? (raw as? [String: Any]).map { [$0] } ?? []
-                    for event in events { try await receive(event, revision: revision) }
+                let context = await chat.voiceContext()
+                self.context = context
+                let connection = try await connect(engine: engine, api: api, context: context, language: language)
+                guard generation == revision, !Task.isCancelled else { await connection.close(); return }
+                self.connection = connection
+                for await event in connection.events {
+                    guard generation == revision, !Task.isCancelled else { return }
+                    try await receiveSDK(event, revision: revision)
                 }
+                if generation == revision { stop() }
+
             } catch {
                 if generation == revision, !Task.isCancelled {
                     let failure = error as NSError
-                    let closeCode = self.socket?.closeCode.rawValue ?? 0
+                    let closeCode = 0
                     voiceLogger.error("Voice failed: domain=\(failure.domain, privacy: .public) code=\(failure.code) WebSocketClose=\(closeCode) message=\(failure.localizedDescription, privacy: .public)")
                     fail("\(failure.localizedDescription) (\(failure.domain) \(failure.code), socket close \(closeCode))")
                 }
@@ -120,10 +115,12 @@ final class LiveVoiceModel {
         inputLevel = 0; hasMicrophoneInput = false; microphoneWarning = nil
         for task in toolTasks.values { task.cancel() }
         toolTasks = [:]
-        socket?.cancel(with: .normalClosure, reason: nil); socket = nil
+        let oldConnection = connection; connection = nil
+        Task { await oldConnection?.close() }
         audio?.stop(); audio = nil
         #if os(macOS)
-        localSession?.stop(); localSession = nil
+        appTools?.stop(); appTools = nil
+        localSession?.stopSynchronously(); localSession = nil
         localToolNames = [:]; localToolEntries = [:]
         #endif
         activityDetail = nil
@@ -137,46 +134,71 @@ final class LiveVoiceModel {
         stop(); error = message
     }
 
-    private func send(_ value: [String: Any]) async throws {
-        guard let socket else { throw CancellationError() }
-        let data = try JSONSerialization.data(withJSONObject: value)
-        try await socket.send(.string(String(decoding: data, as: UTF8.self)))
+    private func connect(engine: LiveVoiceEngine, api: SummaryAPIClient, context: ChatRequestBody,
+                         language: LocalVoiceLanguage) async throws -> any VoiceConnection {
+        #if os(macOS)
+        if engine == .codexRealtime {
+            localAgentName = "Codex Realtime"
+            let realtime = CodexSDKVoiceConnection()
+            realtime.onTool = { [weak self] in self?.receiveLocal($0) }
+            self.connection = realtime
+            guard let chat else { throw VoiceError.invalidState }
+            let bridge = VoiceAppTools(chat: chat)
+            appTools = bridge
+            let endpoint = try await bridge.start()
+            var launch = LocalAgentLaunch(kind: .codex, mcpURL: api.mcpEndpoint,
+                mcpToken: try await LocalAgentCredentials.token(api: api),
+                instructions: LocalAgentInstructions.build(agent: .codex, language: language, context: context),
+                realtimeVoice: UserDefaults.standard.string(forKey: LiveVoiceSettings.realtimeVoiceKey).flatMap { LiveVoiceSettings.realtimeVoices.contains($0) ? $0 : nil })
+            launch.appToolsURL = endpoint
+            launch.appToolsToken = bridge.token
+            try await realtime.start(launch)
+            return realtime
+        }
+        #endif
+        return try await geminiConnection(api: api, context: context)
     }
 
-    private func receive(_ event: [String: Any], revision: UUID) async throws {
-        let type = event["type"] as? String ?? ""
-        if type != "custom" { voiceLogger.debug("Received voice event: \(type, privacy: .public)") }
-        switch type {
-        case "session-created", "session-updated", "session-started":
+    private func geminiConnection(api: SummaryAPIClient, context: ChatRequestBody) async throws -> any VoiceConnection {
+        let session = try await api.createLiveChatSession(context: context)
+        try Task.checkCancellation()
+        let config = try JSONDecoder().decode(RxAgentCore.JSONValue.self, from: JSONEncoder().encode(session.config))
+        let info = GeminiVoiceConnectionInfo(url: session.url, protocols: session.protocols ?? [], config: config)
+        return try await GeminiVoiceEngine { info }.connect(.init())
+    }
+
+    private func receiveSDK(_ event: VoiceEngineEvent, revision: UUID) async throws {
+        switch event {
+        case .ready:
+            #if os(macOS)
+            if let realtime = connection as? CodexSDKVoiceConnection {
+                startRealtimeAudio(realtime, revision: revision)
+                return
+            }
+            #endif
             try startCapture(revision: revision) { [weak self] data in
-                try await self?.send(["type": "input-audio-append", "audio": data.base64EncodedString()])
+                guard let connection = self?.connection else { return }
+                try await connection.send(audio: .init(data: data, format: .init(sampleRate: 16_000)))
             }
-        case "speech-started":
-            currentToolID = nil
-            audio?.interrupt()
-            assistantID = nil
-        case "response-created": assistantID = nil
-        case "audio-delta", "audio-chunk":
-            if let delta = event["delta"] as? String, let data = Data(base64Encoded: delta) { try audio?.play(data) }
-        case "audio-transcript-delta", "text-delta":
-            appendAssistant(event["delta"] as? String ?? "")
-        case "audio-transcript-done":
-            if let text = event["transcript"] as? String {
-                if assistantID == nil { appendAssistant(text) }
-                else if let assistantID { latestResponse = text; chat?.setVoiceText(assistantID, text: text) }
-            }
-        case "input-transcription-completed":
-            currentToolID = nil
-            providerHeardSpeech = true
-            if let text = event["transcript"] as? String { chat?.appendVoiceUser(text, id: event["itemId"] as? String) }
-        case "response-done": assistantID = nil; chat?.finishVoice()
-        case "function-call-arguments-done":
-            receiveToolCall(event, revision: revision)
-        case "custom":
-            receiveCustomEvent(event)
-        case "session-closed": stop()
-        case "error": fail(event["message"] as? String ?? "Voice connection failed.")
-        default: break
+        case .userSpeechStarted:
+            currentToolID = nil; audio?.interrupt(); assistantID = nil
+        case .assistantAudio(_, let frame):
+            guard frame.format == VoicePCMFormat() else { throw VoiceError.invalidAudio }
+            try audio?.play(frame.data)
+        case .assistantText(_, let delta): appendAssistant(delta)
+        case .userTranscript(let id, let text, let final):
+            if final { providerHeardSpeech = true; currentToolID = nil; chat?.appendVoiceUser(text, id: id) }
+        case .assistantDone: assistantID = nil; chat?.finishVoice()
+        case .toolCallRequested(let id, let name, let input):
+            let arguments = String(decoding: try JSONEncoder().encode(input), as: UTF8.self)
+            receiveToolCall(["callId": id, "name": name, "arguments": arguments], revision: revision)
+        case .closed: stop()
+        case .failed(let error):
+            let message = error.localizedDescription
+            if localAgentName == "Codex Realtime" {
+                fail("Codex Realtime could not connect. You can select Codex · Local Speech in Voice Agent to use on-device speech instead.\n\n" + message)
+            } else { fail(message) }
+        case .userSpeechStopped, .toolActivity: break
         }
     }
 
@@ -194,12 +216,8 @@ final class LiveVoiceModel {
         let stream = try audio.start()
         voiceLogger.info("Microphone and speaker ready")
         isConnecting = false; startedAt = Date()
-        microphoneWatchdog = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(8))
-            guard !Task.isCancelled, let self, self.generation == revision,
-                  !self.hasMicrophoneInput else { return }
-            self.microphoneWarning = "No microphone sound detected. Check your system sound input, input volume, and microphone access."
-        }
+        playReadySound()
+        startMicrophoneWatchdog(revision: revision)
         captureTask = Task { [weak self] in
             do {
                 for await data in stream {
@@ -231,12 +249,30 @@ final class LiveVoiceModel {
         }
     }
 
+    /// Called only after the transport and audio are ready, once per connection.
+    private func playReadySound() {
+        #if os(macOS)
+        NSSound(named: "Glass")?.play()
+        #else
+        AudioServicesPlaySystemSound(1057)
+        #endif
+    }
+
+    private func startMicrophoneWatchdog(revision: UUID) {
+        microphoneWatchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled, let self, self.generation == revision,
+                  !self.hasMicrophoneInput else { return }
+            self.microphoneWarning = "No microphone sound detected. Check your system sound input, input volume, and microphone access."
+        }
+    }
+
     private func receiveToolCall(_ event: [String: Any], revision: UUID) {
         guard let id = event["callId"] as? String, handledCalls.insert(id).inserted else { return }
         currentToolID = id
         let name = event["name"] as? String ?? ""
         let arguments = Data((event["arguments"] as? String ?? "{}").utf8)
-        let input = (try? JSONDecoder().decode(JSONValue.self, from: arguments)) ?? .null
+        let input = (try? JSONDecoder().decode(SummaryKit.JSONValue.self, from: arguments)) ?? .null
         let entryID = chat?.beginVoiceAssistant()
         if let entryID { chat?.recordVoiceTool(.toolInputAvailable(toolCallId: id, toolName: name, input: input), entryID: entryID) }
         toolTasks[id] = Task { [weak self] in
@@ -264,22 +300,10 @@ final class LiveVoiceModel {
             }
             guard self.generation == revision, !Task.isCancelled else { return }
             do {
-                try await self.send(["type": "conversation-item-create", "item": ["type": "function-call-output", "callId": id, "name": name, "output": output]])
+                try await self.connection?.submitToolResult(callID: id, result: .text(output))
             } catch { self.fail(error.localizedDescription) }
         }
         audio?.setToolActivity(true)
-    }
-
-    private func receiveCustomEvent(_ event: [String: Any]) {
-        let raw = event["raw"] as? [String: Any]
-        if let cancellation = raw?["toolCallCancellation"] as? [String: Any], let ids = cancellation["ids"] as? [String] {
-            for id in ids {
-                toolTasks[id]?.cancel(); toolTasks[id] = nil
-                if currentToolID == id { currentToolID = nil }
-            }
-            if toolTasks.isEmpty { audio?.setToolActivity(false) }
-        }
-        if let content = raw?["serverContent"] as? [String: Any], content["interrupted"] as? Bool == true { audio?.interrupt(); assistantID = nil; currentToolID = nil }
     }
 
     private func appendAssistant(_ delta: String) {
@@ -297,6 +321,27 @@ final class LiveVoiceModel {
 // MARK: - Local agents
 
 extension LiveVoiceModel {
+    /// WebRTC runs the microphone and speaker itself, so this only follows along for the UI.
+    private func startRealtimeAudio(_ realtime: CodexSDKVoiceConnection, revision: UUID) {
+        guard isConnecting else { return }
+        isConnecting = false; startedAt = Date()
+        playReadySound()
+        startMicrophoneWatchdog(revision: revision)
+        realtime.onLevels = { [weak self] input, output in
+            guard let self, self.generation == revision else { return }
+            if input > 0 { self.hasMicrophoneInput = true; self.microphoneWarning = nil }
+            // Same scale as captured audio: a linear meter hides quiet but valid speech.
+            self.inputLevel = input > 0 ? min(1, max(0, (20 * log10(input) + 60) / 60)) : 0
+            self.level = output
+            self.isSpeaking = output > 0.01
+        }
+        captureTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(600))
+            guard !Task.isCancelled, let self, self.generation == revision else { return }
+            self.fail("Voice session reached 10 minutes. Start a new session to continue.")
+        }
+    }
+
     private func startLocal(agent: LocalAgentKind, language: LocalVoiceLanguage, api: SummaryAPIClient, chat: ChatModel, revision: UUID) {
         localAgentName = agent.displayName
         task = Task {
@@ -326,7 +371,7 @@ extension LiveVoiceModel {
                 try await session.prepare(api: api, context: context) { [weak self] in self?.activityDetail = $0 }
                 guard generation == revision, !Task.isCancelled else { return }
                 // There's no cloud session to pay for here, so no time limit either.
-                try startCapture(revision: revision, timeLimit: nil) { data in session.receive(pcm: data) }
+                try startCapture(revision: revision, timeLimit: nil) { data in try await session.receive(pcm: data) }
                 if let audio { session.attach(audio) }
                 activityDetail = nil
             } catch is LocalLiveVoiceSession.SetupRequired {
@@ -357,7 +402,7 @@ extension LiveVoiceModel {
             currentToolID = id
             localToolNames[id] = toolName
             localToolEntries[id] = entryID
-            let value = (try? JSONDecoder().decode(JSONValue.self, from: input)) ?? .null
+            let value = (try? JSONDecoder().decode(SummaryKit.JSONValue.self, from: input)) ?? .null
             if let entryID { chat?.recordVoiceTool(.toolInputAvailable(toolCallId: id, toolName: toolName, input: value), entryID: entryID) }
             audio?.setToolActivity(true)
         case .toolFinished(let id, let output, let isError):
@@ -379,7 +424,7 @@ extension LiveVoiceModel {
             chat?.recordVoiceTool(.toolOutputError(toolCallId: id, errorText: output), entryID: entryID)
         } else {
             let data = LocalToolOutput.chatOutput(toolName: name ?? "", output: output)
-            let value = (try? JSONDecoder().decode(JSONValue.self, from: data)) ?? .object(["text": .string(output)])
+            let value = (try? JSONDecoder().decode(SummaryKit.JSONValue.self, from: data)) ?? .object(["text": .string(output)])
             chat?.recordVoiceTool(.toolOutputAvailable(toolCallId: id, output: value), entryID: entryID)
             // The cloud agent reports edits in its own output format, which these tools don't use.
             if name.map(LocalToolOutput.changesOpenDocument) == true {

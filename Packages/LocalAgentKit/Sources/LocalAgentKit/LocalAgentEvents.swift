@@ -1,7 +1,7 @@
 import Foundation
 
 /// One step of an agent turn, independent of which CLI produced it.
-public enum LocalAgentEvent: Equatable, Sendable {
+public enum LocalAgentEvent: Equatable, Sendable, Codable {
     case sessionStarted(String)
     case textDelta(String)
     /// The current block of text ended, so anything unspoken can be spoken now.
@@ -279,4 +279,9 @@ public enum ClaudeInput {
         let object: [String: Any] = ["type": "user", "message": ["role": "user", "content": [["type": "text", "text": text]]]]
         return ((try? JSONSerialization.data(withJSONObject: object)) ?? Data()) + Data("\n".utf8)
     }
+}
+
+public struct LocalAgentSDKCommand: Codable, Sendable {
+    public let text: String?
+    public init(text: String? = nil) { self.text = text }
 }

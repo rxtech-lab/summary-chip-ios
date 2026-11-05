@@ -60,7 +60,10 @@ packages:
     revision: fad1772fcd4a4e9a252cd21ba180a92c5775d67c
   RxAgentSDK:
     url: https://github.com/rxtech-lab/RxAgentSDK
-    from: 1.3.0
+    from: 1.4.0
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 156.0.0
 
 # Info.plist keys every target reads through SummaryConfiguration.
 x-config-info: &configInfo
@@ -226,6 +229,8 @@ targets:
       - sdk: AVKit.framework
       - package: RxRemotion
       - package: Sparkle
+        destinationFilters: [macOS]
+      - package: WebRTC
         destinationFilters: [macOS]
       - package: SummaryKit
       - package: LocalAgentKit
