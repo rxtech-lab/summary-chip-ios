@@ -15,7 +15,7 @@ export type OutputLanguage = (typeof OUTPUT_LANGUAGES)[number];
 export const TRANSLATION_LANGUAGES = ["en", "zh-Hans", "zh-Hant", "ja", "ko", "es", "fr", "de"] as const satisfies readonly Exclude<OutputLanguage, "auto">[];
 export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
 
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 100_000_000;
 export const MAX_WEBPAGE_CONTENT = 60_000;
 /** The page's main-content markup from the device, so the kept document has its links and images. */
 export const MAX_WEBPAGE_HTML = 400_000;
@@ -52,6 +52,7 @@ export const sourceSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("pdf"),
     uploadKey: z.string().min(1).max(300),
+    ocrText: z.string().trim().min(20).max(MAX_TEXT_LENGTH).optional(),
     filename: z.string().max(300).nullish(),
     sourceUrl: httpUrl.nullish(),
   }),

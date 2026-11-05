@@ -759,7 +759,7 @@ export function createMcpServer(context: McpContext): McpServer {
   server.registerTool(TOOL_NAMES.createUpload, {
     _meta: { securitySchemes: securitySchemes(TOOL_NAMES.createUpload) },
     title: "Create Upload",
-    description: "Request a presigned S3-compatible URL to upload an image or any file up to 25 MB directly to storage, "
+    description: "Request a presigned S3-compatible URL to upload an image or any file up to 100 MB directly to storage, "
       + "without sending base64 through MCP. Returns key, uploadUrl, method (PUT), headers and expiresAt (10 minutes). "
       + "PUT the raw file bytes to uploadUrl with the returned headers and exact byteSize; do not send MCP credentials "
       + "or multipart form data. This call only prepares the upload. After PUT succeeds, call get_upload with key for "
@@ -768,7 +768,7 @@ export function createMcpServer(context: McpContext): McpServer {
     inputSchema: {
       filename: createFileUploadSchema.shape.filename.describe("The file's name, at most 300 characters."),
       mimeType: createFileUploadSchema.shape.mimeType.describe("MIME type without parameters, e.g. image/png, application/pdf, text/plain or application/octet-stream."),
-      byteSize: createFileUploadSchema.shape.byteSize.describe("Exact size of the file in bytes, from 1 to 26,214,400 (25 MB)."),
+      byteSize: createFileUploadSchema.shape.byteSize.describe("Exact size of the file in bytes, from 1 to 100,000,000 (100 MB)."),
     },
     outputSchema: {
       key: z.string(), uploadUrl: z.string().url(), method: z.literal("PUT"),

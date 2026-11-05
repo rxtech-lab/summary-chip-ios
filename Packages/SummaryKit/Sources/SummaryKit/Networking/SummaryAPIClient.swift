@@ -37,7 +37,7 @@ enum StoreKitBillingProof: Sendable {
 
 /// Bearer-authenticated client for `/api/v1/*`.
 public final class SummaryAPIClient: Sendable {
-    public static let maxUploadBytes = 25 * 1024 * 1024
+    public static let maxUploadBytes = 100_000_000
     public static let createTimeout: TimeInterval = 120
     /// Matches the import route's `maxDuration`.
     public static let importTimeout: TimeInterval = 180
@@ -282,23 +282,31 @@ public final class SummaryAPIClient: Sendable {
         from input: SummaryInput,
         options: GenerationOptions,
         followLinks: Bool = true,
-        onUploaded: (@Sendable () -> Void)? = nil
+        onUploaded: (@Sendable () -> Void)? = nil,
+        onReadingProgress: (@Sendable (Int, Int) -> Void)? = nil,
+        onRead: (@Sendable () -> Void)? = nil
     ) async throws -> Summary {
-        let source = try await source(for: input, onUploaded: onUploaded)
+        let source = try await source(for: input, onUploaded: onUploaded, onReadingProgress: onReadingProgress, onRead: onRead)
         return try await createSummary(source, options: options, followLinks: followLinks)
     }
 
     /// The contract `source` for an input, uploading a PDF first.
-    func source(for input: SummaryInput, onUploaded: (@Sendable () -> Void)? = nil) async throws -> SummarySource {
+    func source(for input: SummaryInput, onUploaded: (@Sendable () -> Void)? = nil,
+                onReadingProgress: (@Sendable (Int, Int) -> Void)? = nil,
+                onRead: (@Sendable () -> Void)? = nil) async throws -> SummarySource {
         switch input {
         case .url(let url): return .url(url)
         case .webpage(let page): return .webpage(page)
         case .text(let text, let title): return .text(text, title: title)
         case .localFile(let file): return .local(file)
         case .pdf(let fileURL, let filename, let sourceURL):
+            let ocrText = try await Task.detached(priority: .userInitiated) {
+                try PDFTextReader.uploadText(at: fileURL, onProgress: onReadingProgress)
+            }.value
+            onRead?()
             let key = try await uploadPDF(fileURL: fileURL, filename: filename)
             onUploaded?()
-            return .pdf(uploadKey: key, filename: filename, sourceUrl: sourceURL)
+            return .pdf(uploadKey: key, filename: filename, sourceUrl: sourceURL, ocrText: ocrText)
         }
     }
 

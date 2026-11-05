@@ -532,7 +532,7 @@ extension SummaryAPIClient {
     }
 
     public func dailyPodcastImageURL(_ path: String?) -> URL? {
-        guard let path else { return nil }
+        guard let path, !path.isEmpty else { return nil }
         return request(path).url
     }
 }

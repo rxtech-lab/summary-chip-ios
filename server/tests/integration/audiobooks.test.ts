@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
+import * as uploadsRoute from "@/app/api/v1/uploads/route";
 import * as create from "@/app/api/v1/audiobooks/route";
 import * as optionsRoute from "@/app/api/v1/audiobooks/options/route";
 import * as sampleRoute from "@/app/api/v1/audiobooks/voices/sample/route";
@@ -11,6 +12,7 @@ import * as jobRoute from "@/app/api/v1/audiobooks/jobs/[id]/route";
 import * as translations from "@/app/api/v1/audiobooks/[key]/translations/route";
 import * as linkRoute from "@/app/api/v1/daily-podcasts/[key]/audio/link/route";
 import * as audioRoute from "@/app/api/v1/daily-podcasts/[key]/audio/route";
+import * as episodeRoute from "@/app/api/v1/daily-podcasts/[key]/route";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
 import { podcastEpisodes, summaries } from "@/lib/db/schema";
 import { setAudiobookStarterForTests } from "@/lib/services/audiobook-starter";
@@ -19,7 +21,7 @@ import { runAudiobookVideoJob, type AudiobookVideoJob } from "@/lib/services/aud
 import { voiceSampleKey } from "@/lib/services/audiobook-voices";
 import { podcastInLanguage } from "@/lib/services/daily-podcast";
 import { podcastVideoSource } from "@/lib/services/podcast-video";
-import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
+import { buildPdf, apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
 let env: TestEnv;
 let jobs: AudiobookJobInput[];
@@ -63,6 +65,26 @@ async function generate(plan: { id: string; revision: number }) {
 }
 
 describe("audiobook plans", () => {
+  it("generates from a direct PDF without creating a source chip", async () => {
+    const bytes = buildPdf();
+    const upload = await (await uploadsRoute.POST(apiRequest("POST", "/api/v1/uploads", {
+      token: env.tokens.alice, body: { filename: "Book.pdf", mimeType: "application/pdf", byteSize: bytes.length },
+    }))).json();
+    await env.store.put(upload.key, { bytes, contentType: "application/pdf" });
+    const payload = body([], { includeVideo: false, pdfSources: [{ uploadKey: upload.key, filename: "Book.pdf", ocrText: text }] });
+    const foreign = await create.POST(apiRequest("POST", "/api/v1/audiobooks", { token: env.tokens.bob, body: payload }));
+    expect(foreign.status).toBe(403);
+    const response = await create.POST(apiRequest("POST", "/api/v1/audiobooks", { token: env.tokens.alice, body: payload }));
+    expect(response.status).toBe(200);
+    expect(await env.handle.db.select().from(summaries)).toHaveLength(0);
+    const { podcast } = await generate((await response.json()).plan);
+    const rows = await env.handle.db.select().from(summaries);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("audiobook");
+    expect(podcast.chipIds).toEqual([]);
+    expect(podcast.segments.length).toBeGreaterThan(0);
+  });
+
   it("offers the screenshot's voices, and themes that are illustration styles", async () => {
     env.ai.images = true;
     const options = await (await optionsRoute.GET(apiRequest("GET", "/api/v1/audiobooks/options", { token: env.tokens.alice }))).json();
@@ -162,7 +184,7 @@ describe("audiobook generation", () => {
     expect(podcast.durationSeconds).toBeGreaterThan(0);
     podcast.segments.forEach((segment, index) => { if (index) expect(segment.startSeconds!).toBeGreaterThanOrEqual(podcast.segments[index - 1].endSeconds! - 0.01); });
     const [row] = await env.handle.db.select().from(summaries).where(eq(summaries.id, podcast.summaryId!));
-    expect(row.kind).toBe("podcast");
+    expect(row.kind).toBe("audiobook");
     expect(row.theme.emoji).toBe("📖");
     const job = (await (await jobRoute.GET(apiRequest("GET", `/api/v1/audiobooks/jobs/${jobs[0].id}`, { token: env.tokens.alice }), params({ id: jobs[0].id }))).json()).job;
     expect(job).toMatchObject({ status: "ready", percent: 100, stage: "complete" });
@@ -248,6 +270,29 @@ describe("audiobook generation", () => {
     expect(second.podcast.summaryId).toBe(first.podcast.summaryId);
     const rows = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.summaryId, first.podcast.summaryId!));
     expect(rows.filter(row => row.isDefault).map(row => row.key)).toEqual([second.podcast.key]);
+  });
+
+  it("keeps a book made from selected chapters readable, playable and illustrated", async () => {
+    env.ai.images = true;
+    const plan = await draft();
+    const confirmed = await planRoute.POST(planRequest("POST", plan.id, { revision: plan.revision, chapters: [0] }), params({ id: plan.id }));
+    expect(confirmed.status).toBe(200);
+    const { job } = await confirmed.json();
+    await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
+    const key = job.episodeKey as string;
+    expect(key).not.toBe(plan.id);
+    const query = `start=${encodeURIComponent(day.start)}&end=${encodeURIComponent(day.end)}`;
+    const episode = await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}?${query}`, { token: env.tokens.alice }), params({ key }));
+    expect(episode.status).toBe(200);
+    const saved = (await episode.json()).podcast;
+    expect(saved.chapters).toHaveLength(1);
+    expect(saved.title).toBe(plan.plan.title);
+    expect((await linkRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}/audio/link?${query}`, { token: env.tokens.alice }), params({ key }))).status).toBe(200);
+    expect((await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}?${query}`, { token: env.tokens.bob }), params({ key }))).status).toBe(404);
+    expect(videos).toHaveLength(1);
+    await runAudiobookVideoJob(env.handle.db, videos[0], { ai: env.ai, store: env.store });
+    const [row] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, key));
+    expect(row.document.video?.id).toBe(videos[0].id);
   });
 
   it("gives the recording's direct link only to its owner, and redirects its audio there", async () => {

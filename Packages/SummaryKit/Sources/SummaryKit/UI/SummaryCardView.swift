@@ -170,7 +170,7 @@ public struct KindBadge: View {
 
     /// Nil for kinds that open as a plain summary and carry no badge.
     public init?(kind: SummaryKind) {
-        guard kind == .trip || kind == .podcast || kind == .paper || kind == .miniApp || kind == .graph else { return nil }
+        guard kind == .trip || kind == .podcast || kind == .audiobook || kind == .paper || kind == .miniApp || kind == .graph else { return nil }
         self.kind = kind
     }
 
@@ -195,6 +195,7 @@ public struct KindBadge: View {
         switch kind {
         case .trip: Text("Trip", bundle: .module, comment: "Badge on a library tile that is a trip diary")
         case .podcast: Text("Podcast", bundle: .module)
+        case .audiobook: Text("Audiobook", bundle: .module)
         case .miniApp: Text("Clip", bundle: .module, comment: "Badge on a library tile that is a Clip")
         case .graph: Text("Graph", bundle: .module, comment: "Badge on a library tile that is a graph")
         default: Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
@@ -205,6 +206,7 @@ public struct KindBadge: View {
         switch kind {
         case .trip: "map.fill"
         case .podcast: "waveform"
+        case .audiobook: "book.closed"
         case .miniApp: "app.badge.fill"
         default: "doc.richtext.fill"
         }

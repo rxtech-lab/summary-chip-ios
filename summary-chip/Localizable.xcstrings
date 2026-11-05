@@ -460,6 +460,16 @@
         }
       }
     },
+    "%lld of %lld pages · %lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld pages · %3$lld%%"
+          }
+        }
+      }
+    },
     "%lld of %lld voice segments" : {
       "localizations" : {
         "en" : {
@@ -664,6 +674,16 @@
     },
     "%lld." : {
 
+    },
+    "%lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld. %2$@"
+          }
+        }
+      }
     },
     "%lld/4" : {
 
@@ -3420,7 +3440,7 @@
         }
       }
     },
-    "Chips are read from their original text, and PDFs in full. An uploaded PDF is saved as a private chip, and the audiobook stays linked to it." : {
+    "Chips are read from their original text, and PDFs in full. Uploaded PDFs are used directly by the audiobook without creating separate chips." : {
 
     },
     "Choose + → New Podcast to turn saved chips into an episode with voices, captions and artwork. Pick your stories and language, then listen or create a video to share." : {
@@ -5422,6 +5442,9 @@
         }
       }
     },
+    "Delete Audiobook" : {
+
+    },
     "Delete Clip" : {
 
     },
@@ -6008,6 +6031,9 @@
         }
       }
     },
+    "Deselect All" : {
+
+    },
     "Designing a new cover…" : {
 
     },
@@ -6404,6 +6430,9 @@
 
     },
     "Each seed gives this model a different voice. Play a sample to hear it. Your choice applies from the next voice chat." : {
+
+    },
+    "Each selection is saved as a separate recording. Reopen this plan from the library to generate more chapters." : {
 
     },
     "Each speaker needs a different voice, up to %lld." : {
@@ -8108,6 +8137,9 @@
 
     },
     "Generate at" : {
+
+    },
+    "Generate Chapters" : {
 
     },
     "Generate Cover" : {
@@ -16104,6 +16136,9 @@
     "Select All" : {
 
     },
+    "Select Chapters" : {
+
+    },
     "Select some text or a link to summarize." : {
       "localizations" : {
         "zh-Hans" : {
@@ -17690,6 +17725,9 @@
 
     },
     "The audiobook couldn't be translated." : {
+
+    },
+    "The audiobook will be removed from your library." : {
 
     },
     "The day and its moments are removed from the diary." : {

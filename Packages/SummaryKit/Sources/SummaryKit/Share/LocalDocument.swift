@@ -13,7 +13,7 @@ public enum LocalDocumentError: LocalizedError {
         switch self {
         case .unsupported: String(localized: "Choose a PDF, document, spreadsheet, presentation, text, Markdown or code file.", bundle: .module)
         case .empty: String(localized: "This file is empty.", bundle: .module)
-        case .noPDFText: String(localized: "This PDF has no selectable text. Scanned PDFs can't be read on this device.", bundle: .module)
+        case .noPDFText: String(localized: "No readable text was found in this PDF, including with text recognition.", bundle: .module)
         case .textTooLong: String(localized: "Text files must contain at most 200,000 characters.", bundle: .module)
         case .unavailable: String(localized: "The local file is unavailable. Choose it again in Files to restore access.", bundle: .module)
         }
@@ -127,7 +127,7 @@ public enum LocalDocument {
         }
         if ext == "pdf" {
             guard let document = PDFDocument(url: fileURL) else { throw LocalDocumentError.unsupported }
-            let text = (document.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = try PDFTextReader.read(document, limit: maxTextLength).text
             guard !text.isEmpty else { throw LocalDocumentError.noPDFText }
             // Long PDFs are summarised from their opening, as the server would after extraction.
             return LocalFileSource(filename: name, kind: .pdf, text: prefix(text, utf16Length: maxTextLength))

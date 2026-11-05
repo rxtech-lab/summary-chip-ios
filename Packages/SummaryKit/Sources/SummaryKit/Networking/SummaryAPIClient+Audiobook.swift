@@ -1,5 +1,13 @@
 import Foundation
 
+public struct AudiobookPDFSource: Codable, Sendable, Identifiable {
+    public var uploadKey: String
+    public var filename: String
+    public var ocrText: String?
+    public var id: String { uploadKey }
+}
+
+
 /// A voice an audiobook speaker can use. Its id says which provider speaks it.
 public struct AudiobookVoice: Codable, Sendable, Identifiable, Equatable, Hashable {
     public var id: String
@@ -184,10 +192,22 @@ extension SummaryAPIClient {
     }
 
     /// Reads the sources and drafts the plan (spends points). With `planMode` off the plan is confirmed and its job returned.
+    public func uploadAudiobookPDF(fileURL: URL, filename: String,
+                                   onProgress: (@Sendable (Int, Int) -> Void)? = nil,
+                                   onRead: (@Sendable () -> Void)? = nil) async throws -> AudiobookPDFSource {
+        let text = try await Task.detached(priority: .userInitiated) {
+            try PDFTextReader.uploadText(at: fileURL, onProgress: onProgress)
+        }.value
+        onRead?()
+        let key = try await uploadPDF(fileURL: fileURL, filename: filename)
+        return AudiobookPDFSource(uploadKey: key, filename: filename, ocrText: text)
+    }
+
     public func createAudiobook(date: Date, language: SummaryLanguage, chipIds: [String], speakers: [AudiobookPlan.Speaker]?, includeVideo: Bool,
-                                videoTheme: PodcastVideoStyle?, targetSeconds: Int?, summaryID: String?, planMode: Bool) async throws -> (plan: AudiobookPlan, job: AudiobookJob?) {
+                                videoTheme: PodcastVideoStyle?, targetSeconds: Int?, summaryID: String?, planMode: Bool, pdfSources: [AudiobookPDFSource] = []) async throws -> (plan: AudiobookPlan, job: AudiobookJob?) {
         struct Speaker: Encodable { var name: String; var voice: String }
         struct Body: Encodable {
+            var pdfSources: [AudiobookPDFSource]
             var day: PodcastDayBounds; var language: String; var chipIds: [String]; var speakers: [Speaker]?; var includeVideo: Bool
             var videoTheme: PodcastVideoStyle?; var targetSeconds: Int?; var summaryId: String?; var planMode: Bool
         }
@@ -196,7 +216,7 @@ extension SummaryAPIClient {
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
         let formatter = ISO8601DateFormatter()
         var create = try json("/api/v1/audiobooks", method: "POST", body: Body(
-            day: .init(start: formatter.string(from: start), end: formatter.string(from: end)), language: language.rawValue, chipIds: chipIds,
+            pdfSources: pdfSources, day: .init(start: formatter.string(from: start), end: formatter.string(from: end)), language: language.rawValue, chipIds: chipIds,
             speakers: speakers?.map { Speaker(name: $0.name, voice: $0.voice) }, includeVideo: includeVideo, videoTheme: videoTheme, targetSeconds: targetSeconds,
             summaryId: summaryID, planMode: planMode))
         create.timeoutInterval = 300

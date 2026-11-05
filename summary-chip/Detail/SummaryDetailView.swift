@@ -456,7 +456,7 @@ struct SummaryDestination: View {
             #else
             GraphDetailView(environment: environment, graphID: summary.id, title: summary.title)
             #endif
-        } else if summary.kind == .podcast {
+        } else if (summary.kind == .podcast || summary.kind == .audiobook) {
             LibraryPodcastDetail(environment: environment, summary: summary)
         } else if summary.kind == .paper {
             PaperDetailView(environment: environment, paperID: summary.id, title: summary.title)

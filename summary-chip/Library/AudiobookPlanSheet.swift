@@ -82,6 +82,20 @@ struct AudiobookPlanSheet: View {
                 NavigationStack {
                     List {
                         Section {
+                            HStack {
+                                Button("Select All") {
+                                    selectedChapters = Set(plan.plan.chapters.indices)
+                                }
+                                .disabled(selectedChapters.count == plan.plan.chapters.count)
+                                .accessibilityIdentifier("audiobook-chapters-select-all")
+                                Spacer()
+                                Button("Deselect All") { selectedChapters.removeAll() }
+                                    .disabled(selectedChapters.isEmpty)
+                                    .accessibilityIdentifier("audiobook-chapters-deselect-all")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        Section {
                             ForEach(plan.plan.chapters.indices, id: \.self) { index in
                                 Toggle(isOn: Binding(get: { selectedChapters.contains(index) }, set: { value in
                                     if value { selectedChapters.insert(index) } else { selectedChapters.remove(index) }
@@ -103,6 +117,7 @@ struct AudiobookPlanSheet: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(minWidth: 320, idealWidth: 520, minHeight: 480, maxHeight: .infinity)
+                .presentationSizing(.page.fitted(horizontal: true, vertical: false))
                 .presentationDetents([.large])
             }
             .sheet(item: $editingChapter) { choice in

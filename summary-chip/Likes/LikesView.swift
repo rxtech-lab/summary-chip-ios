@@ -105,7 +105,7 @@ struct LikesView: View {
             SummaryCardFeed(entries: model.entries, scrollState: feedScroll, showsTimeline: true, showsDateHeaders: true, onReachEnd: {
                 Task { await model.loadMore() }
             }, onSelect: { summary in
-                if summary.kind == .podcast, !summary.isExpired, let openPodcast { openPodcast(summary) }
+                if (summary.kind == .podcast || summary.kind == .audiobook), !summary.isExpired, let openPodcast { openPodcast(summary) }
                 else { (path ?? $localPath).presentingMiniApps(with: openMiniApp).wrappedValue.append(summary) }
             }, menuItems: { summary in
                 LikeMenuButton(summary: summary) { toggleLike(summary) }

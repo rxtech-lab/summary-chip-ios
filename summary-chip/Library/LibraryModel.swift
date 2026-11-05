@@ -85,7 +85,7 @@ final class LibraryModel {
     /// Plans are podcasts in the making: they show wherever podcasts the owner made would.
     var showsPlannedPodcasts: Bool {
         let shown = kind ?? filter.kind
-        return (shown == nil || shown == .podcast) && filter.scope != .viewed && !filter.editorsPick
+        return (shown == nil || shown == .podcast || shown == .audiobook) && filter.scope != .viewed && !filter.editorsPick
             && filter.category == nil && filter.tag == nil && filter.source == nil
     }
 
@@ -99,8 +99,13 @@ final class LibraryModel {
         guard generation == planLoadGeneration, showsPlannedPodcasts else { return }
         if let plans { plannedPodcasts = plans }
         if let state {
+            let wasRunning = Set(audiobookJobs.filter { $0.status == "running" }.map(\.id))
             plannedAudiobooks = state.plans
             audiobookJobs = state.jobs
+            // Unstructured: this change can cancel the view task that is following the jobs.
+            if !wasRunning.isSubset(of: state.jobs.filter { $0.status == "running" }.map(\.id)) {
+                Task { await reload() }
+            }
         }
     }
 
@@ -115,9 +120,7 @@ final class LibraryModel {
         while !Task.isCancelled, audiobookJobs.contains(where: { $0.status == "running" }) {
             try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled else { return }
-            let running = audiobookJobs.filter { $0.status == "running" }.count
             await refreshPlannedPodcasts()
-            if audiobookJobs.filter({ $0.status == "running" }).count < running { await reload() }
         }
     }
 

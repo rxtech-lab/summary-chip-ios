@@ -254,7 +254,7 @@ struct MainTabView: View {
     }
 
     private func openItem(_ summary: Summary) {
-        if summary.kind == .podcast, !summary.isExpired, let openPodcast {
+        if (summary.kind == .podcast || summary.kind == .audiobook), !summary.isExpired, let openPodcast {
             openPodcast(summary)
             return
         }

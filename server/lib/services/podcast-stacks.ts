@@ -26,7 +26,7 @@ export async function soloPodcastLinks(db: Database, ownerId: string) {
   const audiobooks = new Set<string>();
   for (const episode of episodes) {
     if (!episode.podcastId) continue;
-    if (episode.format === "audiobook") audiobooks.add(episode.podcastId);
+    if (episode.format === "audiobook") { audiobooks.add(episode.podcastId); continue; }
     const ids = chips.get(episode.podcastId) ?? new Set<string>();
     for (const id of JSON.parse(episode.chipIds ?? "[]") as string[]) ids.add(id);
     chips.set(episode.podcastId, ids);
@@ -55,7 +55,7 @@ export async function withPodcastStacks<T extends SummaryJson>(db: Database, vie
     return { ...item,
       podcastSourceId: item.kind === "podcast" ? sourceOf.get(item.id) ?? null : null,
       stackedPodcastId: stacked,
-      isAudiobook: item.kind === "podcast" ? audiobooks.has(item.id) : !!stacked && audiobooks.has(stacked),
+      isAudiobook: item.kind === "audiobook" || (item.kind === "podcast" ? audiobooks.has(item.id) : !!stacked && audiobooks.has(stacked)),
     };
   });
 }

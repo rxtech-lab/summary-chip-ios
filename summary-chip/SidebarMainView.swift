@@ -189,7 +189,7 @@ struct SidebarMainView: View {
 
     /// Opens a search result in its document's tab.
     private func openFromSearch(_ summary: Summary) {
-        if summary.kind == .podcast, !summary.isExpired, let openPodcast {
+        if (summary.kind == .podcast || summary.kind == .audiobook), !summary.isExpired, let openPodcast {
             openPodcast(summary)
             return
         }

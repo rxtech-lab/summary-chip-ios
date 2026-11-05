@@ -8,13 +8,13 @@ import type { TranslationLanguage } from "@/lib/contracts/api";
 import { audiobookPlanSchema, MAX_AUDIOBOOK_SCENES, type AudiobookCreationInput, type AudiobookJob, type AudiobookJobStage, type AudiobookPlanDocument } from "@/lib/contracts/audiobook";
 import type { AudiobookScene, DailyPodcast, PodcastChapter, PodcastDay, PodcastPlanFrame, PodcastPlanMessage, PodcastTranslation } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
-import { audiobookJobs, audiobookPlans, podcastEpisodes, summaries, type SummaryRow } from "@/lib/db/schema";
+import { audiobookJobs, audiobookPlans, podcastEpisodes, summaries, uploads, type SummaryRow } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { runAfter } from "@/lib/http/after";
 import { getObjectStore, ownerKeyPrefix, type ObjectStore } from "@/lib/storage/r2";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
-import { audiobookPassages, narrationRatio, narrationSeconds, normalizeAudiobookPlan, passagesForPlanning, type StoredPassage } from "./audiobook-source";
+import { audiobookPassages, splitPassages, narrationRatio, narrationSeconds, normalizeAudiobookPlan, passagesForPlanning, type StoredPassage } from "./audiobook-source";
 import { getAudiobookStarter } from "./audiobook-starter";
 import { alignPodcastCaptions } from "./podcast-captions";
 import { chipArtPath, dailyPodcastEpisode, dayKey, episodeAudioPath, jsonObject, podcastCover, podcastSummaryText, translationPath, updatePodcastDocument } from "./daily-podcast";
@@ -23,7 +23,7 @@ import { mixAudiobookChapter } from "./podcast-mixer";
 import { musicBedPrompt } from "./podcast-music";
 import { rerankHeadlines } from "./headlines";
 import { deliver } from "./notifications";
-import { deleteObjects, getSummaryForViewer, type ServiceDeps } from "./summaries";
+import { deleteObjects, extractPdfUpload, getSummaryForViewer, type ServiceDeps } from "./summaries";
 import { retireTranslatedCovers } from "./translations";
 
 type Plan = typeof audiobookPlans.$inferSelect;
@@ -112,7 +112,7 @@ export async function readAudiobookPlan(db: Database, user: string, id: string, 
 async function loadSources(db: Database, user: string, input: Pick<AudiobookCreationInput, "chipIds" | "summaryId">) {
   if (input.summaryId) {
     const chip = await getSummaryForViewer(db, input.summaryId, user);
-    if (chip.kind !== "podcast" || chip.ownerId !== user) throw new ApiError(404, "NOT_FOUND", "Audiobook not found.");
+    if (chip.kind !== "audiobook" || chip.ownerId !== user) throw new ApiError(404, "NOT_FOUND", "Audiobook not found.");
   }
   const chips = await Promise.all([...new Set(input.chipIds)].map(id => getSummaryForViewer(db, id, user)));
   if (chips.some(chip => chip.kind !== "summary")) throw new ApiError(422, "AUDIOBOOK_SELECTION", "Select source summary chips only.");
@@ -131,6 +131,15 @@ export async function createAudiobookPlan(db: Database, user: string, input: Aud
   if (input.speakers && new Set(input.speakers.map(speaker => speaker.voice)).size !== input.speakers.length) throw new ApiError(422, "AUDIOBOOK_PLAN_INVALID", "Give each speaker a different voice.");
   const chips = await loadSources(db, user, input);
   const passages = await audiobookPassages(chips, user, store);
+  for (const source of input.pdfSources ?? []) {
+    const pdf = await extractPdfUpload(db, user, { type: "pdf", ...source }, store);
+    for (const text of splitPassages(pdf.content.text)) {
+      passages.push({ chipId: "upload:" + source.uploadKey, chipTitle: source.filename, text });
+    }
+  }
+  if (passages.reduce((sum, passage) => sum + passage.text.length, 0) > 3_000_000) {
+    throw new ApiError(422, "AUDIOBOOK_SOURCE_TOO_LONG", "These sources are too long for one audiobook.");
+  }
   const sourceSeconds = passages.reduce((sum, passage) => sum + narrationSeconds(passage.text), 0);
   const ratio = narrationRatio(sourceSeconds, input.targetSeconds);
   const id = randomUUID();
@@ -142,7 +151,7 @@ export async function createAudiobookPlan(db: Database, user: string, input: Aud
   try {
     const pricing = charge ? await ai.podcastPricing() : null;
     const drafted = await ai.writeAudiobookPlan({
-      language: LANGUAGE_NAMES[input.language], title: chips[0].title, includeVideo: true, videoTheme,
+      language: LANGUAGE_NAMES[input.language], title: chips[0]?.title ?? input.pdfSources?.[0]?.filename ?? "Audiobook", includeVideo: true, videoTheme,
       voices: voices.map(({ id, name, gender, description }) => ({ id, name, gender, description })),
       speakers: input.speakers, targetSeconds: sourceSeconds * ratio, sourceSeconds,
       passages: passagesForPlanning(passages), totalPassages: passages.length,
@@ -154,6 +163,9 @@ export async function createAudiobookPlan(db: Database, user: string, input: Aud
     const now = (deps.now?.() ?? new Date()).getTime();
     const [row] = await db.insert(audiobookPlans).values({ id, ownerId: user, input: { ...input, includeVideo }, plan, passageCount: passages.length,
       sourceCharacters: passages.reduce((sum, passage) => sum + passage.text.length, 0), sourceSeconds: Math.round(sourceSeconds), createdAt: now, updatedAt: now }).returning();
+    for (const source of input.pdfSources ?? []) {
+      await db.update(uploads).set({ attachedAt: new Date(now) }).where(eq(uploads.key, source.uploadKey));
+    }
     await charge?.settle(Math.max(1, pointsForCost(cost)), { plan: true, textCostUsd: cost });
     if (input.planMode) return { plan: await publicAudiobookPlan(row, { ...deps, ai, store }), job: null };
     const job = await confirmAudiobookPlan(db, user, id, 0, { ...deps, ai, store });
@@ -398,7 +410,7 @@ export async function confirmAudiobookPlan(db: Database, user: string, id: strin
     const passages = await readPassages(store, user, id);
     await store.put(passagesKey(user, batchId), jsonObject(passages));
     await db.insert(audiobookPlans).values({ ...plan, id: batchId, revision: 0, confirmed: true, frames: {},
-      plan: { ...plan.plan, title: plan.plan.title + " · Chapters " + indices.map(index => index + 1).join(", "), chapters: indices.map(index => plan.plan.chapters[index]) },
+      plan: { ...plan.plan, chapters: indices.map(index => plan.plan.chapters[index]) },
     }).onConflictDoNothing();
     return confirmAudiobookPlan(db, user, batchId, 0, deps);
   }
@@ -536,8 +548,8 @@ export async function runAudiobookChapterScript(db: Database, job: AudiobookJobI
       speakers: plan.plan.speakers.map((speaker, index) => ({ index, name: speaker.name, role: speaker.role })), music: plan.plan.musicCues.map(({ id, title }) => ({ id, title })),
       passages: source.map(passage => passage.text), targetCharacters: Math.max(300, Math.round(sourceCharacters * ratio)), sourceCharacters }, { abortSignal, onUsage });
     const chipId = majorityChip(source);
-    const chip = await getSummaryForViewer(db, chipId, job.userId);
-    state = { title: item.title, synopsis: item.synopsis, costUsd, turns: assignStretches(turns, item.music, item.scenes.length).map(turn => ({ ...turn, chipId, imagePath: chipArtPath(chip as SummaryRow), icon: "📖" })) };
+    const chip = chipId.startsWith("upload:") ? null : await getSummaryForViewer(db, chipId, job.userId);
+    state = { title: item.title, synopsis: item.synopsis, costUsd, turns: assignStretches(turns, item.music, item.scenes.length).map(turn => ({ ...turn, chipId, imagePath: chip ? chipArtPath(chip as SummaryRow) : "", icon: "📖" })) };
   } else {
     const podcast = await dailyPodcastEpisode(db, job.userId, job.day, job.key);
     const bounds = podcast.chapters?.[chapter] ?? { title: podcast.title, startSegment: 0, endSegment: podcast.segments.length, synopsis: undefined };
@@ -707,7 +719,7 @@ async function finishOriginal(db: Database, job: AudiobookJobInput, deps: StepDe
   const podcast: DailyPodcast = { title: plan.plan.title, summary: plan.plan.summary, mood: plan.plan.musicCues[0]?.mood ?? "calm",
     speakers: plan.plan.speakers.map(({ name, voice }) => ({ name, voice })), segments, type: "regular", format: "audiobook", chapters,
     audiobook: { musicCues: plan.plan.musicCues, videoTheme: plan.plan.videoTheme, visualGuide: plan.plan.visualGuide, scenes },
-    key: job.key, summaryId, language: plan.input.language, day: job.day, chipIds: [...new Set(segments.map(segment => segment.chipId))], createdAt: createdAt.toISOString(), durationSeconds, music };
+    key: job.key, summaryId, language: plan.input.language, day: job.day, chipIds: [...new Set(segments.map(segment => segment.chipId))].filter(id => !id.startsWith("upload:")), createdAt: createdAt.toISOString(), durationSeconds, music };
   podcast.audioPath = episodeAudioPath(podcast);
   // Approved scene images move next to the recording, so the video reuses them instead of drawing them again.
   await copyApprovedScenes(store, job, plan);
@@ -727,7 +739,7 @@ async function finishOriginal(db: Database, job: AudiobookJobInput, deps: StepDe
       await retireTranslatedCovers(db, store, [summaryId]);
     }
   } else {
-    await db.batch([db.insert(summaries).values({ id: summaryId, slug: randomUUID(), ownerId: job.userId, kind: "podcast", sourceType: "text", source: "text", title: podcast.title,
+    await db.batch([db.insert(summaries).values({ id: summaryId, slug: randomUUID(), ownerId: job.userId, kind: "audiobook", sourceType: "text", source: "text", title: podcast.title,
       summary: podcast.summary ?? podcastSummaryText(podcast), highlights: chapters.slice(0, 5).map(chapter => chapter.title), category: "Other", tags: [], keywords: [], language: plan.input.language,
       theme: { colors: ["#2A2118", "#8A6A45"], mode: "dark", emoji: "📖", accent: "#8A6A45" }, visibility: "private", createdAt, updatedAt: createdAt, ...cover }), episode,
     db.update(podcastEpisodes).set({ isDefault: true }).where(eq(podcastEpisodes.key, job.key))]);

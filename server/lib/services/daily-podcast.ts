@@ -235,8 +235,11 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
   return run;
 }
 
+/** An episode key: a UUID, or the SHA-256 of an audiobook made from selected chapters. */
+const EPISODE_KEY = /^(?:[0-9a-f-]{36}|[0-9a-f]{64})$/;
+
 export async function dailyPodcastAudio(db: Database, user: string, day: PodcastDay, key: string, index: number, store = getObjectStore()) {
-  if (!/^[0-9a-f-]{36}$/.test(key) || !Number.isInteger(index) || index < 0) throw new ApiError(404, "NOT_FOUND", "Podcast segment not found");
+  if (!EPISODE_KEY.test(key) || !Number.isInteger(index) || index < 0) throw new ApiError(404, "NOT_FOUND", "Podcast segment not found");
   const base = dayKey(user, day);
   const podcast = await dailyPodcastEpisode(db, user, day, key);
   if (!podcast.segments[index]) throw new ApiError(404, "NOT_FOUND", "Podcast segment not found");
@@ -340,7 +343,7 @@ export async function storeContinuousAudio(store: ObjectStore, objectKey: string
   });
 }
 export async function dailyPodcastEpisode(db: Database, user: string, day: PodcastDay, key: string) {
-  if (!/^[0-9a-f-]{36}$/.test(key)) throw new ApiError(404, "NOT_FOUND", "Podcast not found");
+  if (!EPISODE_KEY.test(key)) throw new ApiError(404, "NOT_FOUND", "Podcast not found");
   const [entry] = await db.select().from(podcastEpisodes).where(and(dayCondition(user, day),
     eq(podcastEpisodes.key, key), eq(podcastEpisodes.deleted, false))).limit(1);
   if (!entry) throw new ApiError(404, "NOT_FOUND", "Podcast not found");
@@ -453,7 +456,7 @@ export async function removeDailyPodcast(db: Database, user: string, day: Podcas
 }
 async function libraryPodcastChip(db: Database, user: string, summaryId: string) {
   const chip = await getSummaryForViewer(db, summaryId, user);
-  if (chip.ownerId !== user || chip.kind !== "podcast") throw new ApiError(404, "NOT_FOUND", "Podcast not found");
+  if (chip.ownerId !== user || (chip.kind !== "podcast" && chip.kind !== "audiobook")) throw new ApiError(404, "NOT_FOUND", "Podcast not found");
   return chip;
 }
 /** A podcast chip's readable versions, newest first. Its default is the flagged one, else the newest. */

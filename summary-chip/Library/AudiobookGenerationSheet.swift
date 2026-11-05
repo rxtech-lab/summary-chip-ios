@@ -3,8 +3,8 @@ import SummaryKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Creates an audiobook from chips and uploaded PDFs. A PDF becomes a chip first, so it's read and linked like any other
-/// source. Making the book happens on the server: the sheet follows it and can be left at any point.
+/// Creates an audiobook from existing chips and direct PDF uploads, without creating source chips.
+/// Making the book happens on the server: the sheet follows it and can be left at any point.
 struct AudiobookGenerationSheet: View {
     let api: SummaryAPIClient
     let date: Date
@@ -16,6 +16,8 @@ struct AudiobookGenerationSheet: View {
     let onGenerated: (DailyPodcast) -> Void
     /// The book continues on the server after the sheet closes; the library lists it.
     var onBackground: () -> Void = {}
+    /// The book is saved. Runs before it is opened, so a failure to open it can't hide it from the library.
+    var onSaved: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
     @AppStorage("audiobook.generation.language") private var savedLanguage = ""
     @AppStorage("audiobook.generation.includeVideo") private var savedIncludeVideo = true
@@ -27,12 +29,15 @@ struct AudiobookGenerationSheet: View {
     @State private var targetSeconds: Int?
     @State private var includeVideo = true
     @State private var theme: PodcastVideoStyle = PodcastVideoStyle(rawValue: "cinematic")
+    @State private var pdfSources: [AudiobookPDFSource] = []
     @State private var selected: [String: PodcastChip] = [:]
     @State private var plan: AudiobookPlan?
     @State private var showsPlan = false
     @State private var approved = false
     @State private var selectedChapters: [Int]?
     @State private var job: AudiobookJob?
+    @State private var readingProgress: (completed: Int, total: Int)?
+    @State private var importID: UUID?
     @State private var working: String?
     @State private var loading = true
     @State private var didLoad = false
@@ -71,7 +76,7 @@ struct AudiobookGenerationSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(job?.status == "failed" ? "Retry" : plan != nil ? "Review Plan" : "Generate", action: submit)
-                        .disabled(busy || loading || (plan == nil && (options == nil || selected.isEmpty)))
+                        .disabled(busy || loading || (plan == nil && (options == nil || (selected.isEmpty && pdfSources.isEmpty))))
                         .accessibilityIdentifier("audiobook-generation-submit")
                 }
             }
@@ -162,6 +167,10 @@ struct AudiobookGenerationSheet: View {
                 Label("Upload PDF", systemImage: "doc.badge.plus")
             }
             .accessibilityIdentifier("audiobook-upload-pdf")
+            ForEach(pdfSources) { source in
+                Label(source.filename, systemImage: "doc")
+                    .lineLimit(1)
+            }
             if let options {
                 Picker(selection: $targetSeconds) {
                     ForEach(options.lengths) { Text($0.title).tag($0.seconds) }
@@ -169,7 +178,7 @@ struct AudiobookGenerationSheet: View {
                 .accessibilityIdentifier("audiobook-length")
             }
         } header: { Text("Sources") } footer: {
-            Text("Chips are read from their original text, and PDFs in full. An uploaded PDF is saved as a private chip, and the audiobook stays linked to it.")
+            Text("Chips are read from their original text, and PDFs in full. Uploaded PDFs are used directly by the audiobook without creating separate chips.")
         }
     }
 
@@ -268,8 +277,20 @@ struct AudiobookGenerationSheet: View {
             }
             .transition(.opacity)
         } else if let working {
-            ProgressView(working)
-                .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            VStack(spacing: 12) {
+                if let progress = readingProgress, progress.total > 0 {
+                    Text(working)
+                    ProgressView(value: Double(progress.completed), total: Double(progress.total))
+                        .progressViewStyle(.linear)
+                    Text("\(progress.completed) of \(progress.total) pages · \(progress.completed * 100 / progress.total)%")
+                        .font(.caption).monospacedDigit()
+                        .accessibilityIdentifier("audiobook-reading-progress")
+                } else {
+                    ProgressView(working)
+                }
+            }
+            .frame(maxWidth: 320)
+            .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         } else if loading {
             ProgressView("Loading…")
                 .padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -306,7 +327,7 @@ struct AudiobookGenerationSheet: View {
         loading = false
     }
 
-    /// Saves each PDF as a private chip through the presigned upload, then selects it.
+    /// Uploads each PDF directly as an audiobook source.
     private func importPDFs(_ result: Result<[URL], any Error>) {
         guard case .success(let urls) = result else {
             if case .failure(let failure) = result, (failure as NSError).code != NSUserCancelledError { error = failure.localizedDescription }
@@ -314,14 +335,29 @@ struct AudiobookGenerationSheet: View {
         }
         work = Task {
             defer { working = nil }
+            defer { readingProgress = nil; importID = nil }
             for url in urls {
+                let id = UUID()
+                importID = id
+                readingProgress = nil
                 working = String(localized: "Reading \(url.lastPathComponent)…")
                 let scoped = url.startAccessingSecurityScopedResource()
                 defer { if scoped { url.stopAccessingSecurityScopedResource() } }
                 do {
-                    let chip = try await api.createSummary(from: .pdf(fileURL: url, filename: url.lastPathComponent, sourceURL: nil),
-                                                           options: GenerationOptions(language: .auto, visibility: .private), followLinks: false)
-                    selected[chip.id] = PodcastChip(id: chip.id, title: chip.title, source: chip.source)
+                    let source = try await api.uploadAudiobookPDF(fileURL: url, filename: url.lastPathComponent,
+                                                           onProgress: { completed, total in
+                        Task { @MainActor in
+                            guard importID == id else { return }
+                            readingProgress = (completed, total)
+                        }
+                    }, onRead: {
+                        Task { @MainActor in
+                            guard importID == id else { return }
+                            readingProgress = nil
+                            working = String(localized: "Uploading…")
+                        }
+                    })
+                    pdfSources.append(source)
                     successes += 1
                 } catch is CancellationError { return } catch {
                     self.error = error.localizedDescription
@@ -343,7 +379,7 @@ struct AudiobookGenerationSheet: View {
             do {
                 let created = try await api.createAudiobook(date: date, language: language, chipIds: selected.keys.sorted(),
                     speakers: speakers.isEmpty ? nil : speakers, includeVideo: includeVideo, videoTheme: includeVideo ? theme : nil,
-                    targetSeconds: targetSeconds, summaryID: existing?.summaryId, planMode: planMode)
+                    targetSeconds: targetSeconds, summaryID: existing?.summaryId, planMode: planMode, pdfSources: pdfSources)
                 plan = created.plan
                 successes += 1
                 if let started = created.job { follow(started) } else { showsPlan = true }
@@ -371,6 +407,7 @@ struct AudiobookGenerationSheet: View {
                     error = finished.error?.message ?? String(localized: "The audiobook couldn't be finished.")
                     return
                 }
+                onSaved()
                 let podcast = try await api.savedPodcast(key: finished.episodeKey, day: finished.day)
                 successes += 1
                 onGenerated(podcast)

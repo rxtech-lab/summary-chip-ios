@@ -427,8 +427,13 @@ describe("POST /api/v1/summaries", () => {
     expect(upload).toMatchObject({ method: "PUT", headers: { "content-type": "application/pdf" }, uploadUrl: expect.any(String), expiresAt: expect.any(String) });
     expect(upload.key).toMatch(new RegExp(`^uploads/${ownerKeyPrefix("user-alice")}/[0-9a-f-]{36}\\.pdf$`));
 
+    const atLimit = await uploadsRoute.POST(apiRequest("POST", "/api/v1/uploads", {
+      token: env.tokens.alice, body: { filename: "large.pdf", mimeType: "application/pdf", byteSize: 100_000_000 },
+    }));
+    expect(atLimit.status).toBe(201);
+
     const tooBig = await uploadsRoute.POST(apiRequest("POST", "/api/v1/uploads", {
-      token: env.tokens.alice, body: { filename: "big.pdf", mimeType: "application/pdf", byteSize: 26 * 1024 * 1024 },
+      token: env.tokens.alice, body: { filename: "big.pdf", mimeType: "application/pdf", byteSize: 100_000_001 },
     }));
     expect(tooBig.status).toBe(400);
 
@@ -465,6 +470,11 @@ describe("POST /api/v1/summaries", () => {
     const error = (await scannedResponse.json()).error;
     expect(error.code).toBe("PDF_NO_TEXT");
     expect(error.message).toMatch(/scanned PDF/);
+    const recognized = await create({ source: { type: "pdf", uploadKey: scanned.key,
+      ocrText: "Apple Vision recognized these scanned pages about renewable energy and solar power." } });
+    expect(recognized.status).toBe(201);
+    expect(env.ai.calls.summarize.at(-1)!.text).toContain("Apple Vision recognized");
+
   });
 });
 

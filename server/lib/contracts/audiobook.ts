@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "./api";
+import { MAX_TEXT_LENGTH, TRANSLATION_LANGUAGES, type TranslationLanguage } from "./api";
 import { AUDIOBOOK_SCENE_MOTIONS, audiobookVideoThemeSchema, PODCAST_MUSIC_MOODS, podcastDaySchema, podcastLanguageSchema, podcastSummarySchema, type AudiobookVideoTheme, type PodcastGenerationOptions } from "./daily-podcast";
 import type { VoiceOption } from "@/lib/ai/voices";
 
@@ -58,8 +58,9 @@ export type AudiobookChapterPlan = AudiobookPlanDocument["chapters"][number];
 export const createAudiobookSchema = z.object({
   day: podcastDaySchema,
   language: z.enum(TRANSLATION_LANGUAGES),
-  /** Source chips, read from their raw text. An uploaded PDF becomes a chip first. */
-  chipIds: z.array(z.string().min(1)).min(1).max(MAX_AUDIOBOOK_SOURCES),
+  /** Existing chips or direct PDF uploads; uploads never create summary chips. */
+  chipIds: z.array(z.string().min(1)).max(MAX_AUDIOBOOK_SOURCES).default([]),
+  pdfSources: z.array(z.object({ uploadKey: z.string().min(1).max(300), filename: z.string().min(1).max(300), ocrText: z.string().trim().min(1).max(MAX_TEXT_LENGTH).optional() })).max(MAX_AUDIOBOOK_SOURCES).optional(),
   /** Fixed speakers; omitted means the agent casts them from the source and voice catalog. */
   speakers: z.array(z.object({ name: z.string().trim().min(1).max(40), voice: z.string().min(1).max(80) })).min(1).max(MAX_AUDIOBOOK_SPEAKERS).optional(),
   includeVideo: z.boolean().default(true),
@@ -70,7 +71,7 @@ export const createAudiobookSchema = z.object({
   summaryId: z.string().min(1).optional(),
   /** False skips review: the drafted plan is confirmed at once. */
   planMode: z.boolean().default(false),
-}).strict();
+}).strict().refine(input => input.chipIds.length + (input.pdfSources?.length ?? 0) > 0 && input.chipIds.length + (input.pdfSources?.length ?? 0) <= MAX_AUDIOBOOK_SOURCES, "Choose between 1 and 20 sources.");
 export type AudiobookCreationInput = z.infer<typeof createAudiobookSchema>;
 
 export const reviseAudiobookPlanSchema = z.object({ revision: z.number().int().nonnegative(), plan: audiobookPlanSchema }).strict();

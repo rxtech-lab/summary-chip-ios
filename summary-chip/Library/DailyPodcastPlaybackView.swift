@@ -31,6 +31,8 @@ struct DailyPodcastPlaybackView: View {
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
+                    // Clipping only affects drawing: filled artwork would still take clicks meant for the bar above.
+                    .allowsHitTesting(false)
                     .accessibilityHidden(true)
                 }
                 LinearGradient(colors: [.clear, .black.opacity(0.5)], startPoint: .center, endPoint: .bottom)

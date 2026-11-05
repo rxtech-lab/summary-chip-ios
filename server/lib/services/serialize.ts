@@ -209,7 +209,7 @@ export function toSummaryJson(
     // Filled by `withPodcastStacks`, which needs the owner's podcast episodes.
     podcastSourceId: null,
     stackedPodcastId: null,
-    isAudiobook: false,
+    isAudiobook: row.kind === "audiobook",
     // Filled by `withEditorsPicks` on library lists.
     isEditorsPick: false,
     createdAt: row.createdAt.toISOString(),

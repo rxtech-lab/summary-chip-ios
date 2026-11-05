@@ -133,12 +133,13 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
     case paper
     case miniApp
     case podcast
+    case audiobook
     /// Nodes and edges (`/api/v1/graphs/:id`, same id).
     case graph
     case other(String)
 
     /// Every kind the server knows, in the order the library's filter lists them.
-    public static let known: [SummaryKind] = [.summary, .trip, .paper, .miniApp, .podcast, .graph]
+    public static let known: [SummaryKind] = [.summary, .trip, .paper, .miniApp, .podcast, .audiobook, .graph]
 
     public var id: String { rawValue }
 
@@ -148,6 +149,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case "trip": self = .trip
         case "paper": self = .paper
         case "podcast": self = .podcast
+        case "audiobook": self = .audiobook
         case "mini_app": self = .miniApp
         case "graph": self = .graph
         default: self = .other(rawValue)
@@ -160,6 +162,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .trip: "trip"
         case .paper: "paper"
         case .podcast: "podcast"
+        case .audiobook: "audiobook"
         case .miniApp: "mini_app"
         case .graph: "graph"
         case .other(let raw): raw
@@ -181,6 +184,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .trip: String(localized: "Trips", bundle: .module, comment: "Library kind filter: trip diaries")
         case .paper: String(localized: "Papers", bundle: .module, comment: "Library kind filter: LaTeX papers")
         case .podcast: String(localized: "Podcasts", bundle: .module)
+        case .audiobook: String(localized: "Audiobooks", bundle: .module)
         case .miniApp: String(localized: "Clips", bundle: .module)
         case .graph: String(localized: "Graphs", bundle: .module, comment: "Library kind filter: node-and-edge graphs")
         case .other(let raw): raw.capitalized
@@ -193,6 +197,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .trip: "map"
         case .paper: "doc.richtext"
         case .podcast: "waveform"
+        case .audiobook: "book.closed"
         case .miniApp: "app.badge"
         case .graph: "point.3.connected.trianglepath.dotted"
         case .other: "doc"

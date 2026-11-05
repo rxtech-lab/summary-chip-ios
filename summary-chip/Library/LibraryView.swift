@@ -179,10 +179,10 @@ struct LibraryView: View {
                                             resumingPlan: resumed.plan, onGenerated: presentGenerated)
             }
             .sheet(isPresented: $showsNewAudiobook, onDismiss: refreshPlans) {
-                AudiobookGenerationSheet(api: environment.api, date: Date(), onGenerated: presentGenerated, onBackground: refreshPlans)
+                AudiobookGenerationSheet(api: environment.api, date: Date(), onGenerated: presentGenerated, onBackground: refreshPlans, onSaved: reloadFeed)
             }
             .sheet(item: $resumedBook, onDismiss: refreshPlans) { resumed in
-                AudiobookGenerationSheet(api: environment.api, date: Date(), resumingPlan: resumed.plan, onGenerated: presentGenerated, onBackground: refreshPlans)
+                AudiobookGenerationSheet(api: environment.api, date: Date(), resumingPlan: resumed.plan, onGenerated: presentGenerated, onBackground: refreshPlans, onSaved: reloadFeed)
             }
             .sheet(item: $openedJob, onDismiss: refreshPlans) { job in
                 AudiobookJobSheet(api: environment.api, job: job, onGenerated: presentGenerated, onChanged: refreshPlans)
@@ -350,6 +350,10 @@ struct LibraryView: View {
         Task { await model.refreshPlannedPodcasts() }
     }
 
+    private func reloadFeed() {
+        Task { await model.reload() }
+    }
+
     private func openPlan(_ summary: PodcastPlanSummary) {
         podcastTaps += 1
         planStatus = String(localized: "Opening plan…")
@@ -504,12 +508,12 @@ struct LibraryView: View {
         guard !isMiniApps, model.showsPlannedPodcasts,
               !model.plannedPodcasts.isEmpty || !model.plannedAudiobooks.isEmpty || !model.audiobookJobs.isEmpty else { return nil }
         return AnyView(VStack(spacing: 0) {
-            if !model.audiobookJobs.isEmpty || !model.plannedAudiobooks.isEmpty {
+            if (model.kind ?? model.filter.kind) != .podcast, !model.audiobookJobs.isEmpty || !model.plannedAudiobooks.isEmpty {
                 AudiobooksStrip(jobs: model.audiobookJobs, plans: model.plannedAudiobooks, onOpenJob: { podcastTaps += 1; openedJob = $0 },
                                 onOpenPlan: openBook, onDeletePlan: { deletingBook = $0 })
                     .task(id: model.audiobookJobs.filter { $0.status == "running" }.count) { await model.followAudiobookJobs() }
             }
-            if !model.plannedPodcasts.isEmpty {
+            if (model.kind ?? model.filter.kind) != .audiobook, !model.plannedPodcasts.isEmpty {
                 PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 })
             }
         })
@@ -530,7 +534,7 @@ struct LibraryView: View {
             SummaryCardFeed(entries: model.entries, scrollState: feedScroll, editorPickIDs: model.editorPickIDs, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, header: plannedPodcastsHeader, onReachEnd: {
                 Task { await model.loadMore() }
             }, onSelect: { summary in
-                if summary.kind == .podcast, let openPodcast { openPodcast(summary) }
+                if (summary.kind == .podcast || summary.kind == .audiobook), let openPodcast { openPodcast(summary) }
                 else { stackPath.wrappedValue.append(summary) }
             }, onPlayDay: { day in
                 podcastTaps += 1

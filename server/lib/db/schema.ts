@@ -17,7 +17,7 @@ export const VISIBILITIES = ["public", "private"] as const;
  * What a library item is: a summary card, a trip diary (its structured document lives in `trips`)
  * a LaTeX paper (its source files live in `papers`) or a graph (its nodes and edges live in `graphs`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "graph"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "audiobook", "graph"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 

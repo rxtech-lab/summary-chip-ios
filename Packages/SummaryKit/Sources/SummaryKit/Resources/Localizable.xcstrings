@@ -689,7 +689,13 @@
         }
       }
     },
+    "Audiobook" : {
+
+    },
     "Audiobook ready" : {
+
+    },
+    "Audiobooks" : {
 
     },
     "Belt %@" : {
@@ -2805,6 +2811,9 @@
         }
       }
     },
+    "No readable text was found in this PDF, including with text recognition." : {
+
+    },
     "No sign-in needed, even while the summary is private." : {
       "localizations" : {
         "zh-Hans" : {
@@ -4750,6 +4759,7 @@
       }
     },
     "This PDF has no selectable text. Scanned PDFs can't be read on this device." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
