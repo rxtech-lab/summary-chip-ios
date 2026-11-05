@@ -689,6 +689,9 @@
         }
       }
     },
+    "Audiobook ready" : {
+
+    },
     "Belt %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1039,6 +1042,9 @@
           }
         }
       }
+    },
+    "Composing the soundtrack…" : {
+
     },
     "Copied" : {
       "localizations" : {
@@ -2043,6 +2049,9 @@
         }
       }
     },
+    "Getting ready…" : {
+
+    },
     "Graph" : {
       "comment" : "Badge on a library tile that is a graph"
     },
@@ -2067,6 +2076,9 @@
       "comment" : "Library kind filter: node-and-edge graphs"
     },
     "Has a podcast" : {
+
+    },
+    "Has an audiobook" : {
 
     },
     "Heavy rain" : {
@@ -2623,6 +2635,9 @@
       "comment" : "Paper reference error"
     },
     "Mixing audio and aligning captions…" : {
+
+    },
+    "Mixing voices and music…" : {
 
     },
     "Name" : {
@@ -3523,22 +3538,6 @@
         }
       }
     },
-    "Reading summary…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在读取摘要…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在讀取摘要…"
-          }
-        }
-      }
-    },
     "Reading original text…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3551,6 +3550,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在讀取原文…"
+          }
+        }
+      }
+    },
+    "Reading summary…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取摘要…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取摘要…"
           }
         }
       }
@@ -3627,6 +3642,9 @@
           }
         }
       }
+    },
+    "Recording the voices…" : {
+
     },
     "Reference error" : {
       "comment" : "Paper reference error"
@@ -3752,6 +3770,9 @@
       }
     },
     "Saving podcast…" : {
+
+    },
+    "Saving your audiobook…" : {
 
     },
     "Scheduled" : {
@@ -5292,6 +5313,9 @@
       }
     },
     "Writing script…" : {
+
+    },
+    "Writing the narration…" : {
 
     },
     "Writing the summary" : {

@@ -49,6 +49,8 @@ export async function translateDailyPodcast(db: Database, user: string, day: Pod
     const podcast = await dailyPodcastEpisode(db, user, day, key);
     if (language === podcast.language) throw new ApiError(422, "PODCAST_TRANSLATION_SAME", "The podcast is already in this language.");
     if (podcast.translations?.[language]) { report("complete", 100); return podcast; }
+    // Whole books outlive a request; they translate through `POST /api/v1/audiobooks/:key/translations`.
+    if (podcast.format === "audiobook") throw new ApiError(409, "AUDIOBOOK_TRANSLATION_BACKGROUND", "Audiobooks translate in the background. Update the app to translate this one.");
     const ai = deps.ai ?? await getAiProvider();
     if (!ai.speechModelId()) throw new ApiError(503, "PODCAST_SPEECH_UNAVAILABLE", "Podcast audio is not available right now.");
     const chips = await Promise.all(podcast.chipIds.map(async (id) => {

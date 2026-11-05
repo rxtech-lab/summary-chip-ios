@@ -191,7 +191,7 @@ struct PodcastPlanSheet: View {
     }
 }
 
-private struct PlanChatBubble: View {
+struct PlanChatBubble: View {
     let role: PodcastPlan.Message.Role
     let text: String
     var body: some View {
@@ -209,7 +209,7 @@ private struct PlanChatBubble: View {
     }
 }
 
-private struct PlanWorkingBubble: View {
+struct PlanWorkingBubble: View {
     let text: String
     var body: some View {
         HStack(spacing: 8) {

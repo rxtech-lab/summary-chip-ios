@@ -8,6 +8,10 @@ import { refinePodcastPlan, writePodcast, type PodcastInput, type PodcastPlanRef
 import { translatePodcast, translatePodcastVideo, type PodcastTranslationInput, type PodcastTranslationOutput } from "./podcast-translation";
 import { podcastVideoTurn, writePodcastVideo, type PodcastVideoDraft, type PodcastVideoInput, type PodcastVideoOptions, type PodcastVideoTurnOptions, type PodcastVideoTurnResult } from "./podcast-video-agent";
 import { composeMusic, musicModelId, musicUsdPerClip } from "./music";
+import { azureSpeak } from "./azure-speech";
+import { elevenLabsModelId, speechRoute } from "./voices";
+import { audiobookSceneInstruction } from "./audiobook-themes";
+import { refineAudiobookPlan, writeAudiobookChapter, writeAudiobookPlan, type AudiobookAi } from "./audiobook-agent";
 import type { PodcastScript } from "@/lib/contracts/daily-podcast";
 import type { SummaryKind } from "@/lib/db/schema";
 import { embedMany, experimental_evaluate as evaluate, generateImage, generateSpeech, generateText, Output, type LanguageModel, type LanguageModelUsage } from "ai";
@@ -154,7 +158,7 @@ export interface ModelPricing {
   cacheWrite?: number;
 }
 
-export interface AiProvider {
+export interface AiProvider extends AudiobookAi {
   /** Whether shared text containing a URL is really a link to open rather than text to summarise. */
   isSharedLink(text: string): Promise<boolean>;
   summarize(input: SummarizeInput): Promise<LlmSummary>;
@@ -697,6 +701,18 @@ export class GatewayAiProvider implements AiProvider {
     return translatePodcast(podcastModel(), input, options);
   }
 
+  writeAudiobookPlan: AudiobookAi["writeAudiobookPlan"] = (input, options) => writeAudiobookPlan(podcastModel(), input, options);
+  refineAudiobookPlan: AudiobookAi["refineAudiobookPlan"] = (input, options) => refineAudiobookPlan(podcastModel(), input, options);
+  writeAudiobookChapter: AudiobookAi["writeAudiobookChapter"] = (input, options) => writeAudiobookChapter(podcastModel(), input, options);
+
+  async drawAudiobookScene(scene: { prompt: string; theme: import("@/lib/contracts/daily-podcast").AudiobookVideoTheme; visualGuide: string }, options: { abortSignal?: AbortSignal } = {}) {
+    const id = imageModelId();
+    if (!id) throw new Error("Images are off");
+    const drawn = await drawImage(id, audiobookSceneInstruction(scene), { aspectRatio: "16:9", size: "1536x864", abortSignal: options.abortSignal });
+    const png = await sharp(drawn).resize(1536, 864, { fit: "cover" }).png({ compressionLevel: 9 }).toBuffer();
+    return { png: new Uint8Array(png), width: 1536, height: 864 };
+  }
+
   translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null> {
     return translatePodcastVideo(podcastModel(), files, language, options);
   }
@@ -753,12 +769,14 @@ export class GatewayAiProvider implements AiProvider {
   }
 
   async speak(text: string, voice: string, options?: { abortSignal?: AbortSignal }): Promise<{ bytes: Uint8Array; mediaType: string }> {
-    const modelId = speechModelId();
+    const route = speechRoute(voice);
+    if (route.provider === "azure") return azureSpeak(text, route.voice, options?.abortSignal);
+    const modelId = route.provider === "elevenlabs" ? elevenLabsModelId() : speechModelId();
     if (!modelId) throw new Error("AI_SPEECH_MODEL is not set");
     const { audio } = await generateSpeech({
       model: speechModel(modelId),
       text,
-      voice,
+      voice: route.voice,
       outputFormat: "mp3",
       maxRetries: 2,
       abortSignal: options?.abortSignal ? AbortSignal.any([options.abortSignal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),

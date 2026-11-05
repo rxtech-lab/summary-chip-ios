@@ -44,6 +44,72 @@ export interface MixedPodcast {
   durationSeconds: number;
 }
 
+const CHAPTER_INTRO = 4;
+const CHAPTER_BREATH = 2.4;
+const CHAPTER_TAIL = 5;
+const SILENT_INTRO = 0.6;
+const SILENT_TAIL = 1;
+
+/**
+ * Mixes one audiobook chapter. Each run of turns under the same cue gets its own looped bed: it rises in the chapter's
+ * opening or the breath before the run, sits quietly under the voices, and crossfades into the next cue where the
+ * content changes. Without clips the voices are laid out alone, still resampled to one rate, so speakers
+ * from different providers join into one recording.
+ */
+export async function mixAudiobookChapter(turns: { bytes: Uint8Array; cue?: string }[], clips: Map<string, Uint8Array>): Promise<MixedPodcast> {
+  const decoder = new MPEGDecoder();
+  await decoder.ready;
+  const speech: Stereo[] = [];
+  const beds = new Map<string, Stereo>();
+  try {
+    const decode = async (bytes: Uint8Array) => { await decoder.reset(); return decodeStereo(decoder, bytes); };
+    for (const turn of turns) speech.push(await decode(turn.bytes));
+    for (const [id, bytes] of clips) {
+      // A clip that can't be decoded leaves its stretch to a neighbouring cue, not the whole chapter silent.
+      try { beds.set(id, await decode(bytes)); } catch (error) { console.warn("[audiobook] music clip could not be decoded", { id, error }); }
+    }
+  } finally {
+    decoder.free();
+  }
+  const scored = beds.size > 0;
+  const fallback = [...beds.keys()][0];
+  const cueOf = (index: number) => { const cue = turns[index].cue; return cue && beds.has(cue) ? cue : fallback; };
+
+  const cues: MixedPodcast["cues"] = [];
+  const runs: { cue: string; breakStart: number; voiceStart: number; voiceEnd: number }[] = [];
+  let at = scored ? CHAPTER_INTRO : SILENT_INTRO;
+  speech.forEach((turn, index) => {
+    if (index) {
+      const changed = scored && cueOf(index) !== cueOf(index - 1);
+      const breakStart = at;
+      at += changed ? CHAPTER_BREATH : TURN_GAP;
+      if (changed) runs.push({ cue: cueOf(index), breakStart, voiceStart: at, voiceEnd: at });
+    } else if (scored) {
+      runs.push({ cue: cueOf(0), breakStart: 0, voiceStart: at, voiceEnd: at });
+    }
+    cues.push({ startSeconds: at, endSeconds: at + seconds(turn) });
+    at += seconds(turn);
+    if (runs.length) runs[runs.length - 1].voiceEnd = at;
+  });
+  const total = at + (scored ? CHAPTER_TAIL : SILENT_TAIL);
+  const out = { left: new Float32Array(Math.ceil(total * RATE)), right: new Float32Array(Math.ceil(total * RATE)) };
+  const voice = rms(speech);
+  runs.forEach((run, index) => {
+    const bed = beds.get(run.cue)!;
+    const level = rms([bed]);
+    const gain = level > 1e-4 && voice > 1e-4 ? voice / level : 0;
+    const next = runs[index + 1];
+    const end = next ? next.voiceStart : total;
+    // The opening and each breath let the new cue be heard before the voice returns over it.
+    const envelope: Envelope = [[run.breakStart, 0], [run.breakStart + 1, SWELL * gain], [run.voiceStart - 0.4, SWELL * gain], [run.voiceStart, BED * gain],
+      [run.voiceEnd, BED * gain], [run.voiceEnd + 0.5, SWELL * gain], [end - (next ? 0.4 : FADE), SWELL * gain], [end, 0]];
+    mixIn(out, loop(bed, end - run.breakStart), run.breakStart, end, envelope);
+  });
+  speech.forEach((turn, index) => mixIn(out, turn, cues[index].startSeconds, cues[index].endSeconds, [[0, 1]]));
+  const joined = joinPodcastAudio([encode(out)]);
+  return { bytes: joined.bytes, cues, durationSeconds: joined.durationSeconds };
+}
+
 export async function mixPodcast(turns: { bytes: Uint8Array; topic: string }[], music: Omit<PodcastMusic, "generatedClips">): Promise<MixedPodcast> {
   const decoder = new MPEGDecoder();
   await decoder.ready;

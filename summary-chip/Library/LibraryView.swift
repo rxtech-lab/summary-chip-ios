@@ -22,6 +22,10 @@ struct LibraryView: View {
     @State private var localPath: [Summary] = []
     @State private var model: LibraryModel
     @State private var resumedPlan: ResumedPlan?
+    @State private var showsNewAudiobook = false
+    @State private var resumedBook: ResumedBook?
+    @State private var openedJob: AudiobookJob?
+    @State private var deletingBook: AudiobookPlanSummary?
     @State private var deletingPlan: PodcastPlanSummary?
     @State private var planStatus: String?
     @State private var planError: String?
@@ -174,6 +178,45 @@ struct LibraryView: View {
                 DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: resumed.library,
                                             resumingPlan: resumed.plan, onGenerated: presentGenerated)
             }
+            .sheet(isPresented: $showsNewAudiobook, onDismiss: refreshPlans) {
+                AudiobookGenerationSheet(api: environment.api, date: Date(), onGenerated: presentGenerated, onBackground: refreshPlans)
+            }
+            .sheet(item: $resumedBook, onDismiss: refreshPlans) { resumed in
+                AudiobookGenerationSheet(api: environment.api, date: Date(), resumingPlan: resumed.plan, onGenerated: presentGenerated, onBackground: refreshPlans)
+            }
+            .sheet(item: $openedJob, onDismiss: refreshPlans) { job in
+                AudiobookJobSheet(api: environment.api, job: job, onGenerated: presentGenerated, onChanged: refreshPlans)
+            }
+            .confirmationDialog("Delete this planned audiobook?", isPresented: Binding(get: { deletingBook != nil }, set: { if !$0 { deletingBook = nil } }),
+                                titleVisibility: .visible, presenting: deletingBook) { book in
+                Button("Delete Plan", role: .destructive) { deleteBook(book) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in Text("The plan and its drawn scenes are removed. No audiobook has been made from it.") }
+    }
+
+    private func openBook(_ summary: AudiobookPlanSummary) {
+        podcastTaps += 1
+        planStatus = String(localized: "Opening plan…")
+        Task {
+            do { resumedBook = ResumedBook(plan: try await environment.api.audiobookPlan(id: summary.id)) }
+            catch {
+                planError = error.localizedDescription
+                refreshPlans()
+            }
+            planStatus = nil
+        }
+    }
+
+    private func deleteBook(_ book: AudiobookPlanSummary) {
+        planStatus = String(localized: "Deleting plan…")
+        Task {
+            do {
+                try await environment.api.deleteAudiobookPlan(id: book.id)
+                withAnimation { model.removePlannedPodcast(id: book.id) }
+                planChanges += 1
+            } catch { planError = error.localizedDescription }
+            planStatus = nil
+        }
     }
 
     private var planFeedbackContent: some View {
@@ -268,6 +311,10 @@ struct LibraryView: View {
                     Label("Podcast", systemImage: "waveform")
                 }
                 .accessibilityIdentifier("new-podcast")
+                Button { showsNewAudiobook = true } label: {
+                    Label("Audiobook", systemImage: "book")
+                }
+                .accessibilityIdentifier("new-audiobook")
                 Button { showsNewMiniApp = true } label: {
                     Label("Clip", systemImage: "app.badge")
                 }
@@ -283,6 +330,7 @@ struct LibraryView: View {
         .sensoryFeedback(.selection, trigger: showsNewGraph) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewTrip) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewPodcast) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewAudiobook) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewMiniApp) { _, presented in presented }
     }
 
@@ -453,8 +501,18 @@ struct LibraryView: View {
     }
 
     private var plannedPodcastsHeader: AnyView? {
-        guard !isMiniApps, model.showsPlannedPodcasts, !model.plannedPodcasts.isEmpty else { return nil }
-        return AnyView(PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 }))
+        guard !isMiniApps, model.showsPlannedPodcasts,
+              !model.plannedPodcasts.isEmpty || !model.plannedAudiobooks.isEmpty || !model.audiobookJobs.isEmpty else { return nil }
+        return AnyView(VStack(spacing: 0) {
+            if !model.audiobookJobs.isEmpty || !model.plannedAudiobooks.isEmpty {
+                AudiobooksStrip(jobs: model.audiobookJobs, plans: model.plannedAudiobooks, onOpenJob: { podcastTaps += 1; openedJob = $0 },
+                                onOpenPlan: openBook, onDeletePlan: { deletingBook = $0 })
+                    .task(id: model.audiobookJobs.filter { $0.status == "running" }.count) { await model.followAudiobookJobs() }
+            }
+            if !model.plannedPodcasts.isEmpty {
+                PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 })
+            }
+        })
     }
 
     @ViewBuilder
@@ -642,6 +700,11 @@ private extension LibraryView {
 private struct ResumedPlan: Identifiable {
     let plan: PodcastPlan
     let library: Bool
+    var id: String { plan.id }
+}
+
+private struct ResumedBook: Identifiable {
+    let plan: AudiobookPlan
     var id: String { plan.id }
 }
 

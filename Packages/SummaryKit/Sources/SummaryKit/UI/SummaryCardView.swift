@@ -367,14 +367,14 @@ public struct SummaryTileView: View {
     }
 
     private var podcastBadge: some View {
-        Image(systemName: "waveform")
+        Image(systemName: summary.isAudiobook ? "book.fill" : "waveform")
             .font(.subheadline.weight(.bold))
             .foregroundStyle(.white)
             .frame(width: 34, height: 34)
             .background(KindBadge.podcastTint, in: Circle())
             .overlay { Circle().strokeBorder(Color.summaryCardBackground, lineWidth: 2) }
             .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-            .accessibilityLabel(Text("Has a podcast", bundle: .module))
+            .accessibilityLabel(summary.isAudiobook ? Text("Has an audiobook", bundle: .module) : Text("Has a podcast", bundle: .module))
     }
 
     private var card: some View {

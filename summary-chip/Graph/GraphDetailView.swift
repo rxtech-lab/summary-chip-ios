@@ -80,7 +80,7 @@ struct GraphDetailView: View {
             .sensoryFeedback(.impact(weight: .light), trigger: model.selection)
             .statusAlert("Couldn't Save", message: model.actionError) { model.actionError = nil }
             .sheet(item: $sheet, onDismiss: { Task { await model.refresh() } }) { sheet in sheetContent(sheet) }
-            .sheet(isPresented: $showsCompactInspector, onDismiss: { if !usesPopover { model.inspected = nil } }) { compactInspector }
+            .sheet(isPresented: $showsCompactInspector, onDismiss: { model.inspected = nil }) { compactInspector }
             .documentVersions(versions) { restored in
                 guard restored.graph != nil else { return }
                 Task {
@@ -461,7 +461,7 @@ private extension GraphDetailView {
     private func open(_ element: GraphElementRef, size: CGSize) {
         tapFeedback += 1
         model.inspected = element
-        if usesPopover {
+        if usesPopover && !showsCompactInspector {
             popover = nil
             model.focus(on: element, anchor: .zero, in: size)
             // Anchored once the camera settles, so it points at where the element ends up.
@@ -499,7 +499,7 @@ private extension GraphDetailView {
         VStack(spacing: 0) {
             HStack {
                 Button("Open in Window", systemImage: "arrow.up.forward.square") {
-                    GraphInspectorWindow.show(model: model, element: element)
+                    GraphInspectorWindow.show(model: model, element: element, environment: environment)
                 }
                 .accessibilityIdentifier("graph-inspector-open-window")
                 Spacer()
@@ -533,7 +533,7 @@ private extension GraphDetailView {
                 GraphInspectorContent(model: model, element: element) { open($0, size: canvasSize) }
                     .padding()
             }
-            .toolbar { inspectorToolbar(element) }
+            .toolbar { inspectorToolbar(element, allowsSheet: true) }
             .navigationTitle(element.kindTitle)
             .summaryInlineNavigationTitle()
         }
@@ -568,29 +568,57 @@ private extension GraphDetailView {
     }
 
     @ToolbarContentBuilder
-    private func inspectorToolbar(_ element: GraphElementRef) -> some ToolbarContent {
+    private func inspectorToolbar(_ element: GraphElementRef, allowsSheet: Bool = false) -> some ToolbarContent {
         #if os(macOS)
         ToolbarItem(placement: .summaryTrailing) {
             Button("Open in Window", systemImage: "arrow.up.forward.square") {
-                GraphInspectorWindow.show(model: model, element: element)
+                GraphInspectorWindow.show(model: model, element: element, environment: environment)
             }
             .help("Open details in a separate window")
             .accessibilityIdentifier("graph-inspector-open-window")
         }
         #endif
-        if model.canEdit {
+        if model.canEdit || (allowsSheet && canOpenInspectorSheet) {
             ToolbarItem(placement: .summaryTrailing) {
                 Menu {
-                    Button("Edit", systemImage: "pencil") { present(element.editSheet) }
-                        .accessibilityIdentifier("graph-inspector-edit")
-                    if case .node(let id) = element {
-                        Button("Add Edge From Here", systemImage: "arrow.triangle.branch") { present(.newEdge(source: id)) }
+                    if allowsSheet && canOpenInspectorSheet {
+                        Button("Open in Sheet", systemImage: "arrow.up.left.and.arrow.down.right") {
+                            openInspectorSheet(element)
+                        }
+                        .accessibilityIdentifier("graph-inspector-open-sheet")
+                    }
+                    if model.canEdit {
+                        Button("Edit", systemImage: "pencil") { present(element.editSheet) }
+                            .accessibilityIdentifier("graph-inspector-edit")
+                        if case .node(let id) = element {
+                            Button("Add Edge From Here", systemImage: "arrow.triangle.branch") { present(.newEdge(source: id)) }
+                        }
                     }
                 } label: {
                     Label("Actions", systemImage: "ellipsis.circle")
                 }
                 .accessibilityIdentifier("graph-inspector-actions")
             }
+        }
+    }
+
+    private var canOpenInspectorSheet: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
+    private func openInspectorSheet(_ element: GraphElementRef) {
+        tapFeedback += 1
+        popoverTask?.cancel()
+        popover = nil
+        popoverTask = Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, model.inspected == element else { return }
+            showsCompactInspector = true
+            model.focus(on: element, anchor: CGSize(width: 0, height: -canvasSize.height * 0.25), in: canvasSize)
         }
     }
 
@@ -624,7 +652,7 @@ private extension GraphDetailView {
             let element = GraphElementRef.node(id)
             #if os(macOS)
             if presentation == "window" {
-                GraphInspectorWindow.show(model: model, element: element)
+                GraphInspectorWindow.show(model: model, element: element, environment: environment)
                 tapFeedback += 1
                 return true
             }

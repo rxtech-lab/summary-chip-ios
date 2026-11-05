@@ -59,11 +59,13 @@ struct LiveVoiceControls: View {
             ZStack(alignment: .bottom) {
                 if hasToolUI {
                     toolPanel
-                        .frame(height: max(44, stageHeight - responseHeight - 18))
+                        .frame(height: stageHeight)
                         .transition(.opacity)
                 }
-                responseBubble
-                    .frame(maxHeight: .infinity, alignment: hasToolUI ? .top : .bottom)
+                if !hasToolUI {
+                    responseBubble
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                }
             }
             .frame(height: stageHeight)
 

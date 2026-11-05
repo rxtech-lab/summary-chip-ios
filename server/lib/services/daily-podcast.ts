@@ -248,7 +248,7 @@ type PodcastCover = Pick<SummaryRow, "theme" | "ogHeadline" | "keywords" | "cate
  * The chip's theme and illustrated cover, designed from the script and its source chips like papers
  * and trips are. Null when it failed; the chip then keeps the plain podcast theme.
  */
-async function podcastCover(db: Database, user: string, ai: AiProvider, store: ObjectStore, id: string, script: PodcastScript,
+export async function podcastCover(db: Database, user: string, ai: AiProvider, store: ObjectStore, id: string, script: PodcastScript,
   sources: SummaryRow[], language: string, createdAt: Date): Promise<PodcastCover | null> {
   try {
     const summary = podcastSummaryText(script);
@@ -271,10 +271,10 @@ async function podcastCover(db: Database, user: string, ai: AiProvider, store: O
   }
 }
 
-function podcastSummaryText(podcast: Pick<PodcastScript, "segments">) {
+export function podcastSummaryText(podcast: Pick<PodcastScript, "segments">) {
   return podcast.segments.map((s) => s.caption).join(" ").slice(0, 1200);
 }
-function chipArtPath(chip: Pick<SummaryRow, "artImageKey" | "slug">) {
+export function chipArtPath(chip: Pick<SummaryRow, "artImageKey" | "slug">) {
   return chip.artImageKey ? `/s/${chip.slug}/art.png` : null;
 }
 /** The episode's recording in `language`; the original when omitted. */
@@ -356,6 +356,16 @@ export async function dailyPodcastRecording(db: Database, user: string, day: Pod
   return store.get(`${dayKey(user, day)}/${key}/audio.mp3`);
 }
 
+/** A short private link to an audiobook's recording, which only storage can serve; null for ordinary episodes. */
+export async function audiobookRecordingLink(db: Database, user: string, day: PodcastDay, key: string, store = getObjectStore(), language?: string | null) {
+  const podcast = await dailyPodcastEpisode(db, user, day, key);
+  if (podcast.format !== "audiobook") return null;
+  if (isTranslation(podcast, language) && !podcast.translations?.[language!]) throw translationMissing();
+  const object = isTranslation(podcast, language) ? `${translationPath(user, podcast, language!)}/audio.mp3` : `${dayKey(user, day)}/${key}/audio.mp3`;
+  const [signed, head] = await Promise.all([store.signedGet(object, { filename: `audiobook-${key}.mp3`, inline: true, expiresInSeconds: 3600 }), store.head(object)]);
+  return { url: signed.url, expiresAt: signed.expiresAt.toISOString(), byteSize: head?.byteSize ?? null };
+}
+
 /** Whether `language` asks for a translation rather than the original recording. */
 export function isTranslation(podcast: DailyPodcast, language?: string | null) {
   return Boolean(language) && language !== podcast.language;
@@ -374,9 +384,9 @@ export function podcastInLanguage(podcast: DailyPodcast, language?: string | nul
   if (!isTranslation(podcast, language)) return { ...original, ...shared };
   const translation = translations?.[language!];
   if (!translation) throw translationMissing();
-  const { title, speakers, segments, audioPath, durationSeconds, music, video } = translation;
+  const { title, speakers, segments, audioPath, durationSeconds, music, video, chapters } = translation;
   return { ...original, language: translation.language, title, speakers, segments, audioPath, durationSeconds, music,
-    video: video && { ...video }, ...shared };
+    video: video && { ...video }, ...(chapters ? { chapters } : {}), ...shared };
 }
 /** Applies `change` to the latest stored document, so long-running writers don't drop each other's changes. */
 export async function updatePodcastDocument(db: Pick<Database, "select" | "update">, user: string, key: string, change: (podcast: DailyPodcast) => void) {

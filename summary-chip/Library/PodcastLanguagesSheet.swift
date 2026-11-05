@@ -162,6 +162,8 @@ struct PodcastTranslationSheet: View {
     @State private var pending: DailyPodcast?
     @State private var generationProgress: PodcastGenerationProgress?
     @State private var renderProgress: PodcastMotionRenderer.Progress?
+    @State private var bookJob: AudiobookJob?
+    @State private var work: Task<Void, Never>?
     @State private var error: String?
     @State private var successes = 0
 
@@ -225,7 +227,18 @@ struct PodcastTranslationSheet: View {
     @ViewBuilder private var progressOverlay: some View {
         if translating {
             VStack(spacing: 12) {
-                if let progress = renderProgress {
+                if let bookJob {
+                    Text(bookJob.stageTitle).font(.headline)
+                    ProgressView(value: bookJob.fraction).progressViewStyle(.linear)
+                    Text("Estimated progress: \(bookJob.percent)%").monospacedDigit()
+                    Text("\(bookJob.completedChapters) of \(bookJob.totalChapters) chapters")
+                        .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    Text("This keeps going on the server if you leave, and you'll be notified when it's ready.")
+                        .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button("Continue in Background") { work?.cancel(); dismiss() }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("audiobook-translation-background")
+                } else if let progress = renderProgress {
                     Text(progress.stage == .rendering ? "Rendering video…" : progress.stage == .encoding ? "Encoding video…" : "Preparing video…").font(.headline)
                     ProgressView(value: progress.fraction ?? 0).progressViewStyle(.linear)
                     if let fraction = progress.fraction {
@@ -256,13 +269,24 @@ struct PodcastTranslationSheet: View {
         generationProgress = nil
         renderProgress = nil
         translating = true
-        Task {
-            defer { translating = false }
+        work = Task {
+            defer { translating = false; bookJob = nil }
             do {
                 // Retrying only re-renders: the paid translation is already saved.
                 let translated: DailyPodcast
                 if let pending { translated = pending }
-                else {
+                else if podcast.isAudiobook {
+                    // A whole book outlives a request: it's translated on the server and can be left to finish.
+                    guard let day = podcast.day else { throw SummaryAPIError.invalidResponse }
+                    let job = try await api.translateAudiobook(key: podcast.key, day: day, language: language.rawValue, includeVideo: includeVideo)
+                    let finished = try await api.followAudiobookJob(job) { bookJob = $0 }
+                    if finished.status == "failed" { throw AudiobookTranslationError.failed(finished.error?.message) }
+                    translated = try await api.podcastEpisode(podcast, language: language.rawValue)
+                    successes += 1
+                    onTranslated(translated)
+                    dismiss()
+                    return
+                } else {
                     translated = try await api.translatePodcast(podcast, language: language, includeVideo: includeVideo,
                                                                 onProgress: { generationProgress = $0 })
                 }
@@ -277,5 +301,13 @@ struct PodcastTranslationSheet: View {
             } catch is CancellationError {
             } catch { self.error = error.localizedDescription }
         }
+    }
+}
+
+private enum AudiobookTranslationError: LocalizedError {
+    case failed(String?)
+    var errorDescription: String? {
+        if case .failed(let message) = self { return message ?? String(localized: "The audiobook couldn't be translated.") }
+        return nil
     }
 }

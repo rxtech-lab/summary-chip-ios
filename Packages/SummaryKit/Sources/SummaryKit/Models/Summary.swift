@@ -355,6 +355,8 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var podcastSourceId: String?
     /// Owner only, on a chip: the newest podcast about this chip alone, played from the chip's cover.
     public var stackedPodcastId: String?
+    /// Owner only: this podcast chip, or the podcast stacked on this chip, is an audiobook.
+    public var isAudiobook: Bool = false
     /// Owner only: one of the user's saved editor's picks, sent with library lists.
     public var isEditorsPick: Bool = false
     public var createdAt: Date
@@ -430,6 +432,7 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         isExpired = try c.decodeIfPresent(Bool.self, forKey: .isExpired) ?? false
         podcastSourceId = try c.decodeIfPresent(String.self, forKey: .podcastSourceId)
         stackedPodcastId = try c.decodeIfPresent(String.self, forKey: .stackedPodcastId)
+        isAudiobook = try c.decodeIfPresent(Bool.self, forKey: .isAudiobook) ?? false
         isEditorsPick = try c.decodeIfPresent(Bool.self, forKey: .isEditorsPick) ?? false
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt

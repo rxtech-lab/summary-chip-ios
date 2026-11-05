@@ -66,6 +66,8 @@ export interface SummaryJson {
   podcastSourceId: string | null;
   /** Owner only, on a chip: the newest podcast chip about this chip alone (see `podcastSourceId`). */
   stackedPodcastId: string | null;
+  /** Owner only: this podcast chip, or the podcast stacked on this chip, is an audiobook. */
+  isAudiobook: boolean;
   /** Owner only: the chip is one of the caller's saved editor's picks (the Headlines `editorPickIDs`). */
   isEditorsPick: boolean;
   createdAt: string;
@@ -207,6 +209,7 @@ export function toSummaryJson(
     // Filled by `withPodcastStacks`, which needs the owner's podcast episodes.
     podcastSourceId: null,
     stackedPodcastId: null,
+    isAudiobook: false,
     // Filled by `withEditorsPicks` on library lists.
     isEditorsPick: false,
     createdAt: row.createdAt.toISOString(),

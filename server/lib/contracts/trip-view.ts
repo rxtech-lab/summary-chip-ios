@@ -89,6 +89,18 @@ export const viewElementSchema = z.discriminatedUnion("type", [
     currency,
     items: z.array(z.object({ label: label.min(1), value: z.number(), detail: label.nullish(), tone })).min(1).max(20),
   }),
+  withoutChildren("LineChart", {
+    title: label.nullish(),
+    format,
+    currency,
+    items: z.array(z.object({ label: label.min(1), value: z.number() })).min(1).max(20),
+  }),
+  withoutChildren("AreaChart", {
+    title: label.nullish(),
+    format,
+    currency,
+    items: z.array(z.object({ label: label.min(1), value: z.number() })).min(1).max(20),
+  }),
   withoutChildren("Divider", {}),
   withoutChildren("Link", { title: label.min(1), url: z.string().trim().url().max(4096) }),
   /** One photo, full width. `aspect` crops it (default wide, 16:9). */
@@ -185,6 +197,8 @@ export function viewText(spec: ViewSpec): string[] {
       case "Gallery":
         lines.push(...element.props.images.flatMap((image) => (image.caption ? [image.caption] : [])));
         break;
+      case "LineChart":
+      case "AreaChart":
       case "BarChart":
         if (element.props.title) lines.push(element.props.title);
         for (const item of element.props.items) lines.push(`${item.label}: ${item.value}`);

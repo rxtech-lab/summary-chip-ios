@@ -2,7 +2,7 @@ import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-rende
 import { randomUUID } from "node:crypto";
 import type { LanguageModelUsage } from "ai";
 import type { AiProvider } from "@/lib/ai/provider";
-import type { PodcastProgress, DailyPodcast, PodcastDay, PodcastVideoAsset, PodcastVideoSource, PodcastVideoStyle, PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
+import { AUDIOBOOK_VIDEO_THEMES, type AudiobookVideoTheme, type PodcastProgress, type DailyPodcast, type PodcastDay, type PodcastVideoAsset, type PodcastVideoSource, type PodcastVideoStyle, type PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { PreviewAsset } from "@/lib/podcast-video/frame-preview";
 import { isPodcastVideoAsset } from "@/lib/podcast-video/images";
 import type { Database } from "@/lib/db/client";
@@ -98,6 +98,12 @@ export async function podcastVideoAssetUrls(user: string, day: PodcastDay, key: 
 export async function translatePodcastVideoSource(ai: AiProvider, store: ObjectStore, user: string, podcast: DailyPodcast, language: TranslationLanguage,
   chipTitles: Record<string, string>, abortSignal: AbortSignal, onUsage: (usage: LanguageModelUsage) => void): Promise<NonNullable<PodcastTranslation["video"]>> {
   const original = await readVideoSource(store, `${dayKey(user, podcast.day)}/${podcast.key}`, podcast.video?.sourceFile);
+  if (original.imageSequence) {
+    // Stills have no labels: the same scenes replay against the translation's timings.
+    const source: PodcastVideoSource = { ...original, id: randomUUID(), createdAt: new Date().toISOString() };
+    await store.put(`${translationPath(user, podcast, language)}/video.json`, jsonObject(source));
+    return { id: source.id, createdAt: source.createdAt, sourceId: original.id };
+  }
   const generated = Object.fromEntries(Object.entries(original.files).filter(([path]) => !(path in PODCAST_VIDEO_SCAFFOLD) && path !== PODCAST_VIDEO_PHRASES));
   // Phrase timing is proportional, so the translation replays the original staging; older compositions have none.
   const phrases = original.files[PODCAST_VIDEO_PHRASES] ?? "[]";
@@ -122,7 +128,7 @@ const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set
  * limit. A translation of an episode that already has video only gets translated labels, right away.
  */
 export async function createPodcastVideo(db: Database, user: string, day: PodcastDay, key: string, deps: ServiceDeps = {}, onProgress?: ProgressListener,
-  language?: TranslationLanguage, style?: PodcastVideoStyle): Promise<DailyPodcast> {
+  language?: TranslationLanguage, style?: PodcastVideoStyle | AudiobookVideoTheme): Promise<DailyPodcast> {
   const store = deps.store ?? getObjectStore();
   const lock = `${user}/${key}/${language ?? ""}`;
   const pending = writing.get(lock);
@@ -146,7 +152,8 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
     if (translated && !translation) throw translationMissing();
     const ai = deps.ai ?? await getAiProvider();
     const model = ai.podcastVideoModelId();
-    if (!model) throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Podcast videos are not available right now.");
+    // Audiobooks are illustrated, so they need the image model rather than the code-writing one.
+    if (!model && podcast.format !== "audiobook") throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Podcast videos are not available right now.");
     // A translation reuses the original composition, which is designed first when there is none.
     if (translation && podcast.video) {
       const charge = await reservePodcastPoints(user, `${key}:video:${language}:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
@@ -160,11 +167,18 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
         throw error;
       }
     }
+    const theme = AUDIOBOOK_VIDEO_THEMES.find(item => item === style);
+    if (podcast.format === "audiobook") {
+      // Illustrated in the background; a requested translation follows the composition when it's saved.
+      const { startAudiobookVideo } = await import("./audiobook-video");
+      return startAudiobookVideo(db, user, podcast, { ...deps, ai, store }, { theme });
+    }
+    if (theme) throw new ApiError(422, "VALIDATION_ERROR", "This style is only available for audiobooks.");
     const chips = await Promise.all(podcast.chipIds.map(async (id) => {
       const chip = await getSummaryForViewer(db, id, user);
       return { id: chip.id, title: chip.title };
     }));
-    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, style, checkPoints: true });
+    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, style: style as PodcastVideoStyle | undefined, checkPoints: true });
     if (state.listeners.size === 0 || !started.videoDesign) return started;
     // Streaming clients (older apps) follow the run; it continues in the background past the request.
     return waitForPodcastVideoDesign(db, user, day, key, started.videoDesign.id, report, AbortSignal.timeout(270_000));
