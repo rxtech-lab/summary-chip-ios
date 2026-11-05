@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreText
 import Foundation
+import PDFKit
 import Testing
 import UniformTypeIdentifiers
 @testable import SummaryKit
@@ -247,6 +248,52 @@ struct LocalFileTests {
         let json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any])
         let source = try #require(json["source"] as? [String: String])
         #expect(source == ["type": "local", "kind": "text", "text": "Hello", "filename": "Notes.md"])
+    }
+
+    @Test func recognizesImageOnlyPDF() throws {
+        let folder = try directory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "scan.pdf")
+        let bitmap = try #require(CGContext(data: nil, width: 1200, height: 400, bitsPerComponent: 8,
+            bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        bitmap.setFillColor(CGColor(gray: 1, alpha: 1))
+        bitmap.fill(CGRect(x: 0, y: 0, width: 1200, height: 400))
+        let font = CTFontCreateWithName("Helvetica" as CFString, 48, nil)
+        let line = CTLineCreateWithAttributedString(NSAttributedString(
+            string: "Scanned documents can be read on this device.",
+            attributes: [.init(kCTFontAttributeName as String): font,
+                         .init(kCTForegroundColorAttributeName as String): CGColor(gray: 0, alpha: 1)]))
+        bitmap.textPosition = CGPoint(x: 30, y: 200)
+        CTLineDraw(line, bitmap)
+        let image = try #require(bitmap.makeImage())
+        var box = CGRect(x: 0, y: 0, width: 600, height: 200)
+        let pdf = try #require(CGContext(url as CFURL, mediaBox: &box, nil))
+        for _ in 0..<5 {
+            pdf.beginPDFPage(nil)
+            pdf.draw(image, in: box)
+            pdf.endPDFPage()
+        }
+        pdf.closePDF()
+        let source = try LocalDocument.read(fileURL: url)
+        #expect(source.text.components(separatedBy: "Scanned documents").count == 6)
+        #expect(source.kind == .pdf)
+    }
+
+    @Test func parallelPDFReadingPreservesPageOrderAndLimit() throws {
+        let folder = try directory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let document = PDFDocument()
+        for index in 0..<7 {
+            let url = folder.appending(path: "\(index).pdf")
+            try writePDF("Page \(index) contains unique words.", to: url)
+            let source = try #require(PDFDocument(url: url))
+            document.insert(try #require(source.page(at: 0)), at: index)
+        }
+        let full = try PDFTextReader.read(document, limit: 10_000)
+        #expect(full.text.components(separatedBy: "\n\n") == (0..<7).map { "Page \($0) contains unique words." })
+        let limited = try PDFTextReader.read(document, limit: 45)
+        #expect(limited.text == String(full.text.prefix(45)).trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// A one-page PDF, optionally with a line of real (selectable) text.

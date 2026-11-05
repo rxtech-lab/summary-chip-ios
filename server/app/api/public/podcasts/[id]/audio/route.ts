@@ -1,11 +1,14 @@
 import { withPublicApi } from "@/lib/http/handler";
 import { publicPodcast } from "@/lib/services/podcast-sharing";
-import { dailyPodcastRecording } from "@/lib/services/daily-podcast";
+import { audiobookRecordingLink, dailyPodcastRecording } from "@/lib/services/daily-podcast";
 
 export const runtime = "nodejs";
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   return withPublicApi(request, async ({ db }) => {
     const { link, podcast } = await publicPodcast(db, (await context.params).id, undefined, new URL(request.url).searchParams.get("language"));
+    // Checked on every request like the rest; the redirect's link is valid for at most an hour, as shared videos' are.
+    const book = await audiobookRecordingLink(db, link.ownerId, link.day, link.episodeKey, undefined, podcast.language);
+    if (book) return new Response(null, { status: 307, headers: { location: book.url, "cache-control": "private, no-store" } });
     const audio = await dailyPodcastRecording(db, link.ownerId, link.day, link.episodeKey, undefined, podcast.language);
     const size = audio.bytes.length;
     const headers = new Headers({ "content-type": "audio/mpeg", "cache-control": "private, no-store",

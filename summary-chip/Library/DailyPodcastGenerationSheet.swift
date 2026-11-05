@@ -482,7 +482,7 @@ struct DailyPodcastGenerationSheet: View {
     }
 }
 
-private struct PodcastChipPicker: View {
+struct PodcastChipPicker: View {
     let api: SummaryAPIClient
     let dayChips: [PodcastChip]?
     @Binding var selected: [String: PodcastChip]

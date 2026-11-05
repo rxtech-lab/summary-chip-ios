@@ -337,6 +337,20 @@
       "when": 1793360000000,
       "tag": "0047_graphs",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1793869892020,
+      "tag": "0048_audiobooks",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1793869892021,
+      "tag": "0049_audiobook_kind",
+      "breakpoints": true
     }
   ]
 }

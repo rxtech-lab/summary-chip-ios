@@ -1,6 +1,6 @@
 import { podcastDaySchema, podcastLanguageQuery } from "@/lib/contracts/daily-podcast";
 import { withApiAuth } from "@/lib/http/handler";
-import { dailyPodcastRecording } from "@/lib/services/daily-podcast";
+import { audiobookRecordingLink, dailyPodcastRecording } from "@/lib/services/daily-podcast";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -10,6 +10,9 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
     const query = new URL(request.url).searchParams;
     const day = podcastDaySchema.parse({ start: query.get("start"), end: query.get("end") });
     const language = podcastLanguageQuery(query);
+    // Whole books are far past a function's response limit: the app asks `audio/link`, others follow this redirect.
+    const link = await audiobookRecordingLink(db, principal.sub, day, key, undefined, language);
+    if (link) return new Response(null, { status: 307, headers: { location: link.url, "cache-control": "private, no-store" } });
     const audio = await dailyPodcastRecording(db, principal.sub, day, key, undefined, language);
     return new Response(audio.bytes as BodyInit, { headers: {
       "content-type": "audio/mpeg", "cache-control": "private, no-store",

@@ -295,6 +295,57 @@ private extension JSONValue {
 }
 
 #if os(macOS)
+private struct GraphInspectorWindowContent: View {
+    let model: GraphModel
+    let element: GraphElementRef
+    let environment: AppEnvironment
+    @State private var showsReport = false
+    @State private var printRequested = false
+
+    private var nodes: [GraphNode] {
+        switch element {
+        case .node(let id): return model.document?.nodes.filter { $0.id == id } ?? []
+        case .edge(let id):
+            guard let edge = model.edge(id) else { return [] }
+            return model.document?.nodes.filter { $0.id == edge.source || $0.id == edge.target } ?? []
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Spacer()
+                Button("Print", systemImage: "printer") {
+                    printRequested = true
+                    showsReport = true
+                }
+                .accessibilityIdentifier("graph-node-print")
+                Button("Download PDF", systemImage: "arrow.down.document") {
+                    printRequested = false
+                    showsReport = true
+                }
+                .accessibilityIdentifier("graph-node-download-pdf")
+            }
+            .buttonStyle(.bordered)
+            .disabled(nodes.isEmpty)
+            .padding(12)
+            Divider()
+            ScrollView {
+                GraphInspectorContent(model: model, element: element) { next in
+                    GraphInspectorWindow.show(model: model, element: next, environment: environment)
+                }
+                .padding(20)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showsReport) {
+            if let document = model.document {
+                GraphReportSheet(graphID: model.id, document: document, nodes: nodes, environment: environment, printRequested: printRequested)
+            }
+        }
+    }
+}
+
 /// Each inspector owns its selection and stays alive until its window closes.
 @MainActor
 final class GraphInspectorWindow: NSObject, NSWindowDelegate {
@@ -302,7 +353,7 @@ final class GraphInspectorWindow: NSObject, NSWindowDelegate {
     private let id = UUID()
     private var window: NSWindow?
 
-    static func show(model: GraphModel, element: GraphElementRef) {
+    static func show(model: GraphModel, element: GraphElementRef, environment: AppEnvironment) {
         let owner = GraphInspectorWindow()
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
@@ -316,13 +367,7 @@ final class GraphInspectorWindow: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 360, height: 360)
         window.contentViewController = NSHostingController(rootView:
-            ScrollView {
-                GraphInspectorContent(model: model, element: element) { next in
-                    GraphInspectorWindow.show(model: model, element: next)
-                }
-                .padding(20)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            GraphInspectorWindowContent(model: model, element: element, environment: environment)
         )
         // Apply after hosting content, which can otherwise change the initial window size.
         window.setContentSize(NSSize(width: 640, height: 640))

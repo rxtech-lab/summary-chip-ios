@@ -33,6 +33,11 @@ export function musicPrompt(mood: PodcastMusicMood, role: MusicRole) {
   return `${ROLES[role]}\n\nStyle: ${MOODS[mood]}.\n\nINSTRUMENTAL ONLY: no vocals, no singing, no lyrics, no spoken word; every melody is played by instruments. Professionally mixed and mastered production music with a clean stereo image.`;
 }
 
+/** A loopable soundtrack bed in an audiobook cue's own style. */
+export function musicBedPrompt(style: string) {
+  return `${ROLES.bed}\n\nStyle: ${style}.\n\nINSTRUMENTAL ONLY: no vocals, no singing, no lyrics, no spoken word; every melody is played by instruments. Professionally mixed and mastered production music with a clean stereo image.`;
+}
+
 /**
  * Loads the mood's intro, background and outro clips from storage, generating any missing ones with
  * Lyria. Returns null when music isn't configured or failed, so the episode is published without music.

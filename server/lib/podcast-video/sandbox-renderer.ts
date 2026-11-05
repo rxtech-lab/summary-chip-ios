@@ -4,17 +4,19 @@ import { Sandbox } from "@vercel/sandbox";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { summaries } from "@/lib/db/schema";
-import { MAX_PODCAST_VIDEO_BYTES } from "@/lib/contracts/daily-podcast";
+import { MAX_PODCAST_VIDEO_BYTES, type DailyPodcast, type PodcastVideoSource } from "@/lib/contracts/daily-podcast";
 import { ApiError } from "@/lib/http/errors";
-import { getObjectStore } from "@/lib/storage/r2";
-import { dailyPodcastRecording, dayKey } from "@/lib/services/daily-podcast";
+import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
+import { dailyPodcastRecording, dayKey, translationPath } from "@/lib/services/daily-podcast";
 import { currentPodcastRender, podcastRenderKey, type PodcastRenderJob } from "@/lib/services/podcast-render";
 import { podcastVideoInput, podcastVideoSource } from "@/lib/services/podcast-video";
 import { cloudCaptionsSrt } from "./captions";
 import { isPodcastVideoAsset } from "./images";
 import { CLOUD_RENDER_RUNNER } from "./cloud-runner";
+import { chapterMetadata, imageSequenceManifest, IMAGE_SEQUENCE_RUNNER } from "./image-sequence";
 
-export interface RenderSession { name: string }
+/** `maxPolls` extends the wait for runs longer than the default hour. */
+export interface RenderSession { name: string; maxPolls?: number }
 export interface CloudPodcastRenderer {
   launch(db: Database, job: PodcastRenderJob): Promise<RenderSession>;
   poll(session: RenderSession): Promise<{ status: "running" | "ready" | "failed"; byteSize?: number; percent?: number }>;
@@ -22,6 +24,39 @@ export interface CloudPodcastRenderer {
   stop(session: RenderSession): Promise<void>;
 }
 const directory = "/vercel/sandbox";
+
+/**
+ * An audiobook's stills render with FFmpeg alone, which keeps hours of video within one sandbox. No agent-written code
+ * runs here, so the sandbox may fetch its scenes and recording straight from storage instead of through this function.
+ */
+async function launchImageSequence(_db: Database, job: PodcastRenderJob, podcast: DailyPodcast, source: PodcastVideoSource, snapshotId: string, store: ObjectStore): Promise<RenderSession> {
+  const episode = `${dayKey(job.userId, job.day)}/${job.key}`;
+  const durationSeconds = podcast.durationSeconds ?? 0;
+  const manifest = imageSequenceManifest(podcast, source.imageSequence!.scenes, job.resolution);
+  const audioKey = podcast.language !== podcast.originalLanguage ? `${translationPath(job.userId, podcast, podcast.language)}/audio.mp3` : `${episode}/audio.mp3`;
+  const downloads = [{ path: "podcast.mp3", url: (await store.signedGet(audioKey, { expiresInSeconds: 7200 })).url },
+    ...await Promise.all(manifest.images.map(async image => ({ path: image.path, url: (await store.signedGet(`${episode}/${image.file}`, { expiresInSeconds: 7200 })).url })))];
+  const host = new URL(downloads[0].url).hostname;
+  const files = [
+    { path: `${directory}/manifest.json`, content: Buffer.from(JSON.stringify({ ...manifest, images: undefined, downloads, language: podcast.language })) },
+    { path: `${directory}/captions.srt`, content: Buffer.from(cloudCaptionsSrt(podcastVideoInput(podcast, []).segments.flatMap(segment => segment.phrases))) },
+    { path: `${directory}/chapters.txt`, content: Buffer.from(chapterMetadata(podcast)) },
+    { path: `${directory}/render.mjs`, content: Buffer.from(IMAGE_SEQUENCE_RUNNER) },
+  ];
+  // About one sixth of realtime on four vCPUs; allow double that, between one and five hours.
+  const budget = Math.min(5 * 3600_000, Math.max(3600_000, durationSeconds * 1000 / 3));
+  const sandbox = await Sandbox.create({ ...sandboxCredentials(), source: { type: "snapshot", snapshotId }, timeout: budget, persistent: false,
+    resources: { vcpus: 4 }, networkPolicy: { allow: [host] } }).catch((error: unknown) => {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    if (status === 401 || status === 403) throw new ApiError(503, "PODCAST_RENDER_UNAVAILABLE", "Vercel Sandbox rejected the renderer's credentials.");
+    throw error;
+  });
+  try {
+    await sandbox.writeFiles(files);
+    await sandbox.runCommand({ cmd: "node", args: ["render.mjs"], cwd: directory, detached: true });
+    return { name: sandbox.name, maxPolls: Math.ceil(budget / 10_000) };
+  } catch (error) { await sandbox.stop(); throw error; }
+}
 const production: CloudPodcastRenderer = {
   async launch(db, job) {
     const snapshotId = process.env.PODCAST_RENDER_SNAPSHOT_ID;
@@ -30,6 +65,7 @@ const production: CloudPodcastRenderer = {
     const source = await podcastVideoSource(db, job.userId, job.day, job.key, undefined, job.language);
     if (source.id !== job.videoId) throw new ApiError(409, "PODCAST_VIDEO_CHANGED", "The video changed.");
     const store = getObjectStore();
+    if (source.imageSequence) return launchImageSequence(db, job, podcast, source, snapshotId, store);
     const files = Object.entries(source.files).map(([path, value]) => {
       if (!/^src\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:tsx|ts|css|json)$/.test(path)) throw new Error("Invalid source path");
       return { path: `${directory}/${path}`, content: Buffer.from(value) };

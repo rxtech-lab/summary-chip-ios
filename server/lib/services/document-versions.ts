@@ -13,6 +13,7 @@ export interface VersionContentByKind {
   trip: { document: TripDocument };
   /** A paper's title and LaTeX source; only what's saved as a version, never the autosaved working copy in between. */
   paper: PaperDocument;
+  audiobook: Pick<SummaryRow, "title" | "summary" | "highlights" | "category" | "tags" | "keywords">;
   podcast: Pick<SummaryRow, "title" | "summary" | "highlights" | "category" | "tags" | "keywords">;
   mini_app: import("@/lib/contracts/mini-app").MiniAppDocument;
   graph: import("@/lib/contracts/graph").GraphDocument;
@@ -27,6 +28,7 @@ export const MAX_DOCUMENT_VERSIONS = 100;
 export const VERSION_TITLE_PATHS: Record<SummaryKind, string> = {
   summary: "$.title",
   podcast: "$.title",
+  audiobook: "$.title",
   trip: "$.document.title",
   paper: "$.title",
   mini_app: "$.title",

@@ -109,7 +109,7 @@ public struct WebpageSource: Codable, Sendable, Hashable {
 public enum SummarySource: Sendable, Hashable {
     case url(URL)
     case webpage(WebpageSource)
-    case pdf(uploadKey: String, filename: String, sourceUrl: URL?)
+    case pdf(uploadKey: String, filename: String, sourceUrl: URL?, ocrText: String? = nil)
     case text(String, title: String?)
     case local(LocalFileSource)
 
@@ -126,7 +126,7 @@ public enum SummarySource: Sendable, Hashable {
 
 extension SummarySource: Codable {
     private enum CodingKeys: String, CodingKey {
-        case type, url, title, content, html, siteName, lang, uploadKey, filename, sourceUrl, text, kind
+        case type, url, title, content, html, siteName, lang, uploadKey, filename, sourceUrl, text, kind, ocrText
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -142,7 +142,8 @@ extension SummarySource: Codable {
             try c.encodeIfPresent(page.html, forKey: .html)
             try c.encodeIfPresent(page.siteName, forKey: .siteName)
             try c.encodeIfPresent(page.lang, forKey: .lang)
-        case .pdf(let key, let filename, let sourceUrl):
+        case .pdf(let key, let filename, let sourceUrl, let ocrText):
+            try c.encodeIfPresent(ocrText, forKey: .ocrText)
             try c.encode(key, forKey: .uploadKey)
             try c.encode(filename, forKey: .filename)
             // Explicit null, per the contract (`"sourceUrl": "https://…" | null`).
@@ -180,7 +181,8 @@ extension SummarySource: Codable {
             self = .pdf(
                 uploadKey: try c.decode(String.self, forKey: .uploadKey),
                 filename: try c.decode(String.self, forKey: .filename),
-                sourceUrl: try c.decodeLenientURL(forKey: .sourceUrl)
+                sourceUrl: try c.decodeLenientURL(forKey: .sourceUrl),
+                ocrText: try c.decodeIfPresent(String.self, forKey: .ocrText)
             )
         case .text:
             self = .text(try c.decode(String.self, forKey: .text), title: try c.decodeIfPresent(String.self, forKey: .title))

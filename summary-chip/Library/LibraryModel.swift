@@ -38,6 +38,9 @@ final class LibraryModel {
     private(set) var editorPickIDs: Set<String> = []
     /// Podcast plans the owner hasn't confirmed yet, shown above the feed.
     private(set) var plannedPodcasts: [PodcastPlanSummary] = []
+    private(set) var plannedAudiobooks: [AudiobookPlanSummary] = []
+    /// Audiobooks being made on the server, or stopped and waiting for a retry.
+    private(set) var audiobookJobs: [AudiobookJob] = []
     @ObservationIgnored private var headlineTask: Task<Void, Never>?
     private(set) var nextCursor: String?
     private(set) var isLoading = false
@@ -82,22 +85,43 @@ final class LibraryModel {
     /// Plans are podcasts in the making: they show wherever podcasts the owner made would.
     var showsPlannedPodcasts: Bool {
         let shown = kind ?? filter.kind
-        return (shown == nil || shown == .podcast) && filter.scope != .viewed && !filter.editorsPick
+        return (shown == nil || shown == .podcast || shown == .audiobook) && filter.scope != .viewed && !filter.editorsPick
             && filter.category == nil && filter.tag == nil && filter.source == nil
     }
 
     func refreshPlannedPodcasts() async {
         planLoadGeneration += 1
         let generation = planLoadGeneration
-        guard showsPlannedPodcasts else { plannedPodcasts = []; return }
-        if let plans = try? await api.podcastPlans(), generation == planLoadGeneration, showsPlannedPodcasts {
-            plannedPodcasts = plans
+        guard showsPlannedPodcasts else { plannedPodcasts = []; plannedAudiobooks = []; audiobookJobs = []; return }
+        async let podcasts = try? api.podcastPlans()
+        async let books = try? api.audiobookLibrary()
+        let (plans, state) = await (podcasts, books)
+        guard generation == planLoadGeneration, showsPlannedPodcasts else { return }
+        if let plans { plannedPodcasts = plans }
+        if let state {
+            let wasRunning = Set(audiobookJobs.filter { $0.status == "running" }.map(\.id))
+            plannedAudiobooks = state.plans
+            audiobookJobs = state.jobs
+            // Unstructured: this change can cancel the view task that is following the jobs.
+            if !wasRunning.isSubset(of: state.jobs.filter { $0.status == "running" }.map(\.id)) {
+                Task { await reload() }
+            }
         }
     }
 
     func removePlannedPodcast(id: String) {
         planLoadGeneration += 1
         plannedPodcasts.removeAll { $0.id == id }
+        plannedAudiobooks.removeAll { $0.id == id }
+    }
+
+    /// Follows running books while the feed is on screen, refreshing the feed when one finishes.
+    func followAudiobookJobs() async {
+        while !Task.isCancelled, audiobookJobs.contains(where: { $0.status == "running" }) {
+            try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled else { return }
+            await refreshPlannedPodcasts()
+        }
     }
 
     func reload() async {

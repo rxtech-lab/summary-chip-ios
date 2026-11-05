@@ -250,3 +250,7 @@ export function transcriptionModelId(): string {
 export function transcriptionModel() {
   return gateway().transcriptionModel(transcriptionModelId());
 }
+
+export function reportWritingModel(): LanguageModel {
+  return cachedChatModel(process.env.AI_REPORT_WRITING_MODEL?.trim() || textModelId());
+}

@@ -22,6 +22,7 @@ struct DailyPodcastSheet: View {
     @State private var showsLanguages = false
     @State private var showsDownload = false
     @State private var showsSharing = false
+    @State private var showsChapters = false
     @State private var xSharingRequest: XSharingRequest?
     @State private var showsVideoPublication = false
     @State private var generateVideoOnly = false
@@ -52,15 +53,18 @@ struct DailyPodcastSheet: View {
                 }
             }
             .sheet(isPresented: $showsGeneration) {
-                DailyPodcastGenerationSheet(api: api, date: date, existing: player.podcast, videoOnly: generateVideoOnly) { podcast in
-                    guard player.date == date else { return }
-                    // Generation and video retries update the episode without starting playback.
-                    player.replace(podcast)
-                    // A regenerated library podcast redraws its chip's title and cover.
-                    if let id = podcast.summaryId, let onChipUpdated {
-                        Task { if let chip = try? await api.summary(id: id) { onChipUpdated(chip) } }
+                if let book = player.podcast, book.isAudiobook {
+                    if generateVideoOnly {
+                        AudiobookVideoSheet(api: api, podcast: book) { player.replace($0) }
+                    } else {
+                        AudiobookGenerationSheet(api: api, date: date, existing: book, onGenerated: onRegenerated)
                     }
+                } else {
+                    DailyPodcastGenerationSheet(api: api, date: date, existing: player.podcast, videoOnly: generateVideoOnly, onGenerated: onRegenerated)
                 }
+            }
+            .sheet(isPresented: $showsChapters) {
+                AudiobookChaptersSheet(player: player)
             }
             .sheet(isPresented: $showsLinkedChips, onDismiss: {
                 if let id = pendingLinkedChipID {
@@ -202,6 +206,16 @@ struct DailyPodcastSheet: View {
         .accessibilityIdentifier("podcast-summary")
     }
 
+    private func onRegenerated(_ podcast: DailyPodcast) {
+        guard player.date == date else { return }
+        // Generation and video retries update the episode without starting playback.
+        player.replace(podcast)
+        // A regenerated library podcast redraws its chip's title and cover.
+        if let id = podcast.summaryId, let onChipUpdated {
+            Task { if let chip = try? await api.summary(id: id) { onChipUpdated(chip) } }
+        }
+    }
+
     private var linkedChipsButton: some View {
         Button { taps += 1; showsLinkedChips = true } label: {
             Label("Linked Chips", systemImage: "doc.on.doc")
@@ -216,6 +230,10 @@ struct DailyPodcastSheet: View {
             }
             if player.podcast != nil {
                 summaryButton
+                if player.podcast?.chapters?.isEmpty == false {
+                    Button { taps += 1; showsChapters = true } label: { Label("Chapters", systemImage: "list.bullet") }
+                        .accessibilityIdentifier("audiobook-chapters")
+                }
                 if !linkedChipIDs.isEmpty { linkedChipsButton }
                 Divider()
                 podcastEpisodeActions
@@ -269,7 +287,7 @@ struct DailyPodcastSheet: View {
         }.accessibilityIdentifier("podcast-languages")
         Divider()
         Button { taps += 1; generateVideoOnly = false; showsGeneration = true } label: {
-            Label("Regenerate Podcast", systemImage: "arrow.clockwise")
+            Label(player.podcast?.isAudiobook == true ? "New Version" : "Regenerate Podcast", systemImage: "arrow.clockwise")
         }.accessibilityIdentifier("podcast-regenerate")
         if let summaryID = player.podcast?.summaryId {
             Button { taps += 1; Task { await generateCover(summaryID: summaryID) } } label: {
@@ -281,7 +299,7 @@ struct DailyPodcastSheet: View {
         }.accessibilityIdentifier("podcast-versions")
         Divider()
         Button { showsDownload = true } label: {
-            Label("Download Podcast", systemImage: "arrow.down.to.line")
+            Label(player.podcast?.isAudiobook == true ? "Download Audiobook" : "Download Podcast", systemImage: "arrow.down.to.line")
         }.accessibilityIdentifier("podcast-download")
     }
 

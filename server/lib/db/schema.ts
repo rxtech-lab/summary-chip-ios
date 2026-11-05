@@ -17,7 +17,7 @@ export const VISIBILITIES = ["public", "private"] as const;
  * What a library item is: a summary card, a trip diary (its structured document lives in `trips`)
  * a LaTeX paper (its source files live in `papers`) or a graph (its nodes and edges live in `graphs`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "graph"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "audiobook", "graph"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -806,6 +806,34 @@ export const dailyRecapRuns = sqliteTable("daily_recap_runs", {
 }, table => [uniqueIndex("daily_recap_owner_date_idx").on(table.ownerId, table.date)]);
 
 /** Reviewable script and camera storyboard, frozen on confirmation. */
+/** A draft audiobook: the reviewable plan and its chat. The source passages are frozen in object storage. */
+export const audiobookPlans = sqliteTable("audiobook_plans", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  input: text("input", { mode: "json" }).$type<import("@/lib/contracts/audiobook").AudiobookCreationInput>().notNull(),
+  plan: text("plan", { mode: "json" }).$type<import("@/lib/contracts/audiobook").AudiobookPlanDocument>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  confirmed: integer("confirmed", { mode: "boolean" }).notNull().default(false),
+  /** Scene images drawn for review, keyed by a hash of what they picture. */
+  frames: text("frames", { mode: "json" }).$type<Record<string, import("@/lib/contracts/daily-podcast").PodcastPlanFrame>>().notNull().default({}),
+  messages: text("messages", { mode: "json" }).$type<import("@/lib/contracts/daily-podcast").PodcastPlanMessage[]>().notNull().default([]),
+  passageCount: integer("passage_count").notNull().default(0),
+  sourceCharacters: integer("source_characters").notNull().default(0),
+  /** About how long reading the whole source aloud takes. */
+  sourceSeconds: integer("source_seconds").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [index("audiobook_plans_owner_idx").on(table.ownerId, table.confirmed, table.updatedAt)]);
+
+/** A long generation or translation run by a workflow. Outlives the plan and exists before the episode does. */
+export const audiobookJobs = sqliteTable("audiobook_jobs", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  document: text("document", { mode: "json" }).$type<import("@/lib/contracts/audiobook").AudiobookJob & { chapterProgress?: Record<string, number> }>().notNull(),
+  createdAt: integer("created_at").notNull(),
+  notifiedAt: integer("notified_at"),
+}, (table) => [index("audiobook_jobs_owner_idx").on(table.ownerId, table.createdAt)]);
+
 export const podcastPlans = sqliteTable("podcast_plans", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),

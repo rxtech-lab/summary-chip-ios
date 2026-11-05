@@ -314,6 +314,9 @@
     "%lld changes saved" : {
 
     },
+    "%lld chapters" : {
+
+    },
     "%lld days" : {
       "localizations" : {
         "zh-Hans" : {
@@ -400,6 +403,9 @@
         }
       }
     },
+    "%lld nodes · PDF document" : {
+
+    },
     "%lld nodes, %lld edges" : {
       "localizations" : {
         "en" : {
@@ -444,6 +450,26 @@
         }
       }
     },
+    "%lld of %lld chapters" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld chapters"
+          }
+        }
+      }
+    },
+    "%lld of %lld pages · %lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld pages · %3$lld%%"
+          }
+        }
+      }
+    },
     "%lld of %lld voice segments" : {
       "localizations" : {
         "en" : {
@@ -455,6 +481,9 @@
       }
     },
     "%lld options" : {
+
+    },
+    "%lld pieces" : {
 
     },
     "%lld places" : {
@@ -646,6 +675,16 @@
     "%lld." : {
 
     },
+    "%lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld. %2$@"
+          }
+        }
+      }
+    },
     "%lld/4" : {
 
     },
@@ -824,6 +863,9 @@
     "5" : {
       "shouldTranslate" : false
     },
+    "A long book can take a while. It keeps going on the server if you leave, and you'll be notified when it's ready." : {
+
+    },
     "A new illustration replaces the Clip's current cover." : {
 
     },
@@ -975,6 +1017,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關於"
+          }
+        }
+      }
+    },
+    "About %@ · about %lld points" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "About %1$@ · about %2$lld points"
           }
         }
       }
@@ -1498,6 +1550,12 @@
     "Add Review" : {
 
     },
+    "Add Scene" : {
+
+    },
+    "Add Speaker" : {
+
+    },
     "Add Stop" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1798,6 +1856,9 @@
           }
         }
       }
+    },
+    "AI Report" : {
+
     },
     "Airline" : {
       "localizations" : {
@@ -2423,6 +2484,9 @@
         }
       }
     },
+    "Ask to change chapters, speakers, music or scenes…" : {
+
+    },
     "Ask to change the script or storyboard…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2498,6 +2562,15 @@
       }
     },
     "Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file." : {
+
+    },
+    "Audiobook" : {
+
+    },
+    "Audiobook Plan" : {
+
+    },
+    "Audiobooks" : {
 
     },
     "Authorized Apps" : {
@@ -2577,6 +2650,9 @@
       }
     },
     "Available Voices" : {
+
+    },
+    "Azure" : {
 
     },
     "Back" : {
@@ -2959,6 +3035,9 @@
         }
       }
     },
+    "Casting" : {
+
+    },
     "Category" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3009,6 +3088,18 @@
       }
     },
     "Changes needed fixing" : {
+
+    },
+    "Chapter" : {
+
+    },
+    "Chapter %lld" : {
+
+    },
+    "Chapters" : {
+
+    },
+    "Chapters %@" : {
 
     },
     "Chat" : {
@@ -3349,6 +3440,9 @@
         }
       }
     },
+    "Chips are read from their original text, and PDFs in full. Uploaded PDFs are used directly by the audiobook without creating separate chips." : {
+
+    },
     "Choose + → New Podcast to turn saved chips into an episode with voices, captions and artwork. Pick your stories and language, then listen or create a video to share." : {
 
     },
@@ -3439,6 +3533,9 @@
           }
         }
       }
+    },
+    "Choose Voice" : {
+
     },
     "Choose who answers in voice chat" : {
 
@@ -4056,6 +4153,9 @@
         }
       }
     },
+    "Content" : {
+
+    },
     "Contents" : {
 
     },
@@ -4478,6 +4578,9 @@
         }
       }
     },
+    "Couldn't Make Audiobook" : {
+
+    },
     "Couldn't Open Chip" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4619,6 +4722,9 @@
     "Couldn't Share Trip" : {
 
     },
+    "Couldn't Start Video" : {
+
+    },
     "Couldn't Switch Plan" : {
 
     },
@@ -4637,6 +4743,9 @@
           }
         }
       }
+    },
+    "Couldn't Update Audiobook" : {
+
     },
     "Couldn't Update Languages" : {
       "localizations" : {
@@ -4775,6 +4884,9 @@
         }
       }
     },
+    "Create a written analysis with sources, charts and a professional layout." : {
+
+    },
     "Create and edit your library" : {
 
     },
@@ -4793,6 +4905,9 @@
           }
         }
       }
+    },
+    "Create PDF" : {
+
     },
     "Create Podcast" : {
 
@@ -4980,6 +5095,9 @@
           }
         }
       }
+    },
+    "Custom" : {
+
     },
     "Custom Color" : {
       "localizations" : {
@@ -5324,6 +5442,9 @@
         }
       }
     },
+    "Delete Audiobook" : {
+
+    },
     "Delete Clip" : {
 
     },
@@ -5639,6 +5760,9 @@
         }
       }
     },
+    "Delete this planned audiobook?" : {
+
+    },
     "Delete this planned podcast?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5907,6 +6031,9 @@
         }
       }
     },
+    "Deselect All" : {
+
+    },
     "Designing a new cover…" : {
 
     },
@@ -6042,6 +6169,9 @@
         }
       }
     },
+    "Dismiss" : {
+
+    },
     "Dismiss Search" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6057,6 +6187,12 @@
           }
         }
       }
+    },
+    "Dismiss this audiobook?" : {
+
+    },
+    "Dismissing…" : {
+
     },
     "Dispute resolved" : {
       "localizations" : {
@@ -6116,8 +6252,10 @@
     "Download and manage models for local voice chat." : {
 
     },
+    "Download Audiobook" : {
+
+    },
     "Download PDF" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -6203,7 +6341,13 @@
         }
       }
     },
+    "Draw %lld Scenes" : {
+
+    },
     "Drawing figure…" : {
+
+    },
+    "Drawing scenes…" : {
 
     },
     "Drawing storyboard frames…" : {
@@ -6286,6 +6430,12 @@
 
     },
     "Each seed gives this model a different voice. Play a sample to hear it. Your choice applies from the next voice chat." : {
+
+    },
+    "Each selection is saved as a separate recording. Reopen this plan from the library to generate more chapters." : {
+
+    },
+    "Each speaker needs a different voice, up to %lld." : {
 
     },
     "Economy" : {
@@ -6605,6 +6755,9 @@
     "Edit Sharing…" : {
 
     },
+    "Edit this chapter" : {
+
+    },
     "Edit this line" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6722,6 +6875,9 @@
           }
         }
       }
+    },
+    "ElevenLabs" : {
+
     },
     "Email" : {
 
@@ -7086,6 +7242,9 @@
           }
         }
       }
+    },
+    "Export the selected graph data and its supporting content." : {
+
     },
     "Export with reference errors?" : {
       "localizations" : {
@@ -7980,6 +8139,9 @@
     "Generate at" : {
 
     },
+    "Generate Chapters" : {
+
+    },
     "Generate Cover" : {
 
     },
@@ -8093,6 +8255,9 @@
           }
         }
       }
+    },
+    "Generation uses points when the book is saved, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
+
     },
     "Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it." : {
 
@@ -8237,6 +8402,12 @@
           }
         }
       }
+    },
+    "Graph Report" : {
+
+    },
+    "Graph Snapshot" : {
+
     },
     "Graph Unavailable" : {
       "localizations" : {
@@ -8446,6 +8617,9 @@
           }
         }
       }
+    },
+    "Here's a plan for the book, with its chapters, speakers, music and scenes. Ask me to change anything, or tap a part to edit it yourself." : {
+
     },
     "Here's a plan with the script and camera storyboard. Ask me to change anything, or tap a line to edit it yourself." : {
       "localizations" : {
@@ -8675,6 +8849,9 @@
     "Improve this query and run it: %@" : {
 
     },
+    "In use" : {
+
+    },
     "In Use" : {
 
     },
@@ -8786,6 +8963,9 @@
       }
     },
     "It becomes the newest version. The current one stays in the history, so you can switch back." : {
+
+    },
+    "It leaves your library's list. Chapters already recorded aren't charged." : {
 
     },
     "Item" : {
@@ -10082,6 +10262,9 @@
     "Make this clearer, add a citation, shorten it…" : {
 
     },
+    "Making Audiobook" : {
+
+    },
     "Manage Access" : {
 
     },
@@ -10320,6 +10503,9 @@
         }
       }
     },
+    "Music" : {
+
+    },
     "Name" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10412,6 +10598,9 @@
       }
     },
     "New API Key…" : {
+
+    },
+    "New Audiobook" : {
 
     },
     "New Chat" : {
@@ -10662,6 +10851,9 @@
           }
         }
       }
+    },
+    "New Version" : {
+
     },
     "New View" : {
 
@@ -12056,6 +12248,9 @@
         }
       }
     },
+    "Open in Sheet" : {
+
+    },
     "Open in Window" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12894,6 +13089,9 @@
     "Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points, category, tags and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
 
     },
+    "Pieces play in the numbered order, changing as the content does. Tap to add or remove." : {
+
+    },
     "Place" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13041,6 +13239,9 @@
           }
         }
       }
+    },
+    "Planned Audiobook" : {
+
     },
     "Planned Podcast" : {
       "localizations" : {
@@ -13372,6 +13573,9 @@
         }
       }
     },
+    "Position" : {
+
+    },
     "Premium economy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13465,6 +13669,9 @@
 
     },
     "Preparing video…" : {
+
+    },
+    "Preparing your analysis and sources." : {
 
     },
     "Preview" : {
@@ -13571,6 +13778,9 @@
           }
         }
       }
+    },
+    "Print" : {
+
     },
     "Private" : {
       "extractionState" : "stale",
@@ -13932,6 +14142,9 @@
         }
       }
     },
+    "Reading %@…" : {
+
+    },
     "Reading original text…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14006,6 +14219,12 @@
 
     },
     "Reading the README…" : {
+
+    },
+    "Reading the source and planning…" : {
+
+    },
+    "Reading the source…" : {
 
     },
     "Reading the trip…" : {
@@ -14653,6 +14872,15 @@
     "Replacing image…" : {
 
     },
+    "Report Failed" : {
+
+    },
+    "Report Language" : {
+
+    },
+    "Report Options" : {
+
+    },
     "Requires a Mac with Apple silicon." : {
 
     },
@@ -14854,6 +15082,9 @@
     "Retry" : {
 
     },
+    "Retry continues from the chapters already recorded. Nothing is charged until the book is saved." : {
+
+    },
     "Retry Generation" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14945,6 +15176,9 @@
       }
     },
     "Review Changes" : {
+
+    },
+    "Review chapters, speakers, music and scenes after clicking Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points." : {
 
     },
     "Review permissions and disconnect this authorization" : {
@@ -15278,6 +15512,9 @@
     "Save App" : {
 
     },
+    "Save PDF" : {
+
+    },
     "Save Query" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15451,6 +15688,9 @@
         }
       }
     },
+    "Saving plan…" : {
+
+    },
     "Saving redraws this frame from the new camera direction. Drawing uses points." : {
       "localizations" : {
         "zh-Hans" : {
@@ -15537,6 +15777,9 @@
           }
         }
       }
+    },
+    "Scenes" : {
+
     },
     "Schedule" : {
 
@@ -15891,6 +16134,9 @@
       }
     },
     "Select All" : {
+
+    },
+    "Select Chapters" : {
 
     },
     "Select some text or a link to summarize." : {
@@ -16807,6 +17053,12 @@
     "Starting %@" : {
 
     },
+    "Starting audiobook…" : {
+
+    },
+    "Starting video…" : {
+
+    },
     "Starting…" : {
 
     },
@@ -16937,6 +17189,9 @@
       }
     },
     "Stop live voice" : {
+
+    },
+    "Stop Sample" : {
 
     },
     "Stop voice chat" : {
@@ -17321,6 +17576,9 @@
         }
       }
     },
+    "Synopsis" : {
+
+    },
     "Table of Contents" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -17457,7 +17715,19 @@
     "Text Options" : {
 
     },
+    "The agent reads the source and casts a narrator, plus a voice for each major character or side when that helps." : {
+
+    },
     "The app, its records, and its connections will be removed permanently." : {
+
+    },
+    "The audiobook couldn't be finished." : {
+
+    },
+    "The audiobook couldn't be translated." : {
+
+    },
+    "The audiobook will be removed from your library." : {
 
     },
     "The day and its moments are removed from the diary." : {
@@ -17666,6 +17936,9 @@
     "The model files will be removed from this Mac. You can download them again." : {
 
     },
+    "The music changes when the content does, and a piece returns when its feeling does. Ask in the chat to change it." : {
+
+    },
     "The narration is written again from the trip as it is now. This uses points." : {
 
     },
@@ -17723,6 +17996,12 @@
           }
         }
       }
+    },
+    "The plan and its drawn scenes are removed. No audiobook has been made from it." : {
+
+    },
+    "The planned scenes are drawn in this theme and move slowly with the narration. Drawing uses points. It continues on the server if you leave, and every language gets the same scenes." : {
+
     },
     "The podcast will be removed from your library." : {
 
@@ -17855,6 +18134,9 @@
     "The video is designed in this style. Your choice is saved on this device when you generate." : {
 
     },
+    "The video is made of illustrated scenes that move slowly with the narration, so it suits fiction as well as non-fiction." : {
+
+    },
     "The video is rendering in the cloud. You can close this sheet or quit the app." : {
 
     },
@@ -17884,6 +18166,9 @@
       }
     },
     "These diagrams are drawn by LaTeX." : {
+
+    },
+    "These pictures are the video. Saving redraws only the scenes you changed, and drawing uses points." : {
 
     },
     "These references didn't hold up. Correct them, replace them with a reliable source, or remove them. Saving the paper checks changed entries again." : {
@@ -17982,6 +18267,9 @@
 
     },
     "This isn't valid JSON." : {
+
+    },
+    "This keeps going on the server if you leave, and you'll be notified when it's ready." : {
 
     },
     "This language needs a translation or an update. Open Manage Translations before exporting." : {
@@ -18515,6 +18803,9 @@
           }
         }
       }
+    },
+    "Translating Audiobook" : {
+
     },
     "Translating podcast…" : {
       "localizations" : {
@@ -19091,6 +19382,9 @@
     "Updating…" : {
 
     },
+    "Upload PDF" : {
+
+    },
     "Uploaded PDFs and generated images" : {
       "localizations" : {
         "zh-Hans" : {
@@ -19409,6 +19703,9 @@
         }
       }
     },
+    "Value" : {
+
+    },
     "Verified" : {
 
     },
@@ -19514,6 +19811,9 @@
 
     },
     "Video Style" : {
+
+    },
+    "Video Theme" : {
 
     },
     "View" : {
@@ -19899,6 +20199,9 @@
     "What should I book next?" : {
 
     },
+    "What the image shows" : {
+
+    },
     "What would you like to summarise?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -20104,6 +20407,9 @@
         }
       }
     },
+    "Writing Report" : {
+
+    },
     "Writing script · %lld%%" : {
 
     },
@@ -20133,6 +20439,9 @@
 
     },
     "You can close this sheet or quit the app. The script keeps writing on the server, then the HD video renders in the cloud." : {
+
+    },
+    "You can close this. The book keeps going on the server and you'll be notified when it's ready." : {
 
     },
     "You choose which members and operations can use it after connecting." : {

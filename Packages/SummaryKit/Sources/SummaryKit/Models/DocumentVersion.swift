@@ -139,7 +139,7 @@ public struct DocumentVersionDetail: Decodable, Sendable, Hashable, Identifiable
         case .paper: content = .paper(try c.decode(PaperSource.self, forKey: .content))
         case .miniApp: content = .miniApp(try c.decode(MiniAppDocument.self, forKey: .content))
         case .graph: content = .graph(try c.decode(GraphDocument.self, forKey: .content))
-        case .podcast, .other: content = .unsupported
+        case .podcast, .audiobook, .other: content = .unsupported
         }
     }
 }

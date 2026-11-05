@@ -689,6 +689,15 @@
         }
       }
     },
+    "Audiobook" : {
+
+    },
+    "Audiobook ready" : {
+
+    },
+    "Audiobooks" : {
+
+    },
     "Belt %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1039,6 +1048,9 @@
           }
         }
       }
+    },
+    "Composing the soundtrack…" : {
+
     },
     "Copied" : {
       "localizations" : {
@@ -2043,6 +2055,9 @@
         }
       }
     },
+    "Getting ready…" : {
+
+    },
     "Graph" : {
       "comment" : "Badge on a library tile that is a graph"
     },
@@ -2067,6 +2082,9 @@
       "comment" : "Library kind filter: node-and-edge graphs"
     },
     "Has a podcast" : {
+
+    },
+    "Has an audiobook" : {
 
     },
     "Heavy rain" : {
@@ -2625,6 +2643,9 @@
     "Mixing audio and aligning captions…" : {
 
     },
+    "Mixing voices and music…" : {
+
+    },
     "Name" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2789,6 +2810,9 @@
           }
         }
       }
+    },
+    "No readable text was found in this PDF, including with text recognition." : {
+
     },
     "No sign-in needed, even while the summary is private." : {
       "localizations" : {
@@ -3523,22 +3547,6 @@
         }
       }
     },
-    "Reading summary…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在读取摘要…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在讀取摘要…"
-          }
-        }
-      }
-    },
     "Reading original text…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3551,6 +3559,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在讀取原文…"
+          }
+        }
+      }
+    },
+    "Reading summary…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取摘要…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取摘要…"
           }
         }
       }
@@ -3627,6 +3651,9 @@
           }
         }
       }
+    },
+    "Recording the voices…" : {
+
     },
     "Reference error" : {
       "comment" : "Paper reference error"
@@ -3752,6 +3779,9 @@
       }
     },
     "Saving podcast…" : {
+
+    },
+    "Saving your audiobook…" : {
 
     },
     "Scheduled" : {
@@ -4729,6 +4759,7 @@
       }
     },
     "This PDF has no selectable text. Scanned PDFs can't be read on this device." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -5292,6 +5323,9 @@
       }
     },
     "Writing script…" : {
+
+    },
+    "Writing the narration…" : {
 
     },
     "Writing the summary" : {

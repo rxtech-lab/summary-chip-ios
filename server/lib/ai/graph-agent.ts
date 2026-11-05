@@ -1,3 +1,4 @@
+import { reportWriterTool } from "./report-writer";
 import { jsonSchema, tool, type JSONSchema7 } from "ai";
 import { z } from "zod";
 import { GRAPH_SELECTION_MODES, graphElementId, graphOperationSchema, MAX_GRAPH_OPERATIONS, type GraphDocument } from "@/lib/contracts/graph";
@@ -17,13 +18,14 @@ export function graphChatInstructions(graphId: string, document: GraphDocument):
   });
   return `
 The user is looking at one of their graphs: nodes joined by edges, as a GraphDocument below as it was when they sent this message (brief overview only; request node or edge details with readGraphElements, or discover elements with queryGraph). You are its graph agent.
+- For PDF/report requests, delegate each requested node to writeReport using only its nodeId. Return the report text without tool progress or introductory commentary; translate into the requested output language when specified, preserving citations and figures.
 - Keep graph descriptions short. Fetch details only when needed using readGraphElements or queryGraph.
 - When they ask for a change, call updateGraph with small batches of operations (one node per call is supported; use multiple calls for larger changes), then say briefly what changed. Use short kebab-case ids for new elements. properties hold any JSON. Change only what they ask for, and never invent facts; use readWebPage or searchWeb when they point you at a source.
 - A node or edge can carry images ([{url, caption, credit}], direct https URLs from sources or the user) and a custom native view (view: {root, elements}, the same catalog as renderUI). When creating or redesigning graph UI, design a distinct view for each requested node and edge based on its content; there is no shared graph-wide layout. For example, a person can have a contact card, a company a statistics panel, and an investment edge a terms summary.
 - The app already displays the element label/title and type badges above its custom view. Do not repeat the company name or other element title inside the generated view, including in Heading, Text, Card titles or a name row. Start with the useful details instead; descriptive section headings are fine when they do not repeat the element title.
 - Persist element UI with updateGraph: {op:"update_node",id:"node-id",changes:{view:{root:"card",elements:{card:{type:"Card",props:{title:"Profile"},children:["body"]},body:{type:"Text",props:{text:"Facts from this node"}}}}}}. Use update_edge with the edge id for an edge's UI. New upsert_node/upsert_edge records can include view directly. renderUI displays a temporary popover above an existing node when nodeId is supplied, or inline UI in the chat message list otherwise; it does NOT save a node or edge UI.
 - Read the target elements first. Preserve properties, images, labels and unrelated elements by patching only view. Set changes.view to null to restore the default property cards. A custom view replaces the primary property presentation in both the inspector and its separate window; underlying properties remain available.
-- Use the renderUI component catalog for element views: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, Divider, Link, Image and Gallery. Do not use Place (it requires trip context), HTML, JavaScript, or unsupported action controls. Build layouts from grounded values, not invented metrics. Values are snapshots, not property bindings: update the view too when changing data it displays. Fix validation errors and retry before reporting success.
+- Use the renderUI component catalog for element views: Stack, Grid, Card, Disclosure, Heading, Text, Badge, Stat, Callout, KeyValue, List, Table, BarChart, LineChart, AreaChart, Divider, Link, Image and Gallery. Do not use Place (it requires trip context), HTML, JavaScript, or unsupported action controls. Build layouts from grounded values, not invented metrics. Values are snapshots, not property bindings: update the view too when changing data it displays. Fix validation errors and retry before reporting success.
 - When they ask to find, highlight or show part of the graph, write a query, check it with queryGraph if unsure, then call selectGraphElements to light it up: mode highlight dims the rest, isolate shows only those elements. Use mode clear to show the whole graph again. Saying "I highlighted it" without calling the tool does nothing.
 - Save a query for later only when they ask, with an upsert_query operation.
 - ${GRAPH_QUERY_GUIDE}
@@ -45,6 +47,7 @@ export function graphChatTools(db: Database, userId: string, graphId: string, ai
   const schema = JSON.parse(JSON.stringify(z.toJSONSchema(updateSchema, { io: "input" })).replaceAll('"oneOf":', '"anyOf":')) as JSONSchema7;
   delete schema.$schema;
   return {
+    writeReport: reportWriterTool(db, userId, graphId),
     updateGraph: tool({
       description: "Apply operations to the graph, in order, as one change: set_meta, upsert_node, update_node, upsert_edge, update_edge, upsert_query and delete (collection: nodes|edges|queries, id; deleting a node removes its edges). update_* changes only the given fields; properties merge and a null removes one. If the result is refused, call again with the fixed full list.",
       inputSchema: jsonSchema<{ operations?: unknown; changeSummary?: unknown }>(schema),

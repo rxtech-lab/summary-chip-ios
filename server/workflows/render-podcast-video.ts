@@ -16,7 +16,7 @@ export async function renderPodcastVideo(job: PodcastRenderJob) {
     }
     session = launched.session;
     await started(job);
-    for (let attempt = 0; attempt < 350; attempt++) {
+    for (let attempt = 0; attempt < (session.maxPolls ?? 350); attempt++) {
       await sleep("10s");
       const result = await poll(job, session);
       if (result.status === "failed") throw new Error("Render failed");

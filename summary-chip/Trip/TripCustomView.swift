@@ -1,3 +1,4 @@
+import Charts
 import SummaryKit
 import SwiftUI
 
@@ -120,6 +121,8 @@ private struct TripViewNode: View {
             ViewList(element: element)
         case "Table":
             ViewTable(table: TripViewTable(element), currency: currency)
+        case "LineChart", "AreaChart":
+            ViewSeriesChart(element: element, currency: currency)
         case "BarChart":
             ViewBarChart(element: element, currency: currency)
         case "Divider":
@@ -622,6 +625,44 @@ private struct ViewBarChart: View {
                 }
                 .accessibilityElement(children: .combine)
             }
+        }
+    }
+}
+
+
+private struct ViewSeriesChart: View {
+    let element: TripViewElement
+    let currency: String
+
+    var body: some View {
+        let items = element.objects("items")
+        VStack(alignment: .leading, spacing: 10) {
+            if let title = element.string("title") {
+                Text(title).font(.subheadline.weight(.semibold))
+            }
+            Chart {
+                ForEach(items.indices, id: \.self) { index in
+                    let value = items[index]["value"]?.numberValue ?? 0
+                    if element.type == "AreaChart" {
+                        AreaMark(x: .value("Position", index), y: .value("Value", value))
+                            .foregroundStyle(Color.accentColor.opacity(0.2))
+                    }
+                    LineMark(x: .value("Position", index), y: .value("Value", value))
+                    PointMark(x: .value("Position", index), y: .value("Value", value))
+                        .accessibilityLabel(items[index]["label"]?.stringValue ?? "")
+                        .accessibilityValue(TripViewFormat.text(items[index]["value"], format: element.string("format"), currency: element.string("currency"), defaultCurrency: currency))
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: Array(items.indices)) { axis in
+                    AxisValueLabel {
+                        if let index = axis.as(Int.self), items.indices.contains(index) {
+                            Text(items[index]["label"]?.stringValue ?? "")
+                        }
+                    }
+                }
+            }
+            .frame(height: 220)
         }
     }
 }

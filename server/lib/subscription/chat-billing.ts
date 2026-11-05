@@ -52,6 +52,8 @@ interface HoldOptions {
   description: string;
   metadata: Record<string, unknown>;
   environment?: BillingEnvironment;
+  /** Points to hold; a single point unless the run's cost is known up front. */
+  amount?: number;
   /** Error codes reported for an empty balance and an unreachable billing service. */
   codes: { exhausted: string; exhaustedMessage: string; notConfigured: string; unavailable: string; unavailableMessage: string };
 }
@@ -76,7 +78,7 @@ async function holdPoints(options: HoldOptions): Promise<ChatCharge | null> {
     const response = await call("/reserve", {
       rxlabUserId: options.userId,
       unit: CHAT_BALANCE_UNIT,
-      amount: RESERVE_POINTS,
+      amount: options.amount ?? RESERVE_POINTS,
       idempotencyKey: options.key,
       description: options.description,
       expiresInSeconds: RESERVE_TTL_SECONDS,
@@ -243,8 +245,8 @@ export function reserveTourPoints(userId: string, tripId: string, key: string, m
 }
 
 /** Holds points for a daily podcast, including all persisted speech. */
-export function reservePodcastPoints(userId: string, key: string, model: string, environment?: BillingEnvironment): Promise<ChatCharge | null> {
-  return holdPoints({ userId, key: `podcast:${key}`, description: `Daily podcast (${model})`,
+export function reservePodcastPoints(userId: string, key: string, model: string, environment?: BillingEnvironment, amount?: number): Promise<ChatCharge | null> {
+  return holdPoints({ userId, key: `podcast:${key}`, amount, description: `Daily podcast (${model})`,
     metadata: { podcastKey: key, model }, environment,
     codes: { exhausted: "PODCAST_POINTS_EXHAUSTED", exhaustedMessage: "Making a podcast uses points and your balance is empty.",
       notConfigured: "PODCAST_BILLING_NOT_CONFIGURED", unavailable: "PODCAST_BILLING_UNAVAILABLE",

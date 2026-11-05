@@ -25,6 +25,13 @@ export type PatchPodcastShareLinkInput = z.infer<typeof patchPodcastShareLinkSch
 export const PODCAST_VIDEO_STYLES = ["news", "crayon", "update"] as const;
 export type PodcastVideoStyle = (typeof PODCAST_VIDEO_STYLES)[number];
 export const podcastVideoStyleSchema = z.enum(PODCAST_VIDEO_STYLES);
+/** Image-first video themes an audiobook's plan offers: generated illustrations rather than animated diagrams. */
+export const AUDIOBOOK_VIDEO_THEMES = ["cinematic", "watercolor", "anime", "graphic-novel", "storybook", "noir", "documentary"] as const;
+export type AudiobookVideoTheme = (typeof AUDIOBOOK_VIDEO_THEMES)[number];
+export const audiobookVideoThemeSchema = z.enum(AUDIOBOOK_VIDEO_THEMES);
+/** How a scene's still image moves on screen. */
+export const AUDIOBOOK_SCENE_MOTIONS = ["zoom-in", "zoom-out", "pan-left", "pan-right", "pan-up", "pan-down"] as const;
+export type AudiobookSceneMotion = (typeof AUDIOBOOK_SCENE_MOTIONS)[number];
 /** Longest host name a caller may choose. */
 export const MAX_PODCAST_SPEAKER_NAME = 40;
 /** `GET /api/v1/daily-podcasts/options`: what the generation form offers, localized by `Accept-Language`. */
@@ -122,12 +129,48 @@ export interface PodcastTranslation {
   music?: boolean;
   /** Translated source chip titles by chip id, used for the video's section headings. */
   chipTitles?: Record<string, string>;
+  /** An audiobook's chapters in this language, timed against this recording. */
+  chapters?: PodcastChapter[];
   /** The original composition with translated labels; `sourceId` is the original video it was made from. */
   video?: PodcastVideoSummary & { sourceId?: string };
+}
+/** One chapter of an audiobook. `endSegment` is exclusive; times are in episode seconds. */
+export interface PodcastChapter {
+  title: string;
+  synopsis?: string;
+  startSegment: number;
+  endSegment: number;
+  startSeconds: number;
+  endSeconds: number;
+}
+/** A piece of an audiobook's soundtrack; segments name the cue that plays under them. */
+export interface AudiobookMusicCue {
+  id: string;
+  title: string;
+  prompt: string;
+  mood: PodcastMusicMood;
+}
+/** One illustrated scene of an audiobook's video, on screen from `segment` until the next scene. */
+export interface AudiobookScene {
+  chapter: number;
+  segment: number;
+  prompt: string;
+  motion: AudiobookSceneMotion;
+}
+/** What an audiobook keeps from its plan, so translations and later videos match the original. */
+export interface AudiobookDetails {
+  musicCues: AudiobookMusicCue[];
+  videoTheme: AudiobookVideoTheme;
+  visualGuide: string;
+  scenes: AudiobookScene[];
 }
 export interface DailyPodcast extends PodcastScript {
   /** Absent only on legacy documents; library episodes are regular, others daily. */
   type?: "daily" | "regular";
+  /** Audiobooks are library episodes with chapters; `type` stays "regular" so older apps can still open them. */
+  format?: "audiobook";
+  chapters?: PodcastChapter[];
+  audiobook?: AudiobookDetails;
   /** Automated recap output may never exceed this measured duration. Manual targets do not set this. */
   maxDurationSeconds?: number;
   key: string;
@@ -155,6 +198,8 @@ export interface DailyPodcast extends PodcastScript {
     captionCues?: { text: string; startSeconds: number; endSeconds: number; paged?: boolean }[];
     voiceStartSeconds?: number; voiceEndSeconds?: number; pauseSeconds?: number[];
     imagePath: string | null; icon: string;
+    /** An audiobook's chapter index and the music cue playing under this turn. */
+    chapter?: number; music?: string;
     /** The approved storyboard frame of a planned episode, copied next to the recording as a video asset. */
     storyboard?: PodcastVideoAsset & { layout?: "sequence-2x2" } })[];
 }
@@ -201,6 +246,12 @@ export interface PodcastVideoSource {
   files: Record<string, string>;
   /** Transparent cut-out images the video agent generated, placed under public/ for staticFile(). */
   assets?: PodcastVideoAsset[];
+  /**
+   * An audiobook's image-first video: stills with slow camera moves, rendered by FFmpeg in the cloud instead of
+   * agent-written Remotion code (`files` is empty). Scenes name the spoken turn they start on, so a translation
+   * replays them against its own timings.
+   */
+  imageSequence?: { scenes: { file: string; segment: number; motion: AudiobookSceneMotion }[] };
 }
 export interface PodcastVideoAsset {
   /** Path under public/, e.g. `gen/rocket.png`. */
@@ -228,7 +279,7 @@ export const createPodcastTranslationSchema = z.object({
  * previous one when it is saved; the response's `videoDesign` reports it. With a translation `language`,
  * that translation gets the current composition with translated labels (designed first when there is none). */
 export const createPodcastVideoSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema.optional(),
-  videoStyle: podcastVideoStyleSchema.optional() }).strict();
+  videoStyle: z.enum([...PODCAST_VIDEO_STYLES, ...AUDIOBOOK_VIDEO_THEMES]).optional() }).strict();
 /** `POST /api/v1/daily-podcasts/:key/video/upload`: a presigned PUT for the rendered MP4. */
 export const podcastVideoUploadSchema = z.object({
   day: podcastDaySchema,

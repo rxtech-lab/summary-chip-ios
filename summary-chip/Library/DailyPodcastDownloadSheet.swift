@@ -22,17 +22,32 @@ struct DailyPodcastDownloadSheet: View {
     @State private var error: String?
     @State private var directory: URL?
     @State private var preparation: Task<Void, Never>?
+    /// The language to save; every format can be exported in any of the episode's languages.
+    @State private var language: String
 
     init(api: SummaryAPIClient, podcast: DailyPodcast, initialFormat: PodcastDownloadFormat = .audio) {
         self.api = api
         self.podcast = podcast
         _format = State(initialValue: initialFormat)
+        _language = State(initialValue: podcast.language)
+    }
+
+    /// Audiobooks only render in the cloud: an on-device render of hours of video isn't practical.
+    private var resolutions: [PodcastVideoResolution] {
+        podcast.isAudiobook ? PodcastVideoResolution.allCases.filter { $0.rawValue <= 1080 } : PodcastVideoResolution.allCases
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
+                    if podcast.availableLanguages.count > 1 {
+                        Picker("Language", selection: $language) {
+                            ForEach(podcast.availableLanguages, id: \.self) { Text(PodcastLanguagesSheet.title(for: $0)).tag($0) }
+                        }
+                        .disabled(preparing)
+                        .accessibilityIdentifier("podcast-download-language")
+                    }
                     Picker("Format", selection: $format) {
                         ForEach(PodcastDownloadFormat.allCases.filter { $0 != .video || podcast.video != nil }) { Text($0.title).tag($0) }
                     }
@@ -40,7 +55,7 @@ struct DailyPodcastDownloadSheet: View {
                     .accessibilityIdentifier("podcast-download-format")
                     if format == .video {
                         Picker("Resolution", selection: $resolution) {
-                            ForEach(PodcastVideoResolution.allCases) { Text($0.title).tag($0) }
+                            ForEach(resolutions) { Text($0.title).tag($0) }
                         }
                         .disabled(preparing)
                         .accessibilityIdentifier("podcast-download-resolution")
@@ -95,6 +110,7 @@ struct DailyPodcastDownloadSheet: View {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
             .sensoryFeedback(.selection, trigger: format)
+            .sensoryFeedback(.selection, trigger: language)
             .sensoryFeedback(.selection, trigger: resolution)
             .sensoryFeedback(.selection, trigger: saveToPhotos)
             .sensoryFeedback(.selection, trigger: taps)
@@ -146,7 +162,8 @@ struct DailyPodcastDownloadSheet: View {
     private var filename: String {
         let safe = podcast.title.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>"))
             .joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        return (safe.isEmpty ? "Podcast" : String(safe.prefix(120))) + "." + format.fileExtension
+        let suffix = podcast.availableLanguages.count > 1 ? " (\(language))" : ""
+        return (safe.isEmpty ? "Podcast" : String(safe.prefix(120))) + suffix + "." + format.fileExtension
     }
 
     private func prepare() {
@@ -161,6 +178,8 @@ struct DailyPodcastDownloadSheet: View {
                 if let directory { try? FileManager.default.removeItem(at: directory) }
                 directory = folder
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                // Another language has its own recording, captions and video render.
+                let podcast = language == self.podcast.language ? self.podcast : try await api.podcastEpisode(self.podcast, language: language)
                 let url: URL
                 if format == .captions {
                     url = folder.appending(path: "podcast.srt")

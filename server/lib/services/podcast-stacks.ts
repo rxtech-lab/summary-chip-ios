@@ -18,12 +18,15 @@ export async function soloPodcastLinks(db: Database, ownerId: string) {
     podcastId: podcastEpisodes.summaryId,
     chipIds: sql<string | null>`json_extract(${podcastEpisodes.document}, '$.chipIds')`,
     createdAt: sql<string | null>`json_extract(${podcastEpisodes.document}, '$.createdAt')`,
+    format: sql<string | null>`json_extract(${podcastEpisodes.document}, '$.format')`,
   }).from(podcastEpisodes).where(and(eq(podcastEpisodes.ownerId, ownerId), eq(podcastEpisodes.deleted, false),
     isNotNull(podcastEpisodes.summaryId)));
   const chips = new Map<string, Set<string>>();
   const latest = new Map<string, string>();
+  const audiobooks = new Set<string>();
   for (const episode of episodes) {
     if (!episode.podcastId) continue;
+    if (episode.format === "audiobook") { audiobooks.add(episode.podcastId); continue; }
     const ids = chips.get(episode.podcastId) ?? new Set<string>();
     for (const id of JSON.parse(episode.chipIds ?? "[]") as string[]) ids.add(id);
     chips.set(episode.podcastId, ids);
@@ -39,16 +42,20 @@ export async function soloPodcastLinks(db: Database, ownerId: string) {
     const current = podcastOf.get(chipId);
     if (!current || (latest.get(podcastId) ?? "") > (latest.get(current) ?? "")) podcastOf.set(chipId, podcastId);
   }
-  return { sourceOf, podcastOf };
+  return { sourceOf, podcastOf, audiobooks };
 }
 
 /** Fills `podcastSourceId`/`stackedPodcastId` on the viewer's own items; others' items stay unstacked. */
 export async function withPodcastStacks<T extends SummaryJson>(db: Database, viewerId: string | null, items: T[]): Promise<T[]> {
   if (!viewerId || !items.some((item) => item.isOwner)) return items;
-  const { sourceOf, podcastOf } = await soloPodcastLinks(db, viewerId);
-  return items.map((item) => !item.isOwner ? item : {
-    ...item,
-    podcastSourceId: item.kind === "podcast" ? sourceOf.get(item.id) ?? null : null,
-    stackedPodcastId: item.kind === "podcast" ? null : podcastOf.get(item.id) ?? null,
+  const { sourceOf, podcastOf, audiobooks } = await soloPodcastLinks(db, viewerId);
+  return items.map((item) => {
+    if (!item.isOwner) return item;
+    const stacked = item.kind === "podcast" ? null : podcastOf.get(item.id) ?? null;
+    return { ...item,
+      podcastSourceId: item.kind === "podcast" ? sourceOf.get(item.id) ?? null : null,
+      stackedPodcastId: stacked,
+      isAudiobook: item.kind === "audiobook" || (item.kind === "podcast" ? audiobooks.has(item.id) : !!stacked && audiobooks.has(stacked)),
+    };
   });
 }

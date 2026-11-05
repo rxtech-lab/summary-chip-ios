@@ -55,6 +55,8 @@ export class MockAiProvider implements AiProvider {
     writePodcastVideo: PodcastVideoInput[];
     drawPodcastVideoImage: { subject: string; style?: PodcastVideoStyle }[];
     drawStoryboardFrame: import("./provider").StoryboardShot[];
+    writeAudiobookChapter: import("./audiobook-agent").AudiobookChapterInput[];
+    drawAudiobookScene: string[];
     translatePodcast: PodcastTranslationInput[];
     translatePodcastVideo: { files: Record<string, string>; language: string }[];
   } = {
@@ -80,6 +82,8 @@ export class MockAiProvider implements AiProvider {
     writePodcastVideo: [],
     drawPodcastVideoImage: [],
     drawStoryboardFrame: [],
+    writeAudiobookChapter: [],
+    drawAudiobookScene: [],
     translatePodcast: [],
     translatePodcastVideo: [],
   };
@@ -314,6 +318,41 @@ export class MockAiProvider implements AiProvider {
     this.calls.drawStoryboardFrame.push(shot);
     const png = await sharp({ create: { width: 1280, height: 720, channels: 3, background: "#336699" } }).png().toBuffer();
     return { png: new Uint8Array(png), width: 1280, height: 720 };
+  }
+
+  async writeAudiobookPlan(input: import("./audiobook-agent").AudiobookPlanInput, options: TourNarrationOptions = {}) {
+    options.onUsage?.(MOCK_STEP_USAGE);
+    const speakers = input.speakers?.map(speaker => ({ ...speaker, role: "" })) ?? [
+      { name: "Narrator", voice: input.voices[0].id, role: "Reads the prose" },
+      { name: "Mira", voice: input.voices[1].id, role: "The heroine" },
+    ];
+    const middle = Math.floor((input.totalPassages - 1) / 2);
+    const scenes = input.includeVideo ? [{ prompt: "A lighthouse at dusk", motion: "zoom-in" as const }, { prompt: "A storm over the sea", motion: "pan-left" as const }] : [];
+    return { title: "The Lighthouse", summary: "A keeper finds a message in the lamp room.", speakers, visualGuide: input.includeVideo ? "A tall keeper in a grey coat." : "",
+      musicCues: [{ id: "m1", title: "Calm shore", prompt: "soft piano and strings, slow", mood: "calm" as const },
+        { id: "m2", title: "Rising storm", prompt: "tense low strings and timpani", mood: "focused" as const }],
+      chapters: [{ title: "Arrival", synopsis: "The keeper arrives.", firstPassage: 0, lastPassage: middle, music: ["m1", "m2"], scenes },
+        ...(input.totalPassages > 1 ? [{ title: "The Message", synopsis: "A message appears.", firstPassage: middle + 1, lastPassage: input.totalPassages - 1, music: ["m2"], scenes: scenes.slice(0, 1) }] : [])] };
+  }
+
+  async refineAudiobookPlan(input: import("./audiobook-agent").AudiobookRefinementInput, options: TourNarrationOptions = {}) {
+    options.onUsage?.(MOCK_STEP_USAGE);
+    return { reply: "Updated the plan.", plan: { ...input.plan, chapters: input.plan.chapters.map((chapter, index) => index ? chapter : { ...chapter, title: `${chapter.title} (revised)` }) } };
+  }
+
+  async writeAudiobookChapter(input: import("./audiobook-agent").AudiobookChapterInput, options: TourNarrationOptions = {}) {
+    options.onUsage?.(MOCK_STEP_USAGE);
+    this.calls.writeAudiobookChapter.push(input);
+    return [
+      { speaker: 0, caption: `${input.chapter.title}. ${input.passages[0].slice(0, 200)}`, music: input.chapter.music[0], scene: 0 },
+      { speaker: input.speakers.length - 1, caption: "I can see the light from here.", music: input.chapter.music.at(-1)!, scene: Math.max(0, input.chapter.scenes.length - 1) },
+    ];
+  }
+
+  async drawAudiobookScene(scene: { prompt: string }) {
+    this.calls.drawAudiobookScene.push(scene.prompt);
+    const png = await sharp({ create: { width: 1536, height: 864, channels: 3, background: "#223344" } }).png().toBuffer();
+    return { png: new Uint8Array(png), width: 1536, height: 864 };
   }
 
   async translatePodcast(input: PodcastTranslationInput, options: TourNarrationOptions = {}) {

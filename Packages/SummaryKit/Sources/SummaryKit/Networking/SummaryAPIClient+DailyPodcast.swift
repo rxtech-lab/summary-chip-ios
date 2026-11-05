@@ -101,6 +101,25 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
     /// Older servers and cached documents omit this field.
     public var type: PodcastType?
     public var resolvedType: PodcastType { type ?? (summaryId == nil ? .daily : .regular) }
+    /// "audiobook" for a book with chapters; absent on podcasts.
+    public var format: String?
+    public var isAudiobook: Bool { format == "audiobook" }
+    /// An audiobook's chapters, in this language and timed against this recording.
+    public var chapters: [Chapter]?
+
+    public struct Chapter: Codable, Sendable, Equatable, Identifiable {
+        public var title: String
+        public var synopsis: String?
+        public var startSegment: Int
+        public var endSegment: Int
+        public var startSeconds: Double
+        public var endSeconds: Double
+        public var id: Int { startSegment }
+    }
+    /// The chapter being played at `time`.
+    public func chapterIndex(at time: Double) -> Int? {
+        chapters?.lastIndex { $0.startSeconds <= time }
+    }
 
     public struct Speaker: Codable, Sendable, Equatable {
         public var name: String
@@ -499,7 +518,8 @@ extension SummaryAPIClient {
         let audioRequest = download
         guard let url = audioRequest.url else { throw SummaryAPIError.invalidResponse }
         let data = try await podcastAudioCache.data(for: url.absoluteString) {
-            try await self.sendRaw(audioRequest, onProgress: onProgress)
+            if podcast.isAudiobook { return try await self.downloadAudiobookRecording(path: components.path, query: components.queryItems ?? [], onProgress: onProgress) }
+            return try await self.sendRaw(audioRequest, onProgress: onProgress)
         }
         try Task.checkCancellation()
         await onProgress?(.init(completedBytes: Int64(data.count), totalBytes: Int64(data.count)))
@@ -512,7 +532,7 @@ extension SummaryAPIClient {
     }
 
     public func dailyPodcastImageURL(_ path: String?) -> URL? {
-        guard let path else { return nil }
+        guard let path, !path.isEmpty else { return nil }
         return request(path).url
     }
 }

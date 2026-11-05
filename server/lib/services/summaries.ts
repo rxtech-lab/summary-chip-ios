@@ -156,7 +156,7 @@ interface PdfSource {
   uploadKey: string;
 }
 
-async function extractPdfUpload(
+export async function extractPdfUpload(
   db: Database,
   ownerId: string,
   source: Extract<CreateSummaryInput["source"], { type: "pdf" }>,
@@ -171,16 +171,21 @@ async function extractPdfUpload(
   if (upload.attachedAt) throw new ApiError(409, "UPLOAD_ALREADY_USED", "This upload is already attached to a summary");
   const head = await store.head(source.uploadKey);
   if (!head) throw new ApiError(409, "UPLOAD_INCOMPLETE", "The PDF has not finished uploading");
-  if ((head.byteSize ?? 0) > MAX_UPLOAD_BYTES) throw new ApiError(413, "UPLOAD_TOO_LARGE", "PDFs are limited to 25 MB");
+  if ((head.byteSize ?? 0) > MAX_UPLOAD_BYTES) throw new ApiError(413, "UPLOAD_TOO_LARGE", "PDFs are limited to 100 MB");
   const object = await store.get(source.uploadKey);
-  if (object.bytes.byteLength > MAX_UPLOAD_BYTES) throw new ApiError(413, "UPLOAD_TOO_LARGE", "PDFs are limited to 25 MB");
-  const pdf = await extractPdfText(object.bytes);
+  if (object.bytes.byteLength > MAX_UPLOAD_BYTES) throw new ApiError(413, "UPLOAD_TOO_LARGE", "PDFs are limited to 100 MB");
+  const pdf = await extractPdfText(object.bytes).catch((error: unknown) => {
+    if (source.ocrText && error instanceof ApiError && error.code === "PDF_NO_TEXT") {
+      return { text: source.ocrText, title: null, pages: 0 };
+    }
+    throw error;
+  });
   const filename = (source.filename ?? upload.filename).replace(/\.pdf$/i, "").trim();
   return {
     uploadKey: source.uploadKey,
     content: {
       source: "pdf",
-      text: pdf.text,
+      text: source.ocrText ?? pdf.text,
       sourceUrl: source.sourceUrl ?? null,
       sourceTitle: pdf.title ?? (filename || null),
       siteName: hostOf(source.sourceUrl),
