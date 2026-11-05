@@ -106,6 +106,33 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
     public var isAudiobook: Bool { format == "audiobook" }
     /// An audiobook's chapters, in this language and timed against this recording.
     public var chapters: [Chapter]?
+    /// Set on one chapter's recording: the book's index it belongs to.
+    public var bookKey: String?
+    /// A book's index: it has no recording of its own, and each chapter names the episode that plays.
+    public var isBookIndex: Bool { bookKey == nil && chapters?.contains { $0.versionId != nil } == true }
+
+    /// What's known of a chapter's episode from its book's index, to show while the episode itself loads.
+    public func chapterPreview(at index: Int) -> DailyPodcast? {
+        guard let chapters, chapters.indices.contains(index), let key = chapters[index].versionId else { return nil }
+        let chapter = chapters[index]
+        var preview = self
+        preview.key = key
+        preview.bookKey = self.key
+        preview.title = chapter.title
+        preview.audioPath = nil
+        preview.durationSeconds = chapter.endSeconds - chapter.startSeconds
+        preview.chapters = nil
+        preview.segments = segments[chapter.startSegment..<chapter.endSegment].map {
+            var segment = $0
+            segment.startSeconds = $0.startSeconds.map { $0 - chapter.startSeconds }
+            segment.endSeconds = $0.endSeconds.map { $0 - chapter.startSeconds }
+            segment.voiceStartSeconds = nil
+            segment.voiceEndSeconds = nil
+            segment.captionCues = nil
+            return segment
+        }
+        return preview
+    }
 
     public struct Chapter: Codable, Sendable, Equatable, Identifiable {
         public var title: String
@@ -116,7 +143,7 @@ public struct DailyPodcast: Codable, Sendable, Equatable {
         public var endSeconds: Double
         /// Which part of the book this is, the same across its recordings. Older books omit it.
         public var bookChapterId: String?
-        /// The recording playing, and every recording of this chapter, newest first.
+        /// The chapter episode playing, and every recording of this chapter, newest first.
         public var versionId: String?
         public var versions: [Version]?
         public var id: Int { startSegment }
@@ -451,14 +478,11 @@ extension SummaryAPIClient {
     // MARK: Translations
 
     /// The episode in another of its languages. Never calls a model or spends points.
-    /// Chooses which recording of a chapter the book plays. The server rebuilds the book's recording, so this can take a while.
-    public func selectAudiobookChapterVersion(_ podcast: DailyPodcast, chapter: String, version: String) async throws -> DailyPodcast {
-        struct Body: Encodable { var day: PodcastDayBounds; var chapter: String; var version: String; var language: String? }
-        let language = podcast.language == podcast.sourceLanguage ? nil : podcast.language
-        var update = try json("/api/v1/audiobooks/\(podcast.key.urlPathEscaped)/chapters", method: "PATCH",
-            body: Body(day: try podcastDayBounds(podcast), chapter: chapter, version: version, language: language))
-        update.timeoutInterval = 300
-        let result: PodcastEnvelope = try await send(update)
+    /// Chooses which recording of a chapter a book plays, and returns the updated book.
+    public func selectAudiobookChapterVersion(book: DailyPodcast, chapter: String, version: String) async throws -> DailyPodcast {
+        struct Body: Encodable { var day: PodcastDayBounds; var chapter: String; var version: String }
+        let result: PodcastEnvelope = try await send(json("/api/v1/audiobooks/\(book.key.urlPathEscaped)/chapters", method: "PATCH",
+            body: Body(day: try podcastDayBounds(book), chapter: chapter, version: version)))
         guard let episode = result.podcast else { throw SummaryAPIError.invalidResponse }
         return episode
     }

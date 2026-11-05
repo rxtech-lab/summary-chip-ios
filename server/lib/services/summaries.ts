@@ -14,7 +14,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { editorialScores, documentVersions, graphs, papers, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
+import { editorialScores, documentVersions, graphs, papers, podcastEpisodes, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -846,6 +846,8 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
   // Includes removed images retained by paper versions and imports cancelled before saving.
   const assetKeys = (await db.select({ key: uploads.key }).from(uploads).where(inArray(uploads.summaryId, ids))).map((row) => row.key);
   await db.batch([
+    // Foreign keys aren't enforced on every connection, so a chip's recordings can't be left to cascade.
+    db.delete(podcastEpisodes).where(inArray(podcastEpisodes.summaryId, ids)),
     db.delete(summaryTags).where(inArray(summaryTags.summaryId, ids)),
     db.delete(summaryViews).where(inArray(summaryViews.summaryId, ids)),
     db.delete(summaryLikes).where(inArray(summaryLikes.summaryId, ids)),

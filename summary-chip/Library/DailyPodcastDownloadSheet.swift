@@ -73,12 +73,16 @@ struct DailyPodcastDownloadSheet: View {
                     }
                     #endif
                 } footer: {
-                    Text("Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file.")
+                    if podcast.bookKey != nil {
+                        Text("Saves this chapter. Audio saves it as MP3, video as MP4 with selectable embedded captions, and captions as a timed SRT subtitle file.")
+                    } else {
+                        Text("Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file.")
+                    }
                 }
             }
             .formStyle(.grouped)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Download Podcast")
+            .navigationTitle(podcast.bookKey != nil ? "Download Chapter" : "Download Podcast")
             .summaryInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

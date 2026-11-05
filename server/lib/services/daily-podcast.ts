@@ -281,11 +281,9 @@ export function chipArtPath(chip: Pick<SummaryRow, "artImageKey" | "slug">) {
   return chip.artImageKey ? `/s/${chip.slug}/art.png` : null;
 }
 /** The episode's recording in `language`; the original when omitted. */
-export function episodeAudioPath(podcast: Pick<DailyPodcast, "key" | "day" | "audiobook">, language?: string) {
+export function episodeAudioPath(podcast: Pick<DailyPodcast, "key" | "day">, language?: string) {
   const query = new URLSearchParams(podcast.day);
   if (language) query.set("language", language);
-  // A book's recording is rebuilt in place; players cache audio by this URL.
-  if (podcast.audiobook?.revision) query.set("revision", String(podcast.audiobook.revision));
   return `/api/v1/daily-podcasts/${podcast.key}/audio?${query}`;
 }
 /** Object key of a translation's files under the episode. */
@@ -406,6 +404,8 @@ export async function updatePodcastDocument(db: Pick<Database, "select" | "updat
 export function jsonObject(value: unknown) {
   return { bytes: new TextEncoder().encode(JSON.stringify(value)), contentType: "application/json", cacheControl: "private, no-store" };
 }
+/** A chapter's recording is reached through its book's index; it isn't a version of the chip itself. */
+const notChapterEpisode = sql`json_extract(${podcastEpisodes.document}, '$.bookKey') IS NULL`;
 function dayCondition(user: string, day: PodcastDay) {
   return and(eq(podcastEpisodes.ownerId, user), eq(podcastEpisodes.dayStart, Date.parse(day.start)), eq(podcastEpisodes.dayEnd, Date.parse(day.end)));
 }
@@ -420,7 +420,7 @@ export async function dailyPodcastChips(db: Database, user: string, day: Podcast
 
 }
 export async function listDailyPodcasts(db: Database, user: string, day: PodcastDay) {
-  const rows = await db.select().from(podcastEpisodes).where(and(dayCondition(user, day), eq(podcastEpisodes.deleted, false), sql`${podcastEpisodes.summaryId} IS NULL`));
+  const rows = await db.select().from(podcastEpisodes).where(and(dayCondition(user, day), eq(podcastEpisodes.deleted, false), sql`${podcastEpisodes.summaryId} IS NULL`, notChapterEpisode));
   const readable = await readableSources(db, user, rows.map((row) => row.document));
   return rows.filter((row) => sourceIds(row.document).every((id) => readable.has(id)))
     .map((row) => ({ podcast: row.document, isDefault: row.isDefault }))
@@ -464,7 +464,7 @@ async function libraryPodcastChip(db: Database, user: string, summaryId: string)
 /** A podcast chip's readable versions, newest first. Its default is the flagged one, else the newest. */
 export async function listLibraryPodcasts(db: Database, user: string, summaryId: string) {
   await libraryPodcastChip(db, user, summaryId);
-  const rows = await db.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.summaryId, summaryId), eq(podcastEpisodes.ownerId, user), eq(podcastEpisodes.deleted, false)));
+  const rows = await db.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.summaryId, summaryId), eq(podcastEpisodes.ownerId, user), eq(podcastEpisodes.deleted, false), notChapterEpisode));
   const readable = await readableSources(db, user, rows.map((row) => row.document));
   const items = rows.filter((row) => sourceIds(row.document).every((id) => readable.has(id)))
     .map((row) => ({ podcast: row.document, isDefault: row.isDefault }))

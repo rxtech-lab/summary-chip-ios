@@ -144,7 +144,7 @@ export interface PodcastChapter {
   endSeconds: number;
   /** Which part of the book this is, the same across its recordings. Absent on books made before chapters had versions. */
   bookChapterId?: string;
-  /** The recording playing, and every recording of this chapter, newest first. */
+  /** The chapter episode playing, and every recording of this chapter, newest first. Set on a book's index. */
   versionId?: string;
   versions?: AudiobookChapterVersion[];
 }
@@ -154,7 +154,7 @@ export interface AudiobookChapterVersion {
   createdAt: string;
   durationSeconds: number;
 }
-/** One saved recording of a chapter, in every language it was spoken in. The book plays one recording per chapter. */
+/** One recording of a chapter, identified by its episode's key. A book plays one recording per chapter. */
 export interface AudiobookTake extends AudiobookChapterVersion {
   chapterId: string;
   firstPassage: number;
@@ -186,7 +186,7 @@ export interface AudiobookDetails {
   scenes: AudiobookScene[];
   /** The plan every generation of this book came from; absent on recordings not yet merged into a book. */
   bookId?: string;
-  /** Goes up each time the recording is rebuilt, so saved writes can't overlap and players don't keep the old audio. */
+  /** Goes up each time a book's index is saved, so writes can't overlap. */
   revision?: number;
   takes?: AudiobookTake[];
   /** Recordings chosen over a chapter's newest, by chapter. */
@@ -197,6 +197,8 @@ export interface DailyPodcast extends PodcastScript {
   type?: "daily" | "regular";
   /** Audiobooks are library episodes with chapters; `type` stays "regular" so older apps can still open them. */
   format?: "audiobook";
+  /** Set on one recording of a chapter: the book's index it belongs to. Listed through that index, not on its own. */
+  bookKey?: string;
   chapters?: PodcastChapter[];
   audiobook?: AudiobookDetails;
   /** Automated recap output may never exceed this measured duration. Manual targets do not set this. */

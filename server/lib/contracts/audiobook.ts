@@ -80,8 +80,8 @@ export const reviseAudiobookPlanSchema = z.object({ revision: z.number().int().n
 export const refineAudiobookPlanSchema = z.object({ revision: z.number().int().nonnegative(), message: z.string().trim().min(1).max(2000) }).strict();
 export const confirmAudiobookPlanSchema = z.object({ revision: z.number().int().nonnegative(), chapters: z.array(z.number().int().nonnegative()).min(1).max(200).optional() }).strict();
 export const createAudiobookTranslationSchema = z.object({ day: podcastDaySchema, language: podcastLanguageSchema, includeVideo: z.boolean().optional() }).strict();
-/** Chooses which recording of a chapter the book plays. `language` is the one to return the book in. */
-export const selectAudiobookChapterVersionSchema = z.object({ day: podcastDaySchema, chapter: z.string().min(1).max(40), version: z.string().min(1).max(120), language: podcastLanguageSchema.optional() }).strict();
+/** Chooses which recording of a chapter the book plays. */
+export const selectAudiobookChapterVersionSchema = z.object({ day: podcastDaySchema, chapter: z.string().min(1).max(40), version: z.string().min(1).max(64) }).strict();
 export const audiobookVoiceSampleSchema = z.object({ voice: z.string().min(1).max(80), language: z.enum(TRANSLATION_LANGUAGES).default("en") });
 
 export interface AudiobookOptions {

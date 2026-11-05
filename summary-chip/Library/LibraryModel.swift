@@ -96,6 +96,8 @@ final class LibraryModel {
         async let podcasts = try? api.podcastPlans()
         async let books = try? api.audiobookLibrary()
         let (plans, state) = await (podcasts, books)
+        // Checked before the staleness guard: the server only reports a merge once, and the feed has to catch up with it.
+        if state?.merged == true { Task { await reload() } }
         guard generation == planLoadGeneration, showsPlannedPodcasts else { return }
         if let plans { plannedPodcasts = plans }
         if let state {

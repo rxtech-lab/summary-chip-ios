@@ -1,16 +1,25 @@
 import SummaryKit
 import SwiftUI
 
-/// The book's chapters. Tapping one jumps there, and the current one is marked. A chapter generated more than once opens its versions.
+/// The book's chapters, each with its own recording. Tapping one plays it, and the current one is marked.
+/// Each can be downloaded, and one generated more than once opens its versions.
 struct AudiobookChaptersSheet: View {
     let api: SummaryAPIClient
     @Bindable var player: DailyPodcastPlayer
     @Environment(\.dismiss) private var dismiss
     @State private var taps = 0
     @State private var versionsChapter: DailyPodcast.Chapter?
+    @State private var downloading: ChapterDownload?
+    @State private var preparing = false
+    @State private var error: String?
 
-    private var chapters: [DailyPodcast.Chapter] { player.podcast?.chapters ?? [] }
-    private var current: Int? { player.podcast?.chapterIndex(at: player.currentTime) }
+    private struct ChapterDownload: Identifiable {
+        let podcast: DailyPodcast
+        var id: String { podcast.key }
+    }
+    private var chapters: [DailyPodcast.Chapter] { player.book?.chapters ?? player.podcast?.chapters ?? [] }
+    private var current: Int? { player.book != nil ? player.bookChapterIndex : player.podcast?.chapterIndex(at: player.currentTime) }
+    private func length(_ chapter: DailyPodcast.Chapter) -> Double { player.book != nil ? chapter.endSeconds - chapter.startSeconds : chapter.startSeconds }
 
     var body: some View {
         NavigationStack {
@@ -19,7 +28,7 @@ struct AudiobookChaptersSheet: View {
                     HStack(spacing: 12) {
                         Button {
                             taps += 1
-                            player.seek(to: chapters[index].startSeconds)
+                            if player.book != nil { player.playChapter(at: index, resume: player.playing) } else { player.seek(to: chapters[index].startSeconds) }
                             dismiss()
                         } label: {
                             HStack(spacing: 12) {
@@ -33,7 +42,7 @@ struct AudiobookChaptersSheet: View {
                                     }
                                 }
                                 Spacer(minLength: 8)
-                                Text(Duration.seconds(chapters[index].startSeconds).formatted(.time(pattern: .hourMinuteSecond)))
+                                Text(Duration.seconds(length(chapters[index])).formatted(.time(pattern: .hourMinuteSecond)))
                                     .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                             }
                             .contentShape(Rectangle())
@@ -41,32 +50,61 @@ struct AudiobookChaptersSheet: View {
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(index == current ? .isSelected : [])
                         .accessibilityIdentifier("audiobook-chapter-\(index)")
-                        if let count = chapters[index].versions?.count, count > 1 {
-                            Button { taps += 1; versionsChapter = chapters[index] } label: {
-                                Label("\(count) Versions", systemImage: "square.stack").labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityIdentifier("audiobook-chapter-versions-\(index)")
-                        }
+                        if player.book != nil { actions(for: chapters[index], index: index) }
                     }
                 }
             }
+            .disabled(preparing)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Chapters")
             .summaryInlineNavigationTitle()
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .overlay {
+                if preparing { ProgressView("Loading chapter…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) }
+            }
             .sheet(item: $versionsChapter) { chapter in
                 AudiobookChapterVersionsSheet(api: api, player: player, chapter: chapter) { dismiss() }
             }
+            .sheet(item: $downloading) { DailyPodcastDownloadSheet(api: api, podcast: $0.podcast) }
+            .alert("Couldn't Load Chapter", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+                Button("OK", role: .cancel) { error = nil }
+            } message: { Text(error ?? "") }
             .sensoryFeedback(.selection, trigger: taps)
+            .sensoryFeedback(.error, trigger: error)
         }
         .frame(minWidth: 360, idealWidth: 480, minHeight: 480, maxHeight: .infinity)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
+
+    private func actions(for chapter: DailyPodcast.Chapter, index: Int) -> some View {
+        Menu {
+            Button { download(chapter) } label: { Label("Download Chapter", systemImage: "arrow.down.circle") }
+                .accessibilityIdentifier("audiobook-chapter-download-\(index)")
+            if let count = chapter.versions?.count, count > 1 {
+                Button { taps += 1; versionsChapter = chapter } label: { Label("\(count) Versions", systemImage: "square.stack") }
+                    .accessibilityIdentifier("audiobook-chapter-versions-\(index)")
+            }
+        } label: {
+            Label("Chapter Actions", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("audiobook-chapter-actions-\(index)")
+    }
+
+    private func download(_ chapter: DailyPodcast.Chapter) {
+        guard let key = chapter.versionId, let day = player.book?.day else { return }
+        taps += 1
+        preparing = true
+        Task {
+            defer { preparing = false }
+            do { downloading = ChapterDownload(podcast: try await api.savedPodcast(key: key, day: day)) }
+            catch { self.error = error.localizedDescription }
+        }
+    }
 }
 
-/// Every recording of one chapter. Choosing one rebuilds the book around it and plays from that chapter, without voicing or charging anything.
+/// Every recording of one chapter. Choosing one plays it from then on, without voicing or charging anything.
 struct AudiobookChapterVersionsSheet: View {
     let api: SummaryAPIClient
     @Bindable var player: DailyPodcastPlayer
@@ -124,16 +162,15 @@ struct AudiobookChapterVersionsSheet: View {
     }
 
     private func select(_ version: DailyPodcast.Chapter.Version) {
-        guard version.id != chapter.versionId, let podcast = player.podcast, let chapterID = chapter.bookChapterId else { return }
+        guard version.id != chapter.versionId, let current = player.book, let chapterID = chapter.bookChapterId else { return }
         taps += 1
         choosing = true
         Task {
             defer { choosing = false }
             do {
-                let book = try await api.selectAudiobookChapterVersion(podcast, chapter: chapterID, version: version.id)
-                player.replace(book)
-                if let start = book.chapters?.first(where: { $0.bookChapterId == chapterID })?.startSeconds { player.seek(to: start) }
-                player.toggle()
+                let book = try await api.selectAudiobookChapterVersion(book: current, chapter: chapterID, version: version.id)
+                player.book = book
+                if let index = book.chapters?.firstIndex(where: { $0.bookChapterId == chapterID }) { player.playChapter(at: index, resume: true) }
                 successes += 1
                 dismiss()
                 onSelected()
@@ -267,7 +304,7 @@ struct AudiobookJobSheet: View {
                         Button("Dismiss", role: .destructive) { dismissing = true }
                             .accessibilityIdentifier("audiobook-job-dismiss")
                     } footer: {
-                        Text("Retry continues from the chapters already recorded. Nothing is charged until the book is saved.")
+                        Text("Retry continues from the chapters already recorded. Each chapter is charged when it's finished.")
                     }
                 } else {
                     Section {
@@ -293,7 +330,7 @@ struct AudiobookJobSheet: View {
             .confirmationDialog("Dismiss this audiobook?", isPresented: $dismissing, titleVisibility: .visible) {
                 Button("Dismiss", role: .destructive, action: remove)
                 Button("Cancel", role: .cancel) {}
-            } message: { Text("It leaves your library's list. Chapters already recorded aren't charged.") }
+            } message: { Text("It leaves your library's list. Finished chapters stay in the audiobook.") }
             .alert("Couldn't Update Audiobook", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }

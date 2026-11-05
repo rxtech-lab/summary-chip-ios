@@ -224,11 +224,12 @@ extension SummaryAPIClient {
         return (response.plan, response.job)
     }
 
-    /// The owner's unconfirmed plans, and audiobooks being made or needing attention.
-    public func audiobookLibrary() async throws -> (plans: [AudiobookPlanSummary], jobs: [AudiobookJob]) {
-        struct Response: Decodable { var plans: [AudiobookPlanSummary]; var jobs: [AudiobookJob] }
+    /// The owner's unconfirmed plans, and audiobooks being made or needing attention. `merged` means loading this combined
+    /// earlier recordings of a plan into one chip, so the feed is out of date.
+    public func audiobookLibrary() async throws -> (plans: [AudiobookPlanSummary], jobs: [AudiobookJob], merged: Bool) {
+        struct Response: Decodable { var plans: [AudiobookPlanSummary]; var jobs: [AudiobookJob]; var merged: Bool? }
         let response: Response = try await send(request("/api/v1/audiobooks/plans"))
-        return (response.plans, response.jobs)
+        return (response.plans, response.jobs, response.merged ?? false)
     }
     public func audiobookPlan(id: String) async throws -> AudiobookPlan {
         let response: AudiobookPlanEnvelope = try await send(request("/api/v1/audiobooks/plans/\(id.urlPathEscaped)"))

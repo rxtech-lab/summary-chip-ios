@@ -7,10 +7,37 @@
     "%lld Versions" : {
 
     },
+    "About %lld points, charged as each chapter is finished. It's made on the server and you can leave while it works." : {
+
+    },
+    "Chapter Actions" : {
+
+    },
     "Chapter Versions" : {
 
     },
     "Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more." : {
+
+    },
+    "Couldn't Load Chapter" : {
+
+    },
+    "Download Chapter" : {
+
+    },
+    "Generation uses points as each chapter is finished, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
+
+    },
+    "It leaves your library's list. Finished chapters stay in the audiobook." : {
+
+    },
+    "Loading chapter…" : {
+
+    },
+    "Retry continues from the chapters already recorded. Each chapter is charged when it's finished." : {
+
+    },
+    "Saves this chapter. Audio saves it as MP3, video as MP4 with selectable embedded captions, and captions as a timed SRT subtitle file." : {
 
     },
     "The audiobook plays the version you choose. Choosing one is free." : {
@@ -8268,9 +8295,6 @@
         }
       }
     },
-    "Generation uses points when the book is saved, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
-
-    },
     "Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it." : {
 
     },
@@ -8975,9 +8999,6 @@
       }
     },
     "It becomes the newest version. The current one stays in the history, so you can switch back." : {
-
-    },
-    "It leaves your library's list. Chapters already recorded aren't charged." : {
 
     },
     "Item" : {
@@ -15092,9 +15113,6 @@
 
     },
     "Retry" : {
-
-    },
-    "Retry continues from the chapters already recorded. Nothing is charged until the book is saved." : {
 
     },
     "Retry Generation" : {
