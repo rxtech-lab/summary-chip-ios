@@ -286,6 +286,7 @@
 		FD146E53E9F93BB20E50FA51 /* DisplayLanguageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60D49D2B1C1D6092586E1F1B /* DisplayLanguageSheet.swift */; };
 		FD57212698AAF9E7FA9BF300 /* LiveVoiceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C9CACC0DD2565191ED15E5 /* LiveVoiceModel.swift */; };
 		FE2BF78D0A01F19711E51080 /* AudiobookLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 684F231D0B83ED6C90B657E7 /* AudiobookLibraryViews.swift */; };
+		2A59D8EF0005F98DDB47DA8F /* RenameSummarySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8AFFCA979A31A671A42956 /* RenameSummarySheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -667,6 +668,7 @@
 		FEC14251801B5D58E62A5DE4 /* LocalFileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileSheet.swift; sourceTree = "<group>"; };
 		FEDF543233DB9924493E3EB1 /* CreditsPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsPreviewHost.swift; sourceTree = "<group>"; };
 		FFE1BB4A566A4B2EC3CE4FEC /* TripDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDetailView.swift; sourceTree = "<group>"; };
+		4F8AFFCA979A31A671A42956 /* RenameSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenameSummarySheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1151,6 +1153,7 @@
 				F19C2013968EAA2798380243 /* PodcastVideoExporter.swift */,
 				AECD8D0A6EC00EB7D1DF5514 /* PodcastVideoSheet.swift */,
 				821083626A9A0D0654A474F0 /* PodcastVideoStyleSheet.swift */,
+				4F8AFFCA979A31A671A42956 /* RenameSummarySheet.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -1912,6 +1915,7 @@
 				8339BCDA11DB423CA2C45A73 /* PointsTopUpView.swift in Sources */,
 				49FA770B05DEA661674BDA9B /* PointsUsageView.swift in Sources */,
 				48ADE2311CA187EBF26B3CF2 /* RegenerateImageSheet.swift in Sources */,
+				2A59D8EF0005F98DDB47DA8F /* RenameSummarySheet.swift in Sources */,
 				7E9967902150357183A256C2 /* RxAuthTokenStorage.swift in Sources */,
 				21E2195D46C3BF1735DF6D8B /* SearchModel.swift in Sources */,
 				3E0FE6EEC3187F91C800BD86 /* SearchView.swift in Sources */,

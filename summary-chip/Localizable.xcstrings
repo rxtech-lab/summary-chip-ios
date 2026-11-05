@@ -4,48 +4,6 @@
     "" : {
 
     },
-    "%lld Versions" : {
-
-    },
-    "About %lld points, charged as each chapter is finished. It's made on the server and you can leave while it works." : {
-
-    },
-    "Chapter Actions" : {
-
-    },
-    "Chapter Versions" : {
-
-    },
-    "Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more." : {
-
-    },
-    "Couldn't Load Chapter" : {
-
-    },
-    "Download Chapter" : {
-
-    },
-    "Generation uses points as each chapter is finished, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
-
-    },
-    "It leaves your library's list. Finished chapters stay in the audiobook." : {
-
-    },
-    "Loading chapter…" : {
-
-    },
-    "Retry continues from the chapters already recorded. Each chapter is charged when it's finished." : {
-
-    },
-    "Saves this chapter. Audio saves it as MP3, video as MP4 with selectable embedded captions, and captions as a timed SRT subtitle file." : {
-
-    },
-    "The audiobook plays the version you choose. Choosing one is free." : {
-
-    },
-    "Updating audiobook…" : {
-
-    },
     "· %@" : {
       "shouldTranslate" : false
     },
@@ -310,6 +268,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已使用 %@"
+          }
+        }
+      }
+    },
+    "%@: %@, %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@, %3$@: %4$@"
           }
         }
       }
@@ -711,6 +679,9 @@
         }
       }
     },
+    "%lld Versions" : {
+
+    },
     "%lld web sources" : {
 
     },
@@ -1072,6 +1043,9 @@
           }
         }
       }
+    },
+    "About %lld points, charged as each chapter is finished. It's made on the server and you can leave while it works." : {
+
     },
     "Abstract" : {
 
@@ -3138,10 +3112,19 @@
     "Chapter %lld" : {
 
     },
+    "Chapter Actions" : {
+
+    },
+    "Chapter Versions" : {
+
+    },
     "Chapters" : {
 
     },
     "Chapters %@" : {
+
+    },
+    "Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more." : {
 
     },
     "Chat" : {
@@ -4487,6 +4470,9 @@
     "Couldn't Import Image" : {
 
     },
+    "Couldn't Load Chapter" : {
+
+    },
     "Couldn't Load Chips" : {
 
     },
@@ -4689,6 +4675,22 @@
     },
     "Couldn't read this image. Choose a PNG, JPEG or PDF." : {
 
+    },
+    "Couldn't Rename Chip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法重命名卡片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法重新命名卡片"
+          }
+        }
+      }
     },
     "Couldn't Render Video" : {
 
@@ -6295,6 +6297,9 @@
 
     },
     "Download Audiobook" : {
+
+    },
+    "Download Chapter" : {
 
     },
     "Download PDF" : {
@@ -8295,6 +8300,9 @@
         }
       }
     },
+    "Generation uses points as each chapter is finished, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
+
+    },
     "Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it." : {
 
     },
@@ -8999,6 +9007,9 @@
       }
     },
     "It becomes the newest version. The current one stays in the history, so you can switch back." : {
+
+    },
+    "It leaves your library's list. Finished chapters stay in the audiobook." : {
 
     },
     "Item" : {
@@ -9870,6 +9881,9 @@
           }
         }
       }
+    },
+    "Loading chapter…" : {
+
     },
     "Loading chips…" : {
 
@@ -14755,6 +14769,22 @@
         }
       }
     },
+    "Rename Chip" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名卡片"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新命名卡片"
+          }
+        }
+      }
+    },
     "Rename File" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14799,6 +14829,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新命名…"
+          }
+        }
+      }
+    },
+    "Renamed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重命名"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重新命名"
+          }
+        }
+      }
+    },
+    "Renaming…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重命名…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重新命名…"
           }
         }
       }
@@ -15113,6 +15175,9 @@
 
     },
     "Retry" : {
+
+    },
+    "Retry continues from the chapters already recorded. Each chapter is charged when it's finished." : {
 
     },
     "Retry Generation" : {
@@ -15684,6 +15749,9 @@
 
     },
     "Saved to Clips." : {
+
+    },
+    "Saves this chapter. Audio saves it as MP3, video as MP4 with selectable embedded captions, and captions as a timed SRT subtitle file." : {
 
     },
     "Saving changes…" : {
@@ -17757,6 +17825,9 @@
     "The audiobook couldn't be translated." : {
 
     },
+    "The audiobook plays the version you choose. Choosing one is free." : {
+
+    },
     "The audiobook will be removed from your library." : {
 
     },
@@ -19368,6 +19439,9 @@
     "Updated the trip" : {
 
     },
+    "Updating audiobook…" : {
+
+    },
     "Updating notifications…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -19541,6 +19615,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用量與活動"
+          }
+        }
+      }
+    },
+    "Use 200 characters or fewer." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请使用不超过 200 个字符。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請使用不超過 200 個字元。"
           }
         }
       }
@@ -20448,6 +20538,16 @@
     },
     "Wrong type at “%@”." : {
 
+    },
+    "X: %lf, Y: %lf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "X: %1$lf, Y: %2$lf"
+          }
+        }
+      }
     },
     "Yes" : {
       "localizations" : {
