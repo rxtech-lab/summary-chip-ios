@@ -102,7 +102,7 @@ struct AudiobookPlanSheet: View {
                                 })) { Text("\(index + 1). \(plan.plan.chapters[index].title)") }
                             }
                         } footer: {
-                            Text("Each selection is saved as a separate recording. Reopen this plan from the library to generate more chapters.")
+                            Text("Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more.")
                         }
                     }
                     .navigationTitle("Generate Chapters")
@@ -146,7 +146,7 @@ struct AudiobookPlanSheet: View {
                 Button("Use This Plan", action: confirmGeneration)
                 Button("Keep Reviewing", role: .cancel) {}
             } message: {
-                Text("About \(plan.estimate.points) points, charged when the book is saved. It's made on the server and you can leave while it works.")
+                Text("About \(plan.estimate.points) points, charged as each chapter is finished. It's made on the server and you can leave while it works.")
             }
 #endif
             .alert("Couldn't Update Plan", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {

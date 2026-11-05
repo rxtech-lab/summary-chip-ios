@@ -810,7 +810,7 @@ export const dailyRecapRuns = sqliteTable("daily_recap_runs", {
 export const audiobookPlans = sqliteTable("audiobook_plans", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  input: text("input", { mode: "json" }).$type<import("@/lib/contracts/audiobook").AudiobookCreationInput>().notNull(),
+  input: text("input", { mode: "json" }).$type<import("@/lib/contracts/audiobook").AudiobookPlanInput>().notNull(),
   plan: text("plan", { mode: "json" }).$type<import("@/lib/contracts/audiobook").AudiobookPlanDocument>().notNull(),
   revision: integer("revision").notNull().default(0),
   confirmed: integer("confirmed", { mode: "boolean" }).notNull().default(false),

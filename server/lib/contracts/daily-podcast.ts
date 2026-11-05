@@ -142,6 +142,27 @@ export interface PodcastChapter {
   endSegment: number;
   startSeconds: number;
   endSeconds: number;
+  /** Which part of the book this is, the same across its recordings. Absent on books made before chapters had versions. */
+  bookChapterId?: string;
+  /** The chapter episode playing, and every recording of this chapter, newest first. Set on a book's index. */
+  versionId?: string;
+  versions?: AudiobookChapterVersion[];
+}
+export interface AudiobookChapterVersion {
+  id: string;
+  title: string;
+  createdAt: string;
+  durationSeconds: number;
+}
+/** One recording of a chapter, identified by its episode's key. A book plays one recording per chapter. */
+export interface AudiobookTake extends AudiobookChapterVersion {
+  chapterId: string;
+  firstPassage: number;
+  lastPassage: number;
+  /** Speakers its turns index into, which a revised plan may have changed. */
+  speakers: PodcastScript["speakers"];
+  /** Scenes by the turn of this recording they start on. */
+  scenes: { turn: number; prompt: string; motion: AudiobookSceneMotion }[];
 }
 /** A piece of an audiobook's soundtrack; segments name the cue that plays under them. */
 export interface AudiobookMusicCue {
@@ -163,12 +184,21 @@ export interface AudiobookDetails {
   videoTheme: AudiobookVideoTheme;
   visualGuide: string;
   scenes: AudiobookScene[];
+  /** The plan every generation of this book came from; absent on recordings not yet merged into a book. */
+  bookId?: string;
+  /** Goes up each time a book's index is saved, so writes can't overlap. */
+  revision?: number;
+  takes?: AudiobookTake[];
+  /** Recordings chosen over a chapter's newest, by chapter. */
+  selected?: Record<string, string>;
 }
 export interface DailyPodcast extends PodcastScript {
   /** Absent only on legacy documents; library episodes are regular, others daily. */
   type?: "daily" | "regular";
   /** Audiobooks are library episodes with chapters; `type` stays "regular" so older apps can still open them. */
   format?: "audiobook";
+  /** Set on one recording of a chapter: the book's index it belongs to. Listed through that index, not on its own. */
+  bookKey?: string;
   chapters?: PodcastChapter[];
   audiobook?: AudiobookDetails;
   /** Automated recap output may never exceed this measured duration. Manual targets do not set this. */

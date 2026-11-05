@@ -7,13 +7,13 @@ interface Theme { art: string; title: Localized; description: Localized; symbol:
 /** How each image-first theme is drawn and presented. Images carry the video, so every theme is an illustration style. */
 export const AUDIOBOOK_THEMES: Record<AudiobookVideoTheme, Theme> = {
   cinematic: {
-    art: "Cinematic concept art: a film still with dramatic natural light, rich atmosphere, shallow depth of field and a 2.39-style composition inside the 16:9 frame. Painterly realism.",
+    art: "Cinematic concept art: a film still with dramatic natural light, rich atmosphere, shallow depth of field and a wide widescreen composition. Painterly realism.",
     title: { en: "Cinematic", "zh-Hans": "电影感", "zh-Hant": "電影感", ja: "シネマティック", ko: "시네마틱", es: "Cinematográfico", fr: "Cinématique", de: "Filmisch" },
     description: { en: "Painted film stills with dramatic light. Suits novels and epics.", "zh-Hans": "光影戏剧化的电影画面，适合小说与史诗。", "zh-Hant": "光影戲劇化的電影畫面，適合小說與史詩。", ja: "劇的な光の映画のような一枚絵。小説や叙事詩に。", ko: "극적인 빛의 영화 같은 장면. 소설과 서사에 어울립니다.", es: "Fotogramas pintados con luz dramática. Ideal para novelas.", fr: "Des plans peints à la lumière dramatique, pour les romans.", de: "Gemalte Filmbilder mit dramatischem Licht, ideal für Romane." },
     symbol: "film", swatch: ["#10151C", "#C9853F", "#3F5E7A", "#E9D8B8"],
   },
   watercolor: {
-    art: "Delicate watercolor painting on textured paper: soft bleeding pigments, visible brushwork, luminous washes and quiet white space.",
+    art: "Delicate watercolor painting on textured paper: soft bleeding pigments, visible brushwork, luminous washes and soft, airy passages of color.",
     title: { en: "Watercolor", "zh-Hans": "水彩", "zh-Hant": "水彩", ja: "水彩", ko: "수채화", es: "Acuarela", fr: "Aquarelle", de: "Aquarell" },
     description: { en: "Soft washes on paper. Suits memoirs and gentle stories.", "zh-Hans": "纸上的柔和晕染，适合回忆录与温柔的故事。", "zh-Hant": "紙上的柔和暈染，適合回憶錄與溫柔的故事。", ja: "紙ににじむ柔らかな色彩。回想録や穏やかな物語に。", ko: "종이에 번지는 부드러운 색. 회고록과 잔잔한 이야기에 어울립니다.", es: "Aguadas suaves sobre papel. Ideal para memorias e historias tranquilas.", fr: "Des lavis doux sur papier, pour les mémoires et les récits tendres.", de: "Sanfte Lasuren auf Papier, ideal für Memoiren und leise Geschichten." },
     symbol: "paintbrush", swatch: ["#F6F1E7", "#7FA6B8", "#D99A8B", "#8BA888"],
@@ -54,5 +54,5 @@ export const AUDIOBOOK_THEMES: Record<AudiobookVideoTheme, Theme> = {
 export function audiobookSceneInstruction(scene: { prompt: string; theme: AudiobookVideoTheme; visualGuide: string }) {
   return `Illustrate one scene from a book as a single full-bleed 16:9 image.\n\nStyle: ${AUDIOBOOK_THEMES[scene.theme].art}\n\n`
     + (scene.visualGuide ? `Keep these recurring characters, places and period consistent:\n${scene.visualGuide}\n\n` : "")
-    + `Scene: ${scene.prompt}\n\nNo text, letters, captions, logos, borders, watermarks or panels of any kind. Leave the bottom fifth of the frame calm, because subtitles sit there.`;
+    + `Scene: ${scene.prompt}\n\nPaint the scene edge to edge, so the artwork reaches all four sides of the frame. No blank or solid-color bands, letterbox bars, paper margins or empty strips on any side. No text, letters, captions, logos, borders, watermarks or panels of any kind.`;
 }

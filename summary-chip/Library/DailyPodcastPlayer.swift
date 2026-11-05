@@ -7,6 +7,8 @@ import SummaryKit
 final class DailyPodcastPlayer {
     let api: SummaryAPIClient
     var podcast: DailyPodcast?
+    /// The audiobook being listened to. `podcast` is then the chapter playing, which has its own audio, video and languages.
+    var book: DailyPodcast?
     var date: Date?
     var isPresented = false
     var inlinePodcastKey: String?
@@ -26,6 +28,8 @@ final class DailyPodcastPlayer {
         set { withMutation(keyPath: \.preferredLanguage) { UserDefaults.standard.set(newValue, forKey: "podcastPreferredLanguage") } }
     }
     @ObservationIgnored private var captionTimelines: [Int: PodcastCaptionTimeline] = [:]
+    /// `podcast` is still a chapter's preview from the book's index; its episode must load before it can play.
+    @ObservationIgnored private var chapterNeedsLoading = false
     @ObservationIgnored private var audio: AVAudioPlayer?
     @ObservationIgnored private var task: Task<Void, Never>?
     private(set) var interrupted = false
@@ -123,13 +127,19 @@ final class DailyPodcastPlayer {
         isPresented = true
     }
     func present(podcast: DailyPodcast) {
-        if self.podcast?.key != podcast.key || self.podcast?.video?.id != podcast.video?.id { replace(podcast) }
+        if book?.key == podcast.key {
+            book = podcast
+        } else if self.podcast?.key != podcast.key || self.podcast?.video?.id != podcast.video?.id {
+            replace(podcast)
+        }
         date = podcast.day.flatMap { ISO8601DateFormatter().date(from: $0.start) } ?? Date()
         isPresented = true
     }
     func close() {
         stop()
         podcast = nil
+        book = nil
+        chapterNeedsLoading = false
         date = nil
         currentTime = 0
         duration = 0
@@ -170,12 +180,80 @@ final class DailyPodcastPlayer {
     }
 
     func replace(_ podcast: DailyPodcast) {
+        if podcast.isBookIndex {
+            book = podcast
+            show(chapterAt: 0)
+            return
+        }
         stop()
+        chapterNeedsLoading = false
+        if let bookKey = podcast.bookKey {
+            if book?.key != bookKey { loadBook(key: bookKey, day: podcast.day) }
+        } else {
+            book = nil
+        }
         self.podcast = podcast
         captionTimelines = [:]
         currentTime = 0
         duration = podcast.durationSeconds ?? 0
         refreshNowPlaying()
+    }
+
+    /// The position of the chapter playing in its book.
+    var bookChapterIndex: Int? {
+        guard let key = podcast?.key else { return nil }
+        return book?.chapters?.firstIndex { $0.versionId == key }
+    }
+
+    /// Moves to one of the book's chapters, which plays on its own recording.
+    func playChapter(at index: Int, resume: Bool) {
+        show(chapterAt: index)
+        if resume { toggle() }
+    }
+
+    private func show(chapterAt index: Int) {
+        guard let preview = book?.chapterPreview(at: index) else { return }
+        stop()
+        podcast = preview
+        chapterNeedsLoading = true
+        captionTimelines = [:]
+        currentTime = 0
+        duration = preview.durationSeconds ?? 0
+        refreshNowPlaying()
+        Task { [weak self] in
+            do { try await self?.loadChapterIfNeeded() } catch is CancellationError {} catch { self?.error = error.localizedDescription }
+        }
+    }
+
+    /// Swaps a chapter's preview for its episode, in the listener's language when it's been spoken in it.
+    private func loadChapterIfNeeded() async throws {
+        guard chapterNeedsLoading, let preview = podcast, let day = preview.day else { return }
+        var episode = try await api.savedPodcast(key: preview.key, day: day)
+        if let preferredLanguage, episode.language != preferredLanguage, episode.availableLanguages.contains(preferredLanguage) {
+            episode = try await api.podcastEpisode(episode, language: preferredLanguage)
+        }
+        guard chapterNeedsLoading, podcast?.key == preview.key else { return }
+        chapterNeedsLoading = false
+        podcast = episode
+        captionTimelines = [:]
+        duration = episode.durationSeconds ?? duration
+        refreshNowPlaying()
+    }
+
+    /// A chapter opened from elsewhere (a finished translation or video) still needs its book for the chapter list.
+    private func loadBook(key: String, day: PodcastDayBounds?) {
+        book = nil
+        guard let day else { return }
+        Task { [weak self] in
+            guard let loaded = try? await self?.api.savedPodcast(key: key, day: day), self?.podcast?.bookKey == key else { return }
+            self?.book = loaded
+        }
+    }
+
+    /// Carries on with the next chapter when one ends; the end of the last is the end of the book.
+    private func advanceChapter() {
+        guard let index = bookChapterIndex, let count = book?.chapters?.count, index + 1 < count else { return }
+        playChapter(at: index + 1, resume: true)
     }
     func toggle() {
         if playing { pause(); return }
@@ -366,6 +444,11 @@ final class DailyPodcastPlayer {
             let time = movie.currentTime().seconds
             if time.isFinite { currentTime = time }
             if let length = movie.currentItem?.duration.seconds, length.isFinite, length != duration { duration = length; refreshNowPlaying() }
+            if let length = movie.currentItem?.duration.seconds, length.isFinite, time.isFinite, playing, movie.rate == 0, time >= length - 0.25,
+               let index = bookChapterIndex, let count = book?.chapters?.count, index + 1 < count {
+                advanceChapter()
+                return
+            }
             if !interrupted, playing != (movie.rate > 0) { playing = movie.rate > 0; refreshNowPlaying() }
             refreshNowPlayingIfTurnChanged()
         }
@@ -373,8 +456,13 @@ final class DailyPodcastPlayer {
 
     private func loadAndPlay() {
         task = Task { [weak self] in
-            guard let self, let podcast else { return }
+            guard let self else { return }
             do {
+                buffering = chapterNeedsLoading
+                try await loadChapterIfNeeded()
+                buffering = false
+                try Task.checkCancellation()
+                guard let podcast else { return }
                 if podcast.video != nil {
                     try await playVideo(podcast)
                     return
@@ -414,6 +502,7 @@ final class DailyPodcastPlayer {
                 playing = false
                 task = nil
                 refreshNowPlaying()
+                advanceChapter()
             } catch is CancellationError {
             } catch {
                 guard !Task.isCancelled else { return }

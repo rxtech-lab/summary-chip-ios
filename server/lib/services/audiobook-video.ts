@@ -132,7 +132,8 @@ export async function finishAudiobookVideo(db: Database, job: AudiobookVideoJob,
   const model = ai.imageModelId() ?? "image";
   const source = failed ? null : await sourceFrom(store, job, podcast, model);
   const hold = await reservePodcastPoints(job.userId, `${job.key}:video:${job.id}:charge`, model, job.billingEnvironment).catch(() => null);
-  await hold?.settle(source ? Math.max(1, pointsForCost(state.costUsd)) : 0, { imageCostUsd: state.costUsd, failed: !source });
+  // A chapter converted from an older recording reuses its scenes, which costs nothing.
+  await hold?.settle(source && state.costUsd > 0 ? Math.max(1, pointsForCost(state.costUsd)) : 0, { imageCostUsd: state.costUsd, failed: !source });
   if (!source) {
     const error = { code: "PODCAST_VIDEO_FAILED", message: "The scenes couldn't be illustrated. Open the audiobook to retry." };
     await recordJobActivity(db, job.userId, job.id, "failed", error.message, { status: "failed", error });

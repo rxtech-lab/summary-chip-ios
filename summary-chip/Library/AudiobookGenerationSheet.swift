@@ -142,7 +142,7 @@ struct AudiobookGenerationSheet: View {
     }
 
     private var note: some View {
-        Text("Generation uses points when the book is saved, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it.")
+        Text("Generation uses points as each chapter is finished, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it.")
     }
 
     private func sheetRow(_ title: LocalizedStringKey, systemImage: String, value: String, id: String, action: @escaping () -> Void) -> some View {

@@ -10,12 +10,16 @@ import * as messagesRoute from "@/app/api/v1/audiobooks/plans/[id]/messages/rout
 import * as framesRoute from "@/app/api/v1/audiobooks/plans/[id]/frames/route";
 import * as jobRoute from "@/app/api/v1/audiobooks/jobs/[id]/route";
 import * as translations from "@/app/api/v1/audiobooks/[key]/translations/route";
+import * as chaptersRoute from "@/app/api/v1/audiobooks/[key]/chapters/route";
 import * as linkRoute from "@/app/api/v1/daily-podcasts/[key]/audio/link/route";
 import * as audioRoute from "@/app/api/v1/daily-podcasts/[key]/audio/route";
 import * as episodeRoute from "@/app/api/v1/daily-podcasts/[key]/route";
 import * as summariesRoute from "@/app/api/v1/summaries/route";
-import { podcastEpisodes, summaries } from "@/lib/db/schema";
+import * as summaryRoute from "@/app/api/v1/summaries/[id]/route";
+import { audiobookPlans, podcastEpisodes, summaries } from "@/lib/db/schema";
 import { setAudiobookStarterForTests } from "@/lib/services/audiobook-starter";
+import { mergeLegacyAudiobooks } from "@/lib/services/audiobook-book";
+import { dayKey } from "@/lib/services/daily-podcast";
 import { runAudiobookJob, type AudiobookJobInput } from "@/lib/services/audiobooks";
 import { runAudiobookVideoJob, type AudiobookVideoJob } from "@/lib/services/audiobook-video";
 import { voiceSampleKey } from "@/lib/services/audiobook-voices";
@@ -63,6 +67,14 @@ async function generate(plan: { id: string; revision: number }) {
   const [row] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, plan.id));
   return { job, podcast: row.document };
 }
+
+/** The saved episode behind one of a book's chapters. */
+async function chapterEpisode(book: { chapters?: { versionId?: string }[] }, index = 0) {
+  const [row] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, book.chapters![index].versionId!));
+  return row.document;
+}
+/** Rows the library lists, which excludes the recordings behind each chapter. */
+const listedBooks = async () => (await env.handle.db.select().from(podcastEpisodes)).filter(row => !row.document.bookKey);
 
 describe("audiobook plans", () => {
   it("generates from a direct PDF without creating a source chip", async () => {
@@ -217,11 +229,11 @@ describe("audiobook generation", () => {
     const failing = vi.spyOn(env.ai, "transcribePodcast").mockRejectedValueOnce(Object.assign(new Error("gateway down"), {}));
     await runAudiobookJob(env.handle.db, jobs[0], { ai: env.ai, store: env.store });
     failing.mockRestore();
-    expect((await env.handle.db.select().from(podcastEpisodes))).toHaveLength(1);
+    expect(await listedBooks()).toHaveLength(1);
     const spoken = speak.mock.calls.length;
     await runAudiobookJob(env.handle.db, jobs[0], { ai: env.ai, store: env.store }).catch(() => undefined);
     expect(speak.mock.calls.length).toBe(spoken);
-    expect(await env.handle.db.select().from(podcastEpisodes)).toHaveLength(1);
+    expect(await listedBooks()).toHaveLength(1);
   });
 
   it("reports a failure and lets Retry continue from saved chapters", async () => {
@@ -236,7 +248,7 @@ describe("audiobook generation", () => {
     const retried = await planRoute.POST(planRequest("POST", plan.id, { revision: 0 }), params({ id: plan.id }));
     expect((await retried.json()).job.status).toBe("running");
     await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
-    const [row] = await env.handle.db.select().from(podcastEpisodes);
+    const [row] = await listedBooks();
     // Turns voiced before the failure were kept, so the retry speaks fewer than the whole book.
     expect(failedTurns).toBeGreaterThan(1);
     expect(speak.mock.calls.length).toBeLessThanOrEqual(row.document.segments.length);
@@ -245,8 +257,9 @@ describe("audiobook generation", () => {
 
   it("can make a video later for a book first made as audio only", async () => {
     env.ai.images = true;
-    const { podcast } = await generate(await draft({ includeVideo: false }));
+    const { podcast: book } = await generate(await draft({ includeVideo: false }));
     expect(videos).toHaveLength(0);
+    const podcast = await chapterEpisode(book);
     expect(podcast.audiobook!.scenes.length).toBeGreaterThan(0);
     const { createPodcastVideo } = await import("@/lib/services/podcast-video");
     const started = await createPodcastVideo(env.handle.db, "user-alice", day, podcast.key, { ai: env.ai, store: env.store }, undefined, undefined, "watercolor");
@@ -279,14 +292,15 @@ describe("audiobook generation", () => {
     expect(confirmed.status).toBe(200);
     const { job } = await confirmed.json();
     await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
-    const key = job.episodeKey as string;
-    expect(key).not.toBe(plan.id);
+    expect(job.episodeKey).toBe(plan.id);
     const query = `start=${encodeURIComponent(day.start)}&end=${encodeURIComponent(day.end)}`;
-    const episode = await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}?${query}`, { token: env.tokens.alice }), params({ key }));
-    expect(episode.status).toBe(200);
-    const saved = (await episode.json()).podcast;
+    const opened = await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${plan.id}?${query}`, { token: env.tokens.alice }), params({ key: plan.id }));
+    expect(opened.status).toBe(200);
+    const saved = (await opened.json()).podcast;
     expect(saved.chapters).toHaveLength(1);
     expect(saved.title).toBe(plan.plan.title);
+    const key = saved.chapters[0].versionId as string;
+    expect((await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}?${query}`, { token: env.tokens.alice }), params({ key }))).status).toBe(200);
     expect((await linkRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}/audio/link?${query}`, { token: env.tokens.alice }), params({ key }))).status).toBe(200);
     expect((await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${key}?${query}`, { token: env.tokens.bob }), params({ key }))).status).toBe(404);
     expect(videos).toHaveLength(1);
@@ -296,7 +310,7 @@ describe("audiobook generation", () => {
   });
 
   it("gives the recording's direct link only to its owner, and redirects its audio there", async () => {
-    const { podcast } = await generate(await draft({ includeVideo: false }));
+    const podcast = await chapterEpisode((await generate(await draft({ includeVideo: false }))).podcast);
     const query = `start=${encodeURIComponent(day.start)}&end=${encodeURIComponent(day.end)}`;
     const link = await linkRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${podcast.key}/audio/link?${query}`, { token: env.tokens.alice }), params({ key: podcast.key }));
     expect(link.status).toBe(200);
@@ -307,6 +321,248 @@ describe("audiobook generation", () => {
   });
 });
 
+describe("generating a plan's chapters more than once", () => {
+  async function generateChapters(plan: { id: string; revision: number }, chapters: number[]) {
+    const response = await planRoute.POST(planRequest("POST", plan.id, { revision: plan.revision, chapters }), params({ id: plan.id }));
+    expect(response.status).toBe(200);
+    await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
+    return (await response.json()).job;
+  }
+  const book = async (key: string) => (await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, key)))[0].document;
+
+  it("joins different chapters into one chip, in the plan's order, each with its own recording", async () => {
+    const plan = await draft({ includeVideo: false });
+    await generateChapters(plan, [1]);
+    const first = await book(plan.id);
+    const firstChapter = await chapterEpisode(first);
+    const job = await generateChapters(plan, [0]);
+    expect(job.episodeKey).toBe(plan.id);
+    expect(await env.handle.db.select().from(summaries).where(eq(summaries.kind, "audiobook"))).toHaveLength(1);
+    expect(await listedBooks()).toHaveLength(1);
+    const merged = await book(plan.id);
+    expect(merged.summaryId).toBe(first.summaryId);
+    expect(merged.chapters!.map(chapter => chapter.title)).toEqual([plan.plan.chapters[0].title, plan.plan.chapters[1].title]);
+    expect(merged.chapters![1].startSegment).toBe(merged.chapters![0].endSegment);
+    expect(merged.durationSeconds).toBeGreaterThan(first.durationSeconds!);
+    // No joined file: the book has nothing to play itself, and the earlier chapter's recording wasn't touched.
+    expect(merged.audioPath).toBeUndefined();
+    const base = dayKey("user-alice", day);
+    expect(await env.store.head(`${base}/${plan.id}/audio.mp3`)).toBeNull();
+    const [one, two] = [await chapterEpisode(merged, 0), await chapterEpisode(merged, 1)];
+    expect(two).toEqual({ ...firstChapter, summaryId: merged.summaryId });
+    expect(await env.store.head(`${base}/${one.key}/audio.mp3`)).toBeTruthy();
+    expect(await env.store.head(`${base}/${two.key}/audio.mp3`)).toBeTruthy();
+    expect(one.bookKey).toBe(plan.id);
+    expect(one.chapters).toHaveLength(1);
+    expect(one.chapters![0].startSeconds).toBe(0);
+    const query = `start=${encodeURIComponent(day.start)}&end=${encodeURIComponent(day.end)}`;
+    expect((await audioRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${two.key}/audio?${query}`, { token: env.tokens.alice }), params({ key: two.key }))).status).toBe(307);
+  });
+
+  it("publishes each chapter as it finishes, so a later failure keeps what was made", async () => {
+    const plan = await draft({ includeVideo: false });
+    await planRoute.POST(planRequest("POST", plan.id, { revision: plan.revision, chapters: [0, 1] }), params({ id: plan.id }));
+    const writes = env.ai.writeAudiobookChapter.bind(env.ai);
+    let calls = 0;
+    vi.spyOn(env.ai, "writeAudiobookChapter").mockImplementation((input, options) => {
+      if (++calls === 2) throw new Error("provider down");
+      return writes(input, options);
+    });
+    await expect(runAudiobookJob(env.handle.db, jobs[0], { ai: env.ai, store: env.store })).rejects.toThrow();
+    const saved = await book(plan.id);
+    expect(saved.chapters).toHaveLength(1);
+    expect((await chapterEpisode(saved)).durationSeconds).toBeGreaterThan(0);
+    vi.restoreAllMocks();
+    await runAudiobookJob(env.handle.db, jobs[0], { ai: env.ai, store: env.store });
+    const finished = await book(plan.id);
+    expect(finished.chapters).toHaveLength(2);
+    expect(finished.chapters!.every(chapter => chapter.versions!.length === 1)).toBe(true);
+  });
+
+  it("adds a version when a chapter is generated again, and lets an earlier one be chosen instantly and for free", async () => {
+    const plan = await draft({ includeVideo: false });
+    await generateChapters(plan, [0, 1]);
+    const original = await book(plan.id);
+    const originalVersion = original.chapters![0].versionId!;
+    const untouched = await chapterEpisode(original, 1);
+    const speak = vi.spyOn(env.ai, "speak");
+    await generateChapters(plan, [0]);
+    const spoken = speak.mock.calls.length;
+    expect(spoken).toBeGreaterThan(0);
+    const versioned = await book(plan.id);
+    expect(versioned.chapters).toHaveLength(2);
+    expect(versioned.chapters![0].versions!.map(version => version.id)).toContain(originalVersion);
+    expect(versioned.chapters![0].versions).toHaveLength(2);
+    expect(versioned.chapters![0].versionId).not.toBe(originalVersion);
+    expect(versioned.chapters![1].versions).toHaveLength(1);
+    expect(await chapterEpisode(versioned, 1)).toEqual(untouched);
+
+    const select = (version: string, token = env.tokens.alice) => chaptersRoute.PATCH(apiRequest("PATCH", `/api/v1/audiobooks/${plan.id}/chapters`, { token, body: { day, chapter: versioned.chapters![0].bookChapterId, version } }), params({ key: plan.id }));
+    expect((await select(originalVersion, env.tokens.bob)).status).toBe(404);
+    expect((await select("nope")).status).toBe(404);
+    const chosen = await select(originalVersion);
+    expect(chosen.status).toBe(200);
+    const selected = (await chosen.json()).podcast;
+    expect(selected.chapters[0].versionId).toBe(originalVersion);
+    expect(selected.chapters[0].versions).toHaveLength(2);
+    expect(selected.segments.map((segment: { caption: string }) => segment.caption)).toEqual(original.segments.map(segment => segment.caption));
+    expect(speak.mock.calls.length).toBe(spoken);
+  });
+
+  it("starts a new book when the chip was deleted, and doesn't bring the old chapters back", async () => {
+    const plan = await draft({ includeVideo: false });
+    await generateChapters(plan, [0, 1]);
+    const first = await book(plan.id);
+    const removed = await summaryRoute.DELETE(apiRequest("DELETE", `/api/v1/summaries/${first.summaryId}`, { token: env.tokens.alice }), params({ id: first.summaryId! }));
+    expect(removed.status).toBeLessThan(300);
+    expect(await env.handle.db.select().from(podcastEpisodes)).toHaveLength(0);
+    await generateChapters(plan, [1]);
+    const query = `start=${encodeURIComponent(day.start)}&end=${encodeURIComponent(day.end)}`;
+    const opened = await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${plan.id}?${query}`, { token: env.tokens.alice }), params({ key: plan.id }));
+    expect(opened.status).toBe(200);
+    expect((await opened.json()).podcast.chapters.map((chapter: { title: string }) => chapter.title)).toEqual([plan.plan.chapters[1].title]);
+    expect(await env.handle.db.select().from(summaries).where(eq(summaries.kind, "audiobook"))).toHaveLength(1);
+  });
+
+  it("recovers a book left behind by a chip deleted before recordings went with it", async () => {
+    const plan = await draft({ includeVideo: false });
+    await generateChapters(plan, [0, 1]);
+    const first = await book(plan.id);
+    await env.handle.db.delete(summaries).where(eq(summaries.id, first.summaryId!));
+    await generateChapters(plan, [0]);
+    const query = `start=${encodeURIComponent(day.start)}&end=${encodeURIComponent(day.end)}`;
+    const opened = await episodeRoute.GET(apiRequest("GET", `/api/v1/daily-podcasts/${plan.id}?${query}`, { token: env.tokens.alice }), params({ key: plan.id }));
+    expect(opened.status).toBe(200);
+    const saved = (await opened.json()).podcast;
+    expect(saved.chapters).toHaveLength(1);
+    expect(saved.chapters[0].versions).toHaveLength(1);
+  });
+
+  it("joins a repeated tap to the running generation, but a later one makes a new version", async () => {
+    const plan = await draft({ includeVideo: false });
+    const send = () => planRoute.POST(planRequest("POST", plan.id, { revision: plan.revision, chapters: [0] }), params({ id: plan.id }));
+    const first = (await (await send()).json()).job;
+    expect((await (await send()).json()).job.id).toBe(first.id);
+    expect(jobs).toHaveLength(1);
+    await runAudiobookJob(env.handle.db, jobs[0], { ai: env.ai, store: env.store });
+    expect((await (await send()).json()).job.id).not.toBe(first.id);
+    expect(jobs).toHaveLength(2);
+  });
+
+  it("joins generations that finish together without losing either", async () => {
+    const plan = await draft({ includeVideo: false });
+    for (const chapters of [[0], [1]]) await planRoute.POST(planRequest("POST", plan.id, { revision: plan.revision, chapters }), params({ id: plan.id }));
+    await Promise.all(jobs.map(job => runAudiobookJob(env.handle.db, job, { ai: env.ai, store: env.store })));
+    expect((await book(plan.id)).chapters).toHaveLength(2);
+    expect(await env.handle.db.select().from(summaries).where(eq(summaries.kind, "audiobook"))).toHaveLength(1);
+  });
+
+  it("keeps a chapter's translation and video when the book gains another chapter or a version", async () => {
+    env.ai.images = true;
+    const plan = await draft();
+    await generateChapters(plan, [0]);
+    const first = await chapterEpisode(await book(plan.id));
+    await runAudiobookVideoJob(env.handle.db, videos.find(item => item.key === first.key)!, { ai: env.ai, store: env.store });
+    const translate = await translations.POST(apiRequest("POST", `/api/v1/audiobooks/${first.key}/translations`, { token: env.tokens.alice, body: { day, language: "ja" } }), params({ key: first.key }));
+    expect(translate.status).toBe(200);
+    await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
+    const before = (await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, first.key)))[0].document;
+    expect(before.video).toBeTruthy();
+    expect(before.translations?.ja).toBeTruthy();
+    const drawn = env.ai.calls.drawAudiobookScene.length;
+    await generateChapters(plan, [1]);
+    const after = (await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, first.key)))[0].document;
+    expect(after).toEqual(before);
+    expect(env.ai.calls.drawAudiobookScene.length).toBe(drawn);
+    // The new chapter has a video of its own.
+    const second = await chapterEpisode(await book(plan.id), 1);
+    expect(videos.some(item => item.key === second.key)).toBe(true);
+  });
+
+  it("gives chapters separate translations: one can be spoken while another isn't", async () => {
+    const plan = await draft({ includeVideo: false });
+    await generateChapters(plan, [0, 1]);
+    const merged = await book(plan.id);
+    const key = merged.chapters![0].versionId!;
+    expect((await translations.POST(apiRequest("POST", `/api/v1/audiobooks/${key}/translations`, { token: env.tokens.alice, body: { day, language: "ja" } }), params({ key }))).status).toBe(200);
+    await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
+    expect((await chapterEpisode(merged, 0)).translations?.ja).toBeTruthy();
+    expect((await chapterEpisode(merged, 1)).translations).toBeUndefined();
+  });
+
+  describe("recordings made before chapters had their own", () => {
+    /**
+     * Rewrites a generated chapter the way earlier versions stored a selection: its own chip, recording and plan row.
+     * Installed by the returned call, since a generation folds in any such recording it finds.
+     */
+    async function legacy(plan: { id: string; revision: number }, chapter: number, suffix: string) {
+      const [root] = await env.handle.db.select().from(audiobookPlans).where(eq(audiobookPlans.id, plan.id));
+      await generateChapters(plan, [chapter]);
+      const [bookRow] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, plan.id));
+      const made = await chapterEpisode(bookRow.document);
+      const key = suffix.repeat(64);
+      const summaryId = `chip-${suffix}`;
+      const document = { ...made, key, summaryId, bookKey: undefined, createdAt: `2030-04-01T00:00:0${suffix.charCodeAt(0) - 97}.000Z`, audioPath: `/api/v1/daily-podcasts/${key}/audio` };
+      delete document.bookKey;
+      const base = dayKey("user-alice", day);
+      const audio = await env.store.get(`${base}/${made.key}/audio.mp3`);
+      const [chip] = await env.handle.db.select().from(summaries).where(eq(summaries.id, bookRow.summaryId!));
+      await env.handle.db.delete(summaries).where(eq(summaries.id, chip.id));
+      return async () => {
+        await env.store.put(`${base}/${key}/audio.mp3`, audio);
+        await env.handle.db.insert(audiobookPlans).values({ ...root, id: key, confirmed: true, plan: { ...root.plan, chapters: [root.plan.chapters[chapter]] } });
+        await env.handle.db.insert(summaries).values({ ...chip, id: summaryId, slug: `slug-${suffix}` });
+        await env.handle.db.insert(podcastEpisodes).values({ key, ownerId: "user-alice", dayStart: bookRow.dayStart, dayEnd: bookRow.dayEnd, summaryId, isDefault: true, document });
+        return document;
+      };
+    }
+
+    it("cuts them into chapters on one chip, repeats becoming versions", async () => {
+      const plan = await draft({ includeVideo: false });
+      const installs = [await legacy(plan, 0, "a"), await legacy(plan, 1, "b"), await legacy(plan, 0, "c")];
+      const [first] = await Promise.all(installs.map(install => install()));
+      await mergeLegacyAudiobooks(env.handle.db, "user-alice", { ai: env.ai, store: env.store });
+      expect((await listedBooks()).map(row => row.key)).toEqual([plan.id]);
+      const chips = await env.handle.db.select().from(summaries).where(eq(summaries.kind, "audiobook"));
+      expect(chips.map(item => item.id)).toEqual([first.summaryId]);
+      const merged = await book(plan.id);
+      expect(merged.chapters).toHaveLength(2);
+      expect(merged.chapters![0].versions).toHaveLength(2);
+      expect(merged.chapters![1].versions).toHaveLength(1);
+      expect(merged.audioPath).toBeUndefined();
+      const chapter = await chapterEpisode(merged);
+      expect(chapter.durationSeconds).toBeGreaterThan(0);
+      expect(chapter.segments[0].captionCues!.every(cue => cue.endSeconds <= chapter.durationSeconds!)).toBe(true);
+      // Running again changes nothing.
+      expect(await mergeLegacyAudiobooks(env.handle.db, "user-alice", { ai: env.ai, store: env.store })).toBe(false);
+      expect((await book(plan.id)).audiobook!.revision).toBe(merged.audiobook!.revision);
+    });
+
+    it("tells the app when loading the library merged them, so it refreshes its feed", async () => {
+      const plan = await draft({ includeVideo: false });
+      const installs = [await legacy(plan, 0, "a"), await legacy(plan, 1, "b")];
+      await Promise.all(installs.map(install => install()));
+      vi.spyOn(await import("@/lib/storage/r2"), "getObjectStore").mockReturnValue(env.store);
+      const load = async () => (await planList.GET(apiRequest("GET", "/api/v1/audiobooks/plans", { token: env.tokens.alice }))).json();
+      expect((await load()).merged).toBe(true);
+      expect(await env.handle.db.select().from(summaries).where(eq(summaries.kind, "audiobook"))).toHaveLength(1);
+      expect((await load()).merged).toBe(false);
+    });
+
+    it("leaves a plan's single recording alone until more of it is generated, then folds it in", async () => {
+      const plan = await draft({ includeVideo: false });
+      await (await legacy(plan, 0, "a"))();
+      await mergeLegacyAudiobooks(env.handle.db, "user-alice", { ai: env.ai, store: env.store });
+      expect((await listedBooks()).map(row => row.key)).toEqual(["a".repeat(64)]);
+      await generateChapters(plan, [1]);
+      const rows = await listedBooks();
+      expect(rows.map(row => row.key)).toEqual([plan.id]);
+      expect(rows[0].document.chapters).toHaveLength(2);
+      expect(rows[0].summaryId).toBe("chip-a");
+    });
+  });
+});
+
 describe("audiobook translations and video", () => {
   const translate = async (key: string, language = "ja") => {
     const response = await translations.POST(apiRequest("POST", `/api/v1/audiobooks/${key}/translations`, { token: env.tokens.alice, body: { day, language } }), params({ key }));
@@ -314,9 +570,9 @@ describe("audiobook translations and video", () => {
     return (await response.json()).job;
   };
 
-  it("speaks another language with the same speakers and music, chapter for chapter", async () => {
+  it("speaks a chapter in another language with the same speakers and music", async () => {
     env.ai.music = true;
-    const { podcast } = await generate(await draft({ includeVideo: false }));
+    const podcast = await chapterEpisode((await generate(await draft({ includeVideo: false }))).podcast);
     const composed = env.ai.calls.composeMusic.length;
     const job = await translate(podcast.key);
     expect(job.kind).toBe("translate");
@@ -326,7 +582,7 @@ describe("audiobook translations and video", () => {
     expect(translated.language).toBe("ja");
     expect(translated.languages).toEqual(["en", "ja"]);
     expect(translated.speakers).toEqual(podcast.speakers);
-    expect(translated.chapters).toHaveLength(podcast.chapters!.length);
+    expect(translated.chapters).toHaveLength(1);
     expect(translated.segments.map(segment => segment.music)).toEqual(podcast.segments.map(segment => segment.music));
     expect(env.ai.calls.composeMusic.length).toBe(composed);
     expect(translated.audioPath).toContain("language=ja");
@@ -334,44 +590,45 @@ describe("audiobook translations and video", () => {
     expect(podcastInLanguage(row.document).language).toBe("en");
   });
 
-  it("shares a running translation rather than paying twice, and refuses the book's own language", async () => {
-    const { podcast } = await generate(await draft({ includeVideo: false }));
+  it("shares a running translation rather than paying twice, and refuses the chapter's own language", async () => {
+    const podcast = await chapterEpisode((await generate(await draft({ includeVideo: false }))).podcast);
     const first = await translate(podcast.key);
     expect((await translate(podcast.key)).id).toBe(first.id);
     const same = await translations.POST(apiRequest("POST", `/api/v1/audiobooks/${podcast.key}/translations`, { token: env.tokens.alice, body: { day, language: "en" } }), params({ key: podcast.key }));
     expect(same.status).toBe(422);
   });
 
-  it("illustrates approved scenes first, reuses them and queues a render", async () => {
+  it("illustrates approved scenes first, reuses them and queues a render for each chapter", async () => {
     env.ai.images = true;
     const plan = await draft();
     const drawnPlan = (await (await framesRoute.POST(planRequest("POST", plan.id, { revision: 0 }, env.tokens.alice, "/frames"), params({ id: plan.id }))).json()).plan;
     const reviewed = env.ai.calls.drawAudiobookScene.length;
-    const { podcast } = await generate(drawnPlan);
-    expect(videos).toHaveLength(1);
-    const started = (await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, podcast.key)))[0].document;
-    expect(started.videoDesign).toBeTruthy();
-    await runAudiobookVideoJob(env.handle.db, videos[0], { ai: env.ai, store: env.store });
+    const { podcast: book } = await generate(drawnPlan);
+    expect(videos).toHaveLength(book.chapters!.length);
+    const podcast = await chapterEpisode(book);
+    expect(podcast.videoDesign).toBeTruthy();
+    const video = videos.find(item => item.key === podcast.key)!;
+    await runAudiobookVideoJob(env.handle.db, video, { ai: env.ai, store: env.store });
     expect(env.ai.calls.drawAudiobookScene.length).toBe(reviewed);
-    const finished = (await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, podcast.key)))[0].document;
+    const finished = await chapterEpisode(book);
     expect(finished.videoDesign).toBeUndefined();
-    expect(finished.video?.id).toBe(videos[0].id);
+    expect(finished.video?.id).toBe(video.id);
     const source = await podcastVideoSource(env.handle.db, "user-alice", day, podcast.key, env.store);
     expect(source.files).toEqual({});
     expect(source.imageSequence!.scenes.length).toBeGreaterThan(0);
     expect(source.imageSequence!.scenes[0].segment).toBe(0);
-    expect(env.podcastRenders.map(job => job.videoId)).toContain(videos[0].id);
+    expect(env.podcastRenders.map(job => job.videoId)).toContain(video.id);
   });
 
-  it("gives a translation the same scenes without drawing or label work", async () => {
+  it("gives a chapter's translation the same scenes without drawing or label work", async () => {
     env.ai.images = true;
-    const { podcast } = await generate(await draft());
-    await runAudiobookVideoJob(env.handle.db, videos[0], { ai: env.ai, store: env.store });
+    const podcast = await chapterEpisode((await generate(await draft())).podcast);
+    await runAudiobookVideoJob(env.handle.db, videos.find(item => item.key === podcast.key)!, { ai: env.ai, store: env.store });
     const drawn = env.ai.calls.drawAudiobookScene.length;
     await translate(podcast.key);
     await runAudiobookJob(env.handle.db, jobs.at(-1)!, { ai: env.ai, store: env.store });
     const [row] = await env.handle.db.select().from(podcastEpisodes).where(eq(podcastEpisodes.key, podcast.key));
-    expect(row.document.translations!.ja.video?.sourceId).toBe(videos[0].id);
+    expect(row.document.translations!.ja.video?.sourceId).toBe(row.document.video!.id);
     expect(env.ai.calls.drawAudiobookScene.length).toBe(drawn);
     expect(env.ai.calls.translatePodcastVideo).toHaveLength(0);
   });

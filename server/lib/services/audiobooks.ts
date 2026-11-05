@@ -6,7 +6,7 @@ import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import { audiobookVoices, voiceUsdPerCharacter } from "@/lib/ai/voices";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import { audiobookPlanSchema, MAX_AUDIOBOOK_SCENES, type AudiobookCreationInput, type AudiobookJob, type AudiobookJobStage, type AudiobookPlanDocument } from "@/lib/contracts/audiobook";
-import type { AudiobookScene, DailyPodcast, PodcastChapter, PodcastDay, PodcastPlanFrame, PodcastPlanMessage, PodcastTranslation } from "@/lib/contracts/daily-podcast";
+import type { DailyPodcast, PodcastDay, PodcastPlanFrame, PodcastPlanMessage, PodcastTranslation } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { audiobookJobs, audiobookPlans, podcastEpisodes, summaries, uploads, type SummaryRow } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
@@ -14,10 +14,11 @@ import { runAfter } from "@/lib/http/after";
 import { getObjectStore, ownerKeyPrefix, type ObjectStore } from "@/lib/storage/r2";
 import type { BillingEnvironment } from "@/lib/subscription/config";
 import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
+import { assembleChapters, bookChapterId, chapterEpisodeKey, commitBook, mergeLegacyAudiobooks, saveChapterEpisode, type ChapterState } from "./audiobook-book";
 import { audiobookPassages, splitPassages, narrationRatio, narrationSeconds, normalizeAudiobookPlan, passagesForPlanning, type StoredPassage } from "./audiobook-source";
 import { getAudiobookStarter } from "./audiobook-starter";
 import { alignPodcastCaptions } from "./podcast-captions";
-import { chipArtPath, dailyPodcastEpisode, dayKey, episodeAudioPath, jsonObject, podcastCover, podcastSummaryText, translationPath, updatePodcastDocument } from "./daily-podcast";
+import { chipArtPath, dailyPodcastEpisode, dayKey, episodeAudioPath, jsonObject, podcastCover, translationPath, updatePodcastDocument } from "./daily-podcast";
 import { joinPodcastAudio } from "./podcast-audio";
 import { mixAudiobookChapter } from "./podcast-mixer";
 import { musicBedPrompt } from "./podcast-music";
@@ -287,6 +288,17 @@ export async function drawAudiobookPlanFrames(db: Database, user: string, id: st
   }
 }
 
+/**
+ * Merges books generated before chapters joined into one, for the library to load. Awaited so the app knows to refresh its
+ * feed; a failure only means they stay apart until the next load.
+ */
+export async function mergeEarlierAudiobooks(db: Database, user: string, deps: ServiceDeps = {}) {
+  return mergeLegacyAudiobooks(db, user, deps).catch((error) => {
+    console.error("[audiobook] recordings could not be merged yet", error);
+    return false;
+  });
+}
+
 /** The owner's unconfirmed plans, most recently changed first, and audiobooks being made. */
 export async function listAudiobookPlans(db: Database, user: string, deps: ServiceDeps = {}) {
   const store = deps.store ?? getObjectStore();
@@ -331,6 +343,7 @@ type JobDocument = typeof audiobookJobs.$inferSelect["document"];
 function visibleJob(document: JobDocument): AudiobookJob {
   const job: AudiobookJob & { chapterProgress?: unknown } = { ...document };
   delete job.chapterProgress;
+  delete job.selection;
   if (job.status === "running" && Date.now() - Date.parse(job.updatedAt) > STALE_MS) {
     return { ...job, status: "failed", error: { code: "AUDIOBOOK_STALLED", message: "This audiobook stopped making progress. Retry to continue from where it left off." } };
   }
@@ -373,11 +386,11 @@ async function reportChapter(db: Database, job: AudiobookJobInput, chapter: numb
   });
 }
 
-async function startJob(db: Database, input: Omit<AudiobookJobInput, "id">, title: string, chapters: number, summaryId: string | null, deps: ServiceDeps) {
+async function startJob(db: Database, input: Omit<AudiobookJobInput, "id">, title: string, chapters: number, summaryId: string | null, deps: ServiceDeps, book: { episodeKey?: string; selection?: string } = {}) {
   const job: AudiobookJobInput = { ...input, id: randomUUID() };
   const now = (deps.now?.() ?? new Date()).toISOString();
-  const document: JobDocument = { id: job.id, kind: job.kind, status: "running", stage: "queued", percent: 0, planId: job.planId, episodeKey: job.key, language: job.language, day: job.day,
-    title, completedChapters: 0, totalChapters: chapters, summaryId, error: null, createdAt: now, updatedAt: now };
+  const document: JobDocument = { id: job.id, kind: job.kind, status: "running", stage: "queued", percent: 0, planId: job.planId, episodeKey: book.episodeKey ?? job.key, language: job.language, day: job.day,
+    title, completedChapters: 0, totalChapters: chapters, summaryId, error: null, createdAt: now, updatedAt: now, ...(book.selection ? { selection: book.selection } : {}) };
   await db.insert(audiobookJobs).values({ id: job.id, ownerId: job.userId, document, createdAt: Date.parse(now) });
   try {
     await getAudiobookStarter().start(job);
@@ -388,12 +401,15 @@ async function startJob(db: Database, input: Omit<AudiobookJobInput, "id">, titl
   }
   return visibleJob(document);
 }
-/** The job already making this episode's language, which a repeat request joins rather than paying twice. */
-async function activeJob(db: Database, user: string, key: string, language: string) {
+async function recentJobs(db: Database, user: string) {
   const rows = await db.select().from(audiobookJobs).where(eq(audiobookJobs.ownerId, user)).orderBy(desc(audiobookJobs.createdAt)).limit(100);
-  return rows.map(row => visibleJob(row.document)).find(job => job.episodeKey === key && job.language === language && job.status !== "failed") ?? null;
+  return rows.map(row => row.document);
 }
-
+/** The job already translating this book, which a repeat request joins rather than paying twice. */
+async function activeTranslation(db: Database, user: string, key: string, language: string) {
+  const job = (await recentJobs(db, user)).map(visibleJob).find(item => item.kind === "translate" && item.episodeKey === key && item.language === language && item.status === "running");
+  return job ?? null;
+}
 /**
  * Freezes the reviewed plan and starts the workflow. The balance must cover the estimate; the actual cost is charged when
  * the book is saved, and a failed run is free. Retrying a failed job resumes it, reusing every chapter already voiced.
@@ -405,16 +421,23 @@ export async function confirmAudiobookPlan(db: Database, user: string, id: strin
     const indices = [...new Set(chapters)].sort((a, b) => a - b);
     if (!indices.length || indices.some(index => !Number.isInteger(index) || index < 0 || index >= plan.plan.chapters.length))
       throw new ApiError(422, "AUDIOBOOK_SELECTION", "Select valid chapters.");
-    const batchId = createHash("sha256").update(JSON.stringify([user, id, revision, indices])).digest("hex");
+    const bookId = plan.input.bookId ?? plan.id;
+    const selection = createHash("sha256").update(JSON.stringify([user, id, revision, indices])).digest("hex");
+    // Asking again adds a new version, unless the same request is still going or stopped partway.
+    const earlier = (await recentJobs(db, user)).map(job => ({ ...visibleJob(job), selection: job.selection })).find(job => job.selection === selection && job.status !== "ready");
+    if (earlier?.status === "running") return visibleJob(earlier);
+    if (earlier?.planId) return confirmAudiobookPlan(db, user, earlier.planId, 0, deps);
+    const batchId = randomUUID();
     const store = deps.store ?? getObjectStore();
     const passages = await readPassages(store, user, id);
     await store.put(passagesKey(user, batchId), jsonObject(passages));
-    await db.insert(audiobookPlans).values({ ...plan, id: batchId, revision: 0, confirmed: true, frames: {},
+    await db.insert(audiobookPlans).values({ ...plan, id: batchId, revision: 0, confirmed: true, frames: {}, input: { ...plan.input, bookId, selection },
       plan: { ...plan.plan, chapters: indices.map(index => plan.plan.chapters[index]) },
-    }).onConflictDoNothing();
+    });
     return confirmAudiobookPlan(db, user, batchId, 0, deps);
   }
-  const existing = await activeJob(db, user, id, plan.input.language);
+  const bookId = plan.input.bookId ?? plan.id;
+  const existing = (await recentJobs(db, user)).map(visibleJob).find(job => job.kind === "generate" && job.planId === id && job.status !== "failed");
   if (existing) return existing;
   const ai = deps.ai ?? await getAiProvider();
   await loadSources(db, user, plan.input);
@@ -426,7 +449,15 @@ export async function confirmAudiobookPlan(db: Database, user: string, id: strin
     if (!confirmed) throw changed();
   }
   return startJob(db, { userId: user, kind: "generate", key: id, day: plan.input.day, language: plan.input.language, planId: id,
-    includeVideo: plan.input.includeVideo, billingEnvironment: deps.billingEnvironment }, plan.plan.title, plan.plan.chapters.length, plan.input.summaryId ?? null, deps);
+    includeVideo: plan.input.includeVideo, billingEnvironment: deps.billingEnvironment }, plan.plan.title, plan.plan.chapters.length, plan.input.summaryId ?? null, deps, { episodeKey: bookId, selection: plan.input.selection });
+}
+
+/** Chooses which recording of a chapter the book plays. Only the index changes, so no chapter is touched and nothing is charged. */
+export async function selectAudiobookChapterVersion(db: Database, user: string, day: PodcastDay, key: string, input: { chapter: string; version: string }, deps: ServiceDeps = {}) {
+  const podcast = await dailyPodcastEpisode(db, user, day, key);
+  if (!podcast.audiobook?.takes?.some(item => item.id === input.version && item.chapterId === input.chapter)) throw new ApiError(404, "NOT_FOUND", "Chapter version not found.");
+  if (podcast.chapters?.some(chapter => chapter.bookChapterId === input.chapter && chapter.versionId === input.version)) return podcast;
+  return (await commitBook(db, user, key, day, { select: { chapterId: input.chapter, takeId: input.version } }, deps)).podcast;
 }
 
 /** Starts speaking a saved audiobook in another language, chapter by chapter, with the same speakers and music. */
@@ -435,7 +466,7 @@ export async function startAudiobookTranslation(db: Database, user: string, day:
   if (podcast.format !== "audiobook") throw new ApiError(404, "NOT_FOUND", "Audiobook not found.");
   if (input.language === podcast.language) throw new ApiError(422, "PODCAST_TRANSLATION_SAME", "The audiobook is already in this language.");
   if (podcast.translations?.[input.language]) throw new ApiError(409, "PODCAST_TRANSLATION_EXISTS", "This language already exists.");
-  const existing = await activeJob(db, user, key, input.language);
+  const existing = await activeTranslation(db, user, key, input.language);
   if (existing) return existing;
   const ai = deps.ai ?? await getAiProvider();
   const characters = podcast.segments.reduce((sum, segment) => sum + segment.caption.length, 0);
@@ -448,19 +479,6 @@ export async function startAudiobookTranslation(db: Database, user: string, day:
 
 // MARK: Workflow steps. Each is resumable: state lives in storage and finished work is skipped.
 
-interface ChapterTurn {
-  speaker: number; chipId: string; caption: string; music: string; scene: number;
-  imagePath: string | null; icon: string;
-  captionCues?: { text: string; startSeconds: number; endSeconds: number; paged?: boolean }[];
-  voiced?: boolean;
-}
-interface ChapterState {
-  title: string;
-  synopsis?: string;
-  turns: ChapterTurn[];
-  costUsd: number;
-  mixed?: { cues: { startSeconds: number; endSeconds: number }[]; durationSeconds: number };
-}
 interface MusicState { generated: number; ready: string[] }
 type StepDeps = ServiceDeps;
 
@@ -491,7 +509,9 @@ async function jobSource(db: Database, job: AudiobookJobInput) {
 export async function runAudiobookMusic(db: Database, job: AudiobookJobInput, deps: StepDeps = {}): Promise<{ done: boolean; chapters: number }> {
   const store = deps.store ?? getObjectStore();
   const ai = deps.ai ?? await getAiProvider();
-  const { musicCues, chapterCount } = await jobSource(db, job);
+  const { plan, musicCues, chapterCount } = await jobSource(db, job);
+  // First, and before chapters run side by side: recordings of this plan from before chapters had episodes join its book.
+  if (plan) await mergeLegacyAudiobooks(db, job.userId, { ...deps, ai, store }, plan.input.bookId ?? plan.id);
   const model = ai.musicModelId();
   const stateKey = `${jobBase(job)}/music.json`;
   const state = await readOptional<MusicState>(store, stateKey) ?? { generated: 0, ready: [] };
@@ -636,7 +656,10 @@ export async function runAudiobookChapterMix(db: Database, job: AudiobookJobInpu
   const store = deps.store ?? getObjectStore();
   const ai = deps.ai ?? await getAiProvider();
   const state = await readJson<ChapterState>(store, chapterKey(job, chapter));
-  if (state.mixed) return;
+  if (state.mixed) {
+    if (job.kind === "generate") await publishChapter(db, job, chapter, deps);
+    return;
+  }
   await patchJob(db, job, (document) => { document.stage = "mixing"; });
   const { musicCues } = await jobSource(db, job);
   const model = ai.musicModelId();
@@ -654,46 +677,25 @@ export async function runAudiobookChapterMix(db: Database, job: AudiobookJobInpu
   state.mixed = { cues: mixed.cues, durationSeconds: mixed.durationSeconds };
   await store.put(chapterKey(job, chapter), jsonObject(state));
   await Promise.all(state.turns.map((_, index) => store.delete(partKey(job, chapter, index)).catch(() => undefined)));
+  if (job.kind === "generate") await publishChapter(db, job, chapter, deps);
   await reportChapter(db, job, chapter, 1, "mixing");
 }
 
-/** Joins the chapters into one recording and lays every turn and chapter out on its timeline. */
-async function assemble(store: ObjectStore, job: AudiobookJobInput, states: ChapterState[], objectKey: string) {
-  const parts = await Promise.all(states.map(async (_, chapter) => (await store.get(mixedKey(job, chapter))).bytes));
-  const joined = joinPodcastAudio(parts);
-  await store.put(objectKey, { bytes: joined.bytes, contentType: "audio/mpeg", cacheControl: "private, no-store" });
-  const segments: DailyPodcast["segments"] = [];
-  const chapters: PodcastChapter[] = [];
-  states.forEach((state, chapter) => {
-    const offset = joined.cues[chapter].startSeconds;
-    const round = (seconds: number) => Math.round(seconds * 100) / 100;
-    const startSegment = segments.length;
-    state.turns.forEach((turn, index) => {
-      const window = state.mixed!.cues[index];
-      const start = window.startSeconds + offset;
-      const end = window.endSeconds + offset;
-      const captionCues = (turn.captionCues ?? []).map(cue => ({ ...cue, startSeconds: round(Math.min(end, start + cue.startSeconds)), endSeconds: round(Math.min(end, start + cue.endSeconds)) })).filter(cue => cue.endSeconds > cue.startSeconds);
-      segments.push({ speaker: turn.speaker, chipId: turn.chipId, caption: turn.caption, imagePath: turn.imagePath, icon: turn.icon, chapter, music: turn.music,
-        startSeconds: round(start), endSeconds: round(end), captionCues,
-        voiceStartSeconds: captionCues[0]?.startSeconds ?? round(start), voiceEndSeconds: captionCues.at(-1)?.endSeconds ?? round(end) });
-    });
-    chapters.push({ title: state.title, ...(state.synopsis ? { synopsis: state.synopsis } : {}), startSegment, endSegment: segments.length,
-      startSeconds: round(offset), endSeconds: round(joined.cues[chapter].endSeconds) });
-  });
-  return { segments, chapters, durationSeconds: joined.durationSeconds };
+async function mixedChapters(store: ObjectStore, job: AudiobookJobInput, states: ChapterState[]) {
+  return Promise.all(states.map(async (_, chapter) => (await store.get(mixedKey(job, chapter))).bytes));
 }
 
-async function speechCost(ai: AiProvider, speakers: DailyPodcast["speakers"], segments: DailyPodcast["segments"]) {
-  return segments.reduce((sum, segment) => sum + segment.caption.length * (voiceUsdPerCharacter(speakers[segment.speaker]?.voice ?? "") ?? ai.speechUsdPerCharacter()), 0);
+function speechCost(ai: AiProvider, speakers: DailyPodcast["speakers"], turns: ChapterState["turns"]) {
+  return turns.reduce((sum, turn) => sum + turn.caption.length * (voiceUsdPerCharacter(speakers[turn.speaker]?.voice ?? "") ?? ai.speechUsdPerCharacter()), 0);
 }
 
 async function loadChapterStates(store: ObjectStore, job: AudiobookJobInput, chapters: number) {
   return Promise.all(Array.from({ length: chapters }, (_, chapter) => readJson<ChapterState>(store, chapterKey(job, chapter))));
 }
 
-async function cleanJob(store: ObjectStore, job: AudiobookJobInput, states: ChapterState[]) {
+async function cleanJob(store: ObjectStore, job: AudiobookJobInput, chapters: number) {
   await Promise.all([store.delete(`${jobBase(job)}/music.json`).catch(() => undefined),
-    ...states.flatMap((_, chapter) => [store.delete(mixedKey(job, chapter)).catch(() => undefined), store.delete(chapterKey(job, chapter)).catch(() => undefined)])]);
+    ...Array.from({ length: chapters }, (_, chapter) => [store.delete(mixedKey(job, chapter)).catch(() => undefined), store.delete(chapterKey(job, chapter)).catch(() => undefined)]).flat()]);
 }
 
 /** Saves the finished book or translation, charges for it and queues its video. Safe to run again after a crash. */
@@ -704,73 +706,90 @@ export async function finishAudiobook(db: Database, job: AudiobookJobInput, deps
   await patchJob(db, job, (document) => { document.status = "ready"; document.stage = "complete"; document.percent = 100; document.error = null; delete document.chapterProgress; });
 }
 
-async function finishOriginal(db: Database, job: AudiobookJobInput, deps: StepDeps) {
+/**
+ * Saves a finished chapter as its own episode, adds it to the plan's one book (a new chapter joins, a repeated one gains a
+ * version), charges for it and starts its video. Listeners get each chapter as soon as it's ready, and a later failure
+ * loses nothing already made. Safe to run again.
+ */
+async function publishChapter(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
   const ai = deps.ai ?? await getAiProvider();
   const plan = await getAudiobookPlan(db, job.userId, job.planId!);
-  const [existing] = await db.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.key, job.key), eq(podcastEpisodes.ownerId, job.userId)));
-  if (existing) return;
-  const states = await loadChapterStates(store, job, plan.plan.chapters.length);
-  const { segments, chapters, durationSeconds } = await assemble(store, job, states, `${dayKey(job.userId, job.day)}/${job.key}/audio.mp3`);
-  const music = !!ai.musicModelId();
-  const scenes = planScenes(plan.plan, chapters, states);
-  const summaryId = plan.input.summaryId ?? randomUUID();
+  const bookId = plan.input.bookId ?? plan.id;
+  const key = chapterEpisodeKey(plan.id, chapter);
+  const [saved] = await db.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.key, bookId), eq(podcastEpisodes.ownerId, job.userId), eq(podcastEpisodes.deleted, false)));
+  // A book whose chip was deleted doesn't count: this chapter starts a new one.
+  const [chip] = saved?.summaryId ? await db.select({ id: summaries.id }).from(summaries).where(eq(summaries.id, saved.summaryId)) : [];
+  const book = chip ? saved : undefined;
+  if (book?.document.audiobook?.takes?.some(take => take.id === key)) return;
+  const state = await readJson<ChapterState>(store, chapterKey(job, chapter));
+  const item = plan.plan.chapters[chapter];
   const createdAt = deps.now?.() ?? new Date();
-  const podcast: DailyPodcast = { title: plan.plan.title, summary: plan.plan.summary, mood: plan.plan.musicCues[0]?.mood ?? "calm",
-    speakers: plan.plan.speakers.map(({ name, voice }) => ({ name, voice })), segments, type: "regular", format: "audiobook", chapters,
-    audiobook: { musicCues: plan.plan.musicCues, videoTheme: plan.plan.videoTheme, visualGuide: plan.plan.visualGuide, scenes },
-    key: job.key, summaryId, language: plan.input.language, day: job.day, chipIds: [...new Set(segments.map(segment => segment.chipId))].filter(id => !id.startsWith("upload:")), createdAt: createdAt.toISOString(), durationSeconds, music };
-  podcast.audioPath = episodeAudioPath(podcast);
-  // Approved scene images move next to the recording, so the video reuses them instead of drawing them again.
-  await copyApprovedScenes(store, job, plan);
-  const chips = await Promise.all(podcast.chipIds.map(id => getSummaryForViewer(db, id, job.userId)));
-  const existingChip = plan.input.summaryId ? await getSummaryForViewer(db, plan.input.summaryId, job.userId) : null;
-  const designed = await podcastCover(db, job.userId, ai, store, summaryId, podcast, chips as SummaryRow[], plan.input.language, createdAt);
-  const cover = designed && { ...designed, theme: { ...designed.theme, emoji: "📖" } };
-  const episode = db.insert(podcastEpisodes).values({ key: job.key, ownerId: job.userId, dayStart: Date.parse(job.day.start), dayEnd: Date.parse(job.day.end), document: podcast, summaryId });
-  if (plan.input.summaryId) {
-    await db.batch([episode,
-      db.update(podcastEpisodes).set({ isDefault: false }).where(and(eq(podcastEpisodes.summaryId, summaryId), eq(podcastEpisodes.ownerId, job.userId))),
-      db.update(podcastEpisodes).set({ isDefault: true }).where(eq(podcastEpisodes.key, job.key)),
-      db.update(summaries).set({ title: podcast.title, summary: podcast.summary ?? podcastSummaryText(podcast), language: plan.input.language, updatedAt: createdAt, ...cover })
-        .where(and(eq(summaries.id, summaryId), eq(summaries.ownerId, job.userId)))]);
-    if (cover && existingChip) {
+  const summaryId = book?.document.summaryId ?? plan.input.summaryId ?? bookId;
+  const speakers = plan.plan.speakers.map(({ name, voice }) => ({ name, voice }));
+  const mood = plan.plan.musicCues[0]?.mood ?? "calm";
+  const scenes = item.scenes.flatMap((scene, sceneIndex) => {
+    const turn = sceneIndex === 0 ? 0 : state.turns.findIndex(entry => entry.scene === sceneIndex);
+    return turn < 0 ? [] : [{ turn, prompt: scene.prompt, motion: scene.motion }];
+  });
+  const episode = await saveChapterEpisode(db, store, { key, bookKey: bookId, user: job.userId, day: job.day, summaryId, language: plan.input.language, createdAt: createdAt.toISOString(), music: !!ai.musicModelId(), mood,
+    speakers, musicCues: plan.plan.musicCues, videoTheme: plan.plan.videoTheme, visualGuide: plan.plan.visualGuide, scenes }, state, (await store.get(mixedKey(job, chapter))).bytes);
+  const existingChip = !book && plan.input.summaryId ? await getSummaryForViewer(db, plan.input.summaryId, job.userId) : null;
+  const { podcast, created } = await commitBook(db, job.userId, bookId, job.day, {
+    takes: [{ id: key, chapterId: bookChapterId(item), firstPassage: item.firstPassage, lastPassage: item.lastPassage, title: state.title, createdAt: createdAt.toISOString(),
+      durationSeconds: episode.durationSeconds ?? 0, speakers, scenes }],
+    meta: { title: plan.plan.title, summary: plan.plan.summary, mood, language: plan.input.language, musicCues: plan.plan.musicCues,
+      videoTheme: plan.plan.videoTheme, visualGuide: plan.plan.visualGuide, summaryId, createdAt: createdAt.toISOString(), music: !!ai.musicModelId() },
+  }, { ...deps, store, now: () => createdAt });
+  if (created) {
+    const chips = await Promise.all(podcast.chipIds.map(id => getSummaryForViewer(db, id, job.userId)));
+    const designed = await podcastCover(db, job.userId, ai, store, summaryId, podcast, chips as SummaryRow[], plan.input.language, createdAt);
+    if (designed) await db.update(summaries).set({ ...designed, theme: { ...designed.theme, emoji: "📖" } }).where(and(eq(summaries.id, summaryId), eq(summaries.ownerId, job.userId)));
+    if (designed && existingChip) {
       await deleteObjects(store, [existingChip.ogImageKey, existingChip.artImageKey]);
-      await retireTranslatedCovers(db, store, [summaryId]);
+      await retireTranslatedCovers(db, store, [existingChip.id]);
     }
-  } else {
-    await db.batch([db.insert(summaries).values({ id: summaryId, slug: randomUUID(), ownerId: job.userId, kind: "audiobook", sourceType: "text", source: "text", title: podcast.title,
-      summary: podcast.summary ?? podcastSummaryText(podcast), highlights: chapters.slice(0, 5).map(chapter => chapter.title), category: "Other", tags: [], keywords: [], language: plan.input.language,
-      theme: { colors: ["#2A2118", "#8A6A45"], mode: "dark", emoji: "📖", accent: "#8A6A45" }, visibility: "private", createdAt, updatedAt: createdAt, ...cover }), episode,
-    db.update(podcastEpisodes).set({ isDefault: true }).where(eq(podcastEpisodes.key, job.key))]);
   }
   runAfter(() => rerankHeadlines(db, job.userId));
-  await charge(db, job, ai, states, await speechCost(ai, podcast.speakers, segments), deps);
-  await cleanJob(store, job, states);
-  await removePlanObjects(store, plan);
-  await db.update(audiobookPlans).set({ frames: {} }).where(eq(audiobookPlans.id, plan.id));
+  // Settling is idempotent, so a retried step never charges twice.
+  const hold = await reservePodcastPoints(job.userId, `audiobook:${job.id}:chapter:${chapter}:charge`, ai.podcastModelId(), job.billingEnvironment);
+  const speechUsd = speechCost(ai, speakers, state.turns);
+  await hold?.settle(Math.max(1, pointsForCost(state.costUsd + speechUsd)), { audiobook: job.kind, chapter, textCostUsd: state.costUsd, speechCostUsd: speechUsd });
   if (job.includeVideo && ai.imageModelId()) {
+    // Approved scene images move next to the recording, so its video reuses them instead of drawing them again.
+    const details = episode.audiobook!;
+    const wanted = new Set(details.scenes.map(scene => sceneHash(scene.prompt, details)));
+    const [root] = bookId === plan.id ? [plan] : await db.select().from(audiobookPlans).where(and(eq(audiobookPlans.id, bookId), eq(audiobookPlans.ownerId, job.userId)));
+    if (root) await copyApprovedScenes(store, job, key, root, wanted);
     const { startAudiobookVideo } = await import("./audiobook-video");
-    await startAudiobookVideo(db, job.userId, podcast, { ai, store, billingEnvironment: job.billingEnvironment, now: deps.now }, {}).catch((error) => {
-      console.error("[audiobook] video could not start; the book is saved without one", error);
+    await startAudiobookVideo(db, job.userId, episode, { ai, store, billingEnvironment: job.billingEnvironment, now: deps.now }, {}).catch((error) => {
+      console.error("[audiobook] video could not start; the chapter is saved without one", error);
     });
   }
 }
 
-/** Where each planned scene falls, from the turns the writer tagged. A chapter's first scene starts with the chapter. */
-function planScenes(plan: AudiobookPlanDocument, chapters: PodcastChapter[], states: ChapterState[]): AudiobookScene[] {
-  return plan.chapters.flatMap((chapter, index) => chapter.scenes.flatMap((scene, sceneIndex) => {
-    const turn = sceneIndex === 0 ? 0 : states[index].turns.findIndex(item => item.scene === sceneIndex);
-    return turn < 0 ? [] : [{ chapter: index, segment: chapters[index].startSegment + turn, prompt: scene.prompt, motion: scene.motion }];
-  }));
+/** Every chapter was published as it finished; what's left is the soundtrack's bill and tidying up. */
+async function finishOriginal(db: Database, job: AudiobookJobInput, deps: StepDeps) {
+  const store = deps.store ?? getObjectStore();
+  const ai = deps.ai ?? await getAiProvider();
+  const plan = await getAudiobookPlan(db, job.userId, job.planId!);
+  const music = await readOptional<MusicState>(store, `${jobBase(job)}/music.json`);
+  const musicUsd = (music?.generated ?? 0) * ai.musicUsdPerClip();
+  if (musicUsd > 0) {
+    const hold = await reservePodcastPoints(job.userId, `audiobook:${job.id}:charge`, ai.podcastModelId(), job.billingEnvironment);
+    await hold?.settle(Math.max(1, pointsForCost(musicUsd)), { audiobook: job.kind, musicCostUsd: musicUsd });
+  }
+  await cleanJob(store, job, plan.plan.chapters.length);
+  await removePlanObjects(store, plan);
+  await db.update(audiobookPlans).set({ frames: {} }).where(eq(audiobookPlans.id, plan.id));
 }
 
 export function sceneFile(hash: string) { return `video-assets/audiobook/scene-${hash}.png`; }
 
-async function copyApprovedScenes(store: ObjectStore, job: AudiobookJobInput, plan: Plan) {
-  await Promise.all(Object.entries(plan.frames).map(async ([hash, frame]) => {
+async function copyApprovedScenes(store: ObjectStore, job: AudiobookJobInput, key: string, plan: Plan, wanted: Set<string>) {
+  await Promise.all(Object.entries(plan.frames).filter(([hash]) => wanted.has(hash)).map(async ([hash, frame]) => {
     try {
-      await store.put(`${dayKey(job.userId, job.day)}/${job.key}/${sceneFile(hash)}`, { ...await store.get(frame.key), contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
+      await store.put(`${dayKey(job.userId, job.day)}/${key}/${sceneFile(hash)}`, { ...await store.get(frame.key), contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
     } catch (error) { console.warn("[audiobook] approved scene could not be copied", { hash, error }); }
   }));
 }
@@ -792,13 +811,14 @@ async function finishTranslation(db: Database, job: AudiobookJobInput, deps: Ste
   if (podcast.translations?.[job.language]) return;
   const states = await loadChapterStates(store, job, podcast.chapters?.length ?? 1);
   const base = translationPath(job.userId, podcast, job.language);
-  const { segments, chapters, durationSeconds } = await assemble(store, job, states, `${base}/audio.mp3`);
+  const parts = await mixedChapters(store, job, states);
+  const { segments, chapters, durationSeconds } = await assembleChapters(store, parts, states, `${base}/audio.mp3`);
   const heading = await ai.translatePodcast({ language: LANGUAGE_NAMES[job.language], title: podcast.title, chips: [], segments: [] }, { abortSignal: AbortSignal.timeout(60_000) }).catch(() => null);
   const translation: PodcastTranslation = { language: job.language, title: heading?.title ?? podcast.title, createdAt: (deps.now?.() ?? new Date()).toISOString(), speakers: podcast.speakers,
     segments, chapters, durationSeconds, music: podcast.music, audioPath: episodeAudioPath(podcast, job.language) };
   await updatePodcastDocument(db, job.userId, job.key, (latest) => { latest.translations = { ...latest.translations, [job.language]: translation }; });
-  await charge(db, job, ai, states, await speechCost(ai, podcast.speakers, segments), deps);
-  await cleanJob(store, job, states);
+  await charge(db, job, ai, states, speechCost(ai, podcast.speakers, states.flatMap(state => state.turns)), deps);
+  await cleanJob(store, job, states.length);
   if (job.includeVideo && podcast.video) {
     const { cloneAudiobookVideo } = await import("./audiobook-video");
     await cloneAudiobookVideo(db, job.userId, podcast, job.language, store).catch((error) => {
