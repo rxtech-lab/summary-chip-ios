@@ -84,22 +84,37 @@ export const viewElementSchema = z.discriminatedUnion("type", [
   }),
   /** Horizontal bars comparing a few values (e.g. pass vs pay-as-you-go). */
   withoutChildren("BarChart", {
+    showLabels: z.boolean().nullish(),
     title: label.nullish(),
     format,
     currency,
     items: z.array(z.object({ label: label.min(1), value: z.number(), detail: label.nullish(), tone })).min(1).max(20),
   }),
   withoutChildren("LineChart", {
+    showLabels: z.boolean().nullish(),
     title: label.nullish(),
     format,
     currency,
     items: z.array(z.object({ label: label.min(1), value: z.number() })).min(1).max(20),
   }),
   withoutChildren("AreaChart", {
+    showLabels: z.boolean().nullish(),
     title: label.nullish(),
     format,
     currency,
     items: z.array(z.object({ label: label.min(1), value: z.number() })).min(1).max(20),
+  }),
+  withoutChildren("PieChart", {
+    showLabels: z.boolean().nullish(),
+    title: label.nullish(), format, currency,
+    items: z.array(z.object({ label: label.min(1), value: z.number().nonnegative() }))
+      .min(1).max(20).refine(items => items.some(item => item.value > 0), "Pie charts need a positive value"),
+  }),
+  withoutChildren("ScatterChart", {
+    showLabels: z.boolean().nullish(),
+    title: label.nullish(),
+    xLabel: label.nullish(), yLabel: label.nullish(),
+    items: z.array(z.object({ label: label.min(1), x: z.number(), y: z.number() })).min(1).max(100),
   }),
   withoutChildren("Divider", {}),
   withoutChildren("Link", { title: label.min(1), url: z.string().trim().url().max(4096) }),
@@ -197,6 +212,11 @@ export function viewText(spec: ViewSpec): string[] {
       case "Gallery":
         lines.push(...element.props.images.flatMap((image) => (image.caption ? [image.caption] : [])));
         break;
+      case "ScatterChart":
+        if (element.props.title) lines.push(element.props.title);
+        for (const item of element.props.items) lines.push(`${item.label}: ${item.x}, ${item.y}`);
+        break;
+      case "PieChart":
       case "LineChart":
       case "AreaChart":
       case "BarChart":

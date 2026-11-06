@@ -669,3 +669,21 @@ describe("podcast generation options", () => {
     expect((await optionsRoute.GET(apiRequest("GET", "/api/v1/daily-podcasts/options"))).status).toBe(401);
   });
 });
+
+it("publishes a daily episode in the marketplace with a playable public page and revokes discovery", async () => {
+  const market = await import("@/app/api/v1/marketplace/route");
+  await chip("Market podcast");
+  const generated = await generate({ includeVideo: false });
+  expect(generated.status).toBe(200);
+  const { podcast } = await generated.json();
+  const request = (token: string) => apiRequest("POST", "/api/v1/marketplace", { token, body: { podcastKey: podcast.key } });
+  expect((await market.POST(request(env.tokens.bob))).status).toBe(404);
+  expect((await market.POST(request(env.tokens.alice))).status).toBe(200);
+  expect((await market.POST(request(env.tokens.alice))).status).toBe(200);
+  const { items } = await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json();
+  expect(items).toHaveLength(1);
+  const { publicPodcast } = await import("@/lib/services/podcast-sharing");
+  expect((await publicPodcast(env.handle.db, items[0].slug)).podcast.key).toBe(podcast.key);
+  expect((await market.DELETE(request(env.tokens.alice))).status).toBe(200);
+  await expect(publicPodcast(env.handle.db, items[0].slug)).rejects.toThrow();
+});

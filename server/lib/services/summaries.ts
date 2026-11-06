@@ -1,5 +1,5 @@
 import type { LanguageModelUsage } from "ai";
-import { and, asc, desc, eq, inArray, isNotNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, gt, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { linkToFollow } from "@/lib/ai/shared-link";
@@ -14,7 +14,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { editorialScores, documentVersions, graphs, papers, podcastEpisodes, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
+import { authorFollows, marketplacePublications, users, editorialScores, documentVersions, graphs, papers, podcastEpisodes, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -619,7 +619,8 @@ export async function importSummary(
 
 /**
  * The library: the caller's own summaries plus other people's public summaries they opened, as one
- * feed ordered by activity (created for your own, last viewed for others'). `scope` narrows it.
+ * feed, alongside live publications by followed authors. Activity is creation for owned/unopened
+ * chips and last view for opened community chips. `scope` narrows it.
  */
 export interface ListOptions extends Pick<ServiceDeps, "ai"> {
   /** The caller's `Accept-Language`: others' summaries come back translated into it. */
@@ -632,18 +633,24 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const view = and(eq(summaryViews.summaryId, summaries.id), eq(summaryViews.userId, userId));
   const mine = eq(summaries.ownerId, userId);
   const viewed = and(isNotNull(summaryViews.userId), ne(summaries.ownerId, userId), readableByViewer(userId))!;
+  const followedPublications = db.select({ id: marketplacePublications.summaryId }).from(marketplacePublications)
+    .innerJoin(summaries, eq(summaries.id, marketplacePublications.summaryId))
+    .innerJoin(authorFollows, and(eq(authorFollows.authorId, summaries.ownerId), eq(authorFollows.followerId, userId)))
+    .innerJoin(users, eq(users.id, summaries.ownerId))
+    .where(and(eq(summaries.visibility, "public"), or(isNull(summaries.expiresAt), gt(summaries.expiresAt, new Date())), isNull(users.deletionScheduledAt)));
+  const following = inArray(summaries.id, followedPublications);
   // Starred summaries stay listed after others' links expire; they come back as `isExpired`.
   const liked = isNotNull(summaryLikes.userId);
   const scope = query.scope === "mine" ? mine
     : query.scope === "viewed" ? viewed
     : query.scope === "liked" ? liked
-    : or(mine, viewed)!;
+    : or(mine, viewed, following)!;
   // Likes are ordered by when they were starred; everything else by created (own) or last viewed (others').
   const activity = query.scope === "liked"
     ? sql<number>`${summaryLikes.likedAt}`
     : query.scope === "mine" ? sql<number>`${summaries.createdAt}`
     : query.scope === "viewed" ? sql<number>`${summaryViews.viewedAt}`
-    : sql<number>`(CASE WHEN ${summaries.ownerId} = ${userId} THEN ${summaries.createdAt} ELSE ${summaryViews.viewedAt} END)`;
+    : sql<number>`(CASE WHEN ${summaries.ownerId} = ${userId} THEN ${summaries.createdAt} ELSE coalesce(${summaryViews.viewedAt}, ${summaries.createdAt}) END)`;
 
   // Give SQLite an indexed set of candidate IDs before the ownership/view OR and
   // access checks. Otherwise the mixed scope can scan every user's summaries.
@@ -651,7 +658,8 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     : query.scope === "viewed" ? inArray(summaries.id, db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId)))
     : query.scope === "liked" ? inArray(summaries.id, db.select({ id: summaryLikes.summaryId }).from(summaryLikes).where(eq(summaryLikes.userId, userId)))
     : inArray(summaries.id, db.select({ id: summaries.id }).from(summaries).where(mine)
-      .union(db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId))));
+      .union(db.select({ id: summaryViews.summaryId }).from(summaryViews).where(eq(summaryViews.userId, userId)))
+      .union(followedPublications));
   const conditions = [candidates, scope];
   if (query.editorsPick) {
     conditions.push(mine, inArray(summaries.kind, ["summary", "podcast"]), isNotSoloPodcast,
@@ -683,9 +691,25 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
   const last = page[page.length - 1];
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)))),
+    items: await withFeedAuthors(db, userId, await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))))),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
   };
+}
+
+/** Public bylines for community cards; private owners' profiles are never exposed. */
+async function withFeedAuthors(db: Database, userId: string, items: SummaryJson[]): Promise<SummaryJson[]> {
+  const ids = items.filter(item => !item.isOwner && !item.isExpired).map(item => item.id);
+  if (!ids.length) return items;
+  const authors = await db.select({ id: summaries.id, authorId: users.id, authorName: users.name,
+    following: authorFollows.authorId }).from(summaries)
+    .innerJoin(users, eq(users.id, summaries.ownerId))
+    .leftJoin(authorFollows, and(eq(authorFollows.authorId, users.id), eq(authorFollows.followerId, userId)))
+    .where(and(inArray(summaries.id, ids), eq(summaries.visibility, "public"), isNull(users.deletionScheduledAt)));
+  const byId = new Map(authors.map(author => [author.id, author]));
+  return items.map(item => {
+    const author = byId.get(item.id);
+    return author ? { ...item, authorId: author.authorId, authorName: author.authorName ?? "Chippy author", isFollowingAuthor: author.following !== null } : item;
+  });
 }
 
 /**
@@ -736,7 +760,7 @@ async function searchLibrary(
   const page = rows.slice(0, query.limit);
   const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
   return {
-    items: await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant)))),
+    items: await withFeedAuthors(db, userId, await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))))),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
   };
 }

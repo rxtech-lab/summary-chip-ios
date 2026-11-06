@@ -2,6 +2,7 @@ import SummaryKit
 import SwiftUI
 
 struct LibraryView: View {
+    @State private var showingMarket = false
     @Bindable var environment: AppEnvironment
     @State private var feedScroll = SummaryFeedScrollState()
     @State private var didLoadInitially = false
@@ -17,6 +18,9 @@ struct LibraryView: View {
     @State private var sharingSummary: Summary?
     @State private var xSharingRequest: XSharingRequest?
     @State private var deletingSummary: Summary?
+    @State private var renamingSummary: Summary?
+    @State private var renamedCount = 0
+    @State private var showsRenamedStatus = false
     @State private var deletedCount = 0
     @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
@@ -67,6 +71,9 @@ struct LibraryView: View {
         FeedNavigationContainer(environment: environment, path: stackPath) {
             sharingContent
         }
+        .onReceive(NotificationCenter.default.publisher(for: .authorFollowingChanged)) { _ in
+            Task { await model.reload() }
+        }
         // Load with the navigation container, rather than reloading page one when detail is popped.
         .task {
             guard !didLoadInitially else { return }
@@ -96,7 +103,17 @@ struct LibraryView: View {
                 if isMiniApps && path.isEmpty { Task { await model.reload() } }
             }
             #if !os(visionOS)
-            .toolbar { libraryToolbar }
+            .toolbar { libraryToolbar
+                #if !os(macOS)
+                ToolbarItem(placement: .primaryAction) { Button {
+                    showingMarket = true
+                } label: { Label("Discover", systemImage: "safari") } }
+                #endif
+            }
+            #if !os(macOS)
+            .sensoryFeedback(.selection, trigger: showingMarket)
+            .fullScreenCover(isPresented: $showingMarket) { MarketplaceScreen(environment: environment) }
+            #endif
             #endif
             .sensoryFeedback(.selection, trigger: podcastTaps)
     }
@@ -252,28 +269,6 @@ struct LibraryView: View {
             .sheet(isPresented: $showsCredits) {
                 SummaryCreditsSheet(environment: environment)
             }
-    }
-
-    private var sharingContent: some View {
-        documentCreationContent
-            .xSharing($xSharingRequest, api: environment.api)
-            .sheet(item: $sharingSummary) { summary in
-                ShareModeSheet(summary: summary, api: environment.api) { updated in
-                    environment.library.upsert(updated)
-                    if isMiniApps { model.upsert(updated) }
-                }
-            }
-            .sheet(item: $deletingSummary) { summary in
-                DeleteSummarySheet(api: environment.api, summary: summary) {
-                    model.remove(id: summary.id)
-                    if isMiniApps { environment.library.remove(id: summary.id) }
-                    environment.likes.remove(id: summary.id)
-                    deletedCount += 1
-                }
-            }
-            .sensoryFeedback(.success, trigger: deletedCount)
-            .sensoryFeedback(.selection, trigger: model.filter)
-            .likeStatusOverlay($likeStatus)
     }
 
     private var newDocumentMenu: some View {
@@ -560,6 +555,13 @@ struct LibraryView: View {
                 }
                 if summary.isOwner {
                     Divider()
+                    Button {
+                        podcastTaps += 1
+                        renamingSummary = summary
+                    } label: {
+                        Label("Rename…", systemImage: "pencil")
+                    }
+                    .accessibilityIdentifier("chip-rename")
                     Button(role: .destructive) {
                         deletingSummary = summary
                     } label: {
@@ -636,6 +638,52 @@ struct LibraryView: View {
 }
 
 private extension LibraryView {
+    var sharingContent: some View {
+        documentCreationContent
+            .xSharing($xSharingRequest, api: environment.api)
+            .sheet(item: $sharingSummary) { summary in
+                ShareModeSheet(summary: summary, api: environment.api) { updated in
+                    environment.library.upsert(updated)
+                    if isMiniApps { model.upsert(updated) }
+                }
+            }
+            .sheet(item: $deletingSummary) { summary in
+                DeleteSummarySheet(api: environment.api, summary: summary) {
+                    model.remove(id: summary.id)
+                    if isMiniApps { environment.library.remove(id: summary.id) }
+                    environment.likes.remove(id: summary.id)
+                    deletedCount += 1
+                }
+            }
+            .sheet(item: $renamingSummary) { summary in
+                RenameSummarySheet(api: environment.api, summary: summary) { updated in
+                    environment.library.upsert(updated)
+                    if isMiniApps { model.upsert(updated) }
+                    renamedCount += 1
+                    showsRenamedStatus = true
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if showsRenamedStatus {
+                    Label("Renamed", systemImage: "checkmark.circle")
+                        .padding()
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.bottom, 24)
+                        .accessibilityIdentifier("chip-rename-success")
+                }
+            }
+            .task(id: renamedCount) {
+                guard showsRenamedStatus else { return }
+                do { try await Task.sleep(for: .seconds(2)) }
+                catch { return }
+                showsRenamedStatus = false
+            }
+            .sensoryFeedback(.success, trigger: renamedCount)
+            .sensoryFeedback(.success, trigger: deletedCount)
+            .sensoryFeedback(.selection, trigger: model.filter)
+            .likeStatusOverlay($likeStatus)
+    }
+
     @ToolbarContentBuilder
     var libraryToolbar: some ToolbarContent {
         if !isPhone {

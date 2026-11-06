@@ -206,6 +206,7 @@ private struct NewSummaryRequest {
 }
 
 enum MainTab: Hashable {
+    case discover
     case library
     case miniApps
     case likes

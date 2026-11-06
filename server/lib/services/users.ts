@@ -17,11 +17,11 @@ function entriesFor(db: Database): Map<string, Promise<void>> {
   return entries;
 }
 
-/** Makes sure a `users` row exists so owner foreign keys resolve, with the email from the latest token. */
+/** Makes sure a `users` row exists so owner foreign keys resolve, with the email and name from the latest token. */
 export async function ensureUser(db: Database, principal: ApiPrincipal): Promise<void> {
   const entries = entriesFor(db);
-  // Keyed with the email too, so a token with a new email writes it.
-  const key = `${principal.sub}\n${principal.email ?? ""}`;
+  // Keyed with the email and name too, so a token with a new one writes it.
+  const key = `${principal.sub}\n${principal.email ?? ""}\n${principal.name ?? ""}`;
   const existing = entries.get(key);
   if (existing) return existing;
   if (entries.size >= MAX_ENSURED_ENTRIES) {
@@ -31,7 +31,10 @@ export async function ensureUser(db: Database, principal: ApiPrincipal): Promise
   const insertion = db.insert(users)
     .values({ id: principal.sub, email: principal.email ?? null, name: principal.name ?? null, createdAt: new Date() })
     // Keeps the email current: invited share links are matched against it.
-    .onConflictDoUpdate({ target: users.id, set: { email: sql`coalesce(excluded.email, ${users.email})` } })
+    .onConflictDoUpdate({ target: users.id, set: {
+      email: sql`coalesce(excluded.email, ${users.email})`,
+      name: sql`coalesce(excluded.name, ${users.name})`,
+    } })
     .then(() => undefined);
   entries.set(key, insertion);
   try {

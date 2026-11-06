@@ -45,6 +45,16 @@
         }
       }
     },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "%lld characters of text" : {
       "localizations" : {
         "en" : {
@@ -444,6 +454,9 @@
     "A paper can have at most 60 files." : {
 
     },
+    "A place for good ideas" : {
+
+    },
     "A single empty document." : {
       "comment" : "Paper template description",
       "localizations" : {
@@ -607,6 +620,9 @@
         }
       }
     },
+    "Anyone can find and open this content on the web and in the app." : {
+
+    },
     "Anyone who opened the summary with a link loses access when you delete it or it expires." : {
       "localizations" : {
         "zh-Hans" : {
@@ -698,6 +714,9 @@
     "Audiobooks" : {
 
     },
+    "Author" : {
+
+    },
     "Belt %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -746,6 +765,9 @@
           }
         }
       }
+    },
+    "Browse their latest shared work." : {
+
     },
     "Cancel" : {
       "localizations" : {
@@ -810,6 +832,9 @@
           }
         }
       }
+    },
+    "Chippy author" : {
+
     },
     "Chippy can summarise web pages, links, PDFs and text. Nothing like that was shared." : {
       "localizations" : {
@@ -951,6 +976,9 @@
         }
       }
     },
+    "Choose Publish to Discover in a chip's share sheet, and it will appear here." : {
+
+    },
     "Clear" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1015,6 +1043,9 @@
           }
         }
       }
+    },
+    "Close" : {
+
     },
     "Cloudy" : {
       "localizations" : {
@@ -1175,6 +1206,9 @@
           }
         }
       }
+    },
+    "Could Not Save" : {
+
     },
     "Couldn't copy image" : {
       "localizations" : {
@@ -1612,6 +1646,12 @@
         }
       }
     },
+    "Discover" : {
+
+    },
+    "Discover something worth keeping." : {
+
+    },
     "Diverted" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1785,6 +1825,9 @@
         }
       }
     },
+    "Everything you've shared with the Chippy community." : {
+
+    },
     "Expired" : {
       "comment" : "Badge on a liked summary whose share link expired",
       "localizations" : {
@@ -1868,6 +1911,9 @@
           }
         }
       }
+    },
+    "Explore ideas, stories, and creations from the Chippy community." : {
+
     },
     "Family, Team…" : {
       "localizations" : {
@@ -1955,6 +2001,18 @@
           }
         }
       }
+    },
+    "Follow" : {
+
+    },
+    "Follow Author" : {
+
+    },
+    "Follow this author to see their published chips in your Feed." : {
+
+    },
+    "Following" : {
+
     },
     "Freezing rain" : {
       "localizations" : {
@@ -2119,6 +2177,9 @@
         }
       }
     },
+    "Hidden from Discover" : {
+
+    },
     "Illustration" : {
       "comment" : "Image style option",
       "localizations" : {
@@ -2178,6 +2239,9 @@
     "Image files must be imported from a PNG, JPEG or PDF." : {
 
     },
+    "In Discover" : {
+
+    },
     "In progress" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2225,6 +2289,9 @@
           }
         }
       }
+    },
+    "It will no longer appear in Discover. Its share link stays active; change that from its sharing settings." : {
+
     },
     "Just now" : {
       "localizations" : {
@@ -2586,6 +2653,9 @@
         }
       }
     },
+    "Loading Discover…" : {
+
+    },
     "Loading links…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2763,6 +2833,9 @@
         }
       }
     },
+    "No expiry date" : {
+
+    },
     "No links yet. Add one to let anyone with it listen to this episode on the web and read its captions, with its own expiry." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2810,6 +2883,9 @@
           }
         }
       }
+    },
+    "No publications yet" : {
+
     },
     "No readable text was found in this PDF, including with text recognition." : {
 
@@ -2864,6 +2940,9 @@
     },
     "Not Now" : {
       "comment" : "Alert button: dismiss the update request"
+    },
+    "Nothing published yet" : {
+
     },
     "OK" : {
       "localizations" : {
@@ -2993,6 +3072,9 @@
           }
         }
       }
+    },
+    "Open in Web" : {
+
     },
     "Open the Chippy app and sign in. This extension then uses the same account automatically." : {
       "localizations" : {
@@ -3402,6 +3484,9 @@
         }
       }
     },
+    "Public access" : {
+
+    },
     "Public link" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3417,6 +3502,9 @@
           }
         }
       }
+    },
+    "Publish" : {
+
     },
     "Publish Podcast" : {
       "comment" : "Title of the screen managing a podcast episode's share links",
@@ -3434,6 +3522,24 @@
           }
         }
       }
+    },
+    "Publish to Discover" : {
+
+    },
+    "Publish to Discover…" : {
+
+    },
+    "Published" : {
+
+    },
+    "Published by this author" : {
+
+    },
+    "Published chips will appear here. Share one from your library to start the collection." : {
+
+    },
+    "Published under your name" : {
+
     },
     "Rain" : {
       "localizations" : {
@@ -3661,6 +3767,15 @@
     "Reference not found" : {
       "comment" : "Paper reference error"
     },
+    "Refresh" : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove an existing listing" : {
+
+    },
     "Remove file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3676,6 +3791,15 @@
           }
         }
       }
+    },
+    "Remove from Discover" : {
+
+    },
+    "Remove from Discover?" : {
+
+    },
+    "Removing a listing leaves its public share link active. To make the content private, change its link settings separately." : {
+
     },
     "Report" : {
       "comment" : "Paper template",
@@ -3782,6 +3906,9 @@
 
     },
     "Saving your audiobook…" : {
+
+    },
+    "Saving…" : {
 
     },
     "Scheduled" : {
@@ -3936,6 +4063,15 @@
       }
     },
     "Share to X" : {
+
+    },
+    "Share with everyone" : {
+
+    },
+    "Share your content with the Chippy community in Discover." : {
+
+    },
+    "Shared" : {
 
     },
     "Sign in to Chippy" : {
@@ -4675,6 +4811,9 @@
         }
       }
     },
+    "This episode becomes a library podcast that people can discover and play." : {
+
+    },
     "This feature needs a newer version of Chippy. Update the app to keep using it." : {
 
     },
@@ -4709,6 +4848,9 @@
           }
         }
       }
+    },
+    "This item will no longer appear in Discover." : {
+
     },
     "This link has expired. Pick a new expiry to reopen it." : {
       "localizations" : {
@@ -5075,6 +5217,9 @@
         }
       }
     },
+    "Unfollow" : {
+
+    },
     "Unknown" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5090,6 +5235,18 @@
           }
         }
       }
+    },
+    "Unpublish" : {
+
+    },
+    "Unpublish from Discover?" : {
+
+    },
+    "Unpublish…" : {
+
+    },
+    "Unpublishing…" : {
+
     },
     "Unreliable source" : {
       "comment" : "Paper reference error"
@@ -5258,6 +5415,9 @@
         }
       }
     },
+    "When this author publishes something, you’ll find it here." : {
+
+    },
     "Who can open it" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5362,6 +5522,15 @@
           }
         }
       }
+    },
+    "Your author name appears alongside your content." : {
+
+    },
+    "Your content stays public until you change its sharing settings." : {
+
+    },
+    "Your published content" : {
+
     },
     "Your session expired. Please sign in again." : {
       "localizations" : {

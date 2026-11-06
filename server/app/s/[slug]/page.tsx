@@ -1,3 +1,4 @@
+import { PublicAuthor } from "@/app/discover/author";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -175,6 +176,7 @@ function InvitedOnly({ row }: { row: SummaryRow }) {
         <header className="text-sm">
           <Link href="/" className="md-brand-link text-lg font-semibold">Chippy</Link>
         </header>
+        <PublicAuthor ownerId={row.ownerId} />
         <div className="md-card mt-6 overflow-hidden" style={{ backgroundImage: `linear-gradient(135deg, ${row.theme.colors.join(", ")})` }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- served from our own route with its own caching */}
           <img src={publicOgImageUrl(row)} alt={row.title} width={1200} height={630} className="block aspect-[1200/630] w-full object-cover" />

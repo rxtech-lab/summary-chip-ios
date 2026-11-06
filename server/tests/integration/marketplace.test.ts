@@ -1,0 +1,145 @@
+import { eq } from "drizzle-orm";
+import { summaries, summaryViews, users } from "@/lib/db/schema";
+import { afterEach, beforeEach, expect, it } from "vitest";
+import * as market from "@/app/api/v1/marketplace/route";
+import * as follow from "@/app/api/v1/authors/follow/route";
+import * as graphs from "@/app/api/v1/graphs/route";
+import { setUserInfoNameFetcherForTests } from "@/lib/auth/userinfo";
+import { listedAuthorName } from "@/lib/services/marketplace";
+import { apiRequest, setupTestEnv, type TestEnv } from "../helpers/setup";
+let env: TestEnv;
+beforeEach(async () => { env = await setupTestEnv(); });
+afterEach(() => env.teardown());
+it("only publishes owned content and removes it without exposing private chips", async () => {
+ const created = await graphs.POST(apiRequest("POST", "/api/v1/graphs", { token: env.tokens.alice, body: { document: { title: "Market graph", nodes: [], edges: [] }, visibility: "private" } }));
+ expect(created.status).toBe(201);
+ const { graph } = await created.json();
+ const request = (token: string) => apiRequest("POST", "/api/v1/marketplace", { token, body: { summaryId: graph.id } });
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(0);
+ expect((await market.POST(request(env.tokens.bob))).status).toBe(404);
+ expect((await market.POST(request(env.tokens.alice))).status).toBe(200);
+ expect((await market.POST(request(env.tokens.alice))).status).toBe(200);
+ const listed = await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json();
+ expect(listed.items).toHaveLength(1);
+ const authorId = listed.items[0].authorId;
+ expect((await market.POST(apiRequest("POST", "/api/v1/marketplace", { body: { summaryId: graph.id } }))).status).toBe(401);
+ expect((await follow.POST(apiRequest("POST", "/api/v1/authors/follow", { token: env.tokens.alice, body: { authorId } }))).status).toBe(400);
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace?author=someone-else"))).json()).items).toHaveLength(0);
+ await env.handle.db.update(summaries).set({ visibility: "private" }).where(eq(summaries.id, graph.id));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(0);
+ await env.handle.db.update(summaries).set({ visibility: "public", expiresAt: new Date(0) }).where(eq(summaries.id, graph.id));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(0);
+ await env.handle.db.update(summaries).set({ expiresAt: null }).where(eq(summaries.id, graph.id));
+ await env.handle.db.update(users).set({ deletionScheduledAt: new Date() }).where(eq(users.id, authorId));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(0);
+ await env.handle.db.update(users).set({ deletionScheduledAt: null }).where(eq(users.id, authorId));
+ expect(listed.items[0]).not.toHaveProperty("email");
+ const followRequest = () => apiRequest("POST", "/api/v1/authors/follow", { token: env.tokens.bob, body: { authorId } });
+ expect((await follow.POST(followRequest())).status).toBe(200);
+ expect((await follow.POST(followRequest())).status).toBe(200);
+ expect((await (await follow.GET(apiRequest("GET", "/api/v1/authors/follow", { token: env.tokens.bob }))).json()).items).toHaveLength(1);
+ expect((await follow.DELETE(followRequest())).status).toBe(200);
+ await market.DELETE(request(env.tokens.bob));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(1);
+ await market.DELETE(request(env.tokens.alice));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(0);
+});
+it("names the author from the identity provider and lists their own publications until unpublished", async () => {
+ setUserInfoNameFetcherForTests(async () => "Alice Writer");
+ const created = await graphs.POST(apiRequest("POST", "/api/v1/graphs", { token: env.tokens.alice, body: { document: { title: "Named graph", nodes: [], edges: [] }, visibility: "private" } }));
+ const { graph } = await created.json();
+ const body = { summaryId: graph.id };
+ expect((await market.POST(apiRequest("POST", "/api/v1/marketplace", { token: env.tokens.alice, body }))).status).toBe(200);
+ const listed = await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json();
+ expect(listed.items[0].authorName).toBe("Alice Writer");
+ expect(listed.items[0].chip).toMatchObject({ id: graph.id, isOwner: false, title: "Named graph" });
+ expect(new Date(listed.items[0].publishedAt).getTime()).toBeGreaterThan(0);
+ const mine = (token?: string) => market.GET(apiRequest("GET", "/api/v1/marketplace?scope=mine", { token }));
+ expect((await mine()).status).toBe(401);
+ expect((await (await mine(env.tokens.bob)).json()).items).toHaveLength(0);
+ // Going private hides a chip from Discover, but its owner must still find it to unpublish it.
+ await env.handle.db.update(summaries).set({ visibility: "private" }).where(eq(summaries.id, graph.id));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items).toHaveLength(0);
+ const own = await (await mine(env.tokens.alice)).json();
+ expect(own.items).toHaveLength(1);
+ expect(own.items[0].chip).toMatchObject({ id: graph.id, isOwner: true, visibility: "private" });
+ expect((await market.DELETE(apiRequest("DELETE", "/api/v1/marketplace", { token: env.tokens.alice, body }))).status).toBe(200);
+ expect((await (await mine(env.tokens.alice)).json()).items).toHaveLength(0);
+});
+it("keeps a known author name when the identity provider has none", async () => {
+ setUserInfoNameFetcherForTests(async () => "Alice Writer");
+ const { graph } = await (await graphs.POST(apiRequest("POST", "/api/v1/graphs", { token: env.tokens.alice, body: { document: { title: "Kept graph", nodes: [], edges: [] }, visibility: "private" } }))).json();
+ await market.POST(apiRequest("POST", "/api/v1/marketplace", { token: env.tokens.alice, body: { summaryId: graph.id } }));
+ setUserInfoNameFetcherForTests(async () => null);
+ await market.GET(apiRequest("GET", "/api/v1/marketplace?scope=mine", { token: env.tokens.alice }));
+ expect((await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items[0].authorName).toBe("Alice Writer");
+});
+it("only names an author for link previews while they have listed content", async () => {
+ setUserInfoNameFetcherForTests(async () => "Alice Writer");
+ const { graph } = await (await graphs.POST(apiRequest("POST", "/api/v1/graphs", { token: env.tokens.alice, body: { document: { title: "Preview graph", nodes: [], edges: [] }, visibility: "private" } }))).json();
+ await market.POST(apiRequest("POST", "/api/v1/marketplace", { token: env.tokens.alice, body: { summaryId: graph.id } }));
+ const { items } = await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json();
+ const authorId = items[0].authorId;
+ expect(await listedAuthorName(env.handle.db, authorId)).toBe("Alice Writer");
+ expect(await listedAuthorName(env.handle.db, "someone-else")).toBeNull();
+ await env.handle.db.update(summaries).set({ visibility: "private" }).where(eq(summaries.id, graph.id));
+ expect(await listedAuthorName(env.handle.db, authorId)).toBeNull();
+});
+
+it("adds followed publications to the feed with bylines and respects access and explicit scopes", async () => {
+ setUserInfoNameFetcherForTests(async () => "Alice Writer");
+ const create = async (title: string) => (await (await graphs.POST(apiRequest("POST", "/api/v1/graphs", { token: env.tokens.alice, body: { document: { title, nodes: [], edges: [] }, visibility: "public" } }))).json()).graph;
+ const published = await create("Followed graph");
+ await create("Unpublished graph");
+ const body = { summaryId: published.id };
+ await market.POST(apiRequest("POST", "/api/v1/marketplace", { token: env.tokens.alice, body }));
+ const authorId = (await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items[0].authorId;
+ const listing = await import("@/app/api/v1/summaries/route");
+ const feed = async (query = "") => (await (await listing.GET(apiRequest("GET", `/api/v1/summaries${query}`, { token: env.tokens.bob }))).json());
+ const following = () => apiRequest("POST", "/api/v1/authors/follow", { token: env.tokens.bob, body: { authorId } });
+ expect((await feed()).items).toHaveLength(0);
+ await follow.POST(following());
+ expect((await feed()).items).toHaveLength(1);
+ expect((await feed()).items[0]).toMatchObject({ id: published.id, isOwner: false, authorId, authorName: "Alice Writer", isFollowingAuthor: true, viewedAt: null });
+ for (const scope of ["mine", "viewed", "liked"]) expect((await feed(`?scope=${scope}`)).items).toHaveLength(0);
+ expect((await feed("?kind=summary")).items).toHaveLength(0);
+ for (const changes of [{ visibility: "private" as const }, { visibility: "public" as const, expiresAt: new Date(0) }]) {
+   await env.handle.db.update(summaries).set(changes).where(eq(summaries.id, published.id));
+   expect((await feed()).items).toHaveLength(0);
+ }
+ await env.handle.db.update(summaries).set({ expiresAt: null }).where(eq(summaries.id, published.id));
+ await env.handle.db.update(users).set({ deletionScheduledAt: new Date() }).where(eq(users.id, authorId));
+ expect((await feed()).items).toHaveLength(0);
+ await env.handle.db.update(users).set({ deletionScheduledAt: null }).where(eq(users.id, authorId));
+ await follow.DELETE(following());
+ expect((await feed()).items).toHaveLength(0);
+ await follow.POST(following());
+ await market.DELETE(apiRequest("DELETE", "/api/v1/marketplace", { token: env.tokens.alice, body }));
+ expect((await feed()).items).toHaveLength(0);
+});
+
+it("paginates followed chips once and keeps opened chips after unfollowing", async () => {
+ const ids: string[] = [];
+ for (const title of ["First followed", "Second followed"]) {
+   const { graph } = await (await graphs.POST(apiRequest("POST", "/api/v1/graphs", { token: env.tokens.alice, body: { document: { title, nodes: [], edges: [] } } }))).json();
+   ids.push(graph.id);
+   await market.POST(apiRequest("POST", "/api/v1/marketplace", { token: env.tokens.alice, body: { summaryId: graph.id } }));
+ }
+ const authorId = (await (await market.GET(new Request("http://localhost/api/v1/marketplace"))).json()).items[0].authorId;
+ const request = () => apiRequest("POST", "/api/v1/authors/follow", { token: env.tokens.bob, body: { authorId } });
+ await follow.POST(request());
+ const listing = await import("@/app/api/v1/summaries/route");
+ const page = async (cursor?: string) => (await (await listing.GET(apiRequest("GET", `/api/v1/summaries?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { token: env.tokens.bob }))).json());
+ const first = await page();
+ expect(first.nextCursor).toBeTruthy();
+ const second = await page(first.nextCursor);
+ expect(second.nextCursor).toBeNull();
+ expect(new Set([first.items[0].id, second.items[0].id])).toEqual(new Set(ids));
+ await env.handle.db.insert(summaryViews).values({ userId: "user-bob", summaryId: ids[0] });
+ const feed = async () => (await (await listing.GET(apiRequest("GET", "/api/v1/summaries", { token: env.tokens.bob }))).json()).items;
+ expect(await feed()).toHaveLength(2);
+ await follow.DELETE(request());
+ const remaining = await feed();
+ expect(remaining).toHaveLength(1);
+ expect(remaining[0]).toMatchObject({ id: ids[0], isFollowingAuthor: false });
+});
