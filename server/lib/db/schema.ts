@@ -850,3 +850,12 @@ export const podcastPlans = sqliteTable("podcast_plans", {
   createdAt: integer("created_at").notNull().default(0),
   updatedAt: integer("updated_at").notNull().default(0),
 }, table => [index("podcast_plans_owner_idx").on(table.ownerId, table.confirmed, table.updatedAt)]);
+
+export const marketplacePublications = sqliteTable("marketplace_publications", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  publishedAt: integer("published_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+export const authorFollows = sqliteTable("author_follows", {
+  followerId: text("follower_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  authorId: text("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => [primaryKey({ columns: [table.followerId, table.authorId] })]);

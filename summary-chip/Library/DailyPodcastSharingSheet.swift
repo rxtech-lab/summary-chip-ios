@@ -9,6 +9,7 @@ struct DailyPodcastSharingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var links: [SummaryShareLink] = []
     @State private var loading = true
+    @State private var publishing = false
     @State private var error: String?
 
     var body: some View {
@@ -16,7 +17,9 @@ struct DailyPodcastSharingSheet: View {
             ShareLinksView(store: .podcast(api: api, podcast: podcast), links: $links)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .disabled(loading)
+                .sheet(isPresented: $publishing) { MarketplacePublishingSheet(api: api, podcastKey: podcast.key) }
                 .toolbar {
+                    ToolbarItem(placement: .primaryAction) { Button("Publish to Discover…") { publishing = true } }
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") { dismiss() }
                     }

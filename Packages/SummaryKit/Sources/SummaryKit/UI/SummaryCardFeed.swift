@@ -58,6 +58,8 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     let showsDateHeaders: Bool
     let onPlayDay: ((Date) -> Void)?
     let onSelect: ((Summary) -> Void)?
+    /// Drawn under a tile, as part of its masonry cell.
+    let tileFooter: ((Summary) -> AnyView)?
 
     @State private var availableWidth: CGFloat = 800
     #if os(iOS) || os(visionOS)
@@ -69,6 +71,12 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     private static var spacing: CGFloat { 14 }
     private static var horizontalPadding: CGFloat { 16 }
     private static var topPadding: CGFloat { 8 }
+    /// Roughly what a `tileFooter` row and its spacing add to a cell.
+    private static var tileFooterHeight: CGFloat { 28 }
+
+    private static func columnWidth(in width: CGFloat, count: Int) -> CGFloat {
+        max(0, (width - horizontalPadding * 2 - spacing * CGFloat(count - 1)) / CGFloat(count))
+    }
 
     public init(
         entries: [SummaryFeedEntry],
@@ -80,6 +88,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         onReachEnd: @escaping () -> Void = {},
         onSelect: ((Summary) -> Void)? = nil,
         onPlayDay: ((Date) -> Void)? = nil,
+        tileFooter: ((Summary) -> AnyView)? = nil,
         @ViewBuilder menuItems: @escaping (Summary) -> MenuItems,
         @ViewBuilder footer: () -> Footer
     ) {
@@ -91,6 +100,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         self.onReachEnd = onReachEnd
         self.onSelect = onSelect
         self.onPlayDay = onPlayDay
+        self.tileFooter = tileFooter
         self.menuItems = menuItems
         self.header = header
         self.footer = footer()
@@ -120,8 +130,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         // Columns end at different entries, so any of the final few appearing means we're at the end.
         let tail = Set(entries.suffix(columnCount).map(\.id))
         return GeometryReader { geometry in
-            let gaps = Self.spacing * CGFloat(columnCount - 1)
-            let columnWidth = max(0, (geometry.size.width - Self.horizontalPadding * 2 - gaps) / CGFloat(columnCount))
+            let columnWidth = Self.columnWidth(in: geometry.size.width, count: columnCount)
             ScrollView {
                 // Headers and bands are flat rows of one lazy stack, so a long day loads band by
                 // band instead of as one giant row of nested lazy columns.
@@ -133,7 +142,8 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                                 .padding(.top, section.id == sections.first?.id ? 0 : 28 - Self.spacing)
                         }
                         ForEach(section.bands) { band in
-                            masonryColumns(band.columns, tail: tail, columnWidth: columnWidth)
+                            // The last band may be only partly filled, so it stays uneven.
+                            masonryColumns(band.columns, tail: tail, columnWidth: columnWidth, levelsColumns: band.id != section.bands.last?.id)
                         }
                     }
                     footer.frame(maxWidth: .infinity)
@@ -195,10 +205,9 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
             .onChange(of: TimelineLayout(entries: entries, columnCount: columnCount, width: availableWidth), initial: true) { _, layout in
                 guard showsTimeline else { return }
-                let gaps = Self.spacing * CGFloat(layout.columnCount - 1)
                 timeline.setLayout(
                     groups: sections.map(\.columns),
-                    columnWidth: max(0, (layout.width - Self.horizontalPadding * 2 - gaps) / CGFloat(layout.columnCount)),
+                    columnWidth: Self.columnWidth(in: layout.width, count: layout.columnCount),
                     topPadding: Self.topPadding,
                     spacing: Self.spacing,
                     headerHeight: showsDateHeaders ? (onPlayDay == nil ? 24 : 44) : 0,
@@ -251,7 +260,13 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
 
     private func feedSections(columnCount: Int) -> [FeedSection] {
         func section(_ id: Date, _ items: [SummaryFeedEntry]) -> FeedSection {
-            FeedSection(id: id, entries: items, bands: Self.bands(items, into: columnCount).map(FeedBand.init))
+            let bands = Self.bands(
+                items,
+                into: columnCount,
+                columnWidth: Self.columnWidth(in: availableWidth, count: columnCount),
+                footerHeight: tileFooter == nil && !items.contains(where: { !$0.summary.isOwner }) ? 0 : Self.tileFooterHeight
+            )
+            return FeedSection(id: id, entries: items, bands: bands.map(FeedBand.init))
         }
         guard showsDateHeaders else { return [section(.distantPast, entries)] }
         let grouped = Dictionary(grouping: entries) { Calendar.current.startOfDay(for: $0.date) }
@@ -290,13 +305,18 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         #endif
     }
 
-    private func masonryColumns(_ columns: [[SummaryFeedEntry]], tail: Set<String>, columnWidth: CGFloat) -> some View {
+    /// With `levelsColumns`, one card in each shorter column grows so every column ends flush and
+    /// the next band starts without a hole: the last with artwork, which crops well, or else the
+    /// last card. Only one, because a stack splits spare room evenly among flexible children, which
+    /// can offer an aspect-fit card less than its natural height and narrow it.
+    private func masonryColumns(_ columns: [[SummaryFeedEntry]], tail: Set<String>, columnWidth: CGFloat, levelsColumns: Bool) -> some View {
         HStack(alignment: .top, spacing: Self.spacing) {
             ForEach(columns.indices, id: \.self) { index in
+                let filler = columns[index].last { SummaryTileView.Style.style(for: $0.summary) != .text } ?? columns[index].last
                 // Eager within a band: bands are short, and the outer stack provides laziness.
                 VStack(spacing: Self.spacing) {
                     ForEach(columns[index]) { entry in
-                        tileLink(for: entry)
+                        tileCell(for: entry, fillsHeight: levelsColumns && entry.id == filler?.id)
                         .accessibilityIdentifier("summary-card-\(entry.id)")
                         #if os(macOS)
                         .id(entry.id)
@@ -335,13 +355,47 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 .frame(width: columnWidth, alignment: .top)
             }
         }
+        .fixedSize(horizontal: false, vertical: levelsColumns)
+    }
+
+    @ViewBuilder
+    private func tileCell(for entry: SummaryFeedEntry, fillsHeight: Bool) -> some View {
+        if let tileFooter {
+            VStack(alignment: .leading, spacing: 8) {
+                tileLink(for: entry, fillsHeight: fillsHeight)
+                tileFooter(entry.summary)
+            }
+        } else if !entry.summary.isOwner {
+            VStack(alignment: .leading, spacing: 8) {
+                tileLink(for: entry, fillsHeight: fillsHeight)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20)
+                            .strokeBorder(.indigo.opacity(0.35), lineWidth: 1)
+                            .allowsHitTesting(false)
+                    }
+                HStack(spacing: 6) {
+                    Image(systemName: entry.summary.isFollowingAuthor ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
+                        .foregroundStyle(.indigo)
+                    Text(entry.summary.authorName ?? String(localized: "Chippy author"))
+                        .fontWeight(.medium).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(entry.summary.isFollowingAuthor ? "Following" : "Shared")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .accessibilityElement(children: .combine)
+            }
+        } else {
+            tileLink(for: entry, fillsHeight: fillsHeight)
+        }
     }
 
     /// Pushes onto the enclosing `NavigationStack`, or hands the summary to `onSelect` when set.
     @ViewBuilder
-    private func tileLink(for entry: SummaryFeedEntry) -> some View {
+    private func tileLink(for entry: SummaryFeedEntry, fillsHeight: Bool) -> some View {
         let tile = SummaryTileView(summary: entry.summary, date: entry.date, dateKind: entry.dateKind,
-                                   isEditorsPick: editorPickIDs.contains(entry.id), hasPodcast: entry.stackedPodcastID != nil)
+                                   isEditorsPick: editorPickIDs.contains(entry.id), hasPodcast: entry.stackedPodcastID != nil, fillsHeight: fillsHeight)
         if let onSelect {
             Button { viewport.opening(entry.id); onSelect(entry.summary) } label: { tile }
         } else {
@@ -359,30 +413,45 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
     #endif
 
     /// Greedy masonry: each entry goes to the currently shortest column, preserving feed order
-    /// row by row. The result is cut into bands, each closed once its columns are nearly level
-    /// (or at most `maxRows` deep), so stacked bands read as one continuous waterfall.
-    static func bands(_ entries: [SummaryFeedEntry], into count: Int) -> [[[SummaryFeedEntry]]] {
+    /// row by row. The result is cut into bands so stacked bands read as one continuous waterfall.
+    /// A band is as tall as its tallest column, so whatever spread remains shows as a gap above the
+    /// next band: close one as soon as its columns are nearly level, and if they never get there
+    /// within `maxRows`, cut at the most level point reached and re-flow the rest into the next band.
+    static func bands(_ entries: [SummaryFeedEntry], into count: Int, columnWidth: CGFloat, footerHeight: CGFloat = 0) -> [[[SummaryFeedEntry]]] {
         let minRows = 3, maxRows = 8
-        let levelTolerance: CGFloat = 0.25
+        let levelTolerance: CGFloat = 48
+        let fonts = SummaryTileView.EstimateFonts.current
+        let cellHeights = entries.map { entry in
+            SummaryTileView.Style.style(for: entry.summary).estimatedHeight(of: entry.summary, columnWidth: columnWidth, fonts: fonts)
+                + spacing + footerHeight
+                + (entry.stackedPodcastID == nil ? 0 : SummaryTileView.stackPeek * 2)
+        }
         var bands: [[[SummaryFeedEntry]]] = []
-        var columns = Array(repeating: [SummaryFeedEntry](), count: count)
-        var heights = Array(repeating: CGFloat(0), count: count)
-        var placed = 0
-        for entry in entries {
-            let target = heights.indices.min { heights[$0] < heights[$1] } ?? 0
-            columns[target].append(entry)
-            heights[target] += SummaryTileView.Style.style(for: entry.summary).estimatedHeight(title: entry.summary.title) + 0.08
-                + (entry.stackedPodcastID == nil ? 0 : 0.1)
-            placed += 1
-            let spread = (heights.max() ?? 0) - (heights.min() ?? 0)
-            if placed >= count * maxRows || (placed >= count * minRows && spread < levelTolerance) {
+        var start = 0
+        while start < entries.count {
+            var columns = Array(repeating: [SummaryFeedEntry](), count: count)
+            var heights = Array(repeating: CGFloat(0), count: count)
+            var best: (columns: [[SummaryFeedEntry]], end: Int, spread: CGFloat)?
+            var index = start
+            while index < entries.count, index - start < count * maxRows {
+                let target = heights.indices.min { heights[$0] < heights[$1] } ?? 0
+                columns[target].append(entries[index])
+                heights[target] += cellHeights[index]
+                index += 1
+                guard index - start >= count * minRows else { continue }
+                let spread = (heights.max() ?? 0) - (heights.min() ?? 0)
+                if spread < best?.spread ?? .infinity { best = (columns, index, spread) }
+                if spread < levelTolerance { break }
+            }
+            // The feed's last entries have nothing to re-flow into, so they stay together.
+            if index == entries.count || best == nil {
                 bands.append(columns)
-                columns = Array(repeating: [], count: count)
-                heights = Array(repeating: 0, count: count)
-                placed = 0
+                start = index
+            } else if let best {
+                bands.append(best.columns)
+                start = best.end
             }
         }
-        if placed > 0 { bands.append(columns) }
         return bands
     }
 }

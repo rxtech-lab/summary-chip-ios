@@ -290,14 +290,50 @@ public struct SummaryTileView: View {
             }
         }
 
-        /// Rough height relative to column width, used to balance masonry columns.
-        func estimatedHeight(title: String) -> CGFloat {
-            let titleLines = CGFloat(min(4, max(1, title.count / 14 + 1))) * 0.17
-            switch self {
-            case .text: return 0.3 + titleLines + 0.6
-            case .inset: return 0.3 + titleLines + 0.85
-            case .hero: return 1.25
+        /// Estimated card height in points, used to balance masonry columns. Mirrors `standard` and
+        /// `hero`: artwork scales with the column while text keeps its size, so one ratio of column
+        /// width can't fit both a narrow iPhone column and a wide Mac one.
+        func estimatedHeight(of summary: Summary, columnWidth: CGFloat, fonts: EstimateFonts) -> CGFloat {
+            if self == .hero { return columnWidth / 0.8 }
+            let textWidth = max(1, columnWidth - 36)
+            // A narrow header stacks the date above the source.
+            let metaRows: CGFloat = columnWidth < 200 ? 2 : 1
+            let header = 18 + metaRows * fonts.lineHeight(fonts.meta) + 6
+                + CGFloat(fonts.lines(summary.title, size: fonts.title, width: textWidth, limit: 4)) * fonts.lineHeight(fonts.title)
+            if self == .inset { return header + 12 + (columnWidth - 20) / 1.1 + 10 }
+            return header + 12
+                + CGFloat(fonts.lines(summary.summary, size: fonts.body, width: textWidth, limit: 5)) * fonts.lineHeight(fonts.body)
+                + 20
+        }
+    }
+
+    /// Font sizes of the card's text styles, which vary by platform and Dynamic Type.
+    struct EstimateFonts {
+        let meta: CGFloat
+        let title: CGFloat
+        let body: CGFloat
+
+        static var current: EstimateFonts {
+            #if canImport(UIKit)
+            func size(_ style: UIFont.TextStyle) -> CGFloat { UIFont.preferredFont(forTextStyle: style).pointSize }
+            #else
+            func size(_ style: NSFont.TextStyle) -> CGFloat { NSFont.preferredFont(forTextStyle: style).pointSize }
+            #endif
+            return EstimateFonts(meta: size(.subheadline), title: size(.title2), body: size(.body))
+        }
+
+        func lineHeight(_ size: CGFloat) -> CGFloat { size * 1.25 }
+
+        /// Wrapped line count, stopping at `limit` so long text costs no more than short text.
+        func lines(_ text: String, size: CGFloat, width: CGFloat, limit: Int) -> Int {
+            let capacity = width * CGFloat(limit)
+            var used: CGFloat = 0
+            for scalar in text.unicodeScalars {
+                // CJK and emoji fill the em square; Latin text averages about half of it.
+                used += size * (scalar.value >= 0x2E80 ? 1 : 0.52)
+                if used >= capacity { return limit }
             }
+            return max(1, Int((used / width).rounded(.up)))
         }
     }
 
@@ -310,18 +346,21 @@ public struct SummaryTileView: View {
     let style: Style
     let isEditorsPick: Bool
     let hasPodcast: Bool
+    /// Grows past its natural height when offered more, with the artwork taking the extra room.
+    let fillsHeight: Bool
 
     /// How far the stacked podcast layers show below a card.
     static let stackPeek: CGFloat = 9
 
     public init(summary: Summary, date: Date? = nil, dateKind: SummaryCardView.DateKind = .created, style: Style? = nil,
-                isEditorsPick: Bool = false, hasPodcast: Bool = false) {
+                isEditorsPick: Bool = false, hasPodcast: Bool = false, fillsHeight: Bool = false) {
         self.summary = summary
         self.date = date ?? summary.createdAt
         self.dateKind = dateKind
         self.style = style ?? .style(for: summary)
         self.isEditorsPick = isEditorsPick
         self.hasPodcast = hasPodcast
+        self.fillsHeight = fillsHeight
     }
 
     private var shape: RoundedRectangle {
@@ -386,7 +425,7 @@ public struct SummaryTileView: View {
             case .hero: hero
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .background(Color.summaryCardBackground, in: shape)
         .clipShape(shape)
         .overlay {
@@ -418,6 +457,7 @@ public struct SummaryTileView: View {
             if style == .inset {
                 Color.clear
                     .aspectRatio(1.1, contentMode: .fit)
+                    .frame(maxHeight: fillsHeight ? .infinity : nil)
                     .overlay { artwork }
                     .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius - Self.insetMargin, style: .continuous))
                     .padding([.horizontal, .bottom], Self.insetMargin)
@@ -430,6 +470,7 @@ public struct SummaryTileView: View {
         let ink = summary.theme.foreground
         return Color.clear
             .aspectRatio(0.8, contentMode: .fit)
+            .frame(maxHeight: fillsHeight ? .infinity : nil)
             .background { artwork }
             // Blur behind the title only: the generated image often carries its own text,
             // which clashes with ours. Sized to the header, with a short fade below it.

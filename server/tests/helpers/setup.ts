@@ -7,7 +7,7 @@ import path from "node:path";
 import { MockAiProvider } from "@/lib/ai/mock";
 import { setAiProviderForTests } from "@/lib/ai/provider";
 import { setBearerConfigForTests } from "@/lib/auth/bearer";
-import { setUserInfoFetcherForTests } from "@/lib/auth/userinfo";
+import { setUserInfoFetcherForTests, setUserInfoNameFetcherForTests } from "@/lib/auth/userinfo";
 import { createDatabase, setDatabaseForTests, type DatabaseHandle } from "@/lib/db/client";
 import { setHostResolverForTests } from "@/lib/extract/ssrf";
 import { MockFlightProvider } from "@/lib/flights/mock";
@@ -72,6 +72,7 @@ export async function setupTestEnv(options: { transactional?: boolean } = {}): P
   setBearerConfigForTests({ issuer: ISSUER, allowedClientIds: new Set([CLIENT_ID]), key: keys.publicKey });
   // No identity provider in tests: userinfo knows no emails unless a test says otherwise.
   setUserInfoFetcherForTests(async () => null);
+  setUserInfoNameFetcherForTests(async () => null);
   // libsql opens a new connection for interactive transactions; :memory: would lose the schema.
   // Automatic video renders claim work transactionally, so file-backed storage is now the default.
   const directory = (options.transactional ?? true) ? mkdtempSync(path.join(tmpdir(), "chippy-test-")) : undefined;

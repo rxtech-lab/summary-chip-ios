@@ -2,6 +2,7 @@ import SummaryKit
 import SwiftUI
 
 struct LibraryView: View {
+    @State private var showingMarket = false
     @Bindable var environment: AppEnvironment
     @State private var feedScroll = SummaryFeedScrollState()
     @State private var didLoadInitially = false
@@ -70,6 +71,9 @@ struct LibraryView: View {
         FeedNavigationContainer(environment: environment, path: stackPath) {
             sharingContent
         }
+        .onReceive(NotificationCenter.default.publisher(for: .authorFollowingChanged)) { _ in
+            Task { await model.reload() }
+        }
         // Load with the navigation container, rather than reloading page one when detail is popped.
         .task {
             guard !didLoadInitially else { return }
@@ -99,7 +103,17 @@ struct LibraryView: View {
                 if isMiniApps && path.isEmpty { Task { await model.reload() } }
             }
             #if !os(visionOS)
-            .toolbar { libraryToolbar }
+            .toolbar { libraryToolbar
+                #if !os(macOS)
+                ToolbarItem(placement: .primaryAction) { Button {
+                    showingMarket = true
+                } label: { Label("Discover", systemImage: "safari") } }
+                #endif
+            }
+            #if !os(macOS)
+            .sensoryFeedback(.selection, trigger: showingMarket)
+            .fullScreenCover(isPresented: $showingMarket) { MarketplaceScreen(environment: environment) }
+            #endif
             #endif
             .sensoryFeedback(.selection, trigger: podcastTaps)
     }

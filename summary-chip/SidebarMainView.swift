@@ -116,6 +116,10 @@ struct SidebarMainView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selection) {
                 Label("Feed", systemImage: "square.stack").tag(MainTab.library)
+                #if os(macOS)
+                Label("Discover", systemImage: "safari").tag(MainTab.discover)
+                    .accessibilityIdentifier("sidebar-discover")
+                #endif
                 Label("Clips", systemImage: "app.badge")
                     .tag(MainTab.miniApps)
                     .accessibilityIdentifier("sidebar-mini-apps")
@@ -143,6 +147,7 @@ struct SidebarMainView: View {
         case .library, .chat: LibraryView(environment: environment, path: $libraryPath)
         case .miniApps: LibraryView(environment: environment, path: $miniAppsPath, kind: .miniApp)
         case .likes: LikesView(environment: environment, path: $likesPath)
+        case .discover: MarketplaceScreen(environment: environment)
         case .settings: SettingsView(environment: environment)
         }
     }
@@ -166,7 +171,7 @@ struct SidebarMainView: View {
         case .library, .chat: libraryPath.last
         case .likes: likesPath.last
         case .miniApps: miniAppsPath.last
-        case .settings: nil
+        case .settings, .discover: nil
         }
     }
 

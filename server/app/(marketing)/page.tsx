@@ -1,3 +1,4 @@
+import { SiteHeader } from "@/components/site-header";
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -169,20 +170,7 @@ export default function Home() {
     <div className="landing-page">
       <SectionTimeline />
 
-      <header className="site-header md-appbar fixed inset-x-0 top-0 z-40">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="md-brand-link flex items-center gap-3 text-lg font-semibold">
-            <ChippyLogo />
-            Chippy
-          </Link>
-          <nav className="flex items-center gap-2" aria-label="Main navigation">
-            <a href="#features" className="md-button md-button-text md-nav-secondary">Features</a>
-            <a href="#connect" className="md-button md-button-text md-nav-secondary">Connect your AI</a>
-            <a href="#pricing" className="md-button md-button-text md-nav-secondary">Pricing</a>
-            <Link href="/download" className="md-button md-button-filled">Download</Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="overflow-x-clip">
         <BrandIntro />

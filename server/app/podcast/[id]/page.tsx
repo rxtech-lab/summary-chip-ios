@@ -1,3 +1,4 @@
+import { PublicAuthor } from "@/app/discover/author";
 import { cache } from "react";
 import { siteUrl } from "@/lib/config";
 import type { Metadata } from "next";
@@ -5,7 +6,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getDatabase } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
-import { publicPodcastData } from "@/lib/services/podcast-sharing";
+import { publicPodcast, publicPodcastData } from "@/lib/services/podcast-sharing";
 import PodcastWebPlayer from "./player";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export default async function PodcastPage({ params, searchParams }: { params: Pr
   }
   return <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col gap-6 px-5 py-8 sm:px-8">
     <Link href="/" className="text-sm font-semibold opacity-60">Chippy</Link>
+    <PublicAuthor ownerId={(await publicPodcast(getDatabase(), id)).link.ownerId} />
     <PodcastWebPlayer key={podcast.language} podcast={podcast} />
   </main>;
 }

@@ -78,6 +78,7 @@ final class SummaryTimelineMetrics {
     /// last measured card in their column using the masonry height estimate.
     private func rebuildMarkers() {
         let calendar = Calendar.current
+        let fonts = SummaryTileView.EstimateFonts.current
         var dayOffsets: [Date: CGFloat] = [:]
         var groupY = topPadding
         for columns in groups {
@@ -98,7 +99,7 @@ final class SummaryTimelineMetrics {
                         height = frame.height
                     } else {
                         let style = SummaryTileView.Style.style(for: entry.summary)
-                        height = style.estimatedHeight(title: entry.summary.title) * columnWidth
+                        height = style.estimatedHeight(of: entry.summary, columnWidth: columnWidth, fonts: fonts)
                     }
                     if headerHeight == 0 {
                         let day = calendar.startOfDay(for: entry.date)

@@ -33,6 +33,11 @@ struct SummaryChipApp: App {
     }
 
     var body: some Scene {
+        #if os(macOS)
+        WindowGroup("Discover", id: "marketplace") {
+            MarketplaceScreen(environment: environment).frame(minWidth: 600, minHeight: 600)
+        }
+        #endif
         WindowGroup(id: "main") {
             appContent
                 .miniAppPresenter(environment: environment)

@@ -1,10 +1,10 @@
 import { podcastArticle, podcastCover } from "./podcast-publication";
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { defaultTtlDays, expiresAtFor, siteUrl } from "@/lib/config";
 import { MAX_SHARE_LINKS } from "@/lib/contracts/api";
 import type { CreatePodcastShareLinkInput, PatchPodcastShareLinkInput, PodcastDay } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
-import { podcastShareLinks, summaries, type PodcastShareLinkRow } from "@/lib/db/schema";
+import { marketplacePublications, podcastEpisodes, podcastShareLinks, summaries, users, type PodcastShareLinkRow } from "@/lib/db/schema";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateSlug, isValidSlug } from "@/lib/slug";
 import { dailyPodcastEpisode, podcastInLanguage } from "./daily-podcast";
@@ -62,7 +62,7 @@ async function freshToken(db: Database): Promise<string> {
   throw new ApiError(500, "TOKEN_COLLISION", "Could not create a share link, try again");
 }
 
-async function publishableEpisode(db: Database, ownerId: string, day: PodcastDay, key: string) {
+export async function publishableEpisode(db: Database, ownerId: string, day: PodcastDay, key: string) {
   const podcast = await dailyPodcastEpisode(db, ownerId, day, key);
   // An invited chip grants reading rights, not permission to republish its contents publicly.
   for (const id of podcast.chipIds) {
@@ -132,6 +132,18 @@ export async function deletePodcastShareLink(db: Database, ownerId: string, key:
  * `podcast` is presented in `language` when the episode has that translation, otherwise in its original language.
  */
 export async function publicPodcast(db: Database, token: string, now = new Date(), language?: string | null) {
+  const [published] = await db.select({ summary: summaries, episode: podcastEpisodes })
+    .from(marketplacePublications).innerJoin(summaries, eq(summaries.id, marketplacePublications.summaryId))
+    .innerJoin(users, eq(users.id, summaries.ownerId))
+    .innerJoin(podcastEpisodes, and(eq(podcastEpisodes.summaryId, summaries.id), eq(podcastEpisodes.isDefault, true), eq(podcastEpisodes.deleted, false)))
+    .where(and(eq(summaries.slug, token), eq(summaries.visibility, "public"), isNull(users.deletionScheduledAt))).limit(1);
+  if (published && isLinkLive(published.summary, now)) {
+    const day = { start: new Date(published.episode.dayStart).toISOString(), end: new Date(published.episode.dayEnd).toISOString() };
+    const episode = await publishableEpisode(db, published.summary.ownerId, day, published.episode.key);
+    const link: PodcastShareLinkRow = { id: published.summary.id, token, ownerId: published.summary.ownerId, episodeKey: published.episode.key, day, label: "Marketplace", ttlDays: null, expiresAt: published.summary.expiresAt, createdAt: published.summary.createdAt, updatedAt: published.summary.updatedAt };
+    return { link, podcast: podcastInLanguage(episode, language && episode.translations?.[language] ? language : undefined) };
+  }
+
   const [link] = isValidSlug(token)
     ? await db.select().from(podcastShareLinks).where(eq(podcastShareLinks.token, token)).limit(1)
     : [];

@@ -349,6 +349,9 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
     public var expiresAt: Date?
     public var viewCount: Int
     public var isOwner: Bool
+    public var authorId: String? = nil
+    public var authorName: String? = nil
+    public var isFollowingAuthor: Bool = false
     /// When the user last opened this (someone else's) summary; nil for their own.
     public var viewedAt: Date?
     /// When the user starred this summary (it's listed under Likes); nil when not starred.
@@ -431,6 +434,9 @@ public struct Summary: Codable, Sendable, Hashable, Identifiable {
         ttlDays = try c.decodeIfPresent(Int.self, forKey: .ttlDays)
         expiresAt = try c.decodeIfPresent(Date.self, forKey: .expiresAt)
         viewCount = try c.decodeIfPresent(Int.self, forKey: .viewCount) ?? 0
+        authorId = try c.decodeIfPresent(String.self, forKey: .authorId)
+        authorName = try c.decodeIfPresent(String.self, forKey: .authorName)
+        isFollowingAuthor = try c.decodeIfPresent(Bool.self, forKey: .isFollowingAuthor) ?? false
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner) ?? false
         viewedAt = try c.decodeIfPresent(Date.self, forKey: .viewedAt)
         likedAt = try c.decodeIfPresent(Date.self, forKey: .likedAt)

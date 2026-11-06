@@ -53,6 +53,9 @@ export interface SummaryJson {
   expiresAt: string | null;
   viewCount: number;
   isOwner: boolean;
+  authorId?: string;
+  authorName?: string;
+  isFollowingAuthor?: boolean;
   /** When the caller last opened this (someone else's) summary; null for their own. */
   viewedAt: string | null;
   /** When the caller starred this summary; null when they haven't (and for visitors). */
