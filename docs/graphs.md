@@ -86,6 +86,7 @@ owner sees it. Ids of elements deleted later are dropped when it's read.
 ## Agents
 
 - **In-app chat** (`graphId` on `POST /api/v1/chat`, `lib/ai/graph-agent.ts`): `updateGraph`, `queryGraph`, `selectGraphElements`, `readGraphElements`. A selection reaches the screen as soon as the tool returns. Above 30 000 characters the agent gets an outline instead of the whole document.
+- **Node reports** (`writeReport`, `lib/ai/report-writer.ts`): the writer loads the requested node, every edge touching it, and the full data of its directly connected nodes from the owned graph, regardless of map selection. Reports describe these relationships and consider them in the analysis and risks, preserving edge direction and distinguishing supplied graph claims from independently verified facts. Custom UI definitions and unrelated nodes are excluded.
 - **MCP** (`lib/graph/mcp.ts`): `list_graphs`, `get_graph`, `create_graph`, `update_graph`, `query_graph`, `select_graph_elements`, `upload_graph_image`. The app has no push channel for these, so a change appears when the screen next loads, returns to the foreground or is refreshed.
 
 ## App
