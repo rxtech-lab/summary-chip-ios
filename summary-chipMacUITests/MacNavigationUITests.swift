@@ -1,6 +1,15 @@
 import XCTest
 
 nonisolated final class MacNavigationUITests: XCTestCase {
+    @MainActor func testLaunchOpensMainWindow() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-mac", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["mac-sidebar"].waitForExistence(timeout: 10),
+                      "Launching Chippy must open the main window")
+        XCTAssertFalse(app.windows["Discover"].exists, "Discover should open only when requested")
+    }
+
     @MainActor func testPlannedPodcastsLeaveLibraryChipsVisible() {
         continueAfterFailure = false
         let app = XCUIApplication()

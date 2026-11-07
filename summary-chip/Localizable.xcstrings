@@ -8208,6 +8208,9 @@
         }
       }
     },
+    "Generate this audiobook?" : {
+
+    },
     "Generate this podcast?" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15288,6 +15291,9 @@
     "Review chapters, speakers, music and scenes after clicking Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points." : {
 
     },
+    "Review chapters, speakers, music and scenes after tapping Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points." : {
+
+    },
     "Review permissions and disconnect this authorization" : {
 
     },
@@ -19740,6 +19746,9 @@
           }
         }
       }
+    },
+    "Use This Plan" : {
+
     },
     "Use This Script and Storyboard" : {
       "localizations" : {
