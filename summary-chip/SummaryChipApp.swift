@@ -33,11 +33,7 @@ struct SummaryChipApp: App {
     }
 
     var body: some Scene {
-        #if os(macOS)
-        WindowGroup("Discover", id: "marketplace") {
-            MarketplaceScreen(environment: environment).frame(minWidth: 600, minHeight: 600)
-        }
-        #endif
+        // Keep the main window first: macOS uses the first scene for the default launch.
         WindowGroup(id: "main") {
             appContent
                 .miniAppPresenter(environment: environment)
@@ -105,6 +101,9 @@ struct SummaryChipApp: App {
         SpatialGraphWindows(environment: environment)
         #endif
         #if os(macOS)
+        WindowGroup("Discover", id: "marketplace") {
+            MarketplaceScreen(environment: environment).frame(minWidth: 600, minHeight: 600)
+        }
         MiniAppWindow(environment: environment)
         #endif
     }
