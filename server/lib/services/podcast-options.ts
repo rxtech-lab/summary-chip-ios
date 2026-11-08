@@ -52,6 +52,21 @@ const VIDEO_STYLES: Record<PodcastVideoStyle, { title: Localized; description: L
     symbol: "arrow.down.app",
     swatch: ["#0D1210", "#34D399", "#A3E635", "#22D3EE"],
   },
+  explainer: {
+    title: { en: "Explainer", "zh-Hans": "动画讲解", "zh-Hant": "動畫講解", ja: "アニメ解説", ko: "애니메이션 해설", es: "Explicativo animado", fr: "Explication animée", de: "Erklärvideo" },
+    description: {
+      en: "A narrated concept animation on a plain stage: chunky outlined characters and labelled blocks move, stack and connect as the story unfolds.",
+      "zh-Hans": "在简洁舞台上讲故事的概念动画：粗描边的角色与标签方块随叙事移动、堆叠与连接。",
+      "zh-Hant": "在簡潔舞台上講故事的概念動畫：粗描邊的角色與標籤方塊隨敘事移動、堆疊與連接。",
+      ja: "シンプルな舞台で語るコンセプトアニメ。太い輪郭のキャラクターとラベル付きブロックが、話の流れに合わせて動き、積み重なり、つながります。",
+      ko: "단순한 무대 위의 개념 애니메이션: 굵은 외곽선의 캐릭터와 라벨 블록이 이야기에 맞춰 움직이고, 쌓이고, 연결됩니다.",
+      es: "Una animación de conceptos narrada sobre un fondo sencillo: personajes y bloques con contorno grueso se mueven, se apilan y se conectan con la historia.",
+      fr: "Une animation de concepts racontée sur une scène épurée : personnages et blocs étiquetés au trait épais se déplacent, s'empilent et se relient au fil du récit.",
+      de: "Eine erzählte Konzeptanimation auf schlichter Bühne: kräftig umrandete Figuren und beschriftete Blöcke bewegen, stapeln und verbinden sich mit der Geschichte.",
+    },
+    symbol: "rectangle.3.group",
+    swatch: ["#ECEDE9", "#26232B", "#959A94", "#F2B46B", "#C9542E"],
+  },
 };
 
 const DURATION_TITLES: Record<TranslationLanguage, string[]> = {

@@ -120,6 +120,7 @@ const production: CloudPodcastRenderer = {
     const bytes = await sandbox.readFileToBuffer({ path: `${directory}/status.json` });
     if (!bytes) return { status: "running" };
     const result = JSON.parse(bytes.toString());
+    if (result.status === "failed") console.error("[podcast-render] composition failed", { sandbox: session.name, error: typeof result.error === "string" ? result.error.slice(0, 8000) : "No runner diagnostics" });
     if (result.status === "running") return { status: "running", percent: Number.isFinite(result.percent)
       ? Math.max(1, Math.min(99, Math.floor(result.percent))) : undefined };
     if (result.status !== "ready" || !Number.isSafeInteger(result.byteSize) || result.byteSize <= 0 || result.byteSize > MAX_PODCAST_VIDEO_BYTES)

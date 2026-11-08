@@ -36,3 +36,58 @@ import Testing
         #expect(messages[1].parts.first?.text.contains("Chips (id: s1, https://summary.rxlab.app/s/x)") == true)
     }
 }
+
+#if os(iOS) && DEBUG
+import SwiftUI
+import UIKit
+
+/// Mount the real root and change its size class, so NavigationStack/SplitView lifecycle writes
+/// are exercised as well as the state shared between the two layouts.
+@MainActor
+@Suite(.serialized) struct AdaptiveNavigationTests {
+    @Test(arguments: [MainTab.library, .likes, .miniApps])
+    func foldRoundTripKeepsDocumentAndSidebar(section: MainTab) async throws {
+        let environment = LikesPreviewFixture.environment()
+        let navigation = MainNavigationState()
+        let document = try JSONDecoder().decode(Summary.self, from: Data("""
+        {"id":"fold-document","slug":"fold-document","title":"Fold document",
+         "shareUrl":"https://summary.rxlab.app/s/fold-document","createdAt":0}
+        """.utf8))
+        let root = ContentView(environment: environment, navigation: navigation)
+        let host = UIHostingController(rootView: root.environment(\.horizontalSizeClass, .compact))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1200, height: 900))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        try await Task.sleep(for: .milliseconds(300))
+
+        navigation.selection = section
+        switch section {
+        case .library: navigation.libraryPath = [document]
+        case .likes: navigation.likesPath = [document]
+        case .miniApps: navigation.miniAppsPath = [document]
+        default: Issue.record("Unexpected test section")
+        }
+        try await Task.sleep(for: .milliseconds(300))
+
+        // Exercise both sidebar preferences and repeat the complete fold/unfold cycle.
+        for visibility in [NavigationSplitViewVisibility.detailOnly, .all] {
+            navigation.columnVisibility = visibility
+            navigation.showsChat = false
+            for sizeClass in [UserInterfaceSizeClass.regular, .compact, .regular, .compact] {
+                host.rootView = root.environment(\.horizontalSizeClass, sizeClass)
+                try await Task.sleep(for: .milliseconds(300))
+                #expect(navigation.selection == section)
+                let path = switch section {
+                case .likes: navigation.likesPath
+                case .miniApps: navigation.miniAppsPath
+                default: navigation.libraryPath
+                }
+                #expect(path.map(\.id) == [document.id])
+                #expect(navigation.columnVisibility == visibility)
+                #expect(!navigation.showsChat)
+            }
+        }
+    }
+}
+#endif

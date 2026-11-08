@@ -92,6 +92,18 @@ describe("writePodcastVideo", () => {
     expect(system(news.calls)).not.toContain("title first, then the diagram");
   });
 
+  it("briefs the explainer style as one continuous narrative stage with a persistent cast", async () => {
+    const explainer = scriptedModel([good]);
+    await writePodcastVideo(explainer.model, { ...input, style: "explainer" as const });
+    const system = (calls: LanguageModelV4CallOptions[]) => JSON.stringify(calls[0].prompt[0]);
+    expect(system(explainer.calls)).toContain("animated science explainer on a simple stage");
+    expect(system(explainer.calls)).toContain("#ECEDE9");
+    expect(system(explainer.calls)).toContain("one continuous stage, not a slideshow");
+    expect(system(explainer.calls)).toContain("the cast arrives on an empty stage");
+    expect(system(explainer.calls)).not.toContain("beautiful poster frame");
+    expect(system(explainer.calls)).not.toContain("#009B85");
+  });
+
   it("rejects decorative motion without the phrase clock", async () => {
     const { model, calls } = scriptedModel([[{ path: "src/Video.tsx", content: MOCK_PODCAST_VIDEO }], good]);
     expect(await writePodcastVideo(model, input)).toEqual({ "src/Video.tsx": narratedVideo });

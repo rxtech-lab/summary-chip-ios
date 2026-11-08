@@ -72,7 +72,7 @@ struct AudiobookChaptersSheet: View {
             .sensoryFeedback(.selection, trigger: taps)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 360, idealWidth: 480, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 360, idealWidth: 480, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -156,7 +156,7 @@ struct AudiobookChapterVersionsSheet: View {
             .sensoryFeedback(.error, trigger: error)
         }
         .interactiveDismissDisabled(choosing)
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 360, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 360)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -244,7 +244,7 @@ struct AudiobookVideoSheet: View {
             .sensoryFeedback(.error, trigger: error)
         }
         .interactiveDismissDisabled(starting)
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 320, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 320)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -339,7 +339,7 @@ struct AudiobookJobSheet: View {
             .sensoryFeedback(.error, trigger: error)
         }
         .interactiveDismissDisabled(working != nil)
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 360, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 360)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

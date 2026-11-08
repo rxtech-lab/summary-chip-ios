@@ -1,8 +1,9 @@
 import SummaryKit
 import SwiftUI
 
-/// Plan mode for a book: a chat with the director. The latest plan sits at the end of the transcript; its speakers,
-/// video theme and chapters open their own editors. Nothing is recorded until the plan is confirmed.
+/// Plan mode for a book: a chat with the director. The live plan's speakers, video theme and chapters open their own
+/// editors. When the director shows a revision, it appears below the request and the plan before it stays above,
+/// read-only. Nothing is recorded until the plan is confirmed.
 struct AudiobookPlanSheet: View {
     let api: SummaryAPIClient
     let options: AudiobookOptions
@@ -24,6 +25,7 @@ struct AudiobookPlanSheet: View {
     @State private var selectedChapters: Set<Int> = []
     @State private var error: String?
     @State private var sends = 0
+    @State private var viewportHeight: CGFloat = 0
     @State private var taps = 0
 
     private struct ChapterChoice: Identifiable { let id: Int }
@@ -42,22 +44,37 @@ struct AudiobookPlanSheet: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         PlanChatBubble(role: .assistant, text: String(localized: "Here's a plan for the book, with its chapters, speakers, music and scenes. Ask me to change anything, or tap a part to edit it yourself."))
-                        ForEach(plan.messages) { PlanChatBubble(role: $0.role, text: $0.text) }
-                        if let pendingMessage {
-                            PlanChatBubble(role: .user, text: pendingMessage)
-                            PlanWorkingBubble(text: String(localized: "Revising the plan…"))
+                        ForEach(PlanTranscriptItem.items(plan.messages)) { item in
+                            switch item {
+                            case .message(let message): PlanChatBubble(role: message.role, text: message.text)
+                            case .snapshot(let message): snapshotCard(message)
+                            case .live: card.id("plan")
+                            }
                         }
-                        card.id("plan")
+                        if let pendingMessage {
+                            VStack(alignment: .leading, spacing: 14) {
+                                PlanChatBubble(role: .user, text: pendingMessage)
+                                PlanWorkingBubble(text: String(localized: "Thinking about the plan…"))
+                                Spacer(minLength: 0)
+                            }
+                            .frame(minHeight: max(0, viewportHeight - 32), alignment: .top)
+                            .id("pending")
+                        }
+                        Color.clear.frame(height: 1).id("end")
                     }
                     .padding()
                     .frame(maxWidth: 760)
                     .frame(maxWidth: .infinity)
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
 #if !os(visionOS)
                 .scrollDismissesKeyboard(.interactively)
 #endif
-                .onChange(of: plan.revision) { withAnimation { proxy.scrollTo("plan", anchor: .top) } }
-                .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("plan", anchor: .top) } } }
+                // Keep a sent request at the top while the planner works.
+                .onChange(of: plan.messages.map(\.id)) {
+                    withAnimation { plan.messages.showedPlanLast() ? proxy.scrollTo("plan", anchor: .top) : proxy.scrollTo("end", anchor: .bottom) }
+                }
+                .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("pending", anchor: .top) } } }
             }
             .safeAreaInset(edge: .bottom) { composer }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -116,7 +133,7 @@ struct AudiobookPlanSheet: View {
                     .sensoryFeedback(.selection, trigger: selectedChapters)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(minWidth: 320, idealWidth: 520, minHeight: 480, maxHeight: .infinity)
+                .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 480)
                 .presentationSizing(.page.fitted(horizontal: true, vertical: false))
                 .presentationDetents([.large])
             }
@@ -159,9 +176,19 @@ struct AudiobookPlanSheet: View {
             .sensoryFeedback(.error, trigger: error)
         }
         .interactiveDismissDisabled(pendingMessage != nil || saving)
-        .frame(minWidth: 520, idealWidth: 700, minHeight: 600, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 520, idealWidth: 700, minHeight: 600)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+
+    private func snapshotCard(_ message: PlanMessage<AudiobookPlan.Document>) -> some View {
+        let document = message.plan
+        return PlanSnapshotCard(revision: message.revision, title: document?.title, summary: document?.summary,
+                                meta: document.map { String(localized: "\($0.chapters.count) chapters") } ?? "",
+                                itemsTitle: "Chapters",
+                                items: (document?.chapters ?? []).enumerated().map { index, chapter in
+                                    .init(id: index, title: "\(index + 1). \(chapter.title)", detail: chapter.synopsis)
+                                })
     }
 
     private var card: some View {
@@ -385,7 +412,7 @@ private struct AudiobookMusicSheet: View {
             .summaryInlineNavigationTitle()
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
-        .frame(minWidth: 360, idealWidth: 480, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 360, idealWidth: 480, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -487,7 +514,7 @@ private struct AudiobookChapterSheet: View {
             }
             .sensoryFeedback(.selection, trigger: taps)
         }
-        .frame(minWidth: 420, idealWidth: 560, minHeight: 520, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 420, idealWidth: 560, minHeight: 520)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

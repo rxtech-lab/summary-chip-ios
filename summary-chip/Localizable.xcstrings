@@ -3775,6 +3775,9 @@
         }
       }
     },
+    "Close Chat" : {
+
+    },
     "Close Player" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6483,6 +6486,12 @@
 
     },
     "Each speaker needs a different voice, up to %lld." : {
+
+    },
+    "EARLIER PLAN" : {
+
+    },
+    "Earlier plan, read-only" : {
 
     },
     "Economy" : {
@@ -15326,6 +15335,7 @@
 
     },
     "Revising the plan…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -18293,6 +18303,9 @@
     "These references didn't hold up. Correct them, replace them with a reliable source, or remove them. Saving the paper checks changed entries again." : {
 
     },
+    "Thinking about the plan…" : {
+
+    },
     "Thinking…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -18335,6 +18348,9 @@
 
     },
     "This diagram is drawn by LaTeX." : {
+
+    },
+    "This earlier plan is no longer kept." : {
 
     },
     "This episode has no summary. Regenerate the podcast to create one." : {

@@ -301,6 +301,8 @@ export class MockAiProvider implements AiProvider {
 
   async refinePodcastPlan(input: import("./podcast-agent").PodcastPlanRefinementInput, options: TourNarrationOptions = {}) {
     options.onUsage?.(MOCK_STEP_USAGE);
+    // A question is answered without showing a new plan.
+    if (input.request.trim().endsWith("?")) return { reply: "It stays as it is.", script: null };
     return { reply: "Updated the plan.", script: { ...input.script, segments: input.script.segments.map((segment, index) => index === 0
       ? { ...segment, camera: `${segment.camera} Revised: ${input.request.slice(0, 200)}` } : segment) } };
   }
@@ -337,6 +339,7 @@ export class MockAiProvider implements AiProvider {
 
   async refineAudiobookPlan(input: import("./audiobook-agent").AudiobookRefinementInput, options: TourNarrationOptions = {}) {
     options.onUsage?.(MOCK_STEP_USAGE);
+    if (input.request.trim().endsWith("?")) return { reply: "It stays as it is.", plan: null };
     return { reply: "Updated the plan.", plan: { ...input.plan, chapters: input.plan.chapters.map((chapter, index) => index ? chapter : { ...chapter, title: `${chapter.title} (revised)` }) } };
   }
 

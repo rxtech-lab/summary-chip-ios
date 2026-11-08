@@ -76,6 +76,8 @@ export async function podcastRenderStatus(db: Database, userId: string, day: Pod
 
 export function podcastRenderError(failure?: unknown) {
   // Only known application codes may cross into owner-visible job history.
+  const name = (failure as { name?: string } | undefined)?.name;
+  if (name === "LocalOidcContextError") return { code: "PODCAST_RENDER_UNAVAILABLE", message: "Local renderer credentials are missing or expired. Run vercel env pull in the server directory and restart the development server." };
   const code = (failure as { code?: string } | undefined)?.code;
   if (code === "PODCAST_RENDER_UNAVAILABLE") return { code, message: "The cloud video renderer is unavailable. Check the server's Vercel Sandbox credentials and renderer snapshot configuration." };
   if (code === "PODCAST_VIDEO_CHANGED") return { code, message: "The composition was replaced. Start a new render." };

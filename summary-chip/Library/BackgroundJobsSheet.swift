@@ -98,7 +98,7 @@ struct BackgroundJobsSheet: View {
             .sensoryFeedback(.success, trigger: deletions)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 320, idealWidth: 580, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 580, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

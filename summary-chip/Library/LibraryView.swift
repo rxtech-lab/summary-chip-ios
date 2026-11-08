@@ -10,7 +10,6 @@ struct LibraryView: View {
     @State private var showsFilters = false
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
-    @State private var showsNewPodcast = false
     @State private var showsNewPaper = false
     @State private var showsNewGraph = false
     @State private var showsNewMiniApp = false
@@ -25,10 +24,6 @@ struct LibraryView: View {
     @State private var likeStatus: LikeStatus?
     @State private var localPath: [Summary] = []
     @State private var model: LibraryModel
-    @State private var resumedPlan: ResumedPlan?
-    @State private var showsNewAudiobook = false
-    @State private var resumedBook: ResumedBook?
-    @State private var openedJob: AudiobookJob?
     @State private var deletingBook: AudiobookPlanSummary?
     @State private var deletingPlan: PodcastPlanSummary?
     @State private var planStatus: String?
@@ -188,22 +183,6 @@ struct LibraryView: View {
 
     private var podcastContent: some View {
         creationContent
-            .sheet(isPresented: $showsNewPodcast, onDismiss: refreshPlans) {
-                DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true, onGenerated: presentGenerated)
-            }
-            .sheet(item: $resumedPlan, onDismiss: refreshPlans) { resumed in
-                DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: resumed.library,
-                                            resumingPlan: resumed.plan, onGenerated: presentGenerated)
-            }
-            .sheet(isPresented: $showsNewAudiobook, onDismiss: refreshPlans) {
-                AudiobookGenerationSheet(api: environment.api, date: Date(), onGenerated: presentGenerated, onBackground: refreshPlans, onSaved: reloadFeed)
-            }
-            .sheet(item: $resumedBook, onDismiss: refreshPlans) { resumed in
-                AudiobookGenerationSheet(api: environment.api, date: Date(), resumingPlan: resumed.plan, onGenerated: presentGenerated, onBackground: refreshPlans, onSaved: reloadFeed)
-            }
-            .sheet(item: $openedJob, onDismiss: refreshPlans) { job in
-                AudiobookJobSheet(api: environment.api, job: job, onGenerated: presentGenerated, onChanged: refreshPlans)
-            }
             .confirmationDialog("Delete this planned audiobook?", isPresented: Binding(get: { deletingBook != nil }, set: { if !$0 { deletingBook = nil } }),
                                 titleVisibility: .visible, presenting: deletingBook) { book in
                 Button("Delete Plan", role: .destructive) { deleteBook(book) }
@@ -215,7 +194,7 @@ struct LibraryView: View {
         podcastTaps += 1
         planStatus = String(localized: "Opening plan…")
         Task {
-            do { resumedBook = ResumedBook(plan: try await environment.api.audiobookPlan(id: summary.id)) }
+            do { environment.libraryCreation = .resumedAudiobook(try await environment.api.audiobookPlan(id: summary.id)) }
             catch {
                 planError = error.localizedDescription
                 refreshPlans()
@@ -302,11 +281,11 @@ struct LibraryView: View {
                 .accessibilityIdentifier("new-trip")
             }
             Section {
-                Button { showsNewPodcast = true } label: {
+                Button { environment.libraryCreation = .podcast() } label: {
                     Label("Podcast", systemImage: "waveform")
                 }
                 .accessibilityIdentifier("new-podcast")
-                Button { showsNewAudiobook = true } label: {
+                Button { environment.libraryCreation = .audiobook } label: {
                     Label("Audiobook", systemImage: "book")
                 }
                 .accessibilityIdentifier("new-audiobook")
@@ -324,29 +303,11 @@ struct LibraryView: View {
         .sensoryFeedback(.selection, trigger: showsNewPaper) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewGraph) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewTrip) { _, presented in presented }
-        .sensoryFeedback(.selection, trigger: showsNewPodcast) { _, presented in presented }
-        .sensoryFeedback(.selection, trigger: showsNewAudiobook) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewMiniApp) { _, presented in presented }
-    }
-
-    private func presentGenerated(_ podcast: DailyPodcast) {
-        model.removePlannedPodcast(id: podcast.key)
-        Task {
-            await model.refreshPlannedPodcasts()
-            if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
-                environment.library.insert(chip)
-            }
-            try? await Task.sleep(for: .milliseconds(350))
-            environment.podcastPlayer.present(podcast: podcast)
-        }
     }
 
     private func refreshPlans() {
         Task { await model.refreshPlannedPodcasts() }
-    }
-
-    private func reloadFeed() {
-        Task { await model.reload() }
     }
 
     private func openPlan(_ summary: PodcastPlanSummary) {
@@ -364,7 +325,7 @@ struct LibraryView: View {
                     planStatus = nil
                     environment.podcastPlayer.present(podcast: podcast)
                 } else {
-                    resumedPlan = ResumedPlan(plan: plan, library: summary.library)
+                    environment.libraryCreation = .resumedPodcast(plan, library: summary.library)
                 }
             } catch {
                 planStatus = nil
@@ -504,7 +465,7 @@ struct LibraryView: View {
               !model.plannedPodcasts.isEmpty || !model.plannedAudiobooks.isEmpty || !model.audiobookJobs.isEmpty else { return nil }
         return AnyView(VStack(spacing: 0) {
             if (model.kind ?? model.filter.kind) != .podcast, !model.audiobookJobs.isEmpty || !model.plannedAudiobooks.isEmpty {
-                AudiobooksStrip(jobs: model.audiobookJobs, plans: model.plannedAudiobooks, onOpenJob: { podcastTaps += 1; openedJob = $0 },
+                AudiobooksStrip(jobs: model.audiobookJobs, plans: model.plannedAudiobooks, onOpenJob: { podcastTaps += 1; environment.libraryCreation = .audiobookJob($0) },
                                 onOpenPlan: openBook, onDeletePlan: { deletingBook = $0 })
                     .task(id: model.audiobookJobs.filter { $0.status == "running" }.count) { await model.followAudiobookJobs() }
             }
@@ -747,17 +708,6 @@ private extension LibraryView {
         }
     }
 
-}
-
-private struct ResumedPlan: Identifiable {
-    let plan: PodcastPlan
-    let library: Bool
-    var id: String { plan.id }
-}
-
-private struct ResumedBook: Identifiable {
-    let plan: AudiobookPlan
-    var id: String { plan.id }
 }
 
 /// Unconfirmed podcast plans, scrolling with the feed: open one to keep reviewing it, or delete it.

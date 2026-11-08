@@ -97,7 +97,7 @@ public struct AudiobookPlan: Decodable, Sendable, Identifiable, Equatable {
     public var revision: Int
     public var confirmed: Bool
     public var plan: Document
-    public var messages: [PodcastPlan.Message]
+    public var messages: [PlanMessage<Document>]
     /// Scene images as short-lived private links, by chapter and scene; nil until drawn.
     public var frames: [[URL?]]
     public var language: String

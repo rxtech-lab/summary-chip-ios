@@ -38,6 +38,27 @@ struct PodcastPlanTests {
         #expect(legacy.messages.isEmpty && legacy.frames.isEmpty && legacy.missingFrameCount == 0)
     }
 
+    @Test func showsEarlierPlansReadOnlyAboveTheRequest() throws {
+        let script = #"{"title":"T","mood":"m","speakers":[{"name":"Alex","voice":"v"}],"segments":[{"speaker":0,"chipId":"c","caption":"One.","camera":"Wide."}]}"#
+        let json = #"{"id":"p","revision":1,"confirmed":false,"script":\#(script),"messages":["#
+            + #"{"id":"s0","role":"assistant","kind":"plan","text":"","revision":0,"plan":\#(script)},"#
+            + #"{"id":"u1","role":"user","kind":"text","text":"Shorter","revision":0},"#
+            + #"{"id":"s1","role":"assistant","kind":"plan","text":"","revision":1,"plan":\#(script)},"#
+            + #"{"id":"a1","role":"assistant","kind":"text","text":"Done.","revision":1},"#
+            + #"{"id":"u2","role":"user","text":"How long?","revision":1},"#
+            + #"{"id":"a2","role":"assistant","text":"Six minutes.","revision":1}]}"#
+        let decoded = try JSONDecoder().decode(PodcastPlan.self, from: Data(json.utf8))
+        let items = PlanTranscriptItem.items(decoded.messages)
+        // The first plan stays above the request, read-only; the live plan is the newest one shown.
+        #expect(items.map(\.id) == ["s0", "u1", "live-plan", "a1", "u2", "a2"])
+        if case .snapshot(let first) = items[0] { #expect(first.plan?.title == "T") } else { Issue.record("Expected a snapshot") }
+        // The last turn only answered, so the view scrolls to the reply rather than the plan.
+        #expect(!decoded.messages.showedPlanLast())
+        #expect(Array(decoded.messages.prefix(4)).showedPlanLast())
+        // Before any plan is shown, the live plan comes first.
+        #expect(PlanTranscriptItem.items(Array(decoded.messages.suffix(2))).map(\.id) == ["live-plan", "u2", "a2"])
+    }
+
     @Test func summaryMustStayBelowTwoHundredWords() throws {
         var draft = try plan()
         draft.script.summary = String(repeating: "word ", count: 199)

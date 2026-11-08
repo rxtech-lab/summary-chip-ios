@@ -161,6 +161,7 @@ Motion design craft:
 
 Rules:
 - Import only from "react", "remotion" and your own files.${images ? ` Use staticFile() only for the chip artwork, the turns' storyboardFrame files and the cut-outs generate_image returned.` : " Use staticFile() only for the chip artwork and the turns' storyboardFrame files."} Use interpolate, interpolateColors, spring, Easing, Sequence, AbsoluteFill, Img, staticFile and random from remotion. Use inline styles (render_frame does not apply CSS files).
+- Call every React/Remotion hook unconditionally at the top level of its component, before any early return. Never call hooks inside ternaries, JSX expressions, loops, or callbacks; compute the hook value first and use that value conditionally.
 - Animate only from useCurrentFrame() / the helpers. No timers, clocks, Math.random (use random(seed)), fetch, network URLs, storage, iframes, dangerouslySetInnerHTML, audio or video elements.
 - All random() seeds must be string or number literals. For multiple objects, use a literal-seeded value plus a deterministic index formula. No React state/effects, CSS animations/transitions/@keyframes, SVG animate/set elements or Web Animations: calculate every visible property directly from the current frame. Rendering a frame must give the same result regardless of worker or previous frames.
 - interpolate() input ranges must be strictly increasing, including when computed from timings: guard tiny or zero-length windows.

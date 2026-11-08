@@ -162,7 +162,7 @@ struct AudiobookSpeakersSheet: View {
             .sensoryFeedback(.selection, trigger: taps)
             .sensoryFeedback(.selection, trigger: automatic)
         }
-        .frame(minWidth: 360, idealWidth: 520, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 360, idealWidth: 520, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -200,7 +200,7 @@ struct AudiobookVoicePickerSheet: View {
             .sensoryFeedback(.impact, trigger: samples.playingVoice)
             .sensoryFeedback(.error, trigger: samples.error)
         }
-        .frame(minWidth: 360, idealWidth: 480, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 360, idealWidth: 480, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

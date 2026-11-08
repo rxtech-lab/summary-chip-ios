@@ -1,9 +1,9 @@
 import SummaryKit
 import SwiftUI
 
-/// Plan mode: a chat with the podcast planner. The latest plan sits at the end of the transcript as a card whose
-/// lines open their own editor; messages revise the script and camera storyboard. Nothing is voiced or rendered
-/// until the plan is confirmed.
+/// Plan mode: a chat with the podcast planner. The live plan is a card whose lines open their own editor. When the
+/// planner shows a revision, it appears below the request and the plan before it stays above, read-only; questions are
+/// answered without a new plan. Nothing is voiced or rendered until the plan is confirmed.
 struct PodcastPlanSheet: View {
     let api: SummaryAPIClient
     let onConfirm: (PodcastPlan) -> Void
@@ -19,6 +19,7 @@ struct PodcastPlanSheet: View {
     @State private var confirming = false
     @State private var error: String?
     @State private var sends = 0
+    @State private var viewportHeight: CGFloat = 0
     @State private var taps = 0
     @FocusState private var composerFocused: Bool
 
@@ -36,26 +37,42 @@ struct PodcastPlanSheet: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         PlanChatBubble(role: .assistant, text: String(localized: "Here's a plan with the script and camera storyboard. Ask me to change anything, or tap a line to edit it yourself."))
-                        ForEach(plan.messages) { PlanChatBubble(role: $0.role, text: $0.text) }
-                        if let pendingMessage {
-                            PlanChatBubble(role: .user, text: pendingMessage)
-                            PlanWorkingBubble(text: String(localized: "Revising the plan…"))
+                        ForEach(PlanTranscriptItem.items(plan.messages)) { item in
+                            switch item {
+                            case .message(let message): PlanChatBubble(role: message.role, text: message.text)
+                            case .snapshot(let message): snapshotCard(message)
+                            case .live:
+                                PodcastPlanCard(plan: plan, drawingFrames: drawingFrames, editable: !busy,
+                                                onEditLine: { taps += 1; editingLine = PlanLine(id: $0) },
+                                                onDrawFrames: drawFrames,
+                                                onPreview: { taps += 1; previewingLine = PlanLine(id: $0) })
+                                    .id("plan")
+                            }
                         }
-                        PodcastPlanCard(plan: plan, drawingFrames: drawingFrames, editable: !busy,
-                                        onEditLine: { taps += 1; editingLine = PlanLine(id: $0) },
-                                        onDrawFrames: drawFrames,
-                                        onPreview: { taps += 1; previewingLine = PlanLine(id: $0) })
-                            .id("plan")
+                        if let pendingMessage {
+                            VStack(alignment: .leading, spacing: 14) {
+                                PlanChatBubble(role: .user, text: pendingMessage)
+                                PlanWorkingBubble(text: String(localized: "Thinking about the plan…"))
+                                Spacer(minLength: 0)
+                            }
+                            .frame(minHeight: max(0, viewportHeight - 32), alignment: .top)
+                            .id("pending")
+                        }
+                        Color.clear.frame(height: 1).id("end")
                     }
                     .padding()
                     .frame(maxWidth: 760)
                     .frame(maxWidth: .infinity)
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
 #if !os(visionOS)
                 .scrollDismissesKeyboard(.interactively)
 #endif
-                .onChange(of: plan.revision) { withAnimation { proxy.scrollTo("plan", anchor: .top) } }
-                .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("plan", anchor: .top) } } }
+                // Keep a sent request at the top while the planner works.
+                .onChange(of: plan.messages.map(\.id)) {
+                    withAnimation { plan.messages.showedPlanLast() ? proxy.scrollTo("plan", anchor: .top) : proxy.scrollTo("end", anchor: .bottom) }
+                }
+                .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("pending", anchor: .top) } } }
             }
             .safeAreaInset(edge: .bottom) { composer }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -99,9 +116,20 @@ struct PodcastPlanSheet: View {
             .sensoryFeedback(.error, trigger: error)
         }
         .interactiveDismissDisabled(pendingMessage != nil)
-        .frame(minWidth: 520, idealWidth: 700, minHeight: 600, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 520, idealWidth: 700, minHeight: 600)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+
+    private func snapshotCard(_ message: PodcastPlan.Message) -> some View {
+        let script = message.plan
+        return PlanSnapshotCard(revision: message.revision, title: script?.title, summary: script?.summary,
+                                meta: script.map { String(localized: "\($0.segments.count) lines") } ?? "",
+                                itemsTitle: "Script",
+                                items: (script?.segments ?? []).enumerated().map { index, segment in
+                                    let speaker = script.flatMap { $0.speakers.indices.contains(segment.speaker) ? $0.speakers[segment.speaker].name : nil } ?? ""
+                                    return .init(id: index, title: "\(index + 1). \(speaker)", detail: segment.caption)
+                                })
     }
 
     private func requestGeneration() {
@@ -192,7 +220,7 @@ struct PodcastPlanSheet: View {
 }
 
 struct PlanChatBubble: View {
-    let role: PodcastPlan.Message.Role
+    let role: PlanMessageRole
     let text: String
     var body: some View {
         HStack {
@@ -206,6 +234,70 @@ struct PlanChatBubble: View {
             if role == .assistant { Spacer(minLength: 60) }
         }
         .frame(maxWidth: .infinity, alignment: role == .user ? .trailing : .leading)
+    }
+}
+
+/// An earlier plan in the chat, kept as it was when the user asked for a change. Read-only: only the newest plan
+/// is edited or confirmed. Its parts expand in place.
+struct PlanSnapshotCard: View {
+    struct Item: Identifiable {
+        let id: Int
+        let title: String
+        let detail: String
+    }
+    let revision: Int
+    let title: String?
+    let summary: String?
+    let meta: String
+    let itemsTitle: LocalizedStringKey
+    let items: [Item]
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label("EARLIER PLAN", systemImage: "lock.fill").font(.caption2.weight(.bold)).tracking(0.8)
+                    .labelStyle(.titleAndIcon)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Capsule().fill(.quaternary))
+                    .foregroundStyle(.secondary)
+                if revision > 0 { Text("Revision \(revision)").font(.caption).foregroundStyle(.secondary) }
+                Spacer()
+                if !meta.isEmpty { Text(meta).font(.caption).foregroundStyle(.secondary) }
+            }
+            if let title {
+                Text(title).font(.headline)
+                if let summary, !summary.isEmpty {
+                    Text(summary).font(.callout).foregroundStyle(.secondary).lineLimit(expanded ? nil : 3)
+                }
+                if !items.isEmpty {
+                    DisclosureGroup(isExpanded: $expanded.animation()) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(items) { item in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title).font(.callout.weight(.semibold))
+                                    if !item.detail.isEmpty { Text(item.detail).font(.callout).foregroundStyle(.secondary) }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        Text(itemsTitle).font(.callout)
+                    }
+                }
+            } else {
+                Text("This earlier plan is no longer kept.").font(.callout).foregroundStyle(.secondary)
+            }
+        }
+        .textSelection(.enabled)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.background.secondary.opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.separator.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        .sensoryFeedback(.selection, trigger: expanded)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Earlier plan, read-only"))
+        .accessibilityIdentifier("plan-snapshot-\(revision)")
     }
 }
 
@@ -419,7 +511,7 @@ private struct PodcastStoryboardSheet: View {
             .sensoryFeedback(.selection, trigger: playing)
         }
 #if os(macOS)
-        .frame(minWidth: 520, idealWidth: 800, minHeight: 600, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 520, idealWidth: 800, minHeight: 600)
 #else
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 #endif
@@ -523,7 +615,7 @@ private struct PodcastPlanLineSheet: View {
             .sensoryFeedback(.selection, trigger: segment.speaker)
         }
         .interactiveDismissDisabled(saving)
-        .frame(minWidth: 420, idealWidth: 560, minHeight: 520, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 420, idealWidth: 560, minHeight: 520)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

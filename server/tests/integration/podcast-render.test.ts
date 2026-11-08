@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "@/lib/mcp/server";
 import { podcastEpisodes, users } from "@/lib/db/schema";
-import { currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, updatePodcastRenderProgress, podcastRenderKey, podcastRenderStatus, startPodcastRender } from "@/lib/services/podcast-render";
+import { podcastRenderError, currentPodcastRender, finishPodcastRender, markPodcastRenderStarted, updatePodcastRenderProgress, podcastRenderKey, podcastRenderStatus, startPodcastRender } from "@/lib/services/podcast-render";
 import { dailyPodcastEpisode, updatePodcastDocument } from "@/lib/services/daily-podcast";
 import { setPodcastRenderStarterForTests } from "@/lib/podcast-video/render-workflow";
 import * as renderRoute from "@/app/api/v1/daily-podcasts/[key]/video/render/route";
@@ -222,4 +222,11 @@ it("ignores progress from a replaced render claim", async () => {
   await start();
   await updatePodcastRenderProgress(env.handle.db, job, 80);
   expect((await (await status()).json()).render.percent).toBe(0);
+});
+
+it("reports missing local OIDC as configuration without exposing provider details", () => {
+  expect(podcastRenderError(Object.assign(new Error("secret provider details"), { name: "LocalOidcContextError" }))).toEqual({
+    code: "PODCAST_RENDER_UNAVAILABLE",
+    message: "Local renderer credentials are missing or expired. Run vercel env pull in the server directory and restart the development server.",
+  });
 });

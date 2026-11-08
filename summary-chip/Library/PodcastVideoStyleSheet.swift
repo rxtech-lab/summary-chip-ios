@@ -59,7 +59,7 @@ struct PodcastVideoStyleSheet: View {
             }
             .sensoryFeedback(.selection, trigger: style)
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 400)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -103,7 +103,7 @@ struct PodcastSpeakersSheet: View {
             }
             .sensoryFeedback(.selection, trigger: names.count)
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 400)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -199,7 +199,7 @@ struct PodcastDurationSheet: View {
             .sensoryFeedback(.selection, trigger: draft)
             .sensoryFeedback(.selection, trigger: custom)
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 400)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

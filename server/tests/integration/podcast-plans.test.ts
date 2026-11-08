@@ -123,13 +123,23 @@ describe("podcast plan review gate", () => {
     expect(chat.status).toBe(200);
     const refined = (await chat.json()).plan;
     expect(refined.revision).toBe(1);
-    expect(refined.messages.map((message: { role: string }) => message.role)).toEqual(["user", "assistant"]);
+    // The reviewed plan stays above the request, read-only; the revision the agent showed follows it.
+    expect(refined.messages.map((message: { role: string; kind: string; revision: number }) => [message.role, message.kind, message.revision]))
+      .toEqual([["assistant", "plan", 0], ["user", "text", 0], ["assistant", "plan", 1], ["assistant", "text", 1]]);
+    expect(refined.messages[0].plan.segments[0].camera).toBe(plan.script.segments[0].camera);
+    expect(refined.messages[2].plan.segments[0].camera).toContain("aerial view");
     expect(refined.script.segments[0].camera).toContain("aerial view");
     // The changed direction lost its frame, and the stale picture was deleted.
     expect(refined.frames).toEqual([null]);
     const [stale] = await env.handle.db.select().from(podcastPlans).where(eq(podcastPlans.id, plan.id));
     expect(stale.frames).toEqual({});
     expect((await messagesRoute.POST(request("POST", plan.id, { revision: 0, message: "Again" }, env.tokens.alice, "/messages"), params({ id: plan.id }))).status).toBe(409);
+    // A question is answered without a new plan or revision.
+    const asked = await messagesRoute.POST(request("POST", plan.id, { revision: 1, message: "How long is it?" }, env.tokens.alice, "/messages"), params({ id: plan.id }));
+    const answered = (await asked.json()).plan;
+    expect(answered.revision).toBe(1);
+    expect(answered.messages.filter((message: { kind: string }) => message.kind === "plan")).toHaveLength(2);
+    expect(answered.messages.at(-1).text).toBe("It stays as it is.");
     await framesRoute.POST(request("POST", plan.id, { revision: 1 }, env.tokens.alice, "/frames"), params({ id: plan.id }));
     const confirm = await planRoute.POST(request("POST", plan.id, { revision: 1 }), params({ id: plan.id }));
     expect(confirm.status).toBe(200);

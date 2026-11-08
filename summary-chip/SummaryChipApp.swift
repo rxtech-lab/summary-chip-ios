@@ -149,7 +149,7 @@ struct SummaryChipApp: App {
         } else {
             #if os(macOS)
             if ProcessInfo.processInfo.arguments.contains("--preview-mac") {
-                SidebarMainView(environment: environment)
+                SidebarMainView(environment: environment, navigation: MainNavigationState())
             } else {
                 ContentView(environment: environment)
             }

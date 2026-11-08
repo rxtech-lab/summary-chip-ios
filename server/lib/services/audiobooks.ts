@@ -6,7 +6,7 @@ import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import { audiobookVoices, voiceUsdPerCharacter } from "@/lib/ai/voices";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import { audiobookPlanSchema, MAX_AUDIOBOOK_SCENES, type AudiobookCreationInput, type AudiobookJob, type AudiobookJobStage, type AudiobookPlanDocument } from "@/lib/contracts/audiobook";
-import type { DailyPodcast, PodcastDay, PodcastPlanFrame, PodcastPlanMessage, PodcastTranslation } from "@/lib/contracts/daily-podcast";
+import type { DailyPodcast, PodcastDay, PodcastPlanFrame, PodcastTranslation } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { audiobookJobs, audiobookPlans, podcastEpisodes, summaries, uploads, type SummaryRow } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
@@ -17,6 +17,7 @@ import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscri
 import { assembleChapters, bookChapterId, chapterEpisodeKey, commitBook, mergeLegacyAudiobooks, saveChapterEpisode, type ChapterState } from "./audiobook-book";
 import { audiobookPassages, splitPassages, narrationRatio, narrationSeconds, normalizeAudiobookPlan, passagesForPlanning, type StoredPassage } from "./audiobook-source";
 import { getAudiobookStarter } from "./audiobook-starter";
+import { appendPlanTurn, planChatHistory } from "./plan-transcript";
 import { alignPodcastCaptions } from "./podcast-captions";
 import { chipArtPath, dailyPodcastEpisode, dayKey, episodeAudioPath, jsonObject, podcastCover, translationPath, updatePodcastDocument } from "./daily-podcast";
 import { joinPodcastAudio } from "./podcast-audio";
@@ -31,7 +32,6 @@ type Plan = typeof audiobookPlans.$inferSelect;
 /** Scene images drawn while reviewing a plan; later ones are drawn when the video is. */
 export const MAX_PLAN_FRAMES = 24;
 const FRAME_CONCURRENCY = 4;
-const MAX_PLAN_MESSAGES = 60;
 /** A run whose job hasn't moved for this long has stopped and may be retried. */
 const STALE_MS = 20 * 60_000;
 /** Turns voiced at once, and how long one workflow step keeps voicing before it saves and yields to the next. */
@@ -205,7 +205,7 @@ export async function reviseAudiobookPlan(db: Database, user: string, id: string
   return publicAudiobookPlan(updated, deps);
 }
 
-/** Revises the plan from a chat request; the request and the reply join its chat. */
+/** One planning chat turn. The agent may revise and show a new plan (a new revision, shown below the request) or only answer. */
 export async function refineAudiobookPlanChat(db: Database, user: string, id: string, revision: number, message: string, deps: ServiceDeps = {}) {
   const plan = await getAudiobookPlan(db, user, id);
   if (plan.confirmed || plan.revision !== revision) throw changed();
@@ -218,17 +218,15 @@ export async function refineAudiobookPlanChat(db: Database, user: string, id: st
     const pricing = charge ? await ai.podcastPricing() : null;
     const refined = await ai.refineAudiobookPlan({ language: LANGUAGE_NAMES[plan.input.language], voices: audiobookVoices().map(({ id, name, gender, description }) => ({ id, name, gender, description })),
       plan: plan.plan, passages: passagesForPlanning(passages).map(passage => ({ ...passage, text: passage.text.slice(0, 300) })), totalPassages: passages.length,
-      history: plan.messages.map(({ role, text }) => ({ role, text })), request: message,
+      history: planChatHistory(plan.messages), request: message,
     }, { abortSignal: AbortSignal.timeout(200_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
     const ratio = narrationRatio(passages.reduce((sum, passage) => sum + narrationSeconds(passage.text), 0), plan.input.targetSeconds);
-    const next = normalizeAudiobookPlan(audiobookPlanSchema.parse(refined.plan), passages, ratio);
-    validatePlan(next, passages.length, { ...plan.input, speakers: undefined });
+    const next = refined.plan ? normalizeAudiobookPlan(audiobookPlanSchema.parse(refined.plan), passages, ratio) : null;
+    if (next) validatePlan(next, passages.length, { ...plan.input, speakers: undefined });
     const now = (deps.now?.() ?? new Date()).toISOString();
-    const messages: PodcastPlanMessage[] = [...plan.messages,
-      { id: randomUUID(), role: "user" as const, text: message, revision, createdAt: now },
-      { id: randomUUID(), role: "assistant" as const, text: refined.reply, revision: revision + 1, createdAt: now }].slice(-MAX_PLAN_MESSAGES);
-    const frames = await pruneFrames(store, next, plan.frames);
-    const [updated] = await db.update(audiobookPlans).set({ plan: next, frames, messages, revision: revision + 1, updatedAt: Date.parse(now) }).where(and(
+    const messages = appendPlanTurn(plan.messages, { current: plan.plan, revision, request: message, reply: refined.reply, shown: next, now });
+    const changes = next ? { plan: next, frames: await pruneFrames(store, next, plan.frames), revision: revision + 1 } : {};
+    const [updated] = await db.update(audiobookPlans).set({ ...changes, messages, updatedAt: Date.parse(now) }).where(and(
       eq(audiobookPlans.id, id), eq(audiobookPlans.ownerId, user), eq(audiobookPlans.revision, revision), eq(audiobookPlans.confirmed, false))).returning();
     if (!updated) throw changed();
     await charge?.settle(Math.max(1, pointsForCost(cost)), { plan: true, chat: true, textCostUsd: cost });
