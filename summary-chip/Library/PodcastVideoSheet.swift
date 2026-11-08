@@ -64,7 +64,7 @@ struct PodcastVideoPublicationSheet: View {
             }
             .onDisappear { operation?.cancel() }
         }
-        .frame(minWidth: 320, idealWidth: 520, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

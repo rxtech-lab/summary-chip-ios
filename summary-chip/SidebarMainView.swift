@@ -5,56 +5,100 @@ import SwiftUI
 /// page, and the agent chat as a collapsible trailing column.
 struct SidebarMainView: View {
     let environment: AppEnvironment
-    @State private var sideAgent: ChatModel?
-    @State private var selection: MainTab? = .library
-    /// Only the sidebar's own control changes this; the chat column never does.
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @Bindable var navigation: MainNavigationState
+    /// What the split view shows. Mirrors `navigation.columnVisibility`, which only the user changes:
+    /// while the layout settles (it was just created by unfolding, or the size class changed) the
+    /// split view picks its own visibility, and that must not overwrite the user's choice.
+    @State private var columnVisibility: NavigationSplitViewVisibility
+    @State private var layoutSettled = false
+    @State private var settleTask: Task<Void, Never>?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #if os(macOS)
     /// Remembered across launches so the chat panel reopens the way the user left it.
     @AppStorage("chatPanelVisible") private var showsChat = true
-    #else
-    @State private var showsChat = true
     #endif
     @State private var showsNewSummary = false
     @State private var showsNewTrip = false
     @State private var showsNewPaper = false
     @State private var showsNewGraph = false
     @State private var showsNewMiniApp = false
-    @State private var libraryPath: [Summary] = []
-    @State private var miniAppsPath: [Summary] = []
-    @State private var likesPath: [Summary] = []
     @Environment(\.openPodcast) private var openPodcast
     @Environment(\.openMiniApp) private var openMiniApp
+
+    init(environment: AppEnvironment, navigation: MainNavigationState) {
+        self.environment = environment
+        self.navigation = navigation
+        _columnVisibility = State(initialValue: navigation.columnVisibility)
+    }
+
+    #if !os(macOS)
+    private var showsChat: Bool {
+        get { navigation.showsChat }
+        nonmutating set { navigation.showsChat = newValue }
+    }
+
+    private var chatVisibility: Binding<Bool> { $navigation.showsChat }
+    #else
+    private var chatVisibility: Binding<Bool> { $showsChat }
+    #endif
+
+    private var sidebarSelection: Binding<MainTab?> {
+        Binding(get: { navigation.selection }, set: { if let tab = $0 { navigation.selection = tab } })
+    }
 
     var body: some View {
         // The chat column sits beside the split view, not in it: `.inspector` collapses the sidebar
         // when it needs room, and a pushed page covers anything placed inside the detail column.
         GeometryReader { geometry in
             HStack(spacing: 0) {
-                navigation
-                if showsChat {
+                navigationView
+                    .simultaneousGesture(TapGesture().onEnded { navigation.lastFocusedChat = false })
+                if showsChat && navigation.selection != .chat {
                     Divider()
                         .ignoresSafeArea()
                     agentPanel
+                        .simultaneousGesture(TapGesture().onEnded { navigation.lastFocusedChat = true })
                         .frame(width: Self.panelWidth(inWindowWidth: geometry.size.width))
                         .transition(.move(edge: .trailing))
                 }
             }
         }
-        .environment(\.chatPanelVisibility, $showsChat)
+        .environment(\.chatPanelVisibility, chatVisibility)
         .environment(\.openSideAgent, { model in
-            sideAgent = model
+            navigation.sideAgent = model
+            navigation.lastFocusedChat = true
             showsChat = true
         })
         .environment(\.setSideAgentContext, { model in
             let id = model.summaryID ?? model.trip?.id ?? model.graph?.id ?? model.miniAppID
             guard id == activeDocument?.id else { return }
-            sideAgent = model
+            navigation.sideAgent = model
         })
-        .onChange(of: selection) { _, _ in updateDocumentContext() }
-        .onChange(of: libraryPath) { _, _ in updateDocumentContext() }
-        .onChange(of: likesPath) { _, _ in updateDocumentContext() }
-        .onChange(of: miniAppsPath) { _, _ in updateDocumentContext() }
+        .onChange(of: navigation.selection) { _, selection in
+            if selection != .chat { navigation.contentSelection = selection }
+            updateDocumentContext()
+        }
+        .onAppear {
+            // Expanding while the compact Chat tab is selected moves chat into its side panel.
+            if navigation.selection == .chat {
+                navigation.selection = navigation.contentSelection
+                navigation.lastFocusedChat = true
+                showsChat = true
+            }
+            updateDocumentContext()
+            settleLayout()
+        }
+        .onDisappear { settleTask?.cancel() }
+        .onChange(of: horizontalSizeClass) { _, _ in settleLayout() }
+        .onChange(of: columnVisibility) { _, visibility in
+            if layoutSettled { navigation.columnVisibility = visibility }
+        }
+        .onChange(of: navigation.columnVisibility) { _, visibility in
+            if columnVisibility != visibility { columnVisibility = visibility }
+        }
+        .onChange(of: navigation.libraryPath) { _, _ in updateDocumentContext() }
+        .onChange(of: navigation.likesPath) { _, _ in updateDocumentContext() }
+        .onChange(of: navigation.miniAppsPath) { _, _ in updateDocumentContext() }
         .summarySearchPresentation(environment: environment, onOpenSummary: openFromSearch)
         .environment(\.openLibraryItem, openFromSearch)
         .sheet(isPresented: $showsNewSummary) {
@@ -64,8 +108,8 @@ struct SidebarMainView: View {
             NewTripSheet(api: environment.api) { trip in
                 Task {
                     guard let summary = await environment.libraryItem(forCreated: trip) else { return }
-                    selection = .library
-                    libraryPath = [summary]
+                    navigation.selection = .library
+                    navigation.libraryPath = [summary]
                 }
             }
         }
@@ -73,8 +117,8 @@ struct SidebarMainView: View {
             NewPaperSheet(api: environment.api) { paper in
                 Task {
                     guard let summary = await environment.libraryItem(forCreated: paper) else { return }
-                    selection = .library
-                    libraryPath = [summary]
+                    navigation.selection = .library
+                    navigation.libraryPath = [summary]
                 }
             }
         }
@@ -83,8 +127,8 @@ struct SidebarMainView: View {
                 Task {
                     guard let summary = try? await environment.api.summary(id: graph.id) else { return }
                     environment.library.insert(summary)
-                    selection = .library
-                    libraryPath = [summary]
+                    navigation.selection = .library
+                    navigation.libraryPath = [summary]
                 }
             }
         }
@@ -93,7 +137,7 @@ struct SidebarMainView: View {
                 Task {
                     guard let summary = try? await environment.api.summary(id: app.id) else { return }
                     environment.library.upsert(summary)
-                    selection = .miniApps
+                    navigation.selection = .miniApps
                     openClip(summary)
                 }
             }
@@ -109,12 +153,12 @@ struct SidebarMainView: View {
         .focusedSceneValue(\.newPaperAction, { showsNewPaper = true })
         .focusedSceneValue(\.newGraphAction, { showsNewGraph = true })
         .focusedSceneValue(\.newMiniAppAction, { showsNewMiniApp = true })
-        .focusedSceneValue(\.chatPanelVisibility, $showsChat)
+        .focusedSceneValue(\.chatPanelVisibility, chatVisibility)
     }
 
-    private var navigation: some View {
+    private var navigationView: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            List(selection: $selection) {
+            List(selection: sidebarSelection) {
                 Label("Feed", systemImage: "square.stack").tag(MainTab.library)
                 #if os(macOS)
                 Label("Discover", systemImage: "safari").tag(MainTab.discover)
@@ -136,6 +180,7 @@ struct SidebarMainView: View {
             .accessibilityIdentifier("mac-sidebar")
         } detail: {
             page
+                .modifier(DailyPodcastBottomInset(player: environment.podcastPlayer))
                 .navigationSplitViewColumnWidth(min: 100, ideal: 500)
         }
         .navigationSplitViewStyle(.balanced)
@@ -143,18 +188,22 @@ struct SidebarMainView: View {
 
     @ViewBuilder
     private var page: some View {
-        switch selection ?? .library {
-        case .library, .chat: LibraryView(environment: environment, path: $libraryPath)
-        case .miniApps: LibraryView(environment: environment, path: $miniAppsPath, kind: .miniApp)
-        case .likes: LikesView(environment: environment, path: $likesPath)
+        switch navigation.selection {
+        case .library: LibraryView(environment: environment, path: $navigation.libraryPath)
+        case .miniApps: LibraryView(environment: environment, path: $navigation.miniAppsPath, kind: .miniApp)
+        case .likes: LikesView(environment: environment, path: $navigation.likesPath)
         case .discover: MarketplaceScreen(environment: environment)
         case .settings: SettingsView(environment: environment)
+        case .chat: ChatView(environment: environment)
         }
     }
 
     private var agentPanel: some View {
-        ChatView(environment: environment, isPanel: true, model: sideAgent, onClose: { withAnimation { showsChat = false } })
-            .id(sideAgent.map { ObjectIdentifier($0) })
+        ChatView(environment: environment, isPanel: true, model: navigation.chatModel(environment: environment), onClose: {
+            navigation.lastFocusedChat = false
+            withAnimation { showsChat = false }
+        }, onFocus: { navigation.lastFocusedChat = true })
+            .id(ObjectIdentifier(navigation.chatModel(environment: environment)))
             .environment(\.openLibraryItem, openFromSearch)
             .background(.bar)
             .accessibilityElement(children: .contain)
@@ -166,24 +215,38 @@ struct SidebarMainView: View {
         min(380, max(320, width * 0.4))
     }
 
+    /// Ignores the split view's own visibility changes for a moment after the layout appears or
+    /// changes size class, then puts back the sidebar the way the user left it.
+    private func settleLayout() {
+        layoutSettled = false
+        columnVisibility = navigation.columnVisibility
+        settleTask?.cancel()
+        settleTask = Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled else { return }
+            columnVisibility = navigation.columnVisibility
+            layoutSettled = true
+        }
+    }
+
     private var activeDocument: Summary? {
-        switch selection ?? .library {
-        case .library, .chat: libraryPath.last
-        case .likes: likesPath.last
-        case .miniApps: miniAppsPath.last
-        case .settings, .discover: nil
+        switch navigation.selection {
+        case .library: navigation.libraryPath.last
+        case .likes: navigation.likesPath.last
+        case .miniApps: navigation.miniAppsPath.last
+        case .settings, .discover, .chat: nil
         }
     }
 
     private func updateDocumentContext() {
         guard let document = activeDocument, !document.isExpired else {
-            sideAgent = nil
+            navigation.sideAgent = nil
             return
         }
-        let currentID = sideAgent.flatMap { $0.summaryID ?? $0.trip?.id ?? $0.graph?.id ?? $0.miniAppID }
+        let currentID = navigation.sideAgent.flatMap { $0.summaryID ?? $0.trip?.id ?? $0.graph?.id ?? $0.miniAppID }
         guard currentID != document.id else { return }
         let usesSpecialist = document.isOwner
-        sideAgent = ChatModel(
+        navigation.sideAgent = ChatModel(
             client: environment.chatClient, store: environment.chatStore,
             summaryID: usesSpecialist && document.kind == .miniApp ? nil : document.id,
             trip: usesSpecialist && document.kind == .trip ? TripChat(id: document.id, title: document.title) : nil,
@@ -199,16 +262,16 @@ struct SidebarMainView: View {
             return
         }
         if summary.kind == .miniApp {
-            selection = .miniApps
+            navigation.selection = .miniApps
             openClip(summary)
         } else {
-            selection = .library
-            libraryPath = [summary]
+            navigation.selection = .library
+            navigation.libraryPath = [summary]
         }
     }
 
     private func openClip(_ summary: Summary) {
-        if let openMiniApp { openMiniApp(summary) } else { miniAppsPath = [summary] }
+        if let openMiniApp { openMiniApp(summary) } else { navigation.miniAppsPath = [summary] }
     }
 }
 

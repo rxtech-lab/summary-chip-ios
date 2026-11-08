@@ -21,8 +21,8 @@ export const patchPodcastShareLinkSchema = z.object({
   ttlDays: ttlDaysSchema.optional(),
 }).strict();
 export type PatchPodcastShareLinkInput = z.infer<typeof patchPodcastShareLinkSchema>;
-/** Art directions the video designer offers: an editorial TV explainer, hand-drawn crayon, or a software update keynote. */
-export const PODCAST_VIDEO_STYLES = ["news", "crayon", "update"] as const;
+/** Art directions the video designer offers: an editorial TV explainer, hand-drawn crayon, a software update keynote, or a narrative concept explainer. */
+export const PODCAST_VIDEO_STYLES = ["news", "crayon", "update", "explainer"] as const;
 export type PodcastVideoStyle = (typeof PODCAST_VIDEO_STYLES)[number];
 export const podcastVideoStyleSchema = z.enum(PODCAST_VIDEO_STYLES);
 /** Image-first video themes an audiobook's plan offers: generated illustrations rather than animated diagrams. */
@@ -98,14 +98,20 @@ export const confirmPodcastPlanSchema = z.object({ revision: z.number().int().no
 export const refinePodcastPlanSchema = z.object({ revision: z.number().int().nonnegative(), message: z.string().trim().min(1).max(2000) }).strict();
 /** `POST /api/v1/daily-podcasts/plans/:id/frames`: draws storyboard frames for shots that have none (spends points). */
 export const drawPodcastPlanFramesSchema = z.object({ revision: z.number().int().nonnegative() }).strict();
-/** One exchange in a plan's refinement chat. */
+/** One entry in a plan's refinement chat: a chat message, or a plan the agent showed (`show_plan`). */
 export interface PodcastPlanMessage {
   id: string;
   role: "user" | "assistant";
+  /** Empty for plan entries. */
   text: string;
   /** The plan revision this message produced (assistant) or was written against (user). */
   revision: number;
   createdAt: string;
+  /** `plan` entries show the plan as it was at `revision`: read-only once a later plan is shown. Missing means `text`. */
+  kind?: "text" | "plan";
+  /** The plan document (podcast script or audiobook plan) at `revision`. Older snapshots are dropped to bound
+   * the transcript's size; their entry stays as a placeholder. */
+  plan?: unknown;
 }
 /** A drawn storyboard frame, stored privately under the plan. Keyed by the camera direction it pictures. */
 export interface PodcastPlanFrame {

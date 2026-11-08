@@ -12,7 +12,6 @@ struct SummaryDetailView: View {
     @State private var showsShare = false
     @State private var xSharingRequest: XSharingRequest?
     @State private var showsEditSharing = false
-    @State private var showsNewPodcast = false
     @State private var linkedPodcasts: [DailyPodcast] = []
     @State private var showsLinkedPodcasts = false
     @State private var selectedPodcast: DailyPodcast?
@@ -131,17 +130,6 @@ struct SummaryDetailView: View {
         .sheet(isPresented: $showsLanguage) {
             DisplayLanguageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
-        .sheet(isPresented: $showsNewPodcast) {
-            DailyPodcastGenerationSheet(api: environment.api, date: Date(), existing: nil, library: true, initialChip: summary) { podcast in
-                Task {
-                    if let id = podcast.summaryId, let chip = try? await environment.api.summary(id: id) {
-                        environment.library.insert(chip)
-                    }
-                    try? await Task.sleep(for: .milliseconds(350))
-                    environment.podcastPlayer.present(podcast: podcast)
-                }
-            }
-        }
         .sheet(isPresented: $showsRegenerate) {
             RegenerateImageSheet(api: environment.api, summary: summary) { updated in saved(updated) }
         }
@@ -165,7 +153,6 @@ struct SummaryDetailView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: showsLinkedPodcasts)
-        .sensoryFeedback(.selection, trigger: showsNewPodcast)
         .sensoryFeedback(.selection, trigger: downloadPodcast != nil)
         .sensoryFeedback(.impact(weight: .medium), trigger: podcastPlays)
         .overlay {
@@ -181,8 +168,8 @@ struct SummaryDetailView: View {
         .sensoryFeedback(.error, trigger: podcastError) { _, new in new != nil }
         .task(id: summary.id) { await reloadLinkedPodcasts() }
         // A podcast made or changed here may now stack on this chip.
-        .onChange(of: showsNewPodcast) { _, shown in
-            if !shown { Task { await reloadLinkedPodcasts(); await refresh() } }
+        .onChange(of: environment.libraryCreation == nil) { _, closed in
+            if closed { Task { await reloadLinkedPodcasts(); await refresh() } }
         }
         .onChange(of: environment.podcastPlayer.isPresented) { _, shown in
             if !shown { Task { await reloadLinkedPodcasts(); await refresh() } }
@@ -315,10 +302,10 @@ struct SummaryDetailView: View {
                 .disabled(openingPodcast)
                 .accessibilityIdentifier("summary-linked-podcasts")
                 Divider()
-                Button { showsNewPodcast = true } label: { Label("Generate Podcast", systemImage: "plus") }
+                Button { environment.libraryCreation = .podcast(initialChip: summary) } label: { Label("Generate Podcast", systemImage: "plus") }
                     .accessibilityIdentifier("summary-create-podcast")
             } else {
-                Button { showsNewPodcast = true } label: { Label("Create Podcast", systemImage: "plus") }
+                Button { environment.libraryCreation = .podcast(initialChip: summary) } label: { Label("Create Podcast", systemImage: "plus") }
                     .accessibilityIdentifier("summary-create-podcast")
             }
         } label: {
@@ -775,7 +762,7 @@ private struct LinkedPodcastsSheet: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sensoryFeedback(.selection, trigger: taps)
         }
-        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 560, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

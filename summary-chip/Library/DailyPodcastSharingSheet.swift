@@ -36,7 +36,7 @@ struct DailyPodcastSharingSheet: View {
                 .task { await load() }
                 .sensoryFeedback(.error, trigger: error) { _, new in new != nil }
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 420, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 420)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

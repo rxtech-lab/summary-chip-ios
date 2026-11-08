@@ -124,7 +124,7 @@ struct AudiobookGenerationSheet: View {
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 320, idealWidth: 520, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 400)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

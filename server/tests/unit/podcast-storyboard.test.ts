@@ -12,8 +12,11 @@ describe("motion storyboard", () => {
     expect(news).toContain("#009B85");
     expect(crayon).toContain("#FBF5E6");
     expect(crayon).toContain("crayon scribble");
+    const explainer = storyboardInstruction({ ...shot, style: "explainer" });
     expect(update).toContain("software update keynote");
-    for (const prompt of [news, crayon, update]) {
+    expect(explainer).toContain("#ECEDE9");
+    expect(explainer).toContain("Narrative stage");
+    for (const prompt of [news, crayon, update, explainer]) {
       expect(prompt).toContain("2-by-2 grid");
       expect(prompt).toContain("entrance and initial objects");
       expect(prompt).toContain("short readable headings");

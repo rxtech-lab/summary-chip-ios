@@ -49,8 +49,9 @@ try {
   // Decode a frame as well as probing metadata before making the file downloadable.
   execFileSync('ffmpeg', ['-v', 'error', '-i', 'render.mp4', '-frames:v', '1', '-f', 'null', '-']);
   await status({status: 'ready', byteSize: Number(info.format.size)});
-} catch {
-  await status({status: 'failed'});
+} catch (error) {
+  console.error(error);
+  await status({status: 'failed', error: String(error?.stack ?? error).slice(0, 8000)});
   process.exitCode = 1;
 }
 `;

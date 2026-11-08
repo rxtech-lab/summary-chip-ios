@@ -14,6 +14,7 @@ struct ChatView: View {
     /// Shown as a column beside other content rather than as its own page or sheet.
     let isPanel: Bool
     private let onClose: (() -> Void)?
+    private let onFocus: (() -> Void)?
     @State private var voice = LiveVoiceModel()
     @AppStorage(LiveVoiceSettings.engineKey) private var savedVoiceEngine = LiveVoiceEngine.chippy.rawValue
     @AppStorage(LiveVoiceSettings.languageKey) private var savedVoiceLanguage = ""
@@ -35,11 +36,12 @@ struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openLibraryItem) private var openLibraryItem
 
-    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil, onClose: (() -> Void)? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil, onClose: (() -> Void)? = nil, onFocus: (() -> Void)? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
         self.onClose = onClose
+        self.onFocus = onFocus
         let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip, miniAppID: miniAppID)
         if let onTripUpdated { model.onTripUpdated = onTripUpdated }
         if let onGraphUpdated { model.onGraphUpdated = onGraphUpdated }
@@ -96,6 +98,26 @@ struct ChatView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #if os(iOS)
+        .overlay(alignment: .topLeading) {
+            if isPanel, onClose != nil {
+                Button {
+                    interactionFeedback += 1
+                    closeChat()
+                } label: {
+                    Label("Close Chat", systemImage: "xmark")
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .platformGlassEffect(.regular.interactive(), in: Circle())
+                .accessibilityIdentifier("close-chat-panel")
+                .padding(10)
+            }
+        }
+        #endif
         .overlay(alignment: .top) {
             if isPanel && !voice.isActive {
                 HStack {
@@ -107,7 +129,11 @@ struct ChatView: View {
                         Label("New Chat", systemImage: "square.and.pencil")
                             .labelStyle(.iconOnly)
                             .font(.system(size: 14, weight: .medium))
+                            #if os(iOS)
+                            .frame(width: 44, height: 44)
+                            #else
                             .frame(width: 32, height: 32)
+                            #endif
                             .contentShape(Circle())
                     }
                     .help("New Chat")
@@ -116,11 +142,18 @@ struct ChatView: View {
                     .disabled(model.entries.isEmpty || voice.isActive)
 
                 }
+                #if os(iOS)
+                .padding(10)
+                #else
                 .padding()
+                #endif
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             }
         }
         .onAppear { transcriptEntries = model.entries }
+        .onChange(of: inputFocused) { _, focused in
+            if focused { onFocus?() }
+        }
         .onChange(of: model.entries) { oldEntries, newEntries in
             updateTranscript(oldEntries: oldEntries, newEntries: newEntries)
         }

@@ -15,22 +15,12 @@ struct DailyPodcastPresentation: ViewModifier {
     @State private var openingChip = false
     @State private var error: String?
     @State private var openingTask: Task<Void, Never>?
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     func body(content: Content) -> some View {
         @Bindable var player = environment.podcastPlayer
         content
             .environment(\.openPodcast, openPodcast)
             .sensoryFeedback(.selection, trigger: podcastTaps)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if player.showsMiniPlayer, !usesTabAccessory {
-                    DailyPodcastMiniPlayer(player: player)
-                        .frame(maxWidth: 640)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: .infinity)
-                }
-            }
             .sheet(isPresented: $player.isPresented, onDismiss: openPendingChip) {
                 if let date = player.date {
                     DailyPodcastSheet(api: environment.api, date: date, player: player, onOpenChip: { id in
@@ -57,14 +47,6 @@ struct DailyPodcastPresentation: ViewModifier {
                 if request != nil { player.isPresented = false }
             }
             .onDisappear { openingTask?.cancel(); podcastTask?.cancel() }
-    }
-
-    /// `MainTabView` shows the mini player in the tab bar's bottom accessory instead.
-    private var usesTabAccessory: Bool {
-        #if os(iOS)
-        if #available(iOS 27.0, *) { return horizontalSizeClass != .regular }
-        #endif
-        return false
     }
 
     private func openPodcast(_ summary: Summary) {
@@ -96,6 +78,24 @@ struct DailyPodcastPresentation: ViewModifier {
                 environment.pendingLibraryItem = summary
             } catch is CancellationError {
             } catch { self.error = error.localizedDescription }
+        }
+    }
+}
+
+/// Attach to the content column, so playback controls never cover the sidebar or agent panel.
+struct DailyPodcastBottomInset: ViewModifier {
+    let player: DailyPodcastPlayer
+    var usesTabAccessory = false
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .bottom, spacing: 0) {
+            if player.showsMiniPlayer, !usesTabAccessory {
+                DailyPodcastMiniPlayer(player: player)
+                    .frame(maxWidth: 640)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
 }
@@ -258,7 +258,7 @@ struct PodcastVersionsSheet: View {
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 560, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -332,7 +332,7 @@ struct PodcastLinkedChipsSheet: View {
             } message: { Text(error ?? "") }
             .sensoryFeedback(.selection, trigger: taps)
         }
-        .frame(minWidth: 320, idealWidth: 560, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 560, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

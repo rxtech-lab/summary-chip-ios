@@ -920,6 +920,7 @@ function drawCard(id: string, input: DesignInput): Promise<Uint8Array> {
 const CUTOUT_LOOK: Record<PodcastVideoStyle, string> = {
   news: "Polished modern editorial illustration: clean shapes, soft even studio lighting, a calm palette of teal, deep green, ivory and warm coral accents.",
   crayon: "Warm hand-drawn crayon illustration, like a children's picture book: visible waxy crayon strokes and scribbled fills in tomato red, sky blue, sunflower yellow and grape purple with soft graphite outlines.",
+  explainer: "Flat, chunky explainer-video object: simple rounded shapes with a confident dark ink outline and flat fills in white, slate grey, apricot, rust and butter yellow, a small pixel-art face or icon where it fits, no gradients, shading, textures or shadows.",
   update: "Sleek product-launch keynote render: glossy rounded device and interface objects, soft studio lighting with a cool white rim light, a palette of graphite, silver and soft white with small cyan and amber accents (the green comes from the stage, never the object), and no purple or violet.",
 };
 

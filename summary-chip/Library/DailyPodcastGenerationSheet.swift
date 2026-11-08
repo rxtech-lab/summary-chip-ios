@@ -139,7 +139,7 @@ struct DailyPodcastGenerationSheet: View {
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 320, idealWidth: 520, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 400)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -589,7 +589,7 @@ struct PodcastChipPicker: View {
             } message: { Text(error ?? "") }
             .sensoryFeedback(.selection, trigger: taps)
         }
-        .frame(minWidth: 320, idealWidth: 520, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -605,7 +605,12 @@ struct PodcastChipPicker: View {
             let chips = page.items.filter { !$0.isExpired || $0.isOwner }.map { PodcastChip(id: $0.id, title: $0.title, source: $0.source) }
             results = more ? results + chips : chips
             cursor = page.nextCursor
-        } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        } catch is CancellationError {
+        } catch let error as URLError where error.code == .cancelled {
+        } catch {
+            guard !Task.isCancelled, query.q == request.q, query.source == request.source else { return }
+            self.error = error.localizedDescription
+        }
     }
 }
 

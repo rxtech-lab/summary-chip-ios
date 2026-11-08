@@ -25,7 +25,7 @@ Unconfirmed plans are listed above the library feed as **Planned Podcasts** (sho
 | `DELETE /api/v1/daily-podcasts/plans/:id` | — | 204; deletes an unconfirmed plan and its frames. 409 `PODCAST_PLAN_CONFIRMED` or `PODCAST_PLAN_GENERATING` |
 | `GET /api/v1/daily-podcasts/plans/:id` | — | Owner's persisted plan, without generation or charges |
 | `PATCH /api/v1/daily-podcasts/plans/:id` | `{revision, script}` | Line edits: updated plan with incremented revision; rejects stale revisions, confirmed plans, invalid source/speaker references, or empty shots. Frames of changed directions are deleted |
-| `POST /api/v1/daily-podcasts/plans/:id/messages` | `{revision, message}` | Chat revision by the podcast model; appends the request and its reply to `messages` (`PODCAST_PLAN_REFINE_FAILED`, 502, on failure) |
+| `POST /api/v1/daily-podcasts/plans/:id/messages` | `{revision, message}` | One planning chat turn. The model revises with `update_plan` and decides with `show_plan` whether to show a new plan: if it does, the revision goes up and `messages` gets the reviewed plan (a `kind: "plan"` snapshot, kept above the request and read-only in the app), the request, the new plan and the reply; a question is answered without a new plan or revision (`PODCAST_PLAN_REFINE_FAILED`, 502, on failure) |
 | `POST /api/v1/daily-podcasts/plans/:id/frames` | `{revision}` | Draws the missing frames; 503 `PODCAST_STORYBOARD_UNAVAILABLE` without the model, 502 `PODCAST_STORYBOARD_FAILED` when none could be drawn |
 | `POST /api/v1/daily-podcasts/plans/:id` | `{revision}` | Freezes the reviewed revision, then returns `{podcast}`; supports the existing SSE progress/completion contract |
 
@@ -476,6 +476,15 @@ Planned drafts form a compact header inside the feed and scroll with posts. Comp
 The macOS plan sheet has a single toolbar **Confirm & Generate** action, which starts generation directly after review. Closing without confirming preserves the draft. iOS retains its native confirmation dialog.
 
 Storyboard images are four keyframes in a 2×2 contact sheet (entrance, build, emphasis, transition), using the same complete style instructions as the video designer, with narration-grounded diagrams and short labels. Tap a storyboard thumbnail to open a dedicated full-height sheet, play the keyframes, or inspect an individual stage and its full animation direction. This is a keyframe animatic, not a preview of the final rendered motion. Keys include the format version, style, narration and camera direction; existing still-image drafts are redrawn on review. Each contact sheet uses one image generation, as before.
+
+Video styles (`PODCAST_VIDEO_STYLES`; art direction in `server/lib/ai/podcast-video-style.ts`, picker copy in `server/lib/services/podcast-options.ts`):
+
+- **News**: a calm editorial TV explainer on an ivory canvas with teal line art.
+- **Crayon**: a hand-drawn picture-book page that is drawn live.
+- **Update**: a dark software-update keynote with product UI and charts.
+- **Explainer**: a narrated concept animation on a plain light-grey stage. A persistent cast (a rounded pixel-face character that stands for the subject) and chunky ink-outlined tokens, word tiles, speech bubbles, arrows, tracks and machines move smoothly, stack, dock and connect as the story unfolds. The stage is treated as one continuous scene rather than a slideshow: earlier ideas stay docked or ghosted as context, and the opening drops the cast onto an empty stage instead of showing a poster title.
+
+The app reads the style list from the server, so adding a style needs no client change.
 
 The final designer receives the storyboard layout as metadata and implements its states as animated React/SVG; it must never display the contact sheet as a video plate. Legacy episodes without layout metadata remain single-keyframe references.
 

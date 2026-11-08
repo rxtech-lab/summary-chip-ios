@@ -153,7 +153,10 @@ describe("audiobook plans", () => {
     const chatted = await messagesRoute.POST(planRequest("POST", plan.id, { revision: 1, message: "Rename the first chapter" }, env.tokens.alice, "/messages"), params({ id: plan.id }));
     const revised = (await chatted.json()).plan;
     expect(revised.plan.chapters[0].title).toContain("(revised)");
-    expect(revised.messages.map((message: { role: string }) => message.role)).toEqual(["user", "assistant"]);
+    expect(revised.messages.map((message: { role: string; kind: string; revision: number }) => [message.role, message.kind, message.revision]))
+      .toEqual([["assistant", "plan", 1], ["user", "text", 1], ["assistant", "plan", 2], ["assistant", "text", 2]]);
+    expect(revised.messages[0].plan.speakers[0].name).toBe("Laura");
+    expect(revised.messages[2].plan.chapters[0].title).toContain("(revised)");
   });
 
   it("keeps a voice from being used twice through an edit", async () => {

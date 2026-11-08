@@ -125,7 +125,7 @@ struct DailyPodcastDownloadSheet: View {
                 if let directory { try? FileManager.default.removeItem(at: directory) }
             }
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 320, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 320)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

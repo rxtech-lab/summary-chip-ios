@@ -5,6 +5,7 @@ import { podcastSummarySchema, type AudiobookVideoTheme } from "@/lib/contracts/
 import { AUDIOBOOK_THEMES } from "./audiobook-themes";
 import { PODCAST_SPEECH_STYLE } from "./podcast-style";
 import type { TourNarrationOptions } from "./tour-agent";
+import { runPlanRevision } from "./plan-revision-agent";
 import type { VoiceOption } from "./voices";
 
 export interface AudiobookPassage { index: number; chip: string; text: string }
@@ -56,8 +57,8 @@ export interface AudiobookChapterTurn { speaker: number; caption: string; music:
 export interface AudiobookAi {
   /** The reviewable plan from the source passages (podcast model). */
   writeAudiobookPlan(input: AudiobookPlanInput, options?: TourNarrationOptions): Promise<Omit<AudiobookPlanDocument, "videoTheme">>;
-  /** The plan revised from one chat request, with the model's reply. */
-  refineAudiobookPlan(input: AudiobookRefinementInput, options?: TourNarrationOptions): Promise<{ reply: string; plan: AudiobookPlanDocument }>;
+  /** One planning chat turn: the reply, and the revised plan when the agent showed one (null when it only answered). */
+  refineAudiobookPlan(input: AudiobookRefinementInput, options?: TourNarrationOptions): Promise<{ reply: string; plan: AudiobookPlanDocument | null }>;
   /** One chapter's spoken turns. */
   writeAudiobookChapter(input: AudiobookChapterInput, options?: TourNarrationOptions): Promise<AudiobookChapterTurn[]>;
   /** One full-bleed 16:9 scene for the video (`AI_IMAGE_MODEL`). */
@@ -124,23 +125,18 @@ export async function writeAudiobookPlan(model: LanguageModel, input: AudiobookP
   return { ...result.output, summary: normalizeAudiobookSummary(result.output.summary) };
 }
 
-/** Revises the whole plan from one chat request, including speakers and voices. */
-export async function refineAudiobookPlan(model: LanguageModel, input: AudiobookRefinementInput, options?: TourNarrationOptions) {
+/** One planning chat turn: the agent may revise the whole plan, including speakers and voices, and decides when to show it. */
+export async function refineAudiobookPlan(model: LanguageModel, input: AudiobookRefinementInput, options?: TourNarrationOptions): Promise<{ reply: string; plan: AudiobookPlanDocument | null }> {
   const { videoTheme, ...plan } = input.plan;
-  const schema = planOutputSchema(input.voices.map(voice => voice.id), input.totalPassages).extend({
-    reply: z.string().trim().min(1).max(1000).describe("One to three sentences to the user, in the requested language, saying what changed"),
-  });
-  const result = await generateText({
-    model,
-    instructions: `You revise an audiobook plan the user is reviewing before anything is recorded. Apply the request and copy everything else exactly. You may change speakers and their voices, chapters and their passage ranges, music cues and scenes.\n${PLAN_GUIDE(plan.chapters.some(chapter => chapter.scenes.length > 0) || !!plan.visualGuide)}\nIf the request can't be done within these rules, keep the plan and explain why in the reply. ${BOOK_RULES} ${UNTRUSTED}`,
+  const turn = await runPlanRevision(model, {
+    instructions: `You are the director of an audiobook plan the user is reviewing before anything is recorded. When revising, apply the request and copy everything else exactly. You may change speakers and their voices, chapters and their passage ranges, music cues and scenes.\n${PLAN_GUIDE(plan.chapters.some(chapter => chapter.scenes.length > 0) || !!plan.visualGuide)}\nWrite your reply in the requested language. ${BOOK_RULES} ${UNTRUSTED}`,
     prompt: JSON.stringify({ language: input.language, voices: input.voices, totalPassages: input.totalPassages, passages: input.passages, plan, history: input.history.slice(-10), request: input.request }),
-    output: Output.object({ schema }),
+    schema: planOutputSchema(input.voices.map(voice => voice.id), input.totalPassages),
     abortSignal: options?.abortSignal,
-    maxRetries: 1,
-    onStepFinish: ({ usage }) => options?.onUsage?.(usage),
+    onUsage: options?.onUsage,
   });
-  const { reply, ...revised } = result.output;
-  return { reply, plan: { ...revised, summary: normalizeAudiobookSummary(revised.summary), videoTheme } satisfies AudiobookPlanDocument };
+  const revised = turn.plan;
+  return { reply: turn.reply, plan: revised ? { ...revised, summary: normalizeAudiobookSummary(revised.summary), videoTheme } satisfies AudiobookPlanDocument : null };
 }
 
 /** Writes one chapter's spoken turns from its passages. */

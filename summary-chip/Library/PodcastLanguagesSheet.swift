@@ -98,7 +98,7 @@ struct PodcastLanguagesSheet: View {
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 420, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 420)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }
@@ -219,7 +219,7 @@ struct PodcastTranslationSheet: View {
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
         }
-        .frame(minWidth: 320, idealWidth: 480, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 400)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

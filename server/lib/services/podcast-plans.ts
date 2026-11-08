@@ -3,21 +3,20 @@ import { and, desc, eq, lt } from "drizzle-orm";
 import { getAiProvider } from "@/lib/ai/provider";
 import { podcastVoices } from "@/lib/ai/models";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
-import { podcastPlanScriptSchema, type PodcastCreationInput, type PodcastPlanFrame, type PodcastPlanMessage, type PodcastPlanScript } from "@/lib/contracts/daily-podcast";
+import { podcastPlanScriptSchema, type PodcastCreationInput, type PodcastPlanFrame, type PodcastPlanScript } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { podcastPlans } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, ownerKeyPrefix, type ObjectStore } from "@/lib/storage/r2";
 import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { createDailyPodcast, dailyPodcastChips } from "./daily-podcast";
+import { appendPlanTurn, planChatHistory } from "./plan-transcript";
 import { getSummaryForViewer, type ServiceDeps } from "./summaries";
 
 /** Shots that get a storyboard frame; later shots are planned in text only. */
 export const MAX_STORYBOARD_FRAMES = 40;
 /** Frames drawn at once. */
 const FRAME_CONCURRENCY = 4;
-/** Chat exchanges kept on a plan. */
-const MAX_PLAN_MESSAGES = 60;
 
 type Plan = typeof podcastPlans.$inferSelect;
 const changed = () => new ApiError(409, "PODCAST_PLAN_CHANGED", "The plan changed or was confirmed. Reload the plan before continuing.");
@@ -129,7 +128,7 @@ export async function revisePodcastPlan(db: Database, user: string, id: string, 
   return publicPodcastPlan(updated, { store: deps.store, storyboard: await storyboardEnabled(deps) });
 }
 
-/** Revises the plan from a chat request; the request and the model's reply join the plan's chat. */
+/** One planning chat turn. The agent may revise and show a new plan (a new revision, shown below the request) or only answer. */
 export async function refinePodcastPlanChat(db: Database, user: string, id: string, revision: number, message: string, deps: ServiceDeps = {}) {
   const plan = await getPodcastPlan(db, user, id);
   if (plan.confirmed || plan.revision !== revision) throw changed();
@@ -142,16 +141,16 @@ export async function refinePodcastPlanChat(db: Database, user: string, id: stri
     const refined = await ai.refinePodcastPlan({
       language: LANGUAGE_NAMES[plan.input.language], videoStyle: plan.input.videoStyle, script: plan.script, request: message,
       chips: chips.map(chip => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })),
-      history: plan.messages.map(({ role, text }) => ({ role, text })),
+      history: planChatHistory(plan.messages),
     }, { abortSignal: AbortSignal.timeout(120_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
-    const script = podcastPlanScriptSchema.parse(refined.script);
-    validatePlan(script, plan.input, chips.map(chip => chip.id), plan.script.speakers.map(speaker => speaker.voice));
+    const script = refined.script ? podcastPlanScriptSchema.parse(refined.script) : null;
+    if (script) validatePlan(script, plan.input, chips.map(chip => chip.id), plan.script.speakers.map(speaker => speaker.voice));
     const now = (deps.now?.() ?? new Date()).toISOString();
-    const messages: PodcastPlanMessage[] = [...plan.messages,
-      { id: randomUUID(), role: "user" as const, text: message, revision, createdAt: now },
-      { id: randomUUID(), role: "assistant" as const, text: refined.reply, revision: revision + 1, createdAt: now }].slice(-MAX_PLAN_MESSAGES);
-    const frames = await pruneFrames(deps.store ?? getObjectStore(), { script, frames: plan.frames, input: plan.input });
-    const [updated] = await db.update(podcastPlans).set({ script, frames, messages, revision: revision + 1, updatedAt: Date.parse(now) }).where(and(
+    const messages = appendPlanTurn(plan.messages, { current: plan.script, revision, request: message, reply: refined.reply, shown: script, now });
+    const changes = script
+      ? { script, frames: await pruneFrames(deps.store ?? getObjectStore(), { script, frames: plan.frames, input: plan.input }), revision: revision + 1 }
+      : {};
+    const [updated] = await db.update(podcastPlans).set({ ...changes, messages, updatedAt: Date.parse(now) }).where(and(
       eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user), eq(podcastPlans.revision, revision), eq(podcastPlans.confirmed, false),
     )).returning();
     if (!updated) throw changed();

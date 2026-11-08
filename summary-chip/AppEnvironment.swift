@@ -55,6 +55,9 @@ final class AppEnvironment {
     var pendingTopUp = false
     private(set) var authenticationState: AuthenticationPresentationState
     var backgroundJobsRequest: BackgroundJobsRequest?
+    /// A podcast or audiobook being made. Presented above the compact/regular layout switch, so
+    /// folding or unfolding a phone recreates the library without closing the flow or its plan.
+    var libraryCreation: LibraryCreation?
     var pendingRoute: AppRoute?
     /// An item from a link sheet to open in the main navigation (Library) once the sheet closes.
     var pendingLibraryItem: Summary?

@@ -141,9 +141,9 @@ struct DailyPodcastSheet: View {
             .sensoryFeedback(.success, trigger: videoUpdates)
             .sensoryFeedback(.error, trigger: player.error)
         #if os(macOS)
-        .frame(minWidth: 600, idealWidth: 760, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 600, idealWidth: 760, minHeight: 480)
         #else
-        .frame(minWidth: 320, idealWidth: 640, minHeight: 520, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 640, minHeight: 520)
         #endif
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])

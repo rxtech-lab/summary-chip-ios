@@ -82,7 +82,7 @@ struct BackgroundVideoRenderSheet: View {
             .sensoryFeedback(.selection, trigger: showsDownload)
             .onDisappear { video?.pause() }
         }
-        .frame(minWidth: 320, idealWidth: 700, minHeight: 480, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 320, idealWidth: 700, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

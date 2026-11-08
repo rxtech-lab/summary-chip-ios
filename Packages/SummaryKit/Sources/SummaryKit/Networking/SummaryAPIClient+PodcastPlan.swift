@@ -1,5 +1,73 @@
 import Foundation
 
+public enum PlanMessageRole: String, Codable, Sendable { case user, assistant }
+
+/// One entry in a plan's refinement chat: a message, or a plan the agent showed with `show_plan`.
+/// Only the newest plan entry is the live, editable plan; earlier ones are read-only snapshots.
+public struct PlanMessage<Snapshot: Codable & Sendable & Equatable>: Codable, Sendable, Identifiable, Equatable {
+    public typealias Role = PlanMessageRole
+    public enum Kind: String, Codable, Sendable { case text, plan }
+    public var id: String
+    public var role: Role
+    public var text: String
+    /// The revision this message was written against or produced; for a plan entry, the revision it shows.
+    public var revision: Int
+    public var kind: Kind
+    /// The plan as it was at `revision`. Nil for messages, and for old snapshots the server no longer keeps.
+    public var plan: Snapshot?
+
+    public init(id: String, role: Role, text: String, revision: Int, kind: Kind = .text, plan: Snapshot? = nil) {
+        self.id = id; self.role = role; self.text = text; self.revision = revision; self.kind = kind; self.plan = plan
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, role, text, revision, kind, plan }
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        role = try container.decode(Role.self, forKey: .role)
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        revision = try container.decode(Int.self, forKey: .revision)
+        kind = (try? container.decodeIfPresent(Kind.self, forKey: .kind)) ?? .text
+        // A snapshot in an older shape still shows as an earlier plan, without its details.
+        plan = kind == .plan ? (try? container.decodeIfPresent(Snapshot.self, forKey: .plan)) ?? nil : nil
+    }
+}
+
+/// How a plan chat reads: messages and shown plans in order. The live (current, editable) plan takes the place
+/// of the newest shown plan, or comes first when none has been shown yet; earlier plans are read-only.
+public enum PlanTranscriptItem<Snapshot: Codable & Sendable & Equatable>: Identifiable, Equatable {
+    case message(PlanMessage<Snapshot>)
+    case snapshot(PlanMessage<Snapshot>)
+    case live
+
+    public var id: String {
+        switch self {
+        case .message(let message), .snapshot(let message): message.id
+        case .live: "live-plan"
+        }
+    }
+
+    public static func items(_ messages: [PlanMessage<Snapshot>]) -> [Self] {
+        guard let latest = messages.lastIndex(where: { $0.kind == .plan }) else {
+            return [.live] + messages.filter { !$0.text.isEmpty }.map { .message($0) }
+        }
+        return messages.indices.compactMap { index in
+            let message = messages[index]
+            if index == latest { return .live }
+            if message.kind == .plan { return .snapshot(message) }
+            return message.text.isEmpty ? nil : .message(message)
+        }
+    }
+}
+
+extension Array {
+    /// Whether the planner's last turn showed a new plan, rather than only answering.
+    public func showedPlanLast<Snapshot>() -> Bool where Element == PlanMessage<Snapshot> {
+        guard let plan = lastIndex(where: { $0.kind == .plan }) else { return false }
+        return plan > (lastIndex(where: { $0.role == .user }) ?? -1) && contains { $0.role == .user }
+    }
+}
+
 public struct PodcastPlan: Codable, Sendable, Identifiable, Equatable {
     public var id: String
     public var revision: Int
@@ -14,13 +82,7 @@ public struct PodcastPlan: Codable, Sendable, Identifiable, Equatable {
     /// Four successive animation keyframes, in reading order. Nil for legacy stills.
     public var frameLayout: String?
 
-    public struct Message: Codable, Sendable, Identifiable, Equatable {
-        public enum Role: String, Codable, Sendable { case user, assistant }
-        public var id: String
-        public var role: Role
-        public var text: String
-        public var revision: Int
-    }
+    public typealias Message = PlanMessage<Script>
 
     private enum CodingKeys: String, CodingKey { case id, revision, confirmed, script, messages, frames, storyboard, frameLayout }
     public init(from decoder: any Decoder) throws {

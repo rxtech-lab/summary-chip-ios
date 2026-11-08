@@ -78,4 +78,15 @@ public extension View {
         self
         #endif
     }
+
+    /// A page sheet's size. Minimums apply only to macOS windows: on iOS a minimum wider than the
+    /// screen (a folded phone, a narrow split) pushes the sheet off-screen, so it fills what it's given.
+    @ViewBuilder
+    func summarySheetFrame(minWidth: CGFloat, idealWidth: CGFloat? = nil, minHeight: CGFloat) -> some View {
+        #if os(macOS)
+        frame(minWidth: minWidth, idealWidth: idealWidth, minHeight: minHeight, maxHeight: .infinity)
+        #else
+        frame(idealWidth: idealWidth, maxWidth: .infinity, maxHeight: .infinity)
+        #endif
+    }
 }

@@ -56,10 +56,13 @@ struct PodcastSummarySheet: View {
         .sensoryFeedback(.selection, trigger: attempts)
         .sensoryFeedback(.error, trigger: error)
         #if os(macOS)
-        .frame(minWidth: 440, idealWidth: 520, minHeight: 400, maxHeight: .infinity)
+        .summarySheetFrame(minWidth: 440, idealWidth: 520, minHeight: 400)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        #else
+        // Keep the iPad page width instead of fitting to the scroll view's ideal width.
+        .presentationSizing(.page)
         #endif
         .presentationDetents([.large])
-        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
     }
     private func generateIfNeeded() async {
         guard summary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false, !generating else { return }
