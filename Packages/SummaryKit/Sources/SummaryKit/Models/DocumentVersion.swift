@@ -111,6 +111,7 @@ public enum DocumentVersionContent: Sendable, Hashable {
     case paper(PaperSource)
     case miniApp(MiniAppDocument)
     case graph(GraphDocument)
+    case richDocument(RichDocumentContent)
     /// A kind this build doesn't know; it can be listed and restored, not shown.
     case unsupported
 }
@@ -139,6 +140,7 @@ public struct DocumentVersionDetail: Decodable, Sendable, Hashable, Identifiable
         case .paper: content = .paper(try c.decode(PaperSource.self, forKey: .content))
         case .miniApp: content = .miniApp(try c.decode(MiniAppDocument.self, forKey: .content))
         case .graph: content = .graph(try c.decode(GraphDocument.self, forKey: .content))
+        case .richDocument: content = .richDocument(try c.decode(RichDocumentContent.self, forKey: .content))
         case .podcast, .audiobook, .other: content = .unsupported
         }
     }
@@ -153,6 +155,7 @@ public struct DocumentVersionRestore: Decodable, Sendable, Hashable {
     public var paper: Paper?
     public var miniApp: MiniApp?
     public var graph: Graph?
+    public var richDocument: RichDocument?
 
     public init(version: DocumentVersion?, summary: Summary? = nil, trip: Trip? = nil, paper: Paper? = nil) {
         self.version = version

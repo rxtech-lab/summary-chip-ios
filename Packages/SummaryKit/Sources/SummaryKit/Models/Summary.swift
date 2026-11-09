@@ -136,10 +136,12 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
     case audiobook
     /// Nodes and edges (`/api/v1/graphs/:id`, same id).
     case graph
+    /// Blocks of Markdown text, images, video and audio (`/api/v1/rich-documents/:id`, same id).
+    case richDocument
     case other(String)
 
     /// Every kind the server knows, in the order the library's filter lists them.
-    public static let known: [SummaryKind] = [.summary, .trip, .paper, .miniApp, .podcast, .audiobook, .graph]
+    public static let known: [SummaryKind] = [.summary, .trip, .paper, .miniApp, .podcast, .audiobook, .graph, .richDocument]
 
     public var id: String { rawValue }
 
@@ -152,6 +154,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case "audiobook": self = .audiobook
         case "mini_app": self = .miniApp
         case "graph": self = .graph
+        case "rich_document": self = .richDocument
         default: self = .other(rawValue)
         }
     }
@@ -165,6 +168,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .audiobook: "audiobook"
         case .miniApp: "mini_app"
         case .graph: "graph"
+        case .richDocument: "rich_document"
         case .other(let raw): raw
         }
     }
@@ -187,6 +191,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .audiobook: String(localized: "Audiobooks", bundle: .module)
         case .miniApp: String(localized: "Clips", bundle: .module)
         case .graph: String(localized: "Graphs", bundle: .module, comment: "Library kind filter: node-and-edge graphs")
+        case .richDocument: String(localized: "Documents", bundle: .module, comment: "Library kind filter: block-based rich documents")
         case .other(let raw): raw.capitalized
         }
     }
@@ -200,6 +205,7 @@ public enum SummaryKind: Codable, Sendable, Hashable, Identifiable {
         case .audiobook: "book.closed"
         case .miniApp: "app.badge"
         case .graph: "point.3.connected.trianglepath.dotted"
+        case .richDocument: "doc.text.image"
         case .other: "doc"
         }
     }

@@ -179,11 +179,43 @@ describe("/api/mcp", () => {
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
       "get_podcast", "create_podcast_version", "translate_podcast", "create_podcast", "create_podcast_file", "delete_podcast_file", "edit_podcast_file", "generate_podcast_music", "generate_podcast_speech", "get_podcast_project", "list_podcasts", "render_podcast_frame", "render_podcast_video", "get_podcast_video_render", "submit_podcast_video",
-      "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_graph", "create_trip", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_graph", "get_paper_reviews", "get_profile", "get_raw_text", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_graphs", "list_trips", "list_versions", "regenerate_mini_app_cover", "query_graph", "restore_version", "search_summaries", "select_graph_elements", "update_graph", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_graph_image", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
+      "add_mini_app_records", "add_summary", "add_to_trip_from_source", "choose_plan_option", "compile_paper", "create_mini_app", "create_paper", "create_graph", "create_rich_document", "create_trip", "delete_rich_document", "get_rich_document", "list_rich_documents", "update_rich_document", "upload_rich_document_image", "create_upload", "finish_paper_review", "get_mini_app", "get_mini_app_catalog", "get_paper", "get_graph", "get_paper_reviews", "get_profile", "get_raw_text", "get_trip", "get_upload", "get_version", "list_mini_app_records", "list_mini_apps", "list_papers", "list_summaries", "list_editors_picks", "list_graphs", "list_trips", "list_versions", "regenerate_mini_app_cover", "query_graph", "restore_version", "search_summaries", "select_graph_elements", "update_graph", "update_mini_app", "update_paper", "update_place", "update_summary", "update_trip", "upload_graph_image", "upload_mini_app_file", "upload_trip_image", "validate_mini_app",
     ].sort());
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
     expect(add.inputSchema.required).toEqual(expect.arrayContaining(["title", "summary", "text"]));
+  });
+
+  it("lets an agent create, edit and delete a rich document", async () => {
+    const { key } = await createKey();
+    const created = await callTool(key, "create_rich_document", { markdown: "# Notes\n\nHello **there**.\n\n![Cat](https://cdn.example.com/cat.jpg)" });
+    expect(created.isError).toBeFalsy();
+    const documentId = (created.structuredContent as { richDocument: { id: string } }).richDocument.id;
+
+    const updated = await callTool(key, "update_rich_document", { documentId, operations: [
+      { op: "upsert_block", block: { id: "links", type: "text", align: "trailing", columns: [{ markdown: "Left" }, { markdown: "Right" }], children: [{ type: "link", title: "Docs", url: "https://example.com" }] } },
+      { op: "update_block", id: "b2", changes: { columns: [{ url: "https://cdn.example.com/cat.jpg", caption: "A cat" }] } },
+    ] });
+    expect(updated.isError).toBeFalsy();
+    const stale = await callTool(key, "update_rich_document", { documentId, revision: 0, operations: [{ op: "delete_block", id: "b1" }] });
+    expect(stale.isError).toBe(true);
+    expect((stale.content as { text: string }[])[0].text).toContain("get_rich_document");
+    const broken = await callTool(key, "update_rich_document", { documentId, operations: [{ op: "delete_block", id: "nope" }] });
+    expect((broken.content as { text: string }[])[0].text).toContain("RICH_DOCUMENT_INVALID");
+
+    const read = await callTool(key, "get_rich_document", { documentId });
+    const richDocument = (read.structuredContent as { richDocument: { revision: number; markdown: string } }).richDocument;
+    expect(richDocument.revision).toBe(1);
+    expect(richDocument.markdown).toContain("::: columns trailing\nLeft\n+++\nRight\n:::\n[Docs](https://example.com)");
+
+    const refused = await callTool(key, "update_summary", { summaryId: documentId, title: "Renamed" });
+    expect(refused.isError).toBe(true);
+    const listed = await callTool(key, "list_rich_documents", {});
+    expect(listed.structuredContent).toMatchObject({ count: 1, documents: [{ id: documentId, blockCount: 3 }] });
+
+    const deleted = await callTool(key, "delete_rich_document", { documentId });
+    expect(deleted.structuredContent).toMatchObject({ deleted: true });
+    expect((await callTool(key, "get_rich_document", { documentId })).isError).toBe(true);
   });
 
   it("lets an agent build, query and light up a graph", async () => {

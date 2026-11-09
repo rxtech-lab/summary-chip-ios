@@ -42,6 +42,8 @@
     "quickjs-emscripten": "^0.32.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "satori": "^0.63.2",
     "sharp": "^0.35.3",
     "typescript": "^5",

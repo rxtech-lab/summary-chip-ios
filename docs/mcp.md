@@ -63,8 +63,8 @@ permissions; it never silently grants access based on a previous RxAuth consent.
 
 | Scope | Tools |
 |---|---|
-| `chippy:read` | `search_summaries`, `list_summaries`, `get_raw_text`, `list_trips`, `get_trip`, `list_graphs`, `get_graph`, `query_graph`, `get_upload`, `list_versions`, `get_version`, `list_papers`, `get_paper`, `compile_paper`, `get_paper_reviews` |
-| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `create_graph`, `update_graph`, `select_graph_elements`, `upload_graph_image`, `update_place`, `choose_plan_option`, `restore_version`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source`, `create_paper`, `update_paper`, `finish_paper_review` |
+| `chippy:read` | `search_summaries`, `list_summaries`, `get_raw_text`, `list_trips`, `get_trip`, `list_graphs`, `get_graph`, `query_graph`, `list_rich_documents`, `get_rich_document`, `get_upload`, `list_versions`, `get_version`, `list_papers`, `get_paper`, `compile_paper`, `get_paper_reviews` |
+| `chippy:write` | `add_summary`, `update_summary`, `create_trip`, `update_trip`, `create_graph`, `update_graph`, `select_graph_elements`, `upload_graph_image`, `create_rich_document`, `update_rich_document`, `delete_rich_document`, `upload_rich_document_image`, `update_place`, `choose_plan_option`, `restore_version`, `create_upload`, `upload_trip_image`, `add_to_trip_from_source`, `create_paper`, `update_paper`, `finish_paper_review` |
 | Valid connection, no additional scope | `get_profile` — stable connected account ID with available name/email |
 
 An omitted scope defaults to `chippy:read`. Tool declarations expose their OAuth scopes. A tool
@@ -282,6 +282,12 @@ The trip format and its operations are specified in [trips.md](trips.md).
 `list_graphs`, `get_graph`, `create_graph`, `update_graph`, `query_graph`, `select_graph_elements` and `upload_graph_image`.
 See [graphs.md](graphs.md) for the document, operations and query language. `select_graph_elements` changes what the
 app shows the next time the graph loads or refreshes; it saves no version.
+
+### Rich document tools
+
+`list_rich_documents`, `get_rich_document`, `create_rich_document`, `update_rich_document`, `delete_rich_document` and
+`upload_rich_document_image`. Create from Markdown (preferred) or a full block document; `get_rich_document` returns
+both the blocks and Markdown. See [rich-documents.md](rich-documents.md) for the blocks, Markdown rules and operations.
 
 ### Paper tools
 

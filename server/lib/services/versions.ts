@@ -12,6 +12,7 @@ import { getOwnedTrip, saveDocument, validDocument, withStoredDefaults, type Tri
 import { updateMiniApp, getMiniApp } from "@/lib/mini-app/service";
 import { restorePaper, type PaperJson } from "./papers";
 import { restoreGraph, type GraphJson } from "./graphs";
+import { restoreRichDocument, type RichDocumentJson } from "./rich-documents";
 
 /** One row of `GET /api/v1/summaries/:id/versions`. */
 export interface VersionJson {
@@ -40,6 +41,7 @@ export interface RestoreJson {
   paper: PaperJson | null;
   miniApp?: Awaited<ReturnType<typeof getMiniApp>> | null;
   graph?: GraphJson | null;
+  richDocument?: RichDocumentJson | null;
 }
 
 export const DEFAULT_VERSION_PAGE = 50;
@@ -155,6 +157,8 @@ export async function restoreVersion(
     result = { summary: null, trip: null, paper: null, miniApp: await updateMiniApp(db, id, ownerId, row.content, current.revision, "restore", version) };
   } else if (row.kind === "graph") {
     result = { summary: null, trip: null, paper: null, graph: await restoreGraph(db, ownerId, id, row.content as unknown as VersionContentByKind["graph"], { ...deps, ...restore }) };
+  } else if (row.kind === "rich_document") {
+    result = { summary: null, trip: null, paper: null, richDocument: await restoreRichDocument(db, ownerId, id, row.content, { ...deps, ...restore }) };
   } else {
     const content = row.content as unknown as VersionContentByKind["summary"];
     result = {

@@ -12,6 +12,7 @@ struct LibraryView: View {
     @State private var showsNewTrip = false
     @State private var showsNewPaper = false
     @State private var showsNewGraph = false
+    @State private var showsNewDocument = false
     @State private var showsNewMiniApp = false
     @State private var showsCredits = false
     @State private var sharingSummary: Summary?
@@ -242,6 +243,9 @@ struct LibraryView: View {
             .sheet(isPresented: $showsNewGraph) {
                 NewGraphSheet(api: environment.api, onCreated: openCreated)
             }
+            .sheet(isPresented: $showsNewDocument) {
+                NewRichDocumentSheet(api: environment.api, onCreated: openCreated)
+            }
             .sheet(isPresented: $showsNewPaper) {
                 NewPaperSheet(api: environment.api, onCreated: openCreated)
             }
@@ -271,6 +275,12 @@ struct LibraryView: View {
                     Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }
                 .accessibilityIdentifier("new-graph")
+                Button {
+                    showsNewDocument = true
+                } label: {
+                    Label("Document", systemImage: "doc.text.image")
+                }
+                .accessibilityIdentifier("new-rich-document")
             }
             Section {
                 Button {
@@ -302,6 +312,7 @@ struct LibraryView: View {
         .sensoryFeedback(.selection, trigger: showsNewSummary) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewPaper) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewGraph) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewDocument) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewTrip) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewMiniApp) { _, presented in presented }
     }
@@ -361,6 +372,19 @@ struct LibraryView: View {
     private func openCreated(_ graph: Graph) {
         Task {
             guard let summary = try? await environment.api.summary(id: graph.id) else {
+                await environment.library.reload()
+                return
+            }
+            environment.library.insert(summary)
+            try? await Task.sleep(for: .milliseconds(350))
+            stackPath.wrappedValue.append(summary)
+        }
+    }
+
+    /// Pushes a document made in the New Document sheet once the sheet has closed.
+    private func openCreated(_ document: RichDocument) {
+        Task {
+            guard let summary = try? await environment.api.summary(id: document.id) else {
                 await environment.library.reload()
                 return
             }
