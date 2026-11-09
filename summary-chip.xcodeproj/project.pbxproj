@@ -125,6 +125,8 @@
 		6465045F3A723809A6034763 /* MessagesState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB6D008DA55CA83DC9BC51D7 /* MessagesState.swift */; };
 		648137054CDF63C2F61C6C28 /* TripMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668A7FEAA95408549C61CC30 /* TripMapView.swift */; };
 		64EECC83B53693A3DB863401 /* OnboardingPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B38F74CB6F8F78C4208382A3 /* OnboardingPreviewHost.swift */; };
+		A1C0DE5E0000000000000001 /* NewRichDocumentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0DE5E0000000000000002 /* NewRichDocumentSheet.swift */; };
+		65B86C5ACC1202A6BC58C4BB /* RichDocumentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B72BCC383EC4ADC2B7876B /* RichDocumentDetailView.swift */; };
 		65EB62242191EC7963D963BB /* SummaryEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2B653216E19F14C5C929DE /* SummaryEntity.swift */; };
 		6633B289B06FEE7ADDA8CA00 /* FlightLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61DD2BB1EB8923BE25832EA /* FlightLiveActivityWidget.swift */; };
 		66801DE883DA2B826F2121F1 /* PodcastLanguagesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D380DCC8AEAA3371518DCA /* PodcastLanguagesSheet.swift */; };
@@ -541,6 +543,8 @@
 		821083626A9A0D0654A474F0 /* PodcastVideoStyleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastVideoStyleSheet.swift; sourceTree = "<group>"; };
 		82FF456F2C5EBA0F4D915B8D /* LegalDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocumentView.swift; sourceTree = "<group>"; };
 		834E013F2DE722C876CEECE6 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		A1C0DE5E0000000000000002 /* NewRichDocumentSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewRichDocumentSheet.swift; sourceTree = "<group>"; };
+		84B72BCC383EC4ADC2B7876B /* RichDocumentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichDocumentDetailView.swift; sourceTree = "<group>"; };
 		84BE95587B878E631487F0A9 /* TripEditorScaffold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripEditorScaffold.swift; sourceTree = "<group>"; };
 		853B4341050169BFBBC48CC1 /* TripStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripStyle.swift; sourceTree = "<group>"; };
 		8720945E8B65CCE6804415DC /* PodcastMotionRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastMotionRenderer.swift; sourceTree = "<group>"; };
@@ -783,6 +787,7 @@
 				E3BD2A42BFABD5159A700B4A /* Onboarding */,
 				E4445371B78E0A3CA8831600 /* Paper */,
 				DB3AE3B35B2C4FB2BD0D5563 /* Resources */,
+				4D2BD0020ED31578EA623520 /* RichDocument */,
 				5DC5FB6857E837DA55909EF3 /* Search */,
 				C8C7C89938A9021FACE5B578 /* Services */,
 				17E58B455690B814026BF8CE /* Settings */,
@@ -929,6 +934,15 @@
 				AD3F719D42564B011442D1ED /* SummaryMessages.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4D2BD0020ED31578EA623520 /* RichDocument */ = {
+			isa = PBXGroup;
+			children = (
+				A1C0DE5E0000000000000002 /* NewRichDocumentSheet.swift */,
+				84B72BCC383EC4ADC2B7876B /* RichDocumentDetailView.swift */,
+			);
+			path = RichDocument;
 			sourceTree = "<group>";
 		};
 		560795CA6223A03C135C84AE /* Frameworks */ = {
@@ -1924,6 +1938,8 @@
 				49FA770B05DEA661674BDA9B /* PointsUsageView.swift in Sources */,
 				48ADE2311CA187EBF26B3CF2 /* RegenerateImageSheet.swift in Sources */,
 				2A59D8EF0005F98DDB47DA8F /* RenameSummarySheet.swift in Sources */,
+				A1C0DE5E0000000000000001 /* NewRichDocumentSheet.swift in Sources */,
+				65B86C5ACC1202A6BC58C4BB /* RichDocumentDetailView.swift in Sources */,
 				7E9967902150357183A256C2 /* RxAuthTokenStorage.swift in Sources */,
 				21E2195D46C3BF1735DF6D8B /* SearchModel.swift in Sources */,
 				3E0FE6EEC3187F91C800BD86 /* SearchView.swift in Sources */,

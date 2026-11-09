@@ -1669,6 +1669,7 @@
       }
     },
     "Document" : {
+      "comment" : "Badge on a library tile that is a rich document",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1683,6 +1684,9 @@
           }
         }
       }
+    },
+    "Documents" : {
+      "comment" : "Library kind filter: block-based rich documents"
     },
     "Done" : {
       "localizations" : {

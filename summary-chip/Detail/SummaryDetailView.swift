@@ -443,6 +443,8 @@ struct SummaryDestination: View {
             #else
             GraphDetailView(environment: environment, graphID: summary.id, title: summary.title)
             #endif
+        } else if summary.kind == .richDocument {
+            RichDocumentDetailView(environment: environment, documentID: summary.id, title: summary.title)
         } else if (summary.kind == .podcast || summary.kind == .audiobook) {
             LibraryPodcastDetail(environment: environment, summary: summary)
         } else if summary.kind == .paper {

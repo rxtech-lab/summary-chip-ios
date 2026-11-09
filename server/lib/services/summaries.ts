@@ -14,7 +14,7 @@ import {
   type TranslationLanguage,
 } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
-import { authorFollows, marketplacePublications, users, editorialScores, documentVersions, graphs, papers, podcastEpisodes, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
+import { authorFollows, marketplacePublications, users, editorialScores, documentVersions, graphs, papers, richDocuments, podcastEpisodes, summaries, summaryEmbeddings, summaryLikes, summaryTags, summaryTranslations, summaryViews, trips, uploads, type ImageStyle, type SummaryKind, type SummaryRow } from "@/lib/db/schema";
 import {
   EXCERPT_LIMIT,
   extractFromText,
@@ -881,6 +881,7 @@ export async function purgeSummaries(db: Database, store: ObjectStore, rows: Pic
     db.delete(trips).where(inArray(trips.summaryId, ids)),
     db.delete(papers).where(inArray(papers.summaryId, ids)),
     db.delete(graphs).where(inArray(graphs.summaryId, ids)),
+    db.delete(richDocuments).where(inArray(richDocuments.summaryId, ids)),
     db.delete(summaries).where(inArray(summaries.id, ids)),
     db.delete(uploads).where(inArray(uploads.summaryId, ids)),
     ...(fileKeys.length ? [db.delete(uploads).where(inArray(uploads.key, fileKeys))] : []),

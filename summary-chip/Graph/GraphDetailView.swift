@@ -537,7 +537,11 @@ private extension GraphDetailView {
             .navigationTitle(element.kindTitle)
             .summaryInlineNavigationTitle()
         }
-        .frame(width: 360, height: 400)
+        .frame(width: 360)
+        // UIKit can shorten a node-anchored popover near the screen edge.
+        // Let the navigation stack shrink with it so its toolbar stays visible
+        // and the scroll view absorbs the reduced space.
+        .frame(minHeight: 0, idealHeight: 400, maxHeight: 400)
         .presentationCompactAdaptation(.popover)
         #endif
     }

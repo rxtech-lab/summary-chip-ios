@@ -4327,6 +4327,9 @@
     "Couldn't Continue Voice Chat" : {
 
     },
+    "Couldn't Create Document" : {
+
+    },
     "Couldn't Create Graph" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4987,6 +4990,9 @@
     "Creating a view…" : {
 
     },
+    "Creating document…" : {
+
+    },
     "Creating graph…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -5513,6 +5519,9 @@
           }
         }
       }
+    },
+    "Delete Document" : {
+
     },
     "Delete downloaded model?" : {
 
@@ -6260,6 +6269,9 @@
         }
       }
     },
+    "Document" : {
+
+    },
     "Document Structure" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6276,6 +6288,9 @@
           }
         }
       }
+    },
+    "Document unavailable" : {
+
     },
     "Done" : {
       "localizations" : {
@@ -7266,6 +7281,9 @@
           }
         }
       }
+    },
+    "Export Markdown…" : {
+
     },
     "Export Paper" : {
       "localizations" : {
@@ -8661,6 +8679,9 @@
         }
       }
     },
+    "Headings start new sections, and a line with only an image, video or audio link becomes a media block. Your agent can edit the document through Chippy's MCP server." : {
+
+    },
     "Help" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9906,6 +9927,9 @@
     "Loading clients…" : {
 
     },
+    "Loading document…" : {
+
+    },
     "Loading graph…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10401,6 +10425,9 @@
     "Mark as Finished" : {
 
     },
+    "Markdown" : {
+
+    },
     "MCP Server" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10705,6 +10732,9 @@
           }
         }
       }
+    },
+    "New Document" : {
+
     },
     "New Edge" : {
       "localizations" : {
@@ -13443,6 +13473,9 @@
         }
       }
     },
+    "Play Video" : {
+
+    },
     "Playing sample…" : {
 
     },
@@ -13685,6 +13718,9 @@
           }
         }
       }
+    },
+    "Preparing Markdown…" : {
+
     },
     "Preparing model and speech runtime…" : {
 
@@ -16483,6 +16519,9 @@
     "Share links will play audio. You can publish this video again later." : {
 
     },
+    "Share Markdown" : {
+
+    },
     "Share on your terms" : {
       "localizations" : {
         "zh-Hans" : {
@@ -17978,6 +18017,9 @@
           }
         }
       }
+    },
+    "The link and preview stop working and the document is removed permanently. To only stop sharing, make it private instead." : {
+
     },
     "The link and preview stop working and the graph is removed permanently. To only stop sharing, make it private instead." : {
       "localizations" : {

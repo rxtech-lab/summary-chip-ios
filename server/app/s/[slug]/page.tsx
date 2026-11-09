@@ -18,6 +18,8 @@ import { publicOgImageUrl, shareUrlFor } from "@/lib/services/serialize";
 import { resolveShareKey, type ShareKeyResolution } from "@/lib/services/share-access";
 import { incrementViewCount } from "@/lib/services/summaries";
 import { findTripForViewer } from "@/lib/services/trips";
+import { findRichDocumentRow } from "@/lib/services/rich-documents";
+import { RichDocumentView } from "./rich-document";
 import { findTranslation, preferredLanguage, readingLanguage, translationLanguageFor } from "@/lib/services/translations";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ lang?: string | string[] }> };
@@ -215,6 +217,8 @@ export default async function SummaryPage({ params, searchParams }: Props) {
   const gradient = `linear-gradient(135deg, ${colors.join(", ")})`;
   // A trip shows its days read-only; the map view is in the app.
   const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null, true))?.trip.document : undefined;
+  // A rich document renders its blocks in full; the share link already granted read access.
+  const richDocument = row.kind === "rich_document" ? (await findRichDocumentRow(getDatabase(), row.id))?.document : undefined;
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
@@ -246,7 +250,9 @@ export default async function SummaryPage({ params, searchParams }: Props) {
           </p>
         ) : null}
 
-        {trip ? (
+        {richDocument ? (
+          <RichDocumentView document={richDocument} />
+        ) : trip ? (
           <section className="mt-10">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">{trip.startDate} – {trip.endDate}</h2>
             <ol className="mt-4 space-y-3">
