@@ -121,3 +121,15 @@ it("treats the manual duration as approximate narration guidance", async () => {
   expect(JSON.stringify(calls[0].prompt)).toContain("not a hard cap");
   expect(JSON.stringify(calls[0].prompt)).not.toContain("at most 39 words");
 });
+
+
+it("sends full source evidence and a substantive duration target to the model", async () => {
+  const { model, calls } = scriptedModel(() => script);
+  await writePodcast(model, { ...input, maxDurationSeconds: 900, approximateDuration: true,
+    chips: [{ ...input.chips[0], sourceText: "Methods and limitations omitted from the short summary." }] });
+  const prompt = JSON.stringify(calls[0].prompt);
+  expect(prompt).toContain("900 seconds");
+  expect(prompt).toContain("Methods and limitations omitted");
+  expect(prompt).toContain("Do not merely paraphrase the chip summary");
+  expect(prompt).not.toContain("short daily podcast");
+});

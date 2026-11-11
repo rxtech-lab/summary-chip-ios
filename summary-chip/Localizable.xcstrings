@@ -3322,6 +3322,9 @@
         }
       }
     },
+    "Chip Summaries" : {
+
+    },
     "Chippy" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8155,6 +8158,12 @@
           }
         }
       }
+    },
+    "Full Source" : {
+
+    },
+    "Full Source requires saved source text. Choose Length for the approximate running time, and enable Plan Mode to review or expand the script before generating audio. Scanned PDFs need readable text. Very long documents may require fewer sources or an audiobook." : {
+
     },
     "Gate" : {
       "localizations" : {
@@ -17036,6 +17045,9 @@
         }
       }
     },
+    "Source Content" : {
+
+    },
     "Source document" : {
       "localizations" : {
         "zh-Hans" : {
@@ -19769,6 +19781,9 @@
         }
       }
     },
+    "Use each chip’s summary and key points for a concise overview." : {
+
+    },
     "Use for Voice Chat" : {
 
     },
@@ -19788,6 +19803,9 @@
           }
         }
       }
+    },
+    "Use the saved original text and extract text from the uploaded PDF when available. Explain concepts, evidence, examples and caveats in detail." : {
+
     },
     "Use These Details" : {
       "localizations" : {

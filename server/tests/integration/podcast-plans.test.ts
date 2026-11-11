@@ -32,6 +32,23 @@ function request(method: string, id: string, body?: unknown, token = env.tokens.
   return apiRequest(method, `/api/v1/daily-podcasts/plans/${id}${suffix}`, { token, body });
 }
 describe("podcast plan review gate", () => {
+  it("keeps full source text available during drafting and chat revisions", async () => {
+    const saved = await summariesRoute.POST(apiRequest("POST", "/api/v1/summaries", { token: env.tokens.alice, body: {
+      source: { type: "text", text: "Detailed methodology and limitations from the original source.", title: "Research" }, followLinks: false,
+    } }));
+    const chip = await saved.json();
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const response = await plans.POST(apiRequest("POST", "/api/v1/daily-podcasts/plans", { token: env.tokens.alice,
+      body: { day, language: "en", library: true, chipIds: [chip.id], sourceMode: "fullText", durationSeconds: 900 } }));
+    expect(response.status).toBe(200);
+    const { plan } = await response.json();
+    expect(writer.mock.calls[0][0]).toMatchObject({ recap: false, maxDurationSeconds: 900,
+      chips: [{ id: chip.id, sourceText: "Detailed methodology and limitations from the original source." }] });
+    const refine = vi.spyOn(env.ai, "refinePodcastPlan");
+    const revised = await messagesRoute.POST(request("POST", plan.id, { revision: 0, message: "Expand the methodology and limitations." }, env.tokens.alice, "/messages"), params({ id: plan.id }));
+    expect(revised.status).toBe(200);
+    expect(refine.mock.calls[0][0].chips[0].sourceText).toContain("Detailed methodology");
+  });
   it("plans without media, saves revisions, then uses approved narration and camera directions", async () => {
     env.ai.video = true;
     const speech = vi.spyOn(env.ai, "speak");

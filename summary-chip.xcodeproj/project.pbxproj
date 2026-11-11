@@ -291,6 +291,7 @@
 		FD146E53E9F93BB20E50FA51 /* DisplayLanguageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60D49D2B1C1D6092586E1F1B /* DisplayLanguageSheet.swift */; };
 		FD57212698AAF9E7FA9BF300 /* LiveVoiceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C9CACC0DD2565191ED15E5 /* LiveVoiceModel.swift */; };
 		FE2BF78D0A01F19711E51080 /* AudiobookLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 684F231D0B83ED6C90B657E7 /* AudiobookLibraryViews.swift */; };
+		B0F09596DD864D65B7FA31B2 /* PodcastSourceModeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E2EB191BE788B9034CBA042 /* PodcastSourceModeSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -677,6 +678,7 @@
 		FEC14251801B5D58E62A5DE4 /* LocalFileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileSheet.swift; sourceTree = "<group>"; };
 		FEDF543233DB9924493E3EB1 /* CreditsPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsPreviewHost.swift; sourceTree = "<group>"; };
 		FFE1BB4A566A4B2EC3CE4FEC /* TripDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDetailView.swift; sourceTree = "<group>"; };
+		4E2EB191BE788B9034CBA042 /* PodcastSourceModeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastSourceModeSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1169,6 +1171,7 @@
 				8720945E8B65CCE6804415DC /* PodcastMotionRenderer.swift */,
 				7F6345BA5BFF3A572FCB2223 /* PodcastNowPlaying.swift */,
 				3E6D98DC00C55A56C105B77D /* PodcastPlanSheet.swift */,
+				4E2EB191BE788B9034CBA042 /* PodcastSourceModeSheet.swift */,
 				7CCA4D7DE494CBAA600498D9 /* PodcastSummarySheet.swift */,
 				F19C2013968EAA2798380243 /* PodcastVideoExporter.swift */,
 				AECD8D0A6EC00EB7D1DF5514 /* PodcastVideoSheet.swift */,
@@ -1930,6 +1933,7 @@
 				546066CBB221669F3986661D /* PodcastMotionRenderer.swift in Sources */,
 				A00A94EE5C2FCED68572606B /* PodcastNowPlaying.swift in Sources */,
 				160D7E864946E534A9BF22C0 /* PodcastPlanSheet.swift in Sources */,
+				B0F09596DD864D65B7FA31B2 /* PodcastSourceModeSheet.swift in Sources */,
 				EEE70CC0BD441F75946D9D91 /* PodcastSummarySheet.swift in Sources */,
 				5A709079D64A50FD5FD09C34 /* PodcastVideoExporter.swift in Sources */,
 				607EF4E177BF48D921537E90 /* PodcastVideoSheet.swift in Sources */,
