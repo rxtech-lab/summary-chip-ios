@@ -1,3 +1,4 @@
+import { podcastSources } from "./podcast-source";
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, lt } from "drizzle-orm";
 import { getAiProvider } from "@/lib/ai/provider";
@@ -101,9 +102,9 @@ export async function createPodcastPlan(db: Database, user: string, input: Podca
     const pricing = charge ? await ai.podcastPricing() : null;
     const script = podcastPlanScriptSchema.parse(await ai.writePodcast({
       language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, storyboard: true, videoStyle: input.videoStyle,
-      recap: input.recap || !input.library || input.durationSeconds !== undefined,
+      recap: input.recap || (input.sourceMode !== "fullText" && (!input.library || input.durationSeconds !== undefined)),
       maxDurationSeconds: input.recap ? Math.min(179, input.durationSeconds ?? 179) : input.durationSeconds ?? 360, approximateDuration: !input.recap,
-      chips: chips.map(chip => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })),
+      chips: await podcastSources(chips, user, input, deps.store ?? getObjectStore()),
     }, { abortSignal: AbortSignal.timeout(100_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } }));
     validatePlan(script, input, chips.map(chip => chip.id), voices);
     const now = (deps.now?.() ?? new Date()).getTime();
@@ -140,7 +141,7 @@ export async function refinePodcastPlanChat(db: Database, user: string, id: stri
     const pricing = charge ? await ai.podcastPricing() : null;
     const refined = await ai.refinePodcastPlan({
       language: LANGUAGE_NAMES[plan.input.language], videoStyle: plan.input.videoStyle, script: plan.script, request: message,
-      chips: chips.map(chip => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })),
+      chips: await podcastSources(chips, user, plan.input, deps.store ?? getObjectStore()),
       history: planChatHistory(plan.messages),
     }, { abortSignal: AbortSignal.timeout(120_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
     const script = refined.script ? podcastPlanScriptSchema.parse(refined.script) : null;

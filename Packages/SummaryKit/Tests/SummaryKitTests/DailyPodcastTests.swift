@@ -187,13 +187,14 @@ import Testing
         let api = SummaryAPIClient(baseURL: URL(string: "https://podcast.test")!, tokenProvider: PodcastToken(),
                                    session: URLSession(configuration: config))
         _ = try await api.generateDailyPodcast(date: .now, language: .en, regenerate: true,
-                                               chipIds: ["older-chip", "today-chip"], library: true, includeVideo: false, speakerNames: ["小明", "Jane"], durationSeconds: 125)
+                                               chipIds: ["older-chip", "today-chip"], library: true, includeVideo: false, speakerNames: ["小明", "Jane"], durationSeconds: 125, sourceMode: .fullText)
         let body = try JSONSerialization.jsonObject(with: PodcastProtocol.recorder.values[0].httpBody!) as! [String: Any]
         #expect(body["chipIds"] as? [String] == ["older-chip", "today-chip"])
         #expect(body["library"] as? Bool == true)
         #expect(body["includeVideo"] as? Bool == false)
         #expect(body["speakerNames"] as? [String] == ["小明", "Jane"])
         #expect(body["durationSeconds"] as? Int == 125)
+        #expect(body["sourceMode"] as? String == "fullText")
         #expect(body["regenerate"] as? Bool == true)
     }
 

@@ -1,3 +1,4 @@
+import { podcastSources } from "./podcast-source";
 import { retirePodcastRenders } from "./podcast-render";
 import { runAfter } from "@/lib/http/after";
 import { rerankHeadlines } from "./headlines";
@@ -63,12 +64,12 @@ const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set
 
 export async function createDailyPodcast(db: Database, user: string, input: z.infer<typeof createDailyPodcastSchema>, deps: ServiceDeps & { approvedPlan?: { id: string; script: PodcastScript; frames?: (PodcastPlanFrame | null)[] } } = {}, onProgress?: ProgressListener) {
   const store = deps.store ?? getObjectStore();
-  const highlights = input.recap || !input.library || input.durationSeconds !== undefined;
+  const highlights = input.recap || (input.sourceMode !== "fullText" && (!input.library || input.durationSeconds !== undefined));
   const targetDurationSeconds = input.recap ? Math.min(179, input.durationSeconds ?? 179) : input.durationSeconds ?? (!input.library ? 360 : undefined);
   // Only scheduled recaps have a hard limit; the manual Length picker is a target.
   const maxDurationSeconds = input.recap ? targetDurationSeconds : undefined;
   const base = dayKey(user, input.day);
-  const requestKey = deps.approvedPlan?.id ?? `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.videoStyle ?? "news", input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false, input.durationSeconds ?? null])}`;
+  const requestKey = deps.approvedPlan?.id ?? `${base}/${JSON.stringify([input.library, input.chipIds && [...new Set(input.chipIds)].sort(), input.language, input.includeVideo !== false, input.videoStyle ?? "news", input.summaryId ?? null, input.speakerNames ?? null, input.recap ?? false, input.durationSeconds ?? null, input.sourceMode ?? "summary"])}`;
   // Concurrent taps share a generation, even if the second requested regeneration.
   const pending = writing.get(requestKey);
   if (pending) {
@@ -94,7 +95,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
         return existing.document;
       }
     }
-    const saved = input.regenerate || input.library || input.chipIds || input.durationSeconds !== undefined ? null : await savedDailyPodcast(db, user, input.day);
+    const saved = input.regenerate || input.library || input.chipIds || input.durationSeconds !== undefined || input.sourceMode === "fullText" ? null : await savedDailyPodcast(db, user, input.day);
     if (saved && !input.regenerate && !input.recap) { report("complete", 100); return saved; }
     // Regenerating a library podcast adds a version to its chip rather than creating another chip.
     const existingChip = input.summaryId ? await libraryPodcastChip(db, user, input.summaryId) : null;
@@ -123,7 +124,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
     try {
       report("script", 5);
       const script = deps.approvedPlan?.script ?? podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, recap: highlights, maxDurationSeconds: targetDurationSeconds, approximateDuration: !input.recap,
-        chips: chips.map(({ chip }) => ({ id: chip.id, title: chip.title, summary: chip.summary, highlights: chip.highlights })) },
+        chips: await podcastSources(chips.map(({ chip }) => chip), user, input, store) },
       { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]), onUsage: (step) => usage.push(step) }));
       if ((input.speakerNames && (script.speakers.length !== input.speakerNames.length || script.speakers.some((speaker, index) => speaker.name !== input.speakerNames![index]))) || new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || (!highlights && chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id)))) {
         throw new Error("Invalid podcast references");

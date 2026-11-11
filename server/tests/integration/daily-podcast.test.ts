@@ -7,6 +7,7 @@ import type { AiProvider } from "@/lib/ai/provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { generateSpeech } from "ai";
 import { writePodcast } from "@/lib/ai/podcast-agent";
+import { chipSourceText } from "@/lib/services/audiobook-source";
 import * as versionsRoute from "@/app/api/v1/daily-podcasts/versions/route";
 import * as optionsRoute from "@/app/api/v1/daily-podcasts/options/route";
 import * as versionRoute from "@/app/api/v1/daily-podcasts/[key]/route";
@@ -26,7 +27,7 @@ import { podcastDaySchema, type DailyPodcast } from "@/lib/contracts/daily-podca
 import { dayKey, podcastInLanguage } from "@/lib/services/daily-podcast";
 import { getHeadlines } from "@/lib/services/headlines";
 import { createShareLink } from "@/lib/services/share-links";
-import { apiRequest, params, setupTestEnv, type TestEnv } from "../helpers/setup";
+import { apiRequest, buildPdf, params, setupTestEnv, type TestEnv } from "../helpers/setup";
 
 let env: TestEnv;
 const day = { start: "2030-04-01T00:00:00+08:00", end: "2030-04-02T00:00:00+08:00" };
@@ -50,6 +51,61 @@ function audio(podcast: DailyPodcast, token = env.tokens.alice, key = podcast.ke
 }
 
 describe("podcast selection and versions", () => {
+  it("uses the opted-in saved source document of a local PDF import", async () => {
+    const text = "Original PDF methods describe forty participants. Its limitations explain the small sample.";
+    const created = await summariesRoute.POST(apiRequest("POST", "/api/v1/summaries", { token: env.tokens.alice, body: {
+      source: { type: "local", kind: "pdf", text, filename: "Research.pdf" }, keepSourceText: true, followLinks: false,
+    } }));
+    expect(created.status).toBe(201);
+    const source = await created.json();
+    const [row] = await env.handle.db.select().from(summaries).where(eq(summaries.id, source.id));
+    expect(row.contentText).toBe("");
+    expect(row.sourceFileKey).toBeNull();
+    expect(row.contentMarkdown).toContain("forty participants");
+    // Saved local documents remain owner-only even if someone can read the summary.
+    expect(await chipSourceText(row, "user-bob", env.store)).toBe("");
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const response = await generate({ library: true, chipIds: [source.id], sourceMode: "fullText", includeVideo: false });
+    expect(response.status).toBe(200);
+    expect(writer.mock.calls[0][0].chips[0].sourceText).toContain("forty participants");
+  });
+
+  it("reports a pending saved document separately from missing source text", async () => {
+    const source = await chip("Pending document");
+    await env.handle.db.update(summaries).set({ contentText: "", contentExcerpt: "", contentMarkdown: "" }).where(eq(summaries.id, source.id));
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const response = await generate({ library: true, chipIds: [source.id], sourceMode: "fullText", includeVideo: false });
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("PODCAST_SOURCE_PENDING");
+    expect(writer).not.toHaveBeenCalled();
+  });
+
+  it("reads original PDF text for detailed episodes and rejects missing or oversized sources", async () => {
+    const source = await chip("PDF study");
+    const pdfText = "Methods: forty participants used the system. Results: errors and completion time were measured. Limitations: the sample was small.";
+    const key = "original-podcast-test.pdf";
+    await env.store.put(key, { bytes: buildPdf(pdfText), contentType: "application/pdf" });
+    await env.handle.db.update(summaries).set({ source: "pdf", sourceFileKey: key, contentText: "Short stored extract." }).where(eq(summaries.id, source.id));
+    const writer = vi.spyOn(env.ai, "writePodcast");
+    const payload = { library: true, chipIds: [source.id], sourceMode: "fullText", durationSeconds: 900, includeVideo: false, regenerate: true };
+    let response = await generate(payload);
+    expect(response.status).toBe(200);
+    expect(writer.mock.calls[0][0]).toMatchObject({ recap: false, approximateDuration: true, maxDurationSeconds: 900 });
+    expect(writer.mock.calls[0][0].chips[0].sourceText).toContain("forty participants");
+    expect(writer.mock.calls[0][0].chips[0].sourceText).toContain("sample was small");
+    writer.mockClear();
+    await env.handle.db.update(summaries).set({ sourceFileKey: null, contentText: "", contentMarkdown: null, contentExcerpt: "Only an excerpt." }).where(eq(summaries.id, source.id));
+    response = await generate(payload);
+    expect(response.status).toBe(422);
+    expect((await response.json()).error.code).toBe("PODCAST_NO_SOURCE_TEXT");
+    await env.handle.db.update(summaries).set({ contentText: "x".repeat(300_001) }).where(eq(summaries.id, source.id));
+    response = await generate(payload);
+    expect(response.status).toBe(422);
+    expect((await response.json()).error.code).toBe("PODCAST_SOURCE_TOO_LONG");
+    expect(writer).not.toHaveBeenCalled();
+    expect((await generate({ ...payload, sourceMode: "summary" })).status).toBe(200);
+  });
+
   it.each([2, 4])("generates and saves %i named speakers with default MAI voices", async count => {
     const names = ["Bard", "Zoey", "Alex", "Sam"].slice(0, count);
     const sources = [];

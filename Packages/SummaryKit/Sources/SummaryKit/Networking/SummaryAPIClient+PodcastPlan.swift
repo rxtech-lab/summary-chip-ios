@@ -173,7 +173,7 @@ private struct PlanListEnvelope: Decodable { var plans: [PodcastPlanSummary] }
 extension SummaryAPIClient {
     public func preparePodcastPlan(date: Date, language: SummaryLanguage, chipIds: [String], library: Bool,
                                    includeVideo: Bool, videoStyle: PodcastVideoStyle?, summaryID: String?,
-                                   speakerNames: [String]?, durationSeconds: Int?) async throws -> PodcastPlan {
+                                   speakerNames: [String]?, durationSeconds: Int?, sourceMode: PodcastSourceMode? = nil) async throws -> PodcastPlan {
         struct Body: Encodable {
             var day: PodcastDayBounds
             var language: String
@@ -184,6 +184,7 @@ extension SummaryAPIClient {
             var summaryId: String?
             var speakerNames: [String]?
             var durationSeconds: Int?
+            var sourceMode: PodcastSourceMode?
             var regenerate = true
         }
         let start = Calendar.current.startOfDay(for: date)
@@ -191,7 +192,7 @@ extension SummaryAPIClient {
         let formatter = ISO8601DateFormatter()
         let body = Body(day: .init(start: formatter.string(from: start), end: formatter.string(from: end)), language: language.rawValue,
                         chipIds: chipIds, library: library, includeVideo: includeVideo, videoStyle: videoStyle,
-                        summaryId: summaryID, speakerNames: speakerNames, durationSeconds: durationSeconds)
+                        summaryId: summaryID, speakerNames: speakerNames, durationSeconds: durationSeconds, sourceMode: sourceMode)
         var request = try json("/api/v1/daily-podcasts/plans", method: "POST", body: body)
         request.timeoutInterval = 120
         let response: PlanEnvelope = try await send(request)

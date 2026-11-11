@@ -1,5 +1,11 @@
 import Foundation
 
+/// Material used to write the episode, independent of the desired running time.
+public enum PodcastSourceMode: String, Codable, Sendable, CaseIterable, Identifiable {
+    case summary, fullText
+    public var id: String { rawValue }
+}
+
 public struct PodcastGenerationProgress: Decodable, Sendable, Equatable {
     public let stage: String
     public let percent: Int
@@ -287,6 +293,7 @@ private struct PodcastRequest: Encodable {
     var summaryId: String?
     var speakerNames: [String]?
     var durationSeconds: Int?
+    var sourceMode: PodcastSourceMode?
 }
 private struct PodcastTranslationRequest: Encodable {
     var day: PodcastDay
@@ -361,11 +368,11 @@ extension SummaryAPIClient {
 
     /// `summaryID` regenerates that library podcast chip as a new version instead of creating another chip.
     public func generateDailyPodcast(date: Date, language: SummaryLanguage, regenerate: Bool, chipIds: [String]? = nil, library: Bool = false, includeVideo: Bool = true,
-                                     videoStyle: PodcastVideoStyle? = nil, summaryID: String? = nil, speakerNames: [String]? = nil, durationSeconds: Int? = nil, calendar: Calendar = .current,
+                                     videoStyle: PodcastVideoStyle? = nil, summaryID: String? = nil, speakerNames: [String]? = nil, durationSeconds: Int? = nil, sourceMode: PodcastSourceMode? = nil, calendar: Calendar = .current,
                                      onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
         var request = try json("/api/v1/daily-podcasts", method: "POST", body: PodcastRequest(
             day: podcastDay(date, calendar: calendar), language: language.rawValue, regenerate: regenerate, chipIds: chipIds, library: library, includeVideo: includeVideo,
-            videoStyle: includeVideo ? videoStyle : nil, summaryId: summaryID, speakerNames: speakerNames, durationSeconds: durationSeconds
+            videoStyle: includeVideo ? videoStyle : nil, summaryId: summaryID, speakerNames: speakerNames, durationSeconds: durationSeconds, sourceMode: sourceMode
         ))
         request.timeoutInterval = 300
         if let onProgress {

@@ -29,6 +29,8 @@ struct DailyPodcastGenerationSheet: View {
     @AppStorage("podcast.generation.durationSeconds") private var savedDurationSeconds = 360
     @State private var durationSeconds = 360
     @State private var showsDuration = false
+    @State private var sourceMode: PodcastSourceMode = .summary
+    @State private var showsSourceMode = false
     /// Languages, speaker limits and video styles come from the server.
     @State private var options: PodcastGenerationOptions?
     @State private var language: SummaryLanguage = .en
@@ -115,6 +117,9 @@ struct DailyPodcastGenerationSheet: View {
             .sheet(isPresented: $showsVideoStyles) {
                 PodcastVideoStyleSheet(styles: options?.videoStyles ?? [], style: $videoStyle)
             }
+            .sheet(isPresented: $showsSourceMode) {
+                PodcastSourceModeSheet(mode: $sourceMode)
+            }
             .sheet(isPresented: $showsDuration) {
                 if let duration = options?.duration {
                     PodcastDurationSheet(options: duration, seconds: $durationSeconds)
@@ -135,6 +140,7 @@ struct DailyPodcastGenerationSheet: View {
             .sensoryFeedback(.selection, trigger: regenerateVideoOnly)
             .sensoryFeedback(.selection, trigger: videoStyle)
             .sensoryFeedback(.selection, trigger: durationSeconds)
+            .sensoryFeedback(.selection, trigger: sourceMode)
             .sensoryFeedback(.selection, trigger: planMode)
             .sensoryFeedback(.success, trigger: successes)
             .sensoryFeedback(.error, trigger: error)
@@ -233,6 +239,9 @@ struct DailyPodcastGenerationSheet: View {
         Section {
             sheetRow("Chips", systemImage: "square.stack", value: String(localized: "\(selected.count) selected"), id: "podcast-select-chips") { showsChips = true }
                 .disabled(loading)
+            sheetRow("Source Content", systemImage: "doc.text", value: sourceMode == .fullText ? String(localized: "Full Source") : String(localized: "Chip Summaries"),
+                     id: "podcast-generation-source") { showsSourceMode = true }
+                .disabled(pendingEpisode != nil)
             if let duration = options?.duration {
                 let preset = duration.presets.first { $0.seconds == durationSeconds }
                 sheetRow("Length", systemImage: "clock", value: [preset?.title, PodcastDurationSheet.time(durationSeconds)].compactMap { $0 }.joined(separator: " · "),
@@ -350,6 +359,7 @@ struct DailyPodcastGenerationSheet: View {
             showsPlan = true
             return
         }
+        sourceMode = isLibrary ? .fullText : .summary
         regenerateVideoOnly = videoOnly
         includeVideo = savedIncludeVideo
         speakerNames = (try? JSONDecoder().decode([String].self, from: Data(savedSpeakerNames.utf8))) ?? []
@@ -396,7 +406,7 @@ struct DailyPodcastGenerationSheet: View {
             do {
                 plan = try await api.preparePodcastPlan(date: date, language: language, chipIds: selected.keys.sorted(),
                     library: isLibrary, includeVideo: includeVideo, videoStyle: videoStyle, summaryID: existing?.summaryId,
-                    speakerNames: speakerNames.isEmpty ? nil : speakerNames, durationSeconds: options?.duration == nil ? nil : durationSeconds)
+                    speakerNames: speakerNames.isEmpty ? nil : speakerNames, durationSeconds: options?.duration == nil ? nil : durationSeconds, sourceMode: sourceMode)
                 successes += 1
                 showsPlan = true
             } catch { self.error = error.localizedDescription }
@@ -433,7 +443,7 @@ struct DailyPodcastGenerationSheet: View {
                     // Regenerating a library podcast adds a version to the same chip.
                     podcast = try await api.generateDailyPodcast(date: date, language: language, regenerate: true,
                         chipIds: selected.keys.sorted(), library: isLibrary,
-                        includeVideo: includeVideo, videoStyle: videoStyle, summaryID: existing?.summaryId, speakerNames: speakerNames.isEmpty ? nil : speakerNames, durationSeconds: options?.duration == nil ? nil : durationSeconds, onProgress: { generationProgress = $0 })
+                        includeVideo: includeVideo, videoStyle: videoStyle, summaryID: existing?.summaryId, speakerNames: speakerNames.isEmpty ? nil : speakerNames, durationSeconds: options?.duration == nil ? nil : durationSeconds, sourceMode: sourceMode, onProgress: { generationProgress = $0 })
                 }
                 // Preserve the paid episode if design or rendering fails. Retry never regenerates audio or design.
                 pendingEpisode = podcast

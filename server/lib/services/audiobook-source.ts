@@ -16,11 +16,15 @@ export interface StoredPassage { chipId: string; chipTitle: string; text: string
 
 /**
  * A chip's complete source text. Stored text is capped when a summary is made, so a chip the viewer uploaded as a PDF
- * is read again from the PDF, which is what lets a whole book be narrated. Falls back to the stored text when it can't be.
+ * is read again from the PDF, which is what lets a whole book be narrated. Falls back to stored extracted text or
+ * the owner's saved source document when it can't be. Private local source documents are never read for other viewers.
  */
 export async function chipSourceText(chip: SummaryRow, viewer: string, store: ObjectStore): Promise<string> {
-  const stored = chip.contentText || chip.contentExcerpt || "";
-  if (chip.ownerId !== viewer || chip.source !== "pdf" || !chip.sourceFileKey) return stored;
+  // Local imports deliberately leave contentText empty. When the owner opts to
+  // keep the source, the document writer saves it in contentMarkdown instead.
+  const savedDocument = chip.ownerId === viewer ? chip.contentMarkdown?.trim() : "";
+  const stored = chip.contentText.trim() || savedDocument || chip.contentExcerpt || "";
+  if (chip.ownerId !== viewer || (chip.sourceType !== "pdf" && chip.source !== "pdf") || !chip.sourceFileKey) return stored;
   try {
     const { text } = await extractPdfText((await store.get(chip.sourceFileKey)).bytes);
     return text.length > stored.length ? text : stored;

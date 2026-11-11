@@ -63,6 +63,8 @@ export const createDailyPodcastSchema = z.object({
   videoStyle: podcastVideoStyleSchema.optional(),
   /** Approximate episode length; the finished audio/video may be shorter or longer. */
   durationSeconds: z.number().int().min(MIN_PODCAST_DURATION_SECONDS).max(MAX_PODCAST_DURATION_SECONDS).optional(),
+  /** Omitted preserves summary-based generation. Full text supports detailed source-grounded explanations. */
+  sourceMode: z.enum(["summary", "fullText"]).optional(),
   /** Regenerates this library podcast chip as a new version instead of creating another chip. */
   summaryId: z.string().min(1).optional(),
 }).refine((input) => !input.summaryId || input.library, { message: "summaryId requires library", path: ["summaryId"] });
