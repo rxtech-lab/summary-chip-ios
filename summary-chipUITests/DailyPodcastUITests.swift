@@ -98,10 +98,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         let dayPlay = app.buttons["daily-podcast-play"].firstMatch
         XCTAssertTrue(dayPlay.waitForExistence(timeout: 15))
         dayPlay.tap()
-        let generate = app.buttons["podcast-generate"]
-        XCTAssertTrue(generate.waitForExistence(timeout: 5))
-        generate.tap()
-        XCTAssertTrue(app.buttons["podcast-generation-submit"].waitForExistence(timeout: 5))
+        waitForGenerationSheet(app)
         XCTAssertTrue(app.staticTexts["Language"].exists || app.buttons["Language"].exists)
         attach(app, "daily-podcast-language")
         app.buttons["podcast-select-chips"].tap()
@@ -124,7 +121,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         attach(app, "daily-podcast-player")
         app.buttons["podcast-more"].tap()
         app.buttons["Regenerate Podcast"].tap()
-        XCTAssertTrue(app.buttons["podcast-generation-submit"].waitForExistence(timeout: 5))
+        waitForGenerationSheet(app)
         selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
         XCTAssertTrue(app.staticTexts["podcast-caption"].waitForExistence(timeout: 10))
@@ -157,8 +154,7 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         let dayPlay = app.buttons["daily-podcast-play"].firstMatch
         XCTAssertTrue(dayPlay.waitForExistence(timeout: 15))
         dayPlay.tap()
-        XCTAssertTrue(app.buttons["podcast-generate"].waitForExistence(timeout: 5))
-        app.buttons["podcast-generate"].tap()
+        waitForGenerationSheet(app)
         selectAudioOnly(app)
         app.buttons["podcast-generation-submit"].tap()
         XCTAssertTrue(app.buttons["podcast-open-chip"].waitForExistence(timeout: 10))
@@ -251,11 +247,29 @@ nonisolated final class DailyPodcastUITests: XCTestCase {
         button.tap()
     }
 
+    /// A day without a saved episode opens generation automatically; the empty-state
+    /// Generate button remains in the covered player and must not be tapped.
+    @MainActor private func waitForGenerationSheet(_ app: XCUIApplication) {
+        let submit = app.buttons["podcast-generation-submit"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 10))
+        let ready = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true AND isHittable == true"), object: submit
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed)
+    }
+
     @MainActor private func selectAudioOnly(_ app: XCUIApplication) {
         let picker = app.buttons["podcast-generation-media"]
+        // Regeneration adds a section above Sources, moving Media below the fold.
+        for _ in 0..<5 where !(picker.exists && picker.isHittable) {
+            app.collectionViews.firstMatch.swipeUp(velocity: .slow)
+        }
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.isHittable)
         picker.tap()
-        app.buttons["Audio only"].tap()
+        let audioOnly = app.buttons["Audio only"]
+        XCTAssertTrue(audioOnly.waitForExistence(timeout: 5))
+        audioOnly.tap()
     }
 
     @MainActor private func progress(_ app: XCUIApplication) -> Double {
