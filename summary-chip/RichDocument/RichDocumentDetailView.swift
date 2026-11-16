@@ -95,6 +95,9 @@ struct RichDocumentDetailView: View {
         }
         ToolbarItem(placement: .primaryAction) {
             Menu {
+                if document?.isOwner == true {
+                    Button("Edit Content", systemImage: "pencil") { editContent() }
+                }
                 Button("Refresh", systemImage: "arrow.clockwise") { Task { await load() } }
                 Section {
                     Button("Share…", systemImage: "square.and.arrow.up") { openSummarySheet(.share) }
@@ -135,6 +138,21 @@ struct RichDocumentDetailView: View {
                     dismiss()
                 }
             }
+        case .edit:
+            if let markdown {
+                MarkdownEditorSheet(api: environment.api, markdown: markdown) { edited in
+                    guard let document else { return }
+                    Task {
+                        status = String(localized: "Saving document…")
+                        defer { status = nil }
+                        do {
+                            self.document = try await environment.api.editRichDocument(id: documentID, markdown: edited, revision: document.revision)
+                            await versions.reload()
+                            if let updated = try? await environment.api.summary(id: documentID) { environment.library.upsert(updated) }
+                        } catch { actionError = error.localizedDescription }
+                    }
+                }
+            }
         case .markdown:
             if let markdown {
                 RichDocumentMarkdownSheet(title: shown?.title ?? title, markdown: markdown)
@@ -166,6 +184,23 @@ struct RichDocumentDetailView: View {
         }
     }
 
+    private func editContent() {
+        tapFeedback += 1
+        Task {
+            status = String(localized: "Loading…")
+            defer { status = nil }
+            do {
+                // Reload the revision and content together before opening the editor.
+                let fresh = try await environment.api.richDocument(id: documentID)
+                document = fresh
+                let exported = try await environment.api.richDocumentMarkdown(id: documentID)
+                let prefix = "# \(fresh.document.title)\n\n"
+                markdown = exported.hasPrefix(prefix) ? String(exported.dropFirst(prefix.count)) : exported
+                sheet = .edit
+            } catch { actionError = error.localizedDescription }
+        }
+    }
+
     private func exportMarkdown() {
         tapFeedback += 1
         Task {
@@ -182,7 +217,7 @@ struct RichDocumentDetailView: View {
 }
 
 enum RichDocumentSheet: String, Identifiable {
-    case share, delete, markdown
+    case share, delete, markdown, edit
     var id: String { rawValue }
 }
 

@@ -9,6 +9,7 @@ struct NewRichDocumentSheet: View {
     @State private var markdown = ""
     @State private var visibility: SummaryVisibility = .private
     @State private var isCreating = false
+    @State private var showsEditor = false
     @State private var error: String?
     @Environment(\.dismiss) private var dismiss
 
@@ -19,11 +20,8 @@ struct NewRichDocumentSheet: View {
                     TextField("Title", text: $title).accessibilityIdentifier("new-rich-document-title")
                 }
                 Section {
-                    TextEditor(text: $markdown)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(minHeight: 240)
-                        .autocorrectionDisabled()
-                        .accessibilityIdentifier("new-rich-document-markdown")
+                    Button(markdown.isEmpty ? "Add Content" : "Edit Content", systemImage: "doc.richtext") { showsEditor = true }
+                    if !markdown.isEmpty { Text(markdown).lineLimit(4).foregroundStyle(.secondary) }
                 } header: {
                     Text("Markdown")
                 } footer: {
@@ -46,6 +44,7 @@ struct NewRichDocumentSheet: View {
                         .accessibilityIdentifier("new-rich-document-create")
                 }
             }
+            .sheet(isPresented: $showsEditor) { MarkdownEditorSheet(api: api, markdown: markdown) { markdown = $0 } }
             .overlay { if isCreating { ActionStatusOverlay(String(localized: "Creating document…")) } }
             .statusAlert("Couldn't Create Document", message: error) { error = nil }
             .sensoryFeedback(.error, trigger: error) { _, new in new != nil }

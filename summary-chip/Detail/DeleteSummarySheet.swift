@@ -51,6 +51,7 @@ struct DeleteSummarySheet: View {
         case .audiobook: "Delete Audiobook"
         case .miniApp: "Delete Clip"
         case .graph: "Delete Graph"
+        case .todoList: "Delete Todo List"
         case .richDocument: "Delete Document"
         case .summary, .other: "Delete Summary"
         }
@@ -63,6 +64,7 @@ struct DeleteSummarySheet: View {
         case .audiobook: "The audiobook will be removed from your library."
         case .miniApp: "The app, its records, and its connections will be removed permanently."
         case .graph: "The link and preview stop working and the graph is removed permanently. To only stop sharing, make it private instead."
+        case .todoList: "This permanently removes the todo list and cancels its deadline reminders."
         case .richDocument: "The link and preview stop working and the document is removed permanently. To only stop sharing, make it private instead."
         case .paper: "The link and preview stop working and the paper is removed permanently. To only stop sharing, make it private instead."
         case .summary, .other: "The link and preview stop working and the summary is removed permanently. To only stop sharing, make it private instead."

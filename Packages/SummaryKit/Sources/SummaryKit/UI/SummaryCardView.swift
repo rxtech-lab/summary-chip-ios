@@ -72,7 +72,10 @@ public struct SummaryCardView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                if !compact, summary.kind != .trip, !summary.summary.isEmpty {
+                if summary.kind == .todoList {
+                    TodoCardPreview(summary: summary)
+                }
+                if !compact, summary.kind != .trip, summary.kind != .todoList, !summary.summary.isEmpty {
                     Text(summary.summary)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -170,7 +173,7 @@ public struct KindBadge: View {
 
     /// Nil for kinds that open as a plain summary and carry no badge.
     public init?(kind: SummaryKind) {
-        guard kind == .trip || kind == .podcast || kind == .audiobook || kind == .paper || kind == .miniApp || kind == .graph || kind == .richDocument else { return nil }
+        guard kind == .trip || kind == .podcast || kind == .audiobook || kind == .paper || kind == .miniApp || kind == .graph || kind == .richDocument || kind == .todoList else { return nil }
         self.kind = kind
     }
 
@@ -198,6 +201,7 @@ public struct KindBadge: View {
         case .audiobook: Text("Audiobook", bundle: .module)
         case .miniApp: Text("Clip", bundle: .module, comment: "Badge on a library tile that is a Clip")
         case .graph: Text("Graph", bundle: .module, comment: "Badge on a library tile that is a graph")
+        case .todoList: Text("Todo List", bundle: .module)
         case .richDocument: Text("Document", bundle: .module, comment: "Badge on a library tile that is a rich document")
         default: Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
         }
@@ -210,6 +214,7 @@ public struct KindBadge: View {
         case .audiobook: "book.closed"
         case .miniApp: "app.badge.fill"
         case .graph: "point.3.connected.trianglepath.dotted"
+        case .todoList: "checklist"
         case .richDocument: "doc.text.image.fill"
         default: "doc.richtext.fill"
         }
@@ -219,6 +224,7 @@ public struct KindBadge: View {
         switch kind {
         case .trip: Color(red: 0.95, green: 0.5, blue: 0.35)
         case .miniApp: Color(red: 0.12, green: 0.55, blue: 0.48)
+        case .todoList: Color(red: 0.15, green: 0.5, blue: 0.35)
         case .richDocument: Color(red: 0.55, green: 0.38, blue: 0.78)
         default: Self.podcastTint
         }
@@ -602,7 +608,11 @@ public struct SummaryTileView: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if style == .text {
+            if summary.kind == .todoList {
+                TodoCardPreview(summary: summary)
+                    .foregroundStyle(ink)
+                    .padding(.top, 6)
+            } else if style == .text {
                 Text(summary.summary)
                     .font(.body)
                     .foregroundStyle(.secondary)
@@ -616,3 +626,16 @@ public struct SummaryTileView: View {
 
 /// Coordinate space of the feed's scroll content, used to place cards on the timeline.
 #endif
+
+private struct TodoCardPreview: View {
+    let summary: Summary
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(summary.summary).font(.caption).lineLimit(2)
+            ForEach(Array(summary.highlights.prefix(3).enumerated()), id: \.offset) { _, item in
+                Text(item).font(.callout).lineLimit(2)
+            }
+        }
+        .accessibilityIdentifier("todo-card-preview")
+    }
+}

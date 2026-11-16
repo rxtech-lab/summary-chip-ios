@@ -1,3 +1,4 @@
+import { deliverTodoNotifications } from "@/lib/services/todo-notifications";
 import { getDatabase } from "@/lib/db/client";
 import { authorizeCronRequest } from "@/lib/http/cron-auth";
 import { errorResponse } from "@/lib/http/errors";
@@ -14,6 +15,6 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
   try {
     const db = getDatabase();
-    return Response.json({ ok: true, ...await resumeTripNotifications(db), ...await resumeTripReminders(db), ...await resumePaperNotifications(db) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ ok: true, ...await resumeTripNotifications(db), ...await resumeTripReminders(db), ...await resumePaperNotifications(db), ...await deliverTodoNotifications(db) }, { headers: { "cache-control": "no-store" } });
   } catch (error) { return errorResponse(error); }
 }
