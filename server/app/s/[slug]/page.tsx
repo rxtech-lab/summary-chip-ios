@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { todoLists } from "@/lib/db/schema";
+import { markdownToBlocks } from "@/lib/rich-document/markdown";
 import { PublicAuthor } from "@/app/discover/author";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
@@ -218,7 +221,16 @@ export default async function SummaryPage({ params, searchParams }: Props) {
   // A trip shows its days read-only; the map view is in the app.
   const trip = row.kind === "trip" ? (await findTripForViewer(getDatabase(), row.id, null, true))?.trip.document : undefined;
   // A rich document renders its blocks in full; the share link already granted read access.
-  const richDocument = row.kind === "rich_document" ? (await findRichDocumentRow(getDatabase(), row.id))?.document : undefined;
+  let richDocument = row.kind === "rich_document" ? (await findRichDocumentRow(getDatabase(), row.id))?.document : undefined;
+  if (row.kind === "todo_list") {
+    const [todo] = await getDatabase().select().from(todoLists).where(eq(todoLists.summaryId, row.id));
+    if (todo) {
+      const markdown = `${todo.document.description}\n\n## Items\n\n` + todo.document.items.map((item) => `- [${item.completed ? "x" : " "}] ${item.title} — Due ${item.deadline}`).join("\n");
+      richDocument = { version: 1, title: todo.document.title, description: null, blocks: markdownToBlocks(markdown).blocks };
+    }
+  }
+
+
 
   return (
     <main className="relative min-h-dvh overflow-hidden">

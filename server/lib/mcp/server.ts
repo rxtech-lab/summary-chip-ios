@@ -1,3 +1,4 @@
+import { registerTodoTools } from "@/lib/todo/mcp";
 import { registerPodcastTools } from "./podcast";
 import { registerMiniAppTools } from "@/lib/mini-app/mcp";
 import { registerGraphTools } from "@/lib/graph/mcp";
@@ -68,7 +69,7 @@ export const INSTRUCTIONS = "Podcast tools: list_podcasts accepts day or summary
   + "list_editors_picks to answer Editor’s Picks by date (today/yesterday or YYYY-MM-DD, device time zone by default; follow nextCursor for all picks), and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
   + "Graphs are node-and-edge documents with JSON properties, images and JSON-rendered views: list_graphs and get_graph read them, create_graph starts one, update_graph adds, changes or removes nodes, edges and saved queries (each call is one version), query_graph runs a read-only Cypher-style query, select_graph_elements highlights or isolates elements in the app, and upload_graph_image stores an image for a node or edge (from create_upload's uploadKey or a public URL). "
-  + "Rich documents are block-based pages rendered top to bottom (text in Markdown, images, videos and audio; one or two columns; leading, center or trailing alignment; link children): list_rich_documents and get_rich_document read them (get_rich_document also returns Markdown), create_rich_document starts one from Markdown or blocks, update_rich_document inserts, changes, moves or removes blocks (each call is one version), delete_rich_document removes one, and upload_rich_document_image stores an image for a block. "
+  + "Todo lists: create_todo_list, list_todo_lists, get_todo_list, update_todo_list and delete_todo_list manage lists and per-item deadlines, Markdown descriptions and completion. AI creation and unfinished deadlines notify the owner. Rich documents are block-based pages rendered top to bottom (text in Markdown, images, videos and audio; one or two columns; leading, center or trailing alignment; link children): list_rich_documents and get_rich_document read them (get_rich_document also returns Markdown), create_rich_document starts one from Markdown or blocks, update_rich_document inserts, changes, moves or removes blocks (each call is one version), delete_rich_document removes one, and upload_rich_document_image stores an image for a block. "
   + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover; add_mini_app_records fills a table with initial data (or pass records to create_mini_app), list_mini_app_records reads it back, and upload_mini_app_file stores an image or file (from create_upload's uploadKey or a public URL) and returns a file reference to keep in a json field or initialState. Never include credentials in their JSON. "
   + "update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
   + "flights, hotels, expenses, custom views such as a fare comparison table, and alternative plans such as route 1 / route 2 "
@@ -278,6 +279,7 @@ export function createMcpServer(context: McpContext): McpServer {
   registerMiniAppTools(server, db, principal.sub, run);
   registerPodcastTools(server, context, run);
   registerGraphTools(server, { db, principal, billingEnvironment: context.billingEnvironment }, run);
+  registerTodoTools(server, { db, principal }, run);
   registerRichDocumentTools(server, { db, principal, billingEnvironment: context.billingEnvironment }, run);
 
   server.registerTool(TOOL_NAMES.getProfile, {
@@ -378,6 +380,7 @@ export function createMcpServer(context: McpContext): McpServer {
     const existing = await getOwnedSummary(db, args.summaryId, principal.sub);
     if (existing.kind === "trip") return { result: failure("This is a trip: edit it with update_trip.") };
     if (existing.kind === "graph") return { result: failure("This is a graph: edit it with update_graph.") };
+    if (existing.kind === "todo_list") return { result: failure("Edit todo lists with update_todo_list.") };
     if (existing.kind === "rich_document") return { result: failure("This is a rich document: edit it with update_rich_document.") };
     if (existing.kind === "mini_app") return { result: failure("This is a Mini App: use update_mini_app.") };
     if (existing.kind === "paper") return { result: failure("This is a paper: edit it with update_paper.") };
