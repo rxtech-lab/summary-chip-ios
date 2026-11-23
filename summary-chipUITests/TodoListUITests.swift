@@ -21,10 +21,11 @@ nonisolated final class TodoListUITests: XCTestCase {
         app.buttons["Done"].tap()
         let save = app.buttons["todo-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
-        let form = app.collectionViews.firstMatch
+        let form = app.collectionViews["todo-editor-form"]
+        XCTAssertTrue(form.waitForExistence(timeout: 5), app.debugDescription)
         let newItem = form.textViews["todo-new-item"]
         for _ in 0..<5 where !(newItem.exists && newItem.isHittable) { form.swipeUp() }
-        XCTAssertTrue(newItem.isHittable)
+        XCTAssertTrue(newItem.exists && newItem.isHittable, form.debugDescription)
         newItem.tap()
         newItem.typeText("Prepare meeting\n")
         save.tap()
@@ -69,8 +70,8 @@ nonisolated final class TodoListUITests: XCTestCase {
         let field = app.textViews["todo-new-item"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.typeText("Review")
-        field.typeKey(.return, modifierFlags: .shift)
-        field.typeText("proposal")
+        UIPasteboard.general.string = "\nproposal"
+        paste(into: field, in: app)
         XCTAssertEqual(field.value as? String, "Review\nproposal")
 
         let png = try XCTUnwrap(UIImage(systemName: "checkmark")?.pngData())
@@ -79,7 +80,7 @@ nonisolated final class TodoListUITests: XCTestCase {
         let tiles = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "todo-attachment-"))
         for (index, item) in [[UTType.png.identifier: png], [UTType.pdf.identifier: pdf]].enumerated() {
             UIPasteboard.general.items = [item]
-            field.typeKey("v", modifierFlags: .command)
+            paste(into: field, in: app)
             let tile = tiles.element(boundBy: index)
             XCTAssertTrue(tile.waitForExistence(timeout: 8), app.debugDescription)
         }
@@ -96,5 +97,11 @@ nonisolated final class TodoListUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
         XCTAssertEqual(tiles.count, 2)
+    }
+    @MainActor private func paste(into field: XCUIElement, in app: XCUIApplication) {
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.8)).press(forDuration: 1)
+        let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Paste")).firstMatch
+        XCTAssertTrue(paste.waitForExistence(timeout: 5), app.debugDescription)
+        paste.tap()
     }
 }

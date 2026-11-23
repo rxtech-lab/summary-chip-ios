@@ -70,6 +70,7 @@ struct TodoEditorSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .accessibilityIdentifier("todo-editor-form")
             .navigationTitle(existing == nil ? "New Todo List" : "Edit Todo List")
             .summaryInlineNavigationTitle()
             .toolbar {

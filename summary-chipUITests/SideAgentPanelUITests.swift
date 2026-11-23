@@ -88,7 +88,13 @@ nonisolated final class SideAgentPanelUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-likes", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extraArguments
         app.launch()
-        XCUIDevice.shared.orientation = orientation
+        let originalOrientation = XCUIDevice.shared.orientation
+        if originalOrientation != orientation {
+            addTeardownBlock {
+                await MainActor.run { XCUIDevice.shared.orientation = originalOrientation }
+            }
+            XCUIDevice.shared.orientation = orientation
+        }
         try XCTSkipUnless(toggle(app).waitForExistence(timeout: 15), "Compact layouts use tabs and sheets")
         settle()
         return app
