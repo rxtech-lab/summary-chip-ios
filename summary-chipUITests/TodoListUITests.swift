@@ -19,13 +19,19 @@ nonisolated final class TodoListUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Preview"].waitForExistence(timeout: 5))
         app.buttons["Preview"].tap()
         app.buttons["Done"].tap()
-        // The detail screen behind the sheet has its own inline row; the sheet's is the last match.
-        let matches = app.descendants(matching: .any).matching(identifier: "todo-new-item")
-        XCTAssertTrue(matches.firstMatch.waitForExistence(timeout: 5))
-        let newItem = matches.element(boundBy: matches.count - 1)
-        newItem.tap(); newItem.typeText("Prepare meeting\n")
-        app.buttons["todo-save"].tap()
-        XCTAssertTrue(app.buttons["Complete Prepare meeting"].waitForExistence(timeout: 5))
+        let save = app.buttons["todo-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        let form = app.collectionViews.firstMatch
+        let newItem = form.textViews["todo-new-item"]
+        for _ in 0..<5 where !(newItem.exists && newItem.isHittable) { form.swipeUp() }
+        XCTAssertTrue(newItem.isHittable)
+        newItem.tap()
+        newItem.typeText("Prepare meeting\n")
+        save.tap()
+        XCTAssertTrue(save.waitForNonExistence(timeout: 5))
+        let savedItem = app.buttons["Complete Prepare meeting"]
+        for _ in 0..<5 where !savedItem.exists { app.collectionViews.firstMatch.swipeUp() }
+        XCTAssertTrue(savedItem.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Todo list after editing"
         screenshot.lifetime = .keepAlways

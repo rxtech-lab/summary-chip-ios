@@ -176,17 +176,19 @@ final class ComposerUITextView: UITextView {
     private(set) var isInsertingNewline = false
 
     override var keyCommands: [UIKeyCommand]? {
-        let newline = UIKeyCommand(input: "\r", modifierFlags: .shift, action: #selector(shiftReturn))
+        let newline = UIKeyCommand(input: "\r", modifierFlags: .shift, action: #selector(shiftReturn(_:)))
         newline.wantsPriorityOverSystemBehavior = true
         return [newline] + (super.keyCommands ?? [])
     }
-    @objc private func shiftReturn() {
+    @objc private func shiftReturn(_ sender: UIKeyCommand) {
+        guard let selection = selectedTextRange else { return }
         isInsertingNewline = true
-        insertText("\n")
-        isInsertingNewline = false
+        defer { isInsertingNewline = false }
+        replace(selection, withText: "\n")
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(shiftReturn(_:)) { return isEditable && markedTextRange == nil }
         if action == #selector(paste(_:)), UIPasteboard.general.itemProviders.contains(where: {
             Self.attachmentType(for: $0) != nil
         }) { return true }
