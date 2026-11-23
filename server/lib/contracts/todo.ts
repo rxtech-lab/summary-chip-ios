@@ -2,11 +2,20 @@ import { z } from "zod";
 
 // ISO instants include an offset so deadlines never depend on the server's timezone.
 const deadline = z.iso.datetime({ offset: true });
+/** Images and files pasted or picked into an item; URLs come from document-images or document-files. */
+export const todoAttachmentSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  url: z.url({ protocol: /^https?$/ }).max(4096),
+  name: z.string().trim().min(1).max(200),
+  contentType: z.string().trim().min(1).max(200),
+  size: z.number().int().min(0),
+});
 export const todoItemSchema = z.object({
   id: z.string().trim().min(1).max(100),
   title: z.string().trim().min(1).max(300),
   deadline,
   completed: z.boolean().default(false),
+  attachments: z.array(todoAttachmentSchema).max(20).default([]),
 });
 export const todoDocumentSchema = z.object({
   title: z.string().trim().min(1).max(200),

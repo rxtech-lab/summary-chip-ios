@@ -14,6 +14,15 @@ struct TodoListTests {
         let roundTrip = try SummaryJSON.decoder().decode(TodoDocument.self, from: SummaryJSON.encoder().encode(completed))
         #expect(roundTrip == completed)
         #expect(roundTrip.description.contains("photo.webp"))
+        #expect(list.document.items[0].attachments.isEmpty)
+    }
+    @Test func roundTripsItemAttachments() throws {
+        let attachment = TodoAttachment(id: "a", url: URL(string: "https://example.com/a.webp")!, name: "Photo", contentType: "image/webp", size: 10)
+        let item = TodoItem(id: "one", title: "Line one\nLine two", attachments: [attachment])
+        let decoded = try SummaryJSON.decoder().decode(TodoItem.self, from: SummaryJSON.encoder().encode(item))
+        #expect(decoded.attachments == [attachment])
+        #expect(decoded.attachments[0].isImage)
+        #expect(decoded.title.contains("\n"))
     }
     @Test func libraryRecognizesTodoLists() {
         #expect(SummaryKind(rawValue: "todo_list") == .todoList)

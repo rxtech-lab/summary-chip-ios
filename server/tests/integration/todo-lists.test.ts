@@ -6,6 +6,9 @@ import * as list from "@/app/api/v1/todo-lists/[id]/route";
 import * as devices from "@/app/api/v1/devices/route";
 import * as uploadsRoute from "@/app/api/v1/uploads/route";
 import * as images from "@/app/api/v1/document-images/route";
+import * as files from "@/app/api/v1/document-files/route";
+import * as attachmentUploads from "@/app/api/v1/document-files/uploads/route";
+import * as publicFile from "@/app/api/public/document-files/[token]/[name]/route";
 import * as mcp from "@/app/api/mcp/route";
 import * as keys from "@/app/api/v1/api-keys/route";
 import { summaries, summaryTranslations, todoLists, todoNotifications, todoNotificationDeliveries, documentVersions } from "@/lib/db/schema";
@@ -19,7 +22,7 @@ vi.mock("@/lib/notifications/apns", () => ({ sendPush, apnsConfigured }));
 let env: TestEnv;
 const deadline = "2030-01-01T10:00:00+08:00";
 const document: TodoDocument = { title: "工作", description: "## Plan\n\n**Research** ![Photo](https://example.com/a.webp)", deadline,
-  items: [{ id: "one", title: "Search investors", deadline, completed: false }, { id: "two", title: "Done already", deadline, completed: true }] };
+  items: [{ id: "one", title: "Search investors", deadline, completed: false, attachments: [] }, { id: "two", title: "Done already", deadline, completed: true, attachments: [] }] };
 const due = new Date("2030-01-01T02:00:01Z");
 beforeEach(async () => {
   env = await setupTestEnv(); sendPush.mockReset().mockResolvedValue({ status: 200 }); apnsConfigured.mockReset().mockReturnValue(true);
@@ -147,5 +150,48 @@ describe("todo lists", () => {
     const stored = await env.store.get(`document-images/${file}`);
     const metadata = await sharp(stored.bytes).metadata();
     expect(metadata.format).toBe("webp"); expect(metadata.exif).toBeUndefined();
+  });
+  it("stores item attachments and redirects downloads directly to storage", async () => {
+    const bytes = new TextEncoder().encode("Meeting notes");
+    const responseToUpload = await attachmentUploads.POST(apiRequest("POST", "/api/v1/document-files/uploads", { token: env.tokens.alice,
+      body: { filename: "會議 Q4.txt", mimeType: "text/plain", byteSize: bytes.byteLength } }));
+    expect(responseToUpload.status).toBe(201);
+    const ticket = await responseToUpload.json();
+    expect(ticket).toMatchObject({ method: "PUT", headers: { "content-type": "text/plain" } });
+    const finalize = (token = env.tokens.alice) => files.POST(apiRequest("POST", "/api/v1/document-files", { token, body: { uploadKey: ticket.key } }));
+    expect((await finalize(env.tokens.bob)).status).toBe(403);
+    expect((await finalize()).status).toBe(409);
+    await env.store.put(ticket.key, { bytes, contentType: "text/plain" });
+    const response = await finalize(); expect(response.status).toBe(200);
+    const { file } = await response.json();
+    expect(file).toMatchObject({ name: "會議 Q4.txt", contentType: "text/plain", size: bytes.byteLength });
+    const [token, name] = new URL(file.url).pathname.split("/").slice(-2).map(decodeURIComponent);
+    const key = `document-files/${token}/${name}`;
+    expect(await env.store.get(key)).toMatchObject({ bytes, contentType: "application/octet-stream" });
+    const sign = vi.spyOn(env.store, "signedGet");
+    const download = await publicFile.GET(apiRequest("GET", file.url), { params: Promise.resolve({ token, name }) });
+    expect(sign).toHaveBeenCalledWith(key, { filename: "會議 Q4.txt" });
+    expect(download.status).toBe(307);
+    expect(download.headers.get("location")).toContain("https://downloads.invalid/");
+    expect(download.headers.get("cache-control")).toContain("no-store");
+    expect((await publicFile.GET(apiRequest("GET", file.url), { params: Promise.resolve({ token: "../x", name: "a" }) })).status).toBe(404);
+
+    const withAttachment: TodoDocument = { ...document, items: [{ ...document.items[0], attachments: [file] }, document.items[1]] };
+    const created = await create(withAttachment);
+    expect(created.document.items[0].attachments).toEqual([file]);
+    const bad = { ...document, items: [{ ...document.items[0], attachments: [{ ...file, url: "javascript:alert(1)" }] }] };
+    expect((await lists.POST(apiRequest("POST", "/api/v1/todo-lists", { token: env.tokens.alice, body: { document: bad } }))).status).toBe(400);
+  });
+  it("converts pasted images to WebP through an attachment ticket", async () => {
+    const bytes = await sharp({ create: { width: 10, height: 10, channels: 3, background: "#123" } }).webp().toBuffer();
+    const response = await attachmentUploads.POST(apiRequest("POST", "/api/v1/document-files/uploads", { token: env.tokens.alice,
+      body: { filename: "Pasted.webp", mimeType: "image/webp", byteSize: bytes.length } }));
+    expect(response.status).toBe(201);
+    const { key } = await response.json();
+    await env.store.put(key, { bytes, contentType: "image/webp" });
+    const finalized = await files.POST(apiRequest("POST", "/api/v1/document-files", { token: env.tokens.alice, body: { uploadKey: key } }));
+    expect(finalized.status).toBe(200);
+    const { file } = await finalized.json();
+    expect(file).toMatchObject({ name: "Pasted.webp", contentType: "image/webp", url: expect.stringMatching(/\.webp$/) });
   });
 });

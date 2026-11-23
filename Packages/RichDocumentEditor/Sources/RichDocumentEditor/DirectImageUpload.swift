@@ -2,10 +2,10 @@ import Foundation
 
 /// Independent of authentication and storage vendors: the host supplies its signed PUT request.
 public enum DirectImageUpload {
-    public static func upload(_ data: Data, request: URLRequest,
+    public static func upload(_ data: Data, request: URLRequest, session: URLSession = .shared,
                               progress: @escaping @Sendable (Int64, Int64) -> Void) async throws {
         let delegate = UploadProgress(progress: progress)
-        let (_, response) = try await URLSession.shared.upload(for: request, from: data, delegate: delegate)
+        let (_, response) = try await session.upload(for: request, from: data, delegate: delegate)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }

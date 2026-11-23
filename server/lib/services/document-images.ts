@@ -13,8 +13,13 @@ export async function finishDocumentImageUpload(db: Database, ownerId: string, u
   if (!mimeType.startsWith("image/")) throw new ApiError(422, "IMAGE_INVALID", "Upload an image");
   const original = await store.get(uploadKey);
   if (original.bytes.byteLength > 15 * 1024 * 1024) throw new ApiError(413, "IMAGE_TOO_LARGE", "Images must be 15 MB or smaller");
+  return storeDocumentImage(original.bytes, store);
+}
+
+/** Encode a verified upload into a safe, bounded inline image. */
+export async function storeDocumentImage(bytes: Uint8Array, store = getObjectStore()) {
   let encoded;
-  try { encoded = await compressDocumentImage(original.bytes); }
+  try { encoded = await compressDocumentImage(bytes); }
   catch { throw new ApiError(422, "IMAGE_INVALID", "The image could not be decoded"); }
   const file = `${randomBytes(24).toString("hex")}.webp`;
   const key = `document-images/${file}`;

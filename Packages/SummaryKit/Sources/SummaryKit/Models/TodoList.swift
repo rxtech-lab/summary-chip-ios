@@ -1,12 +1,45 @@
 import Foundation
 
+/// A previewable image or downloadable file attached to a todo item.
+public struct TodoAttachment: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var url: URL
+    public var name: String
+    public var contentType: String
+    public var size: Int
+    public init(id: String = UUID().uuidString, url: URL, name: String, contentType: String, size: Int) {
+        self.id = id
+        self.url = url
+        self.name = name
+        self.contentType = contentType
+        self.size = size
+    }
+    public var isImage: Bool { contentType.hasPrefix("image/") }
+}
+
 public struct TodoItem: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var title: String
     public var deadline: Date
     public var completed: Bool
-    public init(id: String = UUID().uuidString, title: String = "", deadline: Date = .now, completed: Bool = false) {
-        self.id = id; self.title = title; self.deadline = deadline; self.completed = completed
+    public var attachments: [TodoAttachment]
+    public init(id: String = UUID().uuidString, title: String = "", deadline: Date = .now, completed: Bool = false,
+                attachments: [TodoAttachment] = []) {
+        self.id = id
+        self.title = title
+        self.deadline = deadline
+        self.completed = completed
+        self.attachments = attachments
+    }
+    private enum CodingKeys: String, CodingKey { case id, title, deadline, completed, attachments }
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        deadline = try container.decode(Date.self, forKey: .deadline)
+        completed = try container.decodeIfPresent(Bool.self, forKey: .completed) ?? false
+        // Lists saved before attachments existed omit the field.
+        attachments = try container.decodeIfPresent([TodoAttachment].self, forKey: .attachments) ?? []
     }
 }
 public struct TodoDocument: Codable, Sendable, Hashable {
