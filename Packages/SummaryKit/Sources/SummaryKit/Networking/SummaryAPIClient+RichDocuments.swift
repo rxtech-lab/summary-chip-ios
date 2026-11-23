@@ -3,6 +3,14 @@ import Foundation
 extension SummaryAPIClient {
     private struct RichDocumentEnvelope: Decodable { var richDocument: RichDocument }
 
+    public func editRichDocument(id: String, markdown: String, revision: Int) async throws -> RichDocument {
+        struct Operation: Encodable { let op = "replace_markdown"; let markdown: String }
+        struct Body: Encodable { let operations: [Operation]; let revision: Int }
+        let result: RichDocumentEnvelope = try await send(json("/api/v1/rich-documents/\(id.urlPathEscaped)/operations", method: "POST",
+            body: Body(operations: [Operation(markdown: markdown)], revision: revision)))
+        return result.richDocument
+    }
+
     public func richDocument(id: String) async throws -> RichDocument {
         let result: RichDocumentEnvelope = try await send(get("/api/v1/rich-documents/\(id.urlPathEscaped)"))
         return result.richDocument

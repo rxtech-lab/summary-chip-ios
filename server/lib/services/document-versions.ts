@@ -9,6 +9,7 @@ import type { SummaryKind, SummaryRow, VersionActor } from "@/lib/db/schema";
  * language or cover. A new kind adds its content here (and its restore in `versions.ts`).
  */
 export interface VersionContentByKind {
+  todo_list: import("@/lib/contracts/todo").TodoDocument;
   summary: Pick<SummaryRow, "title" | "summary" | "highlights" | "category" | "tags" | "keywords">;
   trip: { document: TripDocument };
   /** A paper's title and LaTeX source; only what's saved as a version, never the autosaved working copy in between. */
@@ -35,6 +36,7 @@ export const VERSION_TITLE_PATHS: Record<SummaryKind, string> = {
   mini_app: "$.title",
   graph: "$.title",
   rich_document: "$.title",
+  todo_list: "$.title",
 };
 
 export function summaryContent(row: VersionContentByKind["summary"]): VersionContentByKind["summary"] {

@@ -74,9 +74,14 @@ class R2ObjectStore implements ObjectStore {
 
   async signedGet(key: string, options: { filename?: string; expiresInSeconds?: number; inline?: boolean } = {}) {
     const expiresIn = options.expiresInSeconds ?? 300;
-    const disposition = options.filename
-      ? `${options.inline ? "inline" : "attachment"}; filename="${safeFilename(options.filename)}"`
-      : undefined;
+    let disposition: string | undefined;
+    if (options.filename) {
+      const ascii = safeFilename(options.filename);
+      disposition = `${options.inline ? "inline" : "attachment"}; filename="${ascii}"`;
+      if (ascii !== options.filename && /^[\p{L}\p{M}\p{N} ._-]{1,200}$/u.test(options.filename)) {
+        disposition += `; filename*=UTF-8''${encodeURIComponent(options.filename)}`;
+      }
+    }
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,

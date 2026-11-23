@@ -19,5 +19,8 @@ describe("S3-compatible presigned uploads", () => {
     expect([...url.searchParams.keys()].filter((key) => /checksum/i.test(key))).toEqual([]);
     expect(signed.headers).toEqual({ "content-type": "image/png" });
     expect(signed.expiresAt.getTime() - Date.now()).toBeGreaterThan(9 * 60 * 1000);
+    const download = await getObjectStore().signedGet("document-files/test/會議 Q4.txt", { filename: "會議 Q4.txt" });
+    const disposition = new URL(download.url).searchParams.get("response-content-disposition");
+    expect(disposition).toBe(`attachment; filename="___Q4.txt"; filename*=UTF-8''${encodeURIComponent("會議 Q4.txt")}`);
   });
 });

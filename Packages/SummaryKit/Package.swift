@@ -13,12 +13,14 @@ let package = Package(
         .library(name: "SummaryKit", targets: ["SummaryKit"]),
     ],
     dependencies: [
+        .package(path: "../RichDocumentEditor"),
         .package(url: "https://github.com/onevcat/Kingfisher", from: "8.0.0"),
     ],
     targets: [
         .target(
             name: "SummaryKit",
             dependencies: [
+                .product(name: "RichDocumentEditor", package: "RichDocumentEditor"),
                 .product(name: "Kingfisher", package: "Kingfisher"),
             ],
             resources: [.process("Resources")],

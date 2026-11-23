@@ -1,3 +1,4 @@
+import { updateTodoList, getTodoList } from "./todo-lists";
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 import type { PatchSummaryInput } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
@@ -42,6 +43,7 @@ export interface RestoreJson {
   miniApp?: Awaited<ReturnType<typeof getMiniApp>> | null;
   graph?: GraphJson | null;
   richDocument?: RichDocumentJson | null;
+  todoList?: Awaited<ReturnType<typeof getTodoList>> | null;
 }
 
 export const DEFAULT_VERSION_PAGE = 50;
@@ -157,6 +159,10 @@ export async function restoreVersion(
     result = { summary: null, trip: null, paper: null, miniApp: await updateMiniApp(db, id, ownerId, row.content, current.revision, "restore", version) };
   } else if (row.kind === "graph") {
     result = { summary: null, trip: null, paper: null, graph: await restoreGraph(db, ownerId, id, row.content as unknown as VersionContentByKind["graph"], { ...deps, ...restore }) };
+  } else if (row.kind === "todo_list") {
+    const current = await getTodoList(db, id, ownerId, true);
+    const todoList = await updateTodoList(db, ownerId, id, { document: row.content as unknown as VersionContentByKind["todo_list"], revision: current.revision }, "restore", version);
+    result = { summary: null, trip: null, paper: null, todoList };
   } else if (row.kind === "rich_document") {
     result = { summary: null, trip: null, paper: null, richDocument: await restoreRichDocument(db, ownerId, id, row.content, { ...deps, ...restore }) };
   } else {

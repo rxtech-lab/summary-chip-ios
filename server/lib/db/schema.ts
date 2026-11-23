@@ -18,7 +18,7 @@ export const VISIBILITIES = ["public", "private"] as const;
  * a LaTeX paper (its source files live in `papers`), a graph (its nodes and edges live in `graphs`) or a
  * rich document (its blocks live in `rich_documents`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "audiobook", "graph", "rich_document"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "audiobook", "graph", "rich_document", "todo_list"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -870,3 +870,26 @@ export const authorFollows = sqliteTable("author_follows", {
   followerId: text("follower_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   authorId: text("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
 }, (table) => [primaryKey({ columns: [table.followerId, table.authorId] })]);
+
+/** Todo documents belong to normal chips, so library, sharing and deletion use the same identity. */
+export const todoLists = sqliteTable("todo_lists", {
+  summaryId: text("summary_id").primaryKey().references(() => summaries.id, { onDelete: "cascade" }),
+  document: text("document", { mode: "json" }).$type<import("@/lib/contracts/todo").TodoDocument>().notNull(),
+  revision: integer("revision").notNull().default(0),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+export const todoNotifications = sqliteTable("todo_notifications", {
+  id: text("id").primaryKey(),
+  summaryId: text("summary_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  itemId: text("item_id"),
+  kind: text("kind", { enum: ["created", "deadline"] }).notNull(),
+  dueAt: integer("due_at", { mode: "timestamp_ms" }).notNull(),
+  delivered: integer("delivered", { mode: "boolean" }).notNull().default(false),
+  runnerId: text("runner_id"),
+  leaseUntil: integer("lease_until", { mode: "timestamp_ms" }),
+}, (t) => [index("todo_notifications_due_idx").on(t.delivered, t.dueAt)]);
+export const todoNotificationDeliveries = sqliteTable("todo_notification_deliveries", {
+  eventId: text("event_id").notNull().references(() => todoNotifications.id, { onDelete: "cascade" }),
+  installationId: text("installation_id").notNull(),
+  ownerId: text("owner_id").notNull(),
+}, (t) => [primaryKey({ columns: [t.eventId, t.installationId, t.ownerId] })]);

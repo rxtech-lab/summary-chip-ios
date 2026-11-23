@@ -1,0 +1,8 @@
+{
+  "name": "@chippy/rich-document-media",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./index.ts",
+  "peerDependencies": { "sharp": ">=0.34.0" }
+}
