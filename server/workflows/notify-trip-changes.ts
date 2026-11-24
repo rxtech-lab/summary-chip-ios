@@ -14,7 +14,7 @@ export async function notifyTripChanges(batchId: string, runnerId: string) {
       continue;
     }
     if (plan.status === "summarize") {
-      const body = await summarizeChanges(plan.input);
+      const body = await summarizeChanges(plan.input, plan.selectedModelId);
       if (!await publishBatch(batchId, runnerId, plan.revision, body)) continue;
     }
     if (await deliverBatch(batchId, runnerId)) return;
@@ -25,9 +25,9 @@ async function planBatch(batchId: string, runnerId: string) {
   "use step";
   return planTripNotification(getDatabase(), batchId, runnerId);
 }
-async function summarizeChanges(input: TripChangeInput) {
+async function summarizeChanges(input: TripChangeInput, selectedModelId?: string) {
   "use step";
-  return writeTripChangeSummary(input);
+  return writeTripChangeSummary(input, selectedModelId);
 }
 async function publishBatch(batchId: string, runnerId: string, revision: number, body: string) {
   "use step";

@@ -325,6 +325,7 @@ async function removePlanObjects(store: ObjectStore, plan: Pick<Plan, "ownerId" 
 
 /** Plain data: the input of `workflows/generate-audiobook.ts`. */
 export interface AudiobookJobInput {
+  selectedModelId?: string;
   id: string;
   userId: string;
   kind: "generate" | "translate";
@@ -446,7 +447,7 @@ export async function confirmAudiobookPlan(db: Database, user: string, id: strin
     const [confirmed] = await db.update(audiobookPlans).set({ confirmed: true }).where(and(eq(audiobookPlans.id, id), eq(audiobookPlans.ownerId, user), eq(audiobookPlans.revision, revision))).returning();
     if (!confirmed) throw changed();
   }
-  return startJob(db, { userId: user, kind: "generate", key: id, day: plan.input.day, language: plan.input.language, planId: id,
+  return startJob(db, { selectedModelId: ai.selectedModelId, userId: user, kind: "generate", key: id, day: plan.input.day, language: plan.input.language, planId: id,
     includeVideo: plan.input.includeVideo, billingEnvironment: deps.billingEnvironment }, plan.plan.title, plan.plan.chapters.length, plan.input.summaryId ?? null, deps, { episodeKey: bookId, selection: plan.input.selection });
 }
 
@@ -471,7 +472,7 @@ export async function startAudiobookTranslation(db: Database, user: string, day:
   const usd = podcast.segments.reduce((sum, segment) => sum + segment.caption.length * (voiceUsdPerCharacter(podcast.speakers[segment.speaker]?.voice ?? "") ?? ai.speechUsdPerCharacter()), 0) + characters * WRITING_USD_PER_CHARACTER;
   const check = await reservePodcastPoints(user, `audiobook:${key}:translate:${input.language}:check:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment, Math.max(1, pointsForCost(usd)));
   await check?.settle(0, { check: true });
-  return startJob(db, { userId: user, kind: "translate", key, day, language: input.language, planId: null, includeVideo: input.includeVideo !== false && !!podcast.video,
+  return startJob(db, { selectedModelId: ai.selectedModelId, userId: user, kind: "translate", key, day, language: input.language, planId: null, includeVideo: input.includeVideo !== false && !!podcast.video,
     billingEnvironment: deps.billingEnvironment }, podcast.title, podcast.chapters?.length ?? 1, podcast.summaryId ?? null, deps);
 }
 
@@ -506,7 +507,7 @@ async function jobSource(db: Database, job: AudiobookJobInput) {
 /** Composes the next few missing cues. Returns the chapter count once the soundtrack is ready. */
 export async function runAudiobookMusic(db: Database, job: AudiobookJobInput, deps: StepDeps = {}): Promise<{ done: boolean; chapters: number }> {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const { plan, musicCues, chapterCount } = await jobSource(db, job);
   // First, and before chapters run side by side: recordings of this plan from before chapters had episodes join its book.
   if (plan) await mergeLegacyAudiobooks(db, job.userId, { ...deps, ai, store }, plan.input.bookId ?? plan.id);
@@ -547,7 +548,7 @@ export async function runAudiobookMusic(db: Database, job: AudiobookJobInput, de
 export async function runAudiobookChapterScript(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps = {}) {
   const store = deps.store ?? getObjectStore();
   if (await store.head(chapterKey(job, chapter))) return;
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   await patchJob(db, job, (document) => { document.stage = "writing"; });
   const pricing = await ai.podcastPricing().catch(() => null);
   let costUsd = 0;
@@ -616,7 +617,7 @@ export function assignStretches<T extends { caption: string; music: string; scen
  */
 export async function runAudiobookChapterVoices(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps = {}): Promise<boolean> {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const state = await readJson<ChapterState>(store, chapterKey(job, chapter));
   const speakers = job.kind === "generate"
     ? (await getAudiobookPlan(db, job.userId, job.planId!)).plan.speakers
@@ -652,7 +653,7 @@ async function captionsFor(ai: AiProvider, caption: string, audio: Uint8Array, a
 /** Mixes a voiced chapter with its stretches of music and frees its separate turns. */
 export async function runAudiobookChapterMix(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps = {}) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const state = await readJson<ChapterState>(store, chapterKey(job, chapter));
   if (state.mixed) {
     if (job.kind === "generate") await publishChapter(db, job, chapter, deps);
@@ -711,7 +712,7 @@ export async function finishAudiobook(db: Database, job: AudiobookJobInput, deps
  */
 async function publishChapter(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const plan = await getAudiobookPlan(db, job.userId, job.planId!);
   const bookId = plan.input.bookId ?? plan.id;
   const key = chapterEpisodeKey(plan.id, chapter);
@@ -769,7 +770,7 @@ async function publishChapter(db: Database, job: AudiobookJobInput, chapter: num
 /** Every chapter was published as it finished; what's left is the soundtrack's bill and tidying up. */
 async function finishOriginal(db: Database, job: AudiobookJobInput, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const plan = await getAudiobookPlan(db, job.userId, job.planId!);
   const music = await readOptional<MusicState>(store, `${jobBase(job)}/music.json`);
   const musicUsd = (music?.generated ?? 0) * ai.musicUsdPerClip();
@@ -804,7 +805,7 @@ async function charge(db: Database, job: AudiobookJobInput, ai: AiProvider, stat
 
 async function finishTranslation(db: Database, job: AudiobookJobInput, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const podcast = await dailyPodcastEpisode(db, job.userId, job.day, job.key);
   if (podcast.translations?.[job.language]) return;
   const states = await loadChapterStates(store, job, podcast.chapters?.length ?? 1);

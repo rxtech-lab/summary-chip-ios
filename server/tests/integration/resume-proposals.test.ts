@@ -144,6 +144,40 @@ describe("résumé proposals and focused calls", () => {
     });
     expect(await (await voice(env.tokens.alice)).json()).toEqual(first);
   });
+  it("saves Traditional Chinese text from the focused chat tool without running a translation proposal", async () => {
+    const source = await created();
+    const context = {
+      messages: [{ role: "user", parts: [{ type: "text", text: "Save a Traditional Chinese edition" }] }],
+      resumeTarget: { familyId: source.familyId, variantId: null, language: "en", revisionToken: source.revisionToken },
+    };
+    const call = (name: string, input: unknown, token = env.tokens.alice) =>
+      live.POST(request({ context, name, input: { argumentsJson: JSON.stringify(input) }, callId: "voice-" + name }, token));
+    const fields = await call("getResume", { translationLanguage: "zh-Hant" });
+    expect(fields.status).toBe(200);
+    const { output } = await fields.json();
+    expect(output).toMatchObject({
+      translationFields: { "/candidateName": "Ming", "/headline": "Engineer" },
+      expectedRevisionToken: null,
+    });
+    const input = {
+      language: "zh-Hant", sourceRevisionToken: output.sourceRevisionToken, expectedRevisionToken: output.expectedRevisionToken,
+      translations: [{ path: "/candidateName", value: "Ming" }, { path: "/headline", value: "工程師" }],
+    };
+    expect((await call("saveResumeTranslation", input, env.tokens.bob)).status).toBe(404);
+    const saved = await call("saveResumeTranslation", input);
+    expect(saved.status).toBe(200);
+    expect((await saved.json()).output).toMatchObject({
+      familyId: source.familyId, language: "zh-Hant", document: { headline: "工程師" },
+    });
+    const changed = await save(source, "Senior engineer");
+    const refreshed = await call("getResume", { translationLanguage: "zh-Hant" });
+    expect((await refreshed.json()).output).toMatchObject({
+      sourceRevisionToken: changed.revisionToken, translationFields: { "/headline": "Senior engineer" },
+      currentTranslations: { "/headline": "工程師" },
+    });
+    expect(await env.handle.db.select().from(resumeProposals)).toEqual([]);
+    expect(env.ai.calls.translateStrings).toHaveLength(0);
+  });
   it("reserves before execution, charges one completed request and releases failures", async () => {
     const source = await created();
     vi.stubEnv("RX_SUBSCRIPTION_ENVIRONMENT", "sandbox");

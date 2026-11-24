@@ -1,4 +1,4 @@
-import { createGateway } from "@ai-sdk/gateway";
+import { flowcyGateway } from "./flowcy";
 import type { Experimental_RealtimeModelV4SessionConfig as SessionConfig } from "@ai-sdk/provider";
 import { ApiError } from "@/lib/http/errors";
 
@@ -28,8 +28,8 @@ export const liveChatConfig: SessionConfig = {
 
 export async function createLiveChatSession(config: SessionConfig = liveChatConfig) {
   const model = liveChatModel();
-  const gateway = createGateway({ apiKey: process.env.AI_GATEWAY_API_KEY?.trim() || process.env.AI_GATEWAY_KEY?.trim() || undefined });
-  // The SDK resolves either an API key or Vercel's ambient OIDC credential.
+  const gateway = flowcyGateway();
+  // Flowcy mints the single-use client token with its own gateway credential.
   const secret = await gateway.experimental_realtime.getToken({ model, expiresAfterSeconds: 60 });
   const connection = gateway.experimental_realtime(model).getWebSocketConfig!(secret);
   return { model, ...connection, config };

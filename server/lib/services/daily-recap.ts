@@ -1,3 +1,4 @@
+import { getAiProvider } from "@/lib/ai/provider";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, isNull, lte } from "drizzle-orm";
 import { z } from "zod";
@@ -97,7 +98,7 @@ export async function runDailyRecap(db: Database, job: DailyRecapJob, deps: Serv
       return;
     }
     const podcast = await createDailyPodcast(db, job.ownerId, { day: job.day, language: job.language, regenerate: true, library: false, includeVideo: true, recap: true },
-      { ...deps, billingEnvironment: job.billingEnvironment });
+      { ...deps, ai: deps.ai ?? await getAiProvider(schedule.users.aiModelId), billingEnvironment: job.billingEnvironment });
     await db.update(runs).set({ status: podcast.videoDesign || podcast.video ? "rendering" : "failed", episodeKey: podcast.key,
       error: podcast.videoDesign || podcast.video ? null : "Audio is saved, but video design could not start. Open the episode to retry." }).where(eq(runs.id, job.id));
   } catch {

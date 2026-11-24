@@ -23,6 +23,7 @@ import { podcastVideoInput, renderKey, storePodcastVideo, translateVideo } from 
 
 /** One background design: plain data, the input of `workflows/design-podcast-video.ts`. */
 export interface PodcastVideoJob {
+  selectedModelId?: string;
   /** Matches the episode's `videoDesign.id` while this run is the current one. */
   id: string;
   /** The owner, who pays. */
@@ -125,7 +126,7 @@ export async function startPodcastVideoDesign(db: Database, user: string, podcas
   const ai = deps.ai ?? await getAiProvider();
   const model = ai.podcastVideoModelId();
   if (!model) throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Podcast videos are not available right now.");
-  const job: PodcastVideoJob = { id: randomUUID(), userId: user, key: podcast.key, day: podcast.day,
+  const job: PodcastVideoJob = { selectedModelId: ai.selectedModelId, id: randomUUID(), userId: user, key: podcast.key, day: podcast.day,
     language: options.language, billingEnvironment: deps.billingEnvironment };
   if (options.checkPoints) {
     // Only checks the balance: the run outlives any hold, so its cost is charged when it ends.
@@ -180,7 +181,7 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
     code: "PODCAST_VIDEO_DRAFT_MISSING", message: "The saved video draft could not be found. Please retry video design.",
   } };
   if (podcastVideoDraftFinished(state.draft)) return state.draft.result ? { status: "accepted" } : { status: "failed", code: "PODCAST_VIDEO_FAILED" };
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const usage: { step: LanguageModelUsage; modelId?: string }[] = [];
   let evidence: string;
   try {
@@ -259,7 +260,7 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
     await store.delete(statePath(job));
     return false;
   }
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const model = ai.podcastVideoModelId() ?? "video";
   const result = outcome.status === "accepted" ? state.draft.result : null;
   // Settling is idempotent, so a retried finish never charges twice. A failed design is free.
@@ -346,7 +347,7 @@ export async function translatePodcastVideoDesign(db: Database, job: PodcastVide
   };
   const translation = podcast.translations?.[job.language];
   if (!translation) return void await clear();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const charge = await reservePodcastPoints(job.userId, `${job.key}:video:${job.language}:${job.id}`, ai.podcastModelId(), job.billingEnvironment).catch(() => null);
   try {
     const result = await translateVideo(ai, deps.store ?? getObjectStore(), db, job.userId, podcast, job.language, translation, () => {});

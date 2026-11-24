@@ -24,7 +24,7 @@ const serverEnv: Record<string, string> = {
   MCP_RXAUTH_CLIENT_SECRET: "e2e-mcp-secret",
   NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${APP_PORT}`,
   DEFAULT_TTL_DAYS: "7",
-  AI_GATEWAY_API_KEY: "",
+  FLOWCY_SERVICE_TOKEN: "",
   R2_ACCOUNT_ID: "",
   R2_ACCESS_KEY_ID: "",
   R2_SECRET_ACCESS_KEY: "",

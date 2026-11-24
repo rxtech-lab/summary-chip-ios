@@ -209,8 +209,19 @@ OAuth connections. These server credentials never go in the plugin package. See
 
 ### AI
 
-`AI_MODEL` defaults to `openai/gpt-5-mini` through the Vercel AI Gateway. On Vercel, OIDC authenticates
-the gateway automatically; elsewhere set `AI_GATEWAY_API_KEY` (`AI_GATEWAY_KEY` is accepted too).
+Chippy uses Flowcy Cloud for text, search embeddings, evaluation, images, speech, music and live voice credentials.
+**AI Models** in the native app lists Flowcy's enabled chat models. A choice follows the signed-in account across
+devices and applies to cloud text generation. **Automatic** uses each task's configured model, with
+`AI_MODEL` defaulting to `openai/gpt-5-mini`. Specialty media models keep their own settings. Chippy owns the
+tools, point charges and job history. Queued jobs capture their model choice so retries use the same selection.
+
+Deploy Flowcy's `/api/v1/chippy/inference/{operation}` route, then run Chippy's usual database migration
+through `0056_flowcy_model`. Set `CHIPPY_VERCEL_PROJECT_ID` on Flowcy to the Chippy backend's Vercel project ID.
+Both deployments use their own Vercel OIDC credentials. For local development, set the same server-side secret
+in Flowcy's `CHIPPY_SERVICE_TOKEN` and Chippy's `FLOWCY_SERVICE_TOKEN`. `FLOWCY_BASE_URL` defaults to
+`https://www.flowcy.dev` and also accepts a loopback HTTP origin for a local Flowcy server.
+Configure upstream credentials on Flowcy. Enable optional Azure audiobook voices with
+`FLOWCY_AZURE_SPEECH_ENABLED=true` and optional Lyria podcast music with `FLOWCY_MUSIC_ENABLED=true` on Chippy.
 
 Text sources that contain a URL first go through an evaluation model (`AI_EVALUATION_MODEL`, default
 `typesafe-ai/jev`) that decides whether the text is really a shared link — e.g. a Xiaohongshu share

@@ -1,5 +1,8 @@
 import SummaryKit
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// Large-screen layout (macOS, regular-width iPad and iPhone): navigation sidebar, the selected
 /// page, and the agent chat as a collapsible trailing column.
@@ -44,7 +47,11 @@ struct SidebarMainView: View {
     #endif
 
     private var sidebarSelection: Binding<MainTab?> {
-        Binding(get: { navigation.selection }, set: { if let tab = $0 { navigation.selection = tab } })
+        Binding(get: { navigation.selection }, set: { tab in
+            guard let tab else { return }
+            navigation.lastFocusedChat = false
+            navigation.selection = tab
+        })
     }
 
     var body: some View {
@@ -53,12 +60,11 @@ struct SidebarMainView: View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
                 navigationView
-                    .simultaneousGesture(TapGesture().onEnded { navigation.lastFocusedChat = false })
                 if showsChat && navigation.selection != .chat {
                     Divider()
                         .ignoresSafeArea()
                     agentPanel
-                        .simultaneousGesture(TapGesture().onEnded { navigation.lastFocusedChat = true })
+                        .modifier(PanelFocusGesture { navigation.lastFocusedChat = true })
                         .frame(width: Self.panelWidth(inWindowWidth: geometry.size.width))
                         .transition(.move(edge: .trailing))
                 }
@@ -187,6 +193,7 @@ struct SidebarMainView: View {
             .accessibilityIdentifier("mac-sidebar")
         } detail: {
             page
+                .modifier(PanelFocusGesture { navigation.lastFocusedChat = false })
                 .modifier(DailyPodcastBottomInset(player: environment.podcastPlayer))
                 .navigationSplitViewColumnWidth(min: 100, ideal: 500)
         }
@@ -290,6 +297,41 @@ struct SidebarMainView: View {
         if let openMiniApp { openMiniApp(summary) } else { navigation.miniAppsPath = [summary] }
     }
 }
+
+/// Remembers which column to show when the window becomes compact.
+private struct PanelFocusGesture: ViewModifier {
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.gesture(PanelTap(action: action))
+        #else
+        content.simultaneousGesture(TapGesture().onEnded { action() })
+        #endif
+    }
+}
+
+#if os(iOS)
+private struct PanelTap: UIGestureRecognizerRepresentable {
+    let action: () -> Void
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
+        let tap = UITapGestureRecognizer()
+        tap.delegate = context.coordinator
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesEnded = false
+        return tap
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UITapGestureRecognizer, context: Context) { action() }
+}
+#endif
 
 extension EnvironmentValues {
     @Entry var openSideAgent: ((ChatModel) -> Void)?

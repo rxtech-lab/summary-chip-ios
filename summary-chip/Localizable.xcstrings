@@ -119,6 +119,22 @@
         }
       }
     },
+    "%@ · Unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 不可用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 無法使用"
+          }
+        }
+      }
+    },
     "%@ (%@)" : {
       "localizations" : {
         "en" : {
@@ -950,6 +966,54 @@
     },
     "5" : {
       "shouldTranslate" : false
+    },
+    "5 hours" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 小时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 小時"
+          }
+        }
+      }
+    },
+    "7 days" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 天"
+          }
+        }
+      }
+    },
+    "30 days" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 天"
+          }
+        }
+      }
     },
     "A long book can take a while. It keeps going on the server if you leave, and you'll be notified when it's ready." : {
 
@@ -1918,7 +1982,20 @@
 
     },
     "Agent Default" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能体默认模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "代理程式預設模型"
+          }
+        }
+      }
     },
     "Agents using this key stop working immediately. This can’t be undone." : {
       "localizations" : {
@@ -1965,6 +2042,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude 等 AI 代理程式使用 API 金鑰連接此 URL，即可新增、搜尋和列出你的摘要。它們以你的帳號身分操作，可在任何裝置上使用，新增的摘要會計入你的額度。"
+          }
+        }
+      }
+    },
+    "AI Models" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 模型"
           }
         }
       }
@@ -2378,6 +2471,22 @@
     },
     "Apple's speech recognition hears you and your selected voice model from Hugging Face replies, both on this Mac. The first session also creates a “Live Voice” API key so the agent can reach your library. You can revoke it in Settings → MCP Server." : {
 
+    },
+    "Applies to cloud text generation in your account. Automatic uses the default for each task." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此设置适用于你账户中的云端文本生成。选择“自动”会使用各项任务的默认模型。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此設定適用於你帳戶中的雲端文字生成。選擇「自動」會使用各項工作的預設模型。"
+          }
+        }
+      }
     },
     "Applies to the PDF preview and PDF / Word exports in every language. Custom rendering uses XeLaTeX. Text stays editable; pagination may differ between formats." : {
       "extractionState" : "manual",
@@ -2962,6 +3071,9 @@
         }
       }
     },
+    "Bold navy header with teal section headings." : {
+
+    },
     "Booked" : {
       "comment" : "Booking status",
       "localizations" : {
@@ -3282,6 +3394,9 @@
         }
       }
     },
+    "Centered serif header with plum accents." : {
+
+    },
     "Change deadline" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3474,7 +3589,20 @@
 
     },
     "Checking available models…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检查可用模型…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在檢查可用模型…"
+          }
+        }
+      }
     },
     "Checking files and download size…" : {
 
@@ -3515,7 +3643,20 @@
 
     },
     "Checking…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检查…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在檢查…"
+          }
+        }
+      }
     },
     "Checkout opens securely in your browser. Points are added to your account once payment completes." : {
       "localizations" : {
@@ -3691,6 +3832,22 @@
     "Choose a Voice Model" : {
 
     },
+    "Choose an AI model" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择 AI 模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇 AI 模型"
+          }
+        }
+      }
+    },
     "Choose an image to replace this file." : {
 
     },
@@ -3784,6 +3941,22 @@
     },
     "Choose who answers in voice chat" : {
 
+    },
+    "Choose…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇…"
+          }
+        }
+      }
     },
     "Chosen" : {
       "localizations" : {
@@ -4042,6 +4215,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關閉導覽"
+          }
+        }
+      }
+    },
+    "Cloud models and local chat agents." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "云端模型和本地聊天智能体。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雲端模型和本機聊天代理程式。"
           }
         }
       }
@@ -7238,6 +7427,9 @@
     "Editor’s Picks" : {
 
     },
+    "Editorial" : {
+
+    },
     "Elements" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8113,6 +8305,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "航班動態"
+          }
+        }
+      }
+    },
+    "Flowcy Cloud" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 云端"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 雲端"
+          }
+        }
+      }
+    },
+    "Flowcy Cloud Model" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 云端模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 雲端模型"
+          }
+        }
+      }
+    },
+    "Flowcy has no enabled chat models." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 尚未启用任何聊天模型。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 尚未啟用任何聊天模型。"
+          }
+        }
+      }
+    },
+    "Flowcy Model Usage" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 模型用量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flowcy 模型用量"
           }
         }
       }
@@ -10394,6 +10650,22 @@
     "Loading model card…" : {
 
     },
+    "Loading models…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载模型…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入模型…"
+          }
+        }
+      }
+    },
     "Loading more activity" : {
       "localizations" : {
         "zh-Hans" : {
@@ -10566,6 +10838,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "普通"
+          }
+        }
+      }
+    },
+    "Local Agents" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地智能体"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機代理程式"
+          }
+        }
+      }
+    },
+    "Local agents use the account signed in to their CLI and can access your library through Chippy tools." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地智能体使用其命令行工具中登录的账户，并可通过 Chippy 工具访问你的资料库。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機代理程式會使用其命令列工具中登入的帳戶，並可透過 Chippy 工具存取你的資料庫。"
           }
         }
       }
@@ -10917,7 +11221,20 @@
       }
     },
     "Model" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型"
+          }
+        }
+      }
     },
     "Model Default" : {
 
@@ -10932,6 +11249,9 @@
 
     },
     "Models you download from Browse appear here." : {
+
+    },
+    "Modern" : {
 
     },
     "Moments" : {
@@ -12045,6 +12365,22 @@
         }
       }
     },
+    "No usage meters are available for this account." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此账户暂无用量数据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此帳號暫無用量資料。"
+          }
+        }
+      }
+    },
     "No Versions" : {
 
     },
@@ -12231,6 +12567,22 @@
     },
     "Not found. Install the %@ command to use it." : {
 
+    },
+    "Not installed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未安装"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未安裝"
+          }
+        }
+      }
     },
     "Not paid" : {
       "localizations" : {
@@ -13531,6 +13883,22 @@
         }
       }
     },
+    "Percentage unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无百分比"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暫無百分比"
+          }
+        }
+      }
+    },
     "Permanently removes your account and summaries." : {
       "localizations" : {
         "zh-Hans" : {
@@ -14459,6 +14827,22 @@
     "Proposed" : {
 
     },
+    "Provider" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务提供方"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服務供應商"
+          }
+        }
+      }
+    },
     "Public API — no account needed" : {
 
     },
@@ -15084,6 +15468,22 @@
     },
     "Reload" : {
 
+    },
+    "Reload Models" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新加载模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新載入模型"
+          }
+        }
+      }
     },
     "Remaining" : {
       "localizations" : {
@@ -16457,6 +16857,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在儲存…"
+          }
+        }
+      }
+    },
+    "Saving model…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保存模型选择…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在儲存模型選擇…"
           }
         }
       }
@@ -18533,6 +18949,22 @@
         }
       }
     },
+    "Text Chat on This Mac" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 上的文字聊天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這部 Mac 上的文字聊天"
+          }
+        }
+      }
+    },
     "Text Options" : {
 
     },
@@ -18743,6 +19175,22 @@
     },
     "The local agent service stopped unexpectedly." : {
 
+    },
+    "The local agent stopped before finishing its reply." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地智能体在完成回复前停止了。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機代理程式在完成回覆前停止了。"
+          }
+        }
+      }
     },
     "The MCP server lets AI agents such as Claude add, search and list your summaries from anywhere." : {
       "localizations" : {
@@ -20391,6 +20839,22 @@
         }
       }
     },
+    "Usage across your Flowcy account. A dash means the percentage is unavailable." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示整个 Flowcy 账户的用量。横线表示暂无百分比。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示整個 Flowcy 帳號的用量。橫線表示暫無百分比。"
+          }
+        }
+      }
+    },
     "Use 200 characters or fewer." : {
       "localizations" : {
         "zh-Hans" : {
@@ -20565,7 +21029,20 @@
       }
     },
     "Uses the model set in %@" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 %@ 中设置的模型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 %@ 中設定的模型"
+          }
+        }
+      }
     },
     "Using the paper's original layout. Choose Rendering Options to customize PDF and Word." : {
       "extractionState" : "manual",

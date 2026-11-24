@@ -11,6 +11,7 @@ import {
   restoreResumeSchema,
   resumeDocumentSchema,
   resumeTargetSchema,
+  saveResumeTranslationSchema,
   type ResumeDocument,
   type ResumeOperation,
 } from "@/lib/contracts/resume";
@@ -48,9 +49,12 @@ import {
   valueAt,
 } from "@/lib/resume/editing";
 
+import { directTranslationEdits, type DirectTranslation, type ProposalTranslation } from "@/lib/resume/direct-translation";
 import { mutateResume, stableResumeJson, type ResumeTransaction } from "@/lib/resume/mutation";
 import { collectUnusedResumeOutputs } from "@/lib/resume/retention";
 import { generateSlug } from "@/lib/slug";
+
+export { resumeTranslationFields } from "@/lib/resume/direct-translation";
 
 type Reader = Pick<Database, "select">;
 type Target = z.infer<typeof resumeTargetSchema>;
@@ -178,7 +182,9 @@ function resolve(f: Family, id: string | null, lang: TranslationLanguage) {
         continue;
       const baseline = local.baselines[path];
       const needsTranslation = !Object.hasOwn(local.words, path) && !baseline;
-      if (needsTranslation || (baseline && baseline.sourceValue !== (sourceWords[path] ?? null)))
+      const expectedSource =
+        baseline?.canonicalSourceValue !== undefined ? baseline.canonicalSourceValue : baseline?.sourceValue;
+      if (needsTranslation || (baseline && expectedSource !== (sourceWords[path] ?? null)))
         result.missingTranslationPaths.push(path);
     }
   }
@@ -644,25 +650,46 @@ export async function restoreResume(
   });
 }
 
+export async function saveResumeTranslation(db: Database, owner: string, familyId: string, raw: DirectTranslation) {
+  return persistTranslation(db, owner, familyId, saveResumeTranslationSchema.parse(raw));
+}
+
 export async function commitResumeTranslation(
   db: Database,
   owner: string,
   familyId: string,
-  raw: z.infer<typeof commitResumeTranslationSchema>,
+  raw: ProposalTranslation,
 ) {
-  const input = commitResumeTranslationSchema.parse(raw);
-  return mutateResume(db, owner, input.idempotencyKey, ["translation", familyId, input], async (tx) => {
-    const f = await load(tx, owner, familyId),
-      id = input.variantId ?? null,
-      lang = input.language;
-    if (lang === input.sourceLanguage) invalid("Choose a different target language");
-    verifyToken(f, id, input.sourceLanguage, input.sourceRevisionToken);
+  return persistTranslation(db, owner, familyId, commitResumeTranslationSchema.parse(raw));
+}
+
+function persistTranslation(
+  db: Database,
+  owner: string,
+  familyId: string,
+  request: DirectTranslation | ProposalTranslation,
+) {
+  const kind = "translations" in request ? "direct-translation" : "translation";
+  return mutateResume(db, owner, request.idempotencyKey, [kind, familyId, request], async (tx) => {
+    const f = await load(tx, owner, familyId);
+    const id = request.variantId ?? null;
+    const lang = request.language;
+    if (lang === request.sourceLanguage) invalid("Choose a different target language");
+    const source = resolve(f, id, request.sourceLanguage);
+    if (source.revisionToken !== request.sourceRevisionToken) throw conflict(source.revisionToken);
     const exists = !!edition(f, lang);
-    if (exists) {
-      const current = resolve(f, id, lang).revisionToken;
-      if (input.expectedRevisionToken !== current) throw conflict(current);
-    } else {
-      if (input.expectedRevisionToken !== null) throw conflict(null);
+    const current = exists ? resolve(f, id, lang).revisionToken : null;
+    if (request.expectedRevisionToken !== current) throw conflict(current);
+    const input =
+      "translations" in request
+        ? directTranslationEdits(
+            request,
+            source,
+            edition(f, f.source).words,
+            id && !exists ? resolve(f, null, request.sourceLanguage) : undefined,
+          )
+        : request;
+    if (!exists) {
       if (id && !input.baseOperations) invalid("A new company translation requires base wording");
       await tx.insert(resumeEditions).values({ familyId, language: lang });
       f.components.set(editionKey(lang), { revision: 0, value: emptyEdition() });
@@ -685,6 +712,9 @@ export async function commitResumeTranslation(
     if (id) {
       const changes = copy(overlay(f, id));
       const baseDoc = base(f, lang);
+      if (!exists && "translations" in request && source.inheritedPaths.length) {
+        (changes.inherited ??= {})[lang] = Object.fromEntries(source.inheritedPaths.map((path) => [path, true]));
+      }
       editOverlay(
         baseDoc,
         changes,

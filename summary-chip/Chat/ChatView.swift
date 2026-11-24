@@ -20,6 +20,7 @@ struct ChatView: View {
     @AppStorage(LiveVoiceSettings.engineKey) private var savedVoiceEngine = LiveVoiceEngine.chippy.rawValue
     @AppStorage(LiveVoiceSettings.languageKey) private var savedVoiceLanguage = ""
     @State private var showsVoiceEngines = false
+    @State private var showsAIModels = false
     @State private var showsFilePicker = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: ChatModel
@@ -182,6 +183,7 @@ struct ChatView: View {
                 }
         }
         .modifier(ChatFileImporter(files: model.files, isPresented: $showsFilePicker))
+        .sheet(isPresented: $showsAIModels) { ChatAgentSheet(cloud: environment.cloudChatModels) }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { voice.stop() }
         }
@@ -247,15 +249,15 @@ struct ChatView: View {
             }
             #endif
             if !isPanel {
-            ToolbarItem(placement: .summaryTrailing) {
-                Button {
-                    model.newChat()
-                    interactionFeedback += 1
-                } label: {
-                    Label("New Chat", systemImage: "square.and.pencil")
+                ToolbarItem(placement: .summaryTrailing) {
+                    Button {
+                        model.newChat()
+                        interactionFeedback += 1
+                    } label: {
+                        Label("New Chat", systemImage: "square.and.pencil")
+                    }
+                    .disabled(!canStartNewChat)
                 }
-                .disabled(!canStartNewChat)
-            }
             }
         }
     }
@@ -466,95 +468,104 @@ private extension ChatView {
         #endif
     }
 
-    var voiceButtonsWidth: CGFloat {
+    var composerControlSize: CGFloat {
         #if os(macOS)
-        70
+        32
         #else
-        38
+        44
         #endif
     }
 
     var composer: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            Button {
-                inputFocused = false
-                interactionFeedback += 1
-                showsFilePicker = true
-            } label: {
-                Label("Attach Files", systemImage: "paperclip")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 40, height: 40)
-                    .contentShape(Circle())
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 2) {
+                Button {
+                    inputFocused = false
+                    interactionFeedback += 1
+                    showsFilePicker = true
+                } label: {
+                    Image(systemName: "paperclip")
+                        .frame(width: composerControlSize, height: composerControlSize)
+                        .contentShape(Rectangle())
+                }
+                .foregroundStyle(.secondary)
+                .help("Attach Files")
+                .accessibilityLabel("Attach Files")
+                .accessibilityIdentifier("chat-attach-files")
+                .disabled(model.isStreaming || model.files.uploadProgress != nil || model.files.attachments.count >= ChatFileAttachment.maxCount)
+
+                TextField(placeholder, text: $model.draft, axis: .vertical)
+                    .lineLimit(1...5)
+                    .focused($inputFocused)
+                    .textFieldStyle(.plain)
+                    .padding(.vertical, 6)
+                    .padding(.trailing, 8)
+                    .frame(maxWidth: .infinity, minHeight: composerControlSize, alignment: .leading)
+                    .onSubmit { if canSend { model.send() } }
+                    .submitLabel(.send)
+                    .accessibilityIdentifier("chat-input")
             }
-            .buttonStyle(.plain)
-            .platformGlassEffect(.regular.interactive(), in: Circle())
-            .help("Attach Files")
-            .accessibilityIdentifier("chat-attach-files")
-            .disabled(model.isStreaming || model.files.uploadProgress != nil || model.files.attachments.count >= ChatFileAttachment.maxCount)
-            TextField(placeholder, text: $model.draft, axis: .vertical)
-                .lineLimit(1...5)
-                .focused($inputFocused)
-                // The glass capsule is the field's only outline; drop the platform border.
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .padding(.trailing, voiceButtonsWidth)
-                .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(alignment: .trailing) {
-                    HStack(spacing: 0) {
-                        #if os(macOS)
-                        Button {
-                            showsVoiceEngines = true
-                            interactionFeedback += 1
-                        } label: {
-                            Image(systemName: voiceEngine.symbolName).frame(width: 32, height: 40)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .help("Choose who answers in voice chat")
-                        .accessibilityLabel("Voice agent")
-                        .accessibilityValue(voiceEngine.title)
-                        .accessibilityIdentifier("chat-voice-agent")
-                        #endif
-                        Button {
-                            inputFocused = false
-                            let language = LocalVoiceLanguage.resolve(saved: savedVoiceLanguage.isEmpty ? nil : savedVoiceLanguage)
-                            voice.start(api: environment.api, chat: model, engine: voiceEngine, language: language)
-                        } label: {
-                            Image(systemName: "mic.fill").frame(width: 36, height: 40)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(model.isStreaming || model.files.uploadProgress != nil || !model.files.attachments.isEmpty)
-                        .accessibilityLabel("Start voice chat")
-                        .accessibilityIdentifier("chat-voice-start")
-                    }
+            HStack(spacing: 2) {
+                ChatModelPickerButton(cloud: environment.cloudChatModels, controlSize: composerControlSize) {
+                    inputFocused = false
+                    interactionFeedback += 1
+                    showsAIModels = true
                 }
-                .onSubmit { if canSend { model.send() } }
-                .submitLabel(.send)
-                .accessibilityIdentifier("chat-input")
-            if model.isStreaming {
+                .disabled(model.isStreaming)
+                Spacer(minLength: 2)
+                #if os(macOS)
                 Button {
-                    model.stop()
+                    inputFocused = false
+                    showsVoiceEngines = true
+                    interactionFeedback += 1
                 } label: {
-                    Image(systemName: "stop.circle.fill").font(.system(size: 34))
+                    Image(systemName: voiceEngine.symbolName)
+                        .frame(width: composerControlSize, height: composerControlSize)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
-                .accessibilityLabel("Stop")
-            } else {
+                .foregroundStyle(.secondary)
+                .help("Choose who answers in voice chat")
+                .accessibilityLabel("Voice agent")
+                .accessibilityValue(voiceEngine.title)
+                .accessibilityIdentifier("chat-voice-agent")
+                #endif
                 Button {
-                    model.send()
+                    inputFocused = false
+                    let language = LocalVoiceLanguage.resolve(saved: savedVoiceLanguage.isEmpty ? nil : savedVoiceLanguage)
+                    voice.start(api: environment.api, chat: model, engine: voiceEngine, language: language)
                 } label: {
-                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 34))
+                    Image(systemName: "mic.fill")
+                        .frame(width: composerControlSize, height: composerControlSize)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(canSend ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
-                .disabled(!canSend)
-                .accessibilityLabel("Send")
-                // The keyboard's return key is labelled Send too.
-                .accessibilityIdentifier("chat-send")
+                .disabled(model.isStreaming || model.files.uploadProgress != nil || !model.files.attachments.isEmpty)
+                .help("Start voice chat")
+                .accessibilityLabel("Start voice chat")
+                .accessibilityIdentifier("chat-voice-start")
+                sendButton
             }
         }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chat-composer")
+    }
+
+    var sendButton: some View {
+        Button {
+            if model.isStreaming { model.stop() } else { model.send() }
+        } label: {
+            Image(systemName: model.isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
+                .font(.system(size: composerControlSize - 8))
+                .frame(width: composerControlSize, height: composerControlSize)
+                .contentShape(Rectangle())
+        }
+        .foregroundStyle(model.isStreaming || canSend ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+        .disabled(!model.isStreaming && !canSend)
+        .accessibilityLabel(model.isStreaming ? Text("Stop") : Text("Send"))
+        .accessibilityIdentifier(model.isStreaming ? "chat-stop" : "chat-send")
     }
 }
 

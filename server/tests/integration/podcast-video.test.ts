@@ -51,6 +51,15 @@ async function designed(key: string) {
 }
 
 describe("podcast motion video", () => {
+  it("keeps the chosen Flowcy model in the queued design when the account changes models", async () => {
+    const provider = Object.assign(env.ai, { selectedModelId: "fixture/first" });
+    provider.video = true;
+    await chip("Model selection");
+    const created = await generate(true);
+    provider.selectedModelId = "fixture/second";
+    expect(env.podcastVideoDesigns[0]).toMatchObject({ key: created.key, selectedModelId: "fixture/first" });
+  });
+
   it("preserves a draft on transient storage failure so a workflow retry can finish", async () => {
     env.ai.video = true;
     await chip("Storage recovery");

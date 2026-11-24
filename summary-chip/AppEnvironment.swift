@@ -47,6 +47,7 @@ final class AppEnvironment {
     let api: SummaryAPIClient
     let podcastPlayer: DailyPodcastPlayer
     let chatClient: ChatStreamClient
+    private(set) var cloudChatModels: FlowcyModelSelection
     let chatStore = ChatTranscriptStore()
     let assetLoader: SummaryAssetLoader
     let library: LibraryModel
@@ -77,6 +78,7 @@ final class AppEnvironment {
         self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker, session: session)
         self.podcastPlayer = DailyPodcastPlayer(api: api)
         self.chatClient = ChatStreamClient(api: api)
+        self.cloudChatModels = FlowcyModelSelection(api: api)
         self.assetLoader = SummaryAssetLoader(tokenProvider: tokenBroker)
         let offline = OfflineSummaryStore()
         self.library = LibraryModel(api: api, offline: offline)
@@ -221,6 +223,7 @@ final class AppEnvironment {
         podcastPlayer.close()
         PodcastMotionRenderer.clearCache()
         authenticationState = .signedOut
+        cloudChatModels = FlowcyModelSelection(api: api)
         await SummaryNotifications.shared.signOut()
         try? await tokenBroker.logout()
         await authManager.logout()

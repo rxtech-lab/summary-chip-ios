@@ -4,7 +4,7 @@ Tap the microphone in Agent Chat's composer to enter a voice session. The compos
 
 ## Configuration
 
-`AI_LIVE_CHAT_MODEL=google/gemini-3.8-live` is the default in `server/.env.example` and local `.env`. The optional extended-thinking variant is supported. The existing Gateway credential conventions apply (`AI_GATEWAY_API_KEY`, `AI_GATEWAY_KEY`, or ambient Vercel OIDC); there is no mandatory static key or direct Gemini key.
+`AI_LIVE_CHAT_MODEL=google/gemini-3.8-live` is the default in `server/.env.example`. The optional extended-thinking variant is supported. Chippy requests the realtime credential from Flowcy using its Vercel service identity or the local development credential. See [server configuration](../server/README.md#ai).
 
 `POST /api/v1/chat/live` requires app authentication and the existing chat balance eligibility check. It mints a model-bound, single-use credential valid for opening a connection for 60 seconds. The app connects directly to Gateway using its returned WebSocket URL and subprotocols. Server credentials are never returned. Audio does not pass through a serverless HTTP upload.
 

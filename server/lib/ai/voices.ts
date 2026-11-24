@@ -52,10 +52,11 @@ const AZURE_VOICES: VoiceOption[] = [
 ];
 
 export function azureSpeechConfigured() {
-  return Boolean(process.env.AZURE_SPEECH_KEY?.trim() && process.env.AZURE_SPEECH_REGION?.trim());
+  const setting = process.env.FLOWCY_AZURE_SPEECH_ENABLED?.trim();
+  return setting ? setting === "true" : Boolean(process.env.AZURE_SPEECH_KEY?.trim() && process.env.AZURE_SPEECH_REGION?.trim());
 }
 
-/** The voices offered right now: ElevenLabs through the Gateway, Azure only when its credentials are set. */
+/** Include Azure voices when the deployment has enabled them through Flowcy. */
 export function audiobookVoices(): VoiceOption[] {
   return azureSpeechConfigured() ? [...ELEVENLABS_VOICES, ...AZURE_VOICES] : [...ELEVENLABS_VOICES];
 }

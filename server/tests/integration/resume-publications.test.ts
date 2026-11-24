@@ -69,6 +69,33 @@ beforeEach(async () => {
 afterEach(() => env.teardown());
 
 describe("résumé publication boundaries", () => {
+  it.each([
+    { template: "editorial-v1", paperSize: "A4", headingColor: "67364F", pageSize: 'w:w="11906" w:h="16838"' },
+    { template: "modern-v1", paperSize: "Letter", headingColor: "17665F", pageSize: 'w:w="12240" w:h="15840"' },
+  ] as const)("prepares PDF and Word exports for $template", async ({ template, paperSize, headingColor, pageSize }) => {
+    const db = env.handle.db;
+    const resume = await create();
+    const output = await prepareResumePreview(db, owner, resume.familyId, {
+      revisionToken: resume.revisionToken,
+      language: resume.language,
+      presentation: { template, paperSize, showAvatar: true },
+    });
+
+    expect(renderPdf).toHaveBeenLastCalledWith(
+      expect.stringContaining(`#${headingColor}`),
+      expect.objectContaining({ paperSize }),
+    );
+    const pdf = await ownerArtifact(db, owner, resume.familyId, output.id, "pdf");
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    const files = unzipSync(await ownerArtifact(db, owner, resume.familyId, output.id, "docx"));
+    const documentXml = strFromU8(files["word/document.xml"]);
+    expect(documentXml).toContain(pageSize);
+    expect(documentXml).toContain("<w:hyperlink");
+    expect(documentXml).toContain("<w:numPr>");
+    expect(strFromU8(files["word/styles.xml"])).toContain(`w:val="${headingColor}"`);
+    expect(output.id).not.toBe((await preview(resume)).id);
+  });
+
   it("pins the previewed PDF, editable Word structure and avatar through replacement, pruning and expiry", async () => {
     const db = env.handle.db;
     let r = await create();

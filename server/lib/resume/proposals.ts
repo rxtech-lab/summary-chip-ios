@@ -196,7 +196,7 @@ async function review(source: Resolved, input: ProposalInput, ai: AiProvider, us
   return findings;
 }
 
-export async function runResumeProposal(db: Database, id: string, environment?: BillingEnvironment) {
+export async function runResumeProposal(db: Database, id: string, environment?: BillingEnvironment, selectedModelId?: string | null) {
   const [row] = await db
     .update(resumeProposals)
     .set({ status: "running" })
@@ -208,7 +208,7 @@ export async function runResumeProposal(db: Database, id: string, environment?: 
   let charge,
     ready = false;
   try {
-    const ai = await getAiProvider();
+    const ai = await getAiProvider(selectedModelId);
     try {
       const source = await getResume(db, ownerId, familyId, {
         language: input.language,
@@ -345,7 +345,7 @@ export async function createResumeProposal(
           import("workflow/api"),
           import("@/workflows/resume-proposal"),
         ]);
-        await start(resumeProposalWorkflow, [{ id, familyId, ownerId, environment }]);
+        await start(resumeProposalWorkflow, [{ id, familyId, ownerId, environment, selectedModelId: ai.selectedModelId }]);
       } catch (error) {
         await hold?.settle(0, { operation: input.kind });
         throw error;

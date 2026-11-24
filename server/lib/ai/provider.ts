@@ -1,3 +1,4 @@
+import { accountModelId } from "./model-preference";
 import { podcastVideoStyle } from "./podcast-video-style";
 import { writePodcastSummary } from "./podcast-summary";
 import { splitPodcastCaptions } from "./podcast-caption-splitting";
@@ -50,6 +51,7 @@ import {
   tourModel,
   tourModelId,
   webSearchTool,
+  type ModelPricing,
 } from "./models";
 import { splitIntoParts, stripFence, writeDocument, type DocumentSource } from "./document-agent";
 import { findDuplicate, type DuplicateInput, type DuplicateTools, type DuplicateVerdict } from "./duplicate-agent";
@@ -150,15 +152,10 @@ export interface LanguageInput {
   highlights: string[];
 }
 
-/** API list price in USD per token. */
-export interface ModelPricing {
-  input: number;
-  output: number;
-  cachedInput?: number;
-  cacheWrite?: number;
-}
+export type { ModelPricing } from "./models";
 
 export interface AiProvider extends AudiobookAi {
+  readonly selectedModelId?: string;
   /** Whether shared text containing a URL is really a link to open rather than text to summarise. */
   isSharedLink(text: string): Promise<boolean>;
   summarize(input: SummarizeInput): Promise<LlmSummary>;
@@ -370,12 +367,14 @@ async function chooseLanguage(state: string, instructions: string, fallback: str
 }
 
 export class GatewayAiProvider implements AiProvider {
+  constructor(readonly selectedModelId?: string) {}
+
   async summarizeTripChanges(input: TripChangeInput): Promise<string> {
-    return summarizeTripChanges(textModel(), input);
+    return summarizeTripChanges(textModel(this.selectedModelId), input);
   }
 
   async briefTripDay(input: TripBriefingInput): Promise<string> {
-    return briefTripDay(textModel(), input);
+    return briefTripDay(textModel(this.selectedModelId), input);
   }
 
   async isSharedLink(text: string): Promise<boolean> {
@@ -415,7 +414,7 @@ export class GatewayAiProvider implements AiProvider {
     ].filter(Boolean).join("\n");
     try {
       const result = await generateText({
-        model: textModel(),
+        model: textModel(this.selectedModelId),
         instructions: `${SUMMARY_INSTRUCTIONS}\n${languageInstruction(input.language, input.sourceLang)}`,
         prompt: `${header}\n\n<source>\n${input.text}\n</source>`,
         output: Output.object({ schema: llmSummarySchema, name: "summary_card" }),
@@ -432,7 +431,7 @@ export class GatewayAiProvider implements AiProvider {
   async formatMarkdown(input: MarkdownInput, options: MarkdownOptions = {}): Promise<string | null> {
     try {
       const timeout = AbortSignal.timeout(DOCUMENT_TIMEOUT_MS);
-      return await writeDocument(textModel(), input, {
+      return await writeDocument(textModel(this.selectedModelId), input, {
         abortSignal: options.abortSignal ? AbortSignal.any([options.abortSignal, timeout]) : timeout,
         onUsage: options.onUsage,
         // Faithful reformatting needs little deliberation; keeps each part's step quick.
@@ -447,7 +446,7 @@ export class GatewayAiProvider implements AiProvider {
   async translateSummary(input: TranslateInput, options: TranslateOptions = {}): Promise<LlmTranslation | null> {
     try {
       const result = await generateText({
-        model: textModel(),
+        model: textModel(this.selectedModelId),
         instructions: TRANSLATE_SUMMARY_INSTRUCTIONS,
         prompt: [
           `Translate from ${input.from} into ${LANGUAGE_NAMES[input.to]}.`,
@@ -476,7 +475,7 @@ export class GatewayAiProvider implements AiProvider {
       while (next < parts.length) {
         const index = next++;
         const result = await generateText({
-          model: textModel(),
+          model: textModel(this.selectedModelId),
           instructions: TRANSLATE_DOCUMENT_INSTRUCTIONS,
           prompt: `Translate into ${LANGUAGE_NAMES[to]}.\n\n<document>\n${parts[index]}\n</document>`,
           providerOptions: { openai: { reasoningEffort: "low" } },
@@ -517,7 +516,7 @@ export class GatewayAiProvider implements AiProvider {
     let failure: unknown;
     const translatePart = async (index: number) => {
       const result = await generateText({
-        model: textModel(),
+        model: textModel(this.selectedModelId),
         instructions: TRANSLATE_STRINGS_INSTRUCTIONS,
         prompt: `Translate into ${LANGUAGE_NAMES[to]}.\n\n<items>\n${JSON.stringify(parts[index])}\n</items>`,
         output: Output.object({ schema: translatedStringsSchema, name: "translated_items" }),
@@ -548,7 +547,7 @@ export class GatewayAiProvider implements AiProvider {
 
   async findDuplicate(input: DuplicateInput, tools: DuplicateTools): Promise<DuplicateVerdict | null> {
     try {
-      return await findDuplicate(textModel(), input, tools, {
+      return await findDuplicate(textModel(this.selectedModelId), input, tools, {
         abortSignal: AbortSignal.timeout(DUPLICATE_TIMEOUT_MS),
         providerOptions: { openai: { reasoningEffort: "low" } },
       });
@@ -560,7 +559,7 @@ export class GatewayAiProvider implements AiProvider {
 
   async checkReference(input: ReferenceInput, tools: ReferenceTools): Promise<ReferenceVerdict | null> {
     try {
-      return await checkReference(textModel(), input, tools, {
+      return await checkReference(textModel(this.selectedModelId), input, tools, {
         webSearch: webSearchTool(),
         abortSignal: AbortSignal.timeout(REFERENCE_TIMEOUT_MS),
         providerOptions: { openai: { reasoningEffort: "low" } },
@@ -573,7 +572,7 @@ export class GatewayAiProvider implements AiProvider {
 
   async updateTrip(input: TripAgentInput, options: TripAgentCallOptions = {}): Promise<TripAgentResult | null> {
     try {
-      return await runTripAgent(textModel(), input, {
+      return await runTripAgent(textModel(this.selectedModelId), input, {
         abortSignal: AbortSignal.timeout(TRIP_AGENT_TIMEOUT_MS),
         onUsage: options.onUsage,
         providerOptions: { openai: { reasoningEffort: "low" } },
@@ -587,7 +586,7 @@ export class GatewayAiProvider implements AiProvider {
   async designCover(input: CoverInput): Promise<LlmSummary["design"] | null> {
     try {
       const result = await generateText({
-        model: textModel(),
+        model: textModel(this.selectedModelId),
         instructions: COVER_INSTRUCTIONS,
         prompt: [
           `Title: ${input.title}`,
@@ -611,7 +610,7 @@ export class GatewayAiProvider implements AiProvider {
   async designSvg(input: DesignInput): Promise<string | null> {
     try {
       const result = await generateText({
-        model: textModel(),
+        model: textModel(this.selectedModelId),
         instructions: SVG_INSTRUCTIONS,
         prompt: `Topic: ${input.headline}\nCategory: ${input.category}\nKeywords: ${input.keywords.join(", ")}\nPalette: ${input.colors.join(", ")} (${input.mode} mode)`,
         maxRetries: 1,
@@ -636,51 +635,51 @@ export class GatewayAiProvider implements AiProvider {
   }
 
   chatModel(): LanguageModel {
-    return textModel();
+    return textModel(this.selectedModelId);
   }
 
   chatModelId(): string {
-    return textModelId();
+    return textModelId(this.selectedModelId);
   }
 
   chatPricing(): Promise<ModelPricing | null> {
-    return textModelPricing(textModelId());
+    return textModelPricing(textModelId(this.selectedModelId));
   }
 
   narrateTour(input: TourNarrationInput, options?: TourNarrationOptions): Promise<TourNarration[]> {
-    return narrateTour(tourModel(), input, options);
+    return narrateTour(tourModel(this.selectedModelId), input, options);
   }
 
   tourModelId(): string {
-    return tourModelId();
+    return tourModelId(this.selectedModelId);
   }
 
   tourPricing(): Promise<ModelPricing | null> {
-    return textModelPricing(tourModelId());
+    return textModelPricing(tourModelId(this.selectedModelId));
   }
 
   podcastModelId(): string {
-    return podcastModelId();
+    return podcastModelId(this.selectedModelId);
   }
 
   podcastPricing(): Promise<ModelPricing | null> {
-    return textModelPricing(podcastModelId());
+    return textModelPricing(podcastModelId(this.selectedModelId));
   }
 
   writePodcastSummary(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast, options?: TourNarrationOptions) {
-    return writePodcastSummary(podcastModel(), podcast, options);
+    return writePodcastSummary(podcastModel(this.selectedModelId), podcast, options);
   }
 
   writePodcastArticle(podcast: import("@/lib/contracts/daily-podcast").DailyPodcast) {
-    return writePodcastArticle(podcastModel(), podcast);
+    return writePodcastArticle(podcastModel(this.selectedModelId), podcast);
   }
 
   writePodcast(input: PodcastInput, options?: TourNarrationOptions): Promise<PodcastScript> {
-    return writePodcast(podcastModel(), input, options);
+    return writePodcast(podcastModel(this.selectedModelId), input, options);
   }
 
   refinePodcastPlan(input: PodcastPlanRefinementInput, options?: TourNarrationOptions): Promise<PodcastPlanRefinement> {
-    return refinePodcastPlan(podcastModel(), input, options);
+    return refinePodcastPlan(podcastModel(this.selectedModelId), input, options);
   }
 
   storyboardImageModelId(): string | null {
@@ -698,12 +697,12 @@ export class GatewayAiProvider implements AiProvider {
   }
 
   translatePodcast(input: PodcastTranslationInput, options?: TourNarrationOptions): Promise<PodcastTranslationOutput> {
-    return translatePodcast(podcastModel(), input, options);
+    return translatePodcast(podcastModel(this.selectedModelId), input, options);
   }
 
-  writeAudiobookPlan: AudiobookAi["writeAudiobookPlan"] = (input, options) => writeAudiobookPlan(podcastModel(), input, options);
-  refineAudiobookPlan: AudiobookAi["refineAudiobookPlan"] = (input, options) => refineAudiobookPlan(podcastModel(), input, options);
-  writeAudiobookChapter: AudiobookAi["writeAudiobookChapter"] = (input, options) => writeAudiobookChapter(podcastModel(), input, options);
+  writeAudiobookPlan: AudiobookAi["writeAudiobookPlan"] = (input, options) => writeAudiobookPlan(podcastModel(this.selectedModelId), input, options);
+  refineAudiobookPlan: AudiobookAi["refineAudiobookPlan"] = (input, options) => refineAudiobookPlan(podcastModel(this.selectedModelId), input, options);
+  writeAudiobookChapter: AudiobookAi["writeAudiobookChapter"] = (input, options) => writeAudiobookChapter(podcastModel(this.selectedModelId), input, options);
 
   async drawAudiobookScene(scene: { prompt: string; theme: import("@/lib/contracts/daily-podcast").AudiobookVideoTheme; visualGuide: string }, options: { abortSignal?: AbortSignal } = {}) {
     const id = imageModelId();
@@ -714,28 +713,28 @@ export class GatewayAiProvider implements AiProvider {
   }
 
   translatePodcastVideo(files: Record<string, string>, language: string, options?: TourNarrationOptions): Promise<Record<string, string> | null> {
-    return translatePodcastVideo(podcastModel(), files, language, options);
+    return translatePodcastVideo(podcastModel(this.selectedModelId), files, language, options);
   }
 
   podcastVideoModelId(): string | null {
-    return podcastVideoModelId();
+    return podcastVideoModelId(this.selectedModelId);
   }
 
   async podcastVideoPricing(modelId?: string): Promise<ModelPricing | null> {
-    const id = modelId ?? podcastVideoModelId();
+    const id = modelId ?? podcastVideoModelId(this.selectedModelId);
     return id ? textModelPricing(id) : null;
   }
 
   async writePodcastVideo(input: PodcastVideoInput, options?: PodcastVideoOptions): Promise<Record<string, string> | null> {
-    const id = podcastVideoModelId();
+    const id = podcastVideoModelId(this.selectedModelId);
     if (!id) return null;
-    return writePodcastVideo(podcastVideoModelIds().map(podcastVideoModel), input, options);
+    return writePodcastVideo(podcastVideoModelIds(this.selectedModelId).map(id => podcastVideoModel(id, this.selectedModelId)), input, options);
   }
 
   podcastVideoTurn(input: PodcastVideoInput, draft: PodcastVideoDraft, options?: PodcastVideoTurnOptions): Promise<PodcastVideoTurnResult> {
-    const id = podcastVideoModelId();
+    const id = podcastVideoModelId(this.selectedModelId);
     if (!id) throw new Error("Podcast videos are off");
-    return podcastVideoTurn(podcastVideoModelIds().map(podcastVideoModel), input, draft, options);
+    return podcastVideoTurn(podcastVideoModelIds(this.selectedModelId).map(id => podcastVideoModel(id, this.selectedModelId)), input, draft, options);
   }
 
   imageModelId(): string | null {
@@ -1000,13 +999,14 @@ export function setAiProviderForTests(value?: AiProvider): void {
   testProvider = value;
 }
 
-export async function getAiProvider(): Promise<AiProvider> {
+export async function getAiProvider(selectedModel?: string | null): Promise<AiProvider> {
   if (testProvider) return testProvider;
   if (mockServicesEnabled()) {
     const { MockAiProvider } = await import("./mock");
     testProvider = new MockAiProvider();
     return testProvider;
   }
-  provider ??= new GatewayAiProvider();
-  return provider;
+  const selected = selectedModel === undefined ? await accountModelId() : selectedModel;
+  if (selected) return new GatewayAiProvider(selected);
+  return provider ??= new GatewayAiProvider();
 }

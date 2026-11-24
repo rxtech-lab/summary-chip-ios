@@ -1,24 +1,15 @@
-import { createGateway, type GatewayProvider } from "@ai-sdk/gateway";
-import type { ModelPricing } from "./provider";
+import { flowcyGateway as gateway } from "./flowcy";
 import { wrapLanguageModel, type EmbeddingModel, type Experimental_EvaluationModel, type ImageModel, type LanguageModel, type LanguageModelMiddleware, type SpeechModel } from "ai";
-
-let provider: GatewayProvider | undefined;
-
-/** AI Gateway provider. Accepts `AI_GATEWAY_API_KEY` (SDK default) or `AI_GATEWAY_KEY`; on Vercel, OIDC is used when neither is set. */
-function gateway(): GatewayProvider {
-  provider ??= createGateway({ apiKey: process.env.AI_GATEWAY_API_KEY?.trim() || process.env.AI_GATEWAY_KEY?.trim() || undefined });
-  return provider;
-}
 
 /** Default text model (AI Gateway id). Override with `AI_MODEL`. */
 export const DEFAULT_TEXT_MODEL = "openai/gpt-5-mini";
 
-export function textModelId(): string {
-  return process.env.AI_MODEL?.trim() || DEFAULT_TEXT_MODEL;
+export function textModelId(selected?: string): string {
+  return selected || process.env.AI_MODEL?.trim() || DEFAULT_TEXT_MODEL;
 }
 
-export function textModel(): LanguageModel {
-  return cachedChatModel(textModelId());
+export function textModel(selected?: string): LanguageModel {
+  return cachedChatModel(textModelId(selected), selected);
 }
 
 const EPHEMERAL = { anthropic: { cacheControl: { type: "ephemeral" } } };
@@ -42,8 +33,12 @@ export const anthropicCacheMiddleware: LanguageModelMiddleware = {
 };
 
 /** A Gateway chat model; Anthropic ones get explicit prompt-cache breakpoints. */
-function cachedChatModel(id: string): LanguageModel {
-  const model = gateway()(id);
+function cachedChatModel(id: string, selected?: string): LanguageModel {
+  const upstream = gateway()(id);
+  const model = selected ? wrapLanguageModel({ model: upstream, middleware: {
+    specificationVersion: "v4",
+    transformParams: async ({ params }) => ({ ...params, headers: { ...params.headers, "x-flowcy-selected-model": "true" } }),
+  } }) : upstream;
   return id.startsWith("anthropic/") ? wrapLanguageModel({ model, middleware: anthropicCacheMiddleware }) : model;
 }
 
@@ -57,6 +52,14 @@ export function voiceSearchModel(): LanguageModel {
 }
 
 const PRICING_TTL_MS = 60 * 60 * 1000;
+/** API list price in USD per token, including discounted cached input when available. */
+export interface ModelPricing {
+  input: number;
+  output: number;
+  cachedInput?: number;
+  cacheWrite?: number;
+}
+
 let pricingCache: { at: number; prices: Map<string, ModelPricing> } | undefined;
 
 /** A language model's API list price from the Gateway catalog (cached for an hour), or null when unlisted. */
@@ -160,23 +163,23 @@ export function storyboardImageUsdPerImage(): number {
 }
 
 /** Tour narration model (`AI_TOUR_MODEL`): pick a fast one, it writes every scene of a trip tour. Defaults to the text model. */
-export function tourModelId(): string {
-  return process.env.AI_TOUR_MODEL?.trim() || textModelId();
+export function tourModelId(selected?: string): string {
+  return selected || process.env.AI_TOUR_MODEL?.trim() || textModelId();
 }
 
-export function tourModel(): LanguageModel {
-  return cachedChatModel(tourModelId());
+export function tourModel(selected?: string): LanguageModel {
+  return cachedChatModel(tourModelId(selected), selected);
 }
 
 /** Dedicated podcast script model, independent of the general text and trip tour models. */
 export const DEFAULT_PODCAST_MODEL = "anthropic/claude-haiku-5.5";
 
-export function podcastModelId(): string {
-  return process.env.AI_PODCAST_MODEL?.trim() || DEFAULT_PODCAST_MODEL;
+export function podcastModelId(selected?: string): string {
+  return selected || process.env.AI_PODCAST_MODEL?.trim() || DEFAULT_PODCAST_MODEL;
 }
 
-export function podcastModel(): LanguageModel {
-  return cachedChatModel(podcastModelId());
+export function podcastModel(selected?: string): LanguageModel {
+  return cachedChatModel(podcastModelId(selected), selected);
 }
 
 /** Default narrator; MAI voices are multilingual, so one voice reads every language. */
@@ -227,20 +230,21 @@ export const DEFAULT_PODCAST_VIDEO_MODEL = "anthropic/claude-sonnet-5.5";
  * Podcast motion video models in order (`AI_PODCAST_VIDEO_MODEL`, one id or a comma-separated list): when a
  * model fails a design turn the next one takes over the run. `off` publishes podcasts without a video.
  */
-export function podcastVideoModelIds(): string[] {
+export function podcastVideoModelIds(selected?: string): string[] {
   const configured = process.env.AI_PODCAST_VIDEO_MODEL?.trim();
   if (configured && /^(off|none|false)$/i.test(configured)) return [];
+  if (selected) return [selected];
   const ids = [...new Set((configured || DEFAULT_PODCAST_VIDEO_MODEL).split(",").map((id) => id.trim()).filter(Boolean))];
   return ids.length ? ids : [DEFAULT_PODCAST_VIDEO_MODEL];
 }
 
 /** The first podcast video model, which points are reserved and recorded against; null when videos are off. */
-export function podcastVideoModelId(): string | null {
-  return podcastVideoModelIds()[0] ?? null;
+export function podcastVideoModelId(selected?: string): string | null {
+  return podcastVideoModelIds(selected)[0] ?? null;
 }
 
-export function podcastVideoModel(id: string): LanguageModel {
-  return cachedChatModel(id);
+export function podcastVideoModel(id: string, selected?: string): LanguageModel {
+  return cachedChatModel(id, selected);
 }
 
 /** Model used to recover podcast caption timestamps from generated speech. */
@@ -251,6 +255,6 @@ export function transcriptionModel() {
   return gateway().transcriptionModel(transcriptionModelId());
 }
 
-export function reportWritingModel(): LanguageModel {
-  return cachedChatModel(process.env.AI_REPORT_WRITING_MODEL?.trim() || textModelId());
+export function reportWritingModel(selected?: string): LanguageModel {
+  return cachedChatModel(selected || process.env.AI_REPORT_WRITING_MODEL?.trim() || textModelId(), selected);
 }

@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var showsNotifications = false
     @State private var showsDailyRecap = false
     @State private var showsMCPServer = false
+    @State private var showsAIModels = false
     @State private var showsVoiceModels = false
     @State private var formWidth: CGFloat = 0
     private static let maxContentWidth: CGFloat = 680
@@ -37,6 +38,7 @@ struct SettingsView: View {
             .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
             .sheet(isPresented: $showsDailyRecap) { DailyRecapSettingsSheet(api: environment.api) }
             .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(api: environment.api) }
+            .sheet(isPresented: $showsAIModels) { ChatAgentSheet(cloud: environment.cloudChatModels) }
             #if os(macOS)
             .sheet(isPresented: $showsVoiceModels) { VoiceModelsSheet() }
             #endif
@@ -93,6 +95,7 @@ struct SettingsView: View {
                 accountHeader
             }
 
+            flowcyUsageSection
             macGeneralSection
 
             Section {
@@ -165,6 +168,11 @@ struct SettingsView: View {
 
     private var macGeneralSection: some View {
         Section {
+            SettingsActionRow(String(localized: "AI Models"), systemImage: "cpu", tint: .indigo,
+                              detail: String(localized: "Cloud models and local chat agents.")) {
+                Button("Choose…") { showsAIModels = true }
+                    .accessibilityIdentifier("ai-model-settings")
+            }
             SettingsActionRow(String(localized: "Notifications"), systemImage: "bell.badge.fill", tint: .red,
                               detail: notifications.isEnabled
                                 ? String(localized: "On for summaries added by agents and the API.")
@@ -293,6 +301,7 @@ struct SettingsView: View {
             }
 
             creditsSection
+            flowcyUsageSection
             notificationSettingsSection
             integrationsSection
 
@@ -405,6 +414,9 @@ struct SettingsView: View {
 
     private var integrationsSection: some View {
         Section {
+            Button { showsAIModels = true } label: { Label("AI Models", systemImage: "cpu") }
+                .accessibilityIdentifier("ai-model-settings")
+                .sensoryFeedback(.selection, trigger: showsAIModels)
             Button { showsMCPServer = true } label: {
                 Label("MCP Server", systemImage: "point.3.connected.trianglepath.dotted")
             }
@@ -414,6 +426,10 @@ struct SettingsView: View {
         } footer: {
             Text("API keys let AI agents such as Claude add, search and list your summaries.")
         }
+    }
+
+    private var flowcyUsageSection: some View {
+        FlowcyUsageSection(api: environment.api).id(user?.id)
     }
 
     private var user: User? { environment.authManager.currentUser }

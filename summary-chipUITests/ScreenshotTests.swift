@@ -18,25 +18,27 @@ nonisolated final class ScreenshotTests: XCTestCase {
     }
 
     @MainActor func test02Chat() {
-        let app = launch()
-        if !isPad {
+        let app = launch(extraArguments: isPad ? ["-chatPanelVisible", "NO"] : [])
+        if isPad {
+            let toggle = app.buttons["toggle-chat-panel"].firstMatch
+            XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+            toggle.tap()
+        } else {
             app.tabBars.buttons["Chat"].tap()
         }
         let field = chatInput(app)
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.tap()
         field.typeText("What did I save about Japan rail?")
-        app.buttons["chat-send"].tap()
-        let view = app.buttons["chat-rendered-ui-call-ui"]
-        XCTAssertTrue(view.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Narita Express")).firstMatch.waitForExistence(timeout: 5))
-        dismissKeyboard(app)
-        settle()
+        let send = app.buttons["chat-send"]
+        XCTAssertTrue(send.isEnabled)
         capture(app, "02-chat")
 
-        view.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["chat-native-ui"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Getting there"].waitForExistence(timeout: 5))
+        send.tap()
+        let reply = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Narita Express")).firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Getting there")).firstMatch.exists)
+        dismissKeyboard(app)
         settle()
         capture(app, "03-chat-rendered-ui")
     }

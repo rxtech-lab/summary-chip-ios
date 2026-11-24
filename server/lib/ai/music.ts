@@ -1,13 +1,11 @@
-/**
- * Google Lyria music generation over the Gemini REST API (`GEMINI_API_KEY`), used for podcast
- * intro, background and outro music. Lyria isn't served by the AI Gateway, so this calls Google
- * directly. Ported from debate-bot's musicgen client: one POST returns base64 MP3 audio.
- */
+import { flowcyInference } from "./flowcy";
 
 /** Lyria model id (`AI_MUSIC_MODEL`). The clip model returns 30 seconds of 48 kHz stereo audio. */
 export function musicModelId(): string | null {
-  if (!process.env.GEMINI_API_KEY?.trim() || process.env.AI_MUSIC_MODEL?.trim() === "off") return null;
-  return process.env.AI_MUSIC_MODEL?.trim() || "lyria-3-clip-preview";
+  const configured = process.env.AI_MUSIC_MODEL?.trim();
+  const setting = process.env.FLOWCY_MUSIC_ENABLED?.trim();
+  const enabled = setting ? setting === "true" : Boolean(process.env.GEMINI_API_KEY?.trim());
+  return enabled && configured !== "off" ? configured || "lyria-3-clip-preview" : null;
 }
 
 /** Price per generated clip in USD (`AI_MUSIC_USD_PER_CLIP`), Lyria 3 Clip's $0.04 by default. */
@@ -23,7 +21,7 @@ const ATTEMPTS = 4;
 
 export async function composeMusic(prompt: string, options?: { abortSignal?: AbortSignal }): Promise<Uint8Array> {
   const model = musicModelId();
-  if (!model) throw new Error("Music generation is not configured (GEMINI_API_KEY)");
+  if (!model) throw new Error("Music generation is not configured");
   let last: unknown;
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     if (attempt) await new Promise((resolve) => setTimeout(resolve, 750 * 2 ** (attempt - 1)));
@@ -46,9 +44,9 @@ interface LyriaResponse {
 async function composeOnce(model: string, prompt: string, abortSignal?: AbortSignal) {
   let response: Response;
   try {
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    response = await flowcyInference("music", {
       method: "POST",
-      headers: { "x-goog-api-key": process.env.GEMINI_API_KEY!.trim(), "content-type": "application/json" },
+      headers: { "x-flowcy-music-model": model, "content-type": "application/json" },
       // Lyria returns MP3 by default; responseMimeType only accepts text types, so it's omitted.
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["AUDIO", "TEXT"] } }),
       signal: abortSignal ? AbortSignal.any([abortSignal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),

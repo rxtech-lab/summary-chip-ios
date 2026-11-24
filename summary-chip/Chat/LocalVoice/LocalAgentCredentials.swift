@@ -20,7 +20,7 @@ enum LocalAgentCredentials {
         let current = try await api.apiKeys()
         if let stored = load(account: account), current.contains(where: { $0.id == stored.id }) { return stored.key }
         let device = Host.current().localizedName ?? "Mac"
-        let created = try await api.createAPIKey(name: String("Live Voice on \(device)".prefix(60)))
+        let created = try await api.createAPIKey(name: String("Chippy agents on \(device)".prefix(60)))
         save(Stored(id: created.apiKey.id, key: created.key), account: account)
         return created.key
     }

@@ -179,7 +179,7 @@ describe("/api/mcp", () => {
     const list = await (await mcpRequest(key, "tools/list")).json();
     expect(list.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual([
       "start_resume_avatar_upload", "finish_resume_avatar_upload", "create_resume", "list_resumes", "get_resume", "edit_resume", "preview_resume_company", "create_resume_company", "list_resume_revisions",
-      "compare_resume_revision", "restore_resume_revision", "review_resume", "tailor_resume", "translate_resume", "get_resume_job", "apply_resume_proposal",
+      "compare_resume_revision", "restore_resume_revision", "review_resume", "tailor_resume", "translate_resume", "save_resume_translation", "get_resume_job", "apply_resume_proposal",
       "list_resume_templates", "preview_resume", "export_resume", "publish_resume", "list_resume_links", "revoke_resume_link",
       "create_todo_list", "get_todo_list", "list_todo_lists", "update_todo_list", "delete_todo_list", "finish_document_image_upload",
       "get_podcast", "create_podcast_version", "translate_podcast", "create_podcast", "create_podcast_file", "delete_podcast_file", "edit_podcast_file", "generate_podcast_music", "generate_podcast_speech", "get_podcast_project", "list_podcasts", "render_podcast_frame", "render_podcast_video", "get_podcast_video_render", "submit_podcast_video",
@@ -188,6 +188,62 @@ describe("/api/mcp", () => {
     expect(initBody.result.instructions).toContain("update_trip");
     const add = list.result.tools.find((tool: { name: string }) => tool.name === "add_summary");
     expect(add.inputSchema.required).toEqual(expect.arrayContaining(["title", "summary", "text"]));
+  });
+
+  it("saves agent-translated Chinese wording on the same résumé and updates just the requested field", async () => {
+    const { key } = await createKey();
+    const document = {
+      version: 1, candidateName: "Ming", headline: "Engineer", contact: { email: "ming@example.com" },
+      links: [], sections: [{ id: "work", kind: "experience", title: "Experience", entries: [] }],
+    };
+    const english = await callTool(key, "create_resume", {
+      language: "en", title: "CV", document, idempotencyKey: "english",
+    });
+    const familyId = english.structuredContent?.familyId;
+    const source = await callTool(key, "get_resume", { familyId, language: "en", translationLanguage: "zh-Hans" });
+    expect(source.structuredContent).toMatchObject({
+      expectedRevisionToken: null,
+      translationFields: { "/candidateName": "Ming", "/headline": "Engineer", "/sections/work/title": "Experience" },
+    });
+    const translations = [
+      { path: "/candidateName", value: "Ming" }, { path: "/headline", value: "工程师" },
+      { path: "/sections/work/title", value: "工作经历" },
+    ];
+    const input = {
+      familyId, sourceLanguage: "en", language: "zh-Hans", sourceRevisionToken: source.structuredContent?.sourceRevisionToken,
+      expectedRevisionToken: null, idempotencyKey: "chinese", translations,
+    };
+    const create = await callTool(key, "save_resume_translation", input);
+    expect(create.isError, create.content[0].text).toBeFalsy();
+    expect(create.structuredContent).toMatchObject({
+      familyId, language: "zh-Hans", missingTranslationPaths: [],
+      document: { candidateName: "Ming", headline: "工程师", contact: document.contact, sections: [{ id: "work", title: "工作经历" }] },
+    });
+    expect((await callTool(key, "save_resume_translation", input)).structuredContent).toEqual(create.structuredContent);
+
+    const existing = await callTool(key, "get_resume", { familyId, language: "en", translationLanguage: "zh-Hans" });
+    expect(existing.structuredContent).toMatchObject({
+      expectedRevisionToken: create.structuredContent?.revisionToken, currentTranslations: { "/headline": "工程师" },
+    });
+    const update = {
+      ...input, expectedRevisionToken: existing.structuredContent?.expectedRevisionToken, idempotencyKey: "refine-headline",
+      translations: [{ path: "/headline", value: "软件工程师" }],
+    };
+    const refined = await callTool(key, "save_resume_translation", update);
+    expect(refined.isError, refined.content[0].text).toBeFalsy();
+    const stale = await callTool(key, "save_resume_translation", {
+      ...update, idempotencyKey: "old-target", translations: [{ path: "/headline", value: "架构师" }],
+    });
+    expect(stale.structuredContent).toMatchObject({ error: { code: "RESUME_REVISION_CONFLICT" } });
+    const read = await callTool(key, "get_resume", { familyId, language: "zh-Hans" });
+    expect(read.structuredContent).toMatchObject({
+      revisionToken: refined.structuredContent?.revisionToken,
+      document: { headline: "软件工程师", sections: [{ title: "工作经历" }] },
+    });
+    const original = await callTool(key, "get_resume", { familyId, language: "en" });
+    expect(original.structuredContent?.document).toEqual(document);
+    expect(original.structuredContent?.languages).toEqual(expect.arrayContaining(["en", "zh-Hans"]));
+    expect(env.ai.calls.translateStrings).toHaveLength(0);
   });
 
   it("lets an agent create, edit and delete a rich document", async () => {

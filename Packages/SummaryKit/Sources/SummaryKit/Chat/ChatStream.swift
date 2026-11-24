@@ -133,16 +133,21 @@ public struct ChatStreamParser: Sendable {
 
 /// Streams `POST /api/v1/chat`.
 public final class ChatStreamClient: Sendable {
-    let api: SummaryAPIClient
+    public let api: SummaryAPIClient
 
     public init(api: SummaryAPIClient) { self.api = api }
 
     public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil, miniAppID: String? = nil, graphID: String? = nil, resumeTarget: ResumeTarget? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
+        stream(ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID,
+                               miniAppId: miniAppID, graphId: graphID, resumeTarget: resumeTarget))
+    }
+
+    public func stream(_ body: ChatRequestBody) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
         let api = self.api
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
         let task = Task {
             do {
-                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID, miniAppId: miniAppID, graphId: graphID, resumeTarget: resumeTarget))
+                var request = try api.json("/api/v1/chat", method: "POST", body: body)
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 300
                 let bytes = try await Self.openStream(api: api, request: request)

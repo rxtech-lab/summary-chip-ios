@@ -170,14 +170,17 @@ export function toSummaryJson(
   // Images and the source file are fetched under the same key as the link the viewer holds.
   const linked = !isOwner && !live && grantToken ? { ...row, slug: grantToken } : row;
   const shareUrl = shareUrlFor(linked.slug);
+  const resumeCover = isOwner && row.kind === "resume"
+    ? `${siteUrl()}/api/v1/resumes/${encodeURIComponent(row.id)}/cover.png?v=1`
+    : null;
   const hasSourceMarkdown = !isExpired && sourceMarkdownFor(row, viewerId) !== null;
   return {
     id: row.id,
     slug: row.slug,
     kind: row.kind,
     shareUrl,
-    ogImageUrl: translation && row.artImageKey ? translatedOgImageUrlFor(linked, translation) : publicOgImageUrl(linked),
-    artImageUrl: publicArtImageUrl(linked),
+    ogImageUrl: resumeCover ?? (translation && row.artImageKey ? translatedOgImageUrlFor(linked, translation) : publicOgImageUrl(linked)),
+    artImageUrl: resumeCover ?? publicArtImageUrl(linked),
     sourceType: row.sourceType,
     source: row.source,
     sourceUrl: row.sourceUrl,

@@ -1,3 +1,4 @@
+import { accountModelId } from "@/lib/ai/model-preference";
 import type { LanguageModelUsage } from "ai";
 import { and, eq, sql } from "drizzle-orm";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
@@ -320,6 +321,7 @@ export async function translateTrip(
 
 /** One background translation: plain data, the input of `workflows/translate-trip.ts`. */
 export interface TripTranslationJob {
+  selectedModelId?: string;
   summaryId: string;
   language: TranslationLanguage;
   /** The owner, who pays and is notified. */
@@ -341,7 +343,7 @@ async function startTripTranslation(db: Database, summaryId: string, language: T
   await db.insert(tripTranslations).values({ summaryId, language, strings: {}, revision: -1, translatingSince: now, createdAt: now, updatedAt: now })
     .onConflictDoUpdate({ target: [tripTranslations.summaryId, tripTranslations.language], set: { translatingSince: now } });
   try {
-    await getTripTranslator().start({ summaryId, language, userId, billingEnvironment });
+    await getTripTranslator().start({ summaryId, language, userId, billingEnvironment, selectedModelId: await accountModelId() ?? undefined });
   } catch (error) {
     await clearTranslating(db, summaryId, language);
     console.error("[translations] background trip translation could not start", error);
@@ -361,7 +363,7 @@ export async function runTripTranslationPass(db: Database, job: TripTranslationJ
     if (!trip) return { status: "failed", code: "NOT_FOUND" };
     const saved = await findTripTranslation(db, job.summaryId, job.language);
     const payer: TranslationPayer = { userId: job.userId, environment: async () => job.billingEnvironment };
-    const { remaining } = await translateMissing(db, { id: job.summaryId }, trip, job.language, payer, saved, { ai: options.ai, timeoutMs: BACKGROUND_PASS_TIMEOUT_MS });
+    const { remaining } = await translateMissing(db, { id: job.summaryId }, trip, job.language, payer, saved, { ai: options.ai ?? await getAiProvider(job.selectedModelId ?? null), timeoutMs: BACKGROUND_PASS_TIMEOUT_MS });
     return remaining === 0 ? { status: "done" } : { status: "partial", remaining };
   } catch (error) {
     if (error instanceof ApiError) return { status: "failed", code: error.code };

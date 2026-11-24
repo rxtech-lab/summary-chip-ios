@@ -3,7 +3,7 @@ import { getAiProvider } from "@/lib/ai/provider";
 import { tripChanges, type TripChangeInput } from "@/lib/ai/trip-change-agent";
 import type { TripDocument } from "@/lib/contracts/trip";
 import type { Database } from "@/lib/db/client";
-import { pushDevices, summaries, summaryViews, tripNotificationBatches as batches, tripNotificationDeliveries as deliveries } from "@/lib/db/schema";
+import { pushDevices, summaries, users, summaryViews, tripNotificationBatches as batches, tripNotificationDeliveries as deliveries } from "@/lib/db/schema";
 import { apnsConfigured, sendPush } from "@/lib/notifications/apns";
 import { getTripNotifier } from "@/lib/trips/notifier";
 import { isDeadToken, tripUpdatedPayload } from "./notifications";
@@ -33,7 +33,7 @@ export async function startTripNotification(batchId: string): Promise<void> {
 type Plan =
   | { status: "done" }
   | { status: "wait"; nextAt: number }
-  | { status: "summarize"; revision: number; input: TripChangeInput }
+  | { status: "summarize"; revision: number; input: TripChangeInput; selectedModelId?: string }
   | { status: "deliver" };
 
 /** Competing runs use a lease; edits invalidate an in-progress summary and extend the delay. */
@@ -53,13 +53,13 @@ export async function planTripNotification(db: Database, batchId: string, runner
     await db.delete(batches).where(and(eq(batches.id, batchId), eq(batches.revision, row.revision), eq(batches.runnerId, runnerId)));
     return { status: "done" };
   }
-  const [summary] = await db.select({ language: summaries.language }).from(summaries).where(eq(summaries.id, row.tripId));
+  const [summary] = await db.select({ language: summaries.language, model: users.aiModelId }).from(summaries).innerJoin(users, eq(users.id, summaries.ownerId)).where(eq(summaries.id, row.tripId));
   if (!summary) return { status: "done" };
-  return { status: "summarize", revision: row.revision, input: { language: summary.language, changes } };
+  return { status: "summarize", revision: row.revision, ...(summary.model ? { selectedModelId: summary.model } : {}), input: { language: summary.language, changes } };
 }
 
-export async function writeTripChangeSummary(input: TripChangeInput): Promise<string> {
-  return (await getAiProvider()).summarizeTripChanges(input);
+export async function writeTripChangeSummary(input: TripChangeInput, selectedModelId?: string): Promise<string> {
+  return (await getAiProvider(selectedModelId ?? null)).summarizeTripChanges(input);
 }
 
 /** Freeze only the revision the agent actually described. A save during generation makes it stale. */

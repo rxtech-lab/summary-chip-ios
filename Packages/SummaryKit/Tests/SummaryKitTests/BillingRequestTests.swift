@@ -3,6 +3,20 @@ import Testing
 @testable import SummaryKit
 
 @Suite(.serialized) struct BillingRequestTests {
+    @Test func flowcyUsagePercentagesRespectTheAccountLimit() throws {
+        let fixture = """
+        {"unit":"micro_usd","meters":[
+          {"key":"agent_cost_5h","used":1250000,"limit":5000000},
+          {"key":"agent_cost_7d","used":0,"limit":1000000},
+          {"key":"agent_cost_30d","used":1500000,"limit":1000000},
+          {"key":"agent_cost_5h","used":0,"limit":0},
+          {"key":"agent_cost_7d","used":1250000,"limit":null}
+        ]}
+        """
+        let usage = try SummaryJSON.decoder().decode(FlowcyModelUsage.self, from: Data(fixture.utf8))
+        #expect(usage.meters.map(\.fractionUsed) == [0.25, 0, 1.5, nil, nil])
+    }
+
     @Test func xcodeUsesTheSameEnvironmentForStorefrontAndGeneration() async throws {
         BillingRequestProtocol.requests.clear()
         let api = client(proof: .xcode)

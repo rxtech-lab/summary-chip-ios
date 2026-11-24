@@ -47,7 +47,7 @@ export function graphChatTools(db: Database, userId: string, graphId: string, ai
   const schema = JSON.parse(JSON.stringify(z.toJSONSchema(updateSchema, { io: "input" })).replaceAll('"oneOf":', '"anyOf":')) as JSONSchema7;
   delete schema.$schema;
   return {
-    writeReport: reportWriterTool(db, userId, graphId),
+    writeReport: reportWriterTool(db, userId, graphId, ai.selectedModelId),
     updateGraph: tool({
       description: "Apply operations to the graph, in order, as one change: set_meta, upsert_node, update_node, upsert_edge, update_edge, upsert_query and delete (collection: nodes|edges|queries, id; deleting a node removes its edges). update_* changes only the given fields; properties merge and a null removes one. If the result is refused, call again with the fixed full list.",
       inputSchema: jsonSchema<{ operations?: unknown; changeSummary?: unknown }>(schema),

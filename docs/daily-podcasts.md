@@ -80,7 +80,7 @@ Episodes are produced like a show rather than read back to back, following debat
 
 Music levels are relative to the voices' measured RMS loudness, and peaks are soft-limited. Mixing decodes MP3 to PCM with `mpg123-decoder` (WASM) and encodes one 44.1 kHz stereo 128 kbit/s MP3 with `@breezystack/lamejs`. There is no native binary. A 5½-minute, 24-turn episode mixes in about 7 s, with a peak of about 530 MB on Node. Caption cues are the exact spoken windows, so the intro, gaps and outro sit between cues. `DailyPodcast.music` records whether music was mixed in.
 
-Prompts describe only the mood and role, never chip content. Each clip is therefore generated once and stored under `podcast-music/<model>/`, shared by every account. The first episode that needs a missing clip pays for it (`AI_MUSIC_USD_PER_CLIP`, default $0.04 for Lyria 3 Clip); later episodes reuse it for free. Music is generated in parallel with speech. If music is not configured (`GEMINI_API_KEY` unset or `AI_MUSIC_MODEL=off`), or if generation or mixing fails, the episode is published with voices only. Older episodes are not re-mixed.
+Prompts describe only the mood and role, never chip content. Each clip is generated once and stored under `podcast-music/<model>/`, shared by every account. The first episode that needs a missing clip pays for it (`AI_MUSIC_USD_PER_CLIP`, default $0.04 for Lyria 3 Clip). Later episodes reuse it for free. Music is generated alongside speech. Configure Lyria on Flowcy and set `FLOWCY_MUSIC_ENABLED=true` on Chippy to enable it. Setting `AI_MUSIC_MODEL=off` publishes episodes with voices only, as does a generation or mixing failure.
 
 ## Storage and models
 

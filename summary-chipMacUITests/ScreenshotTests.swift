@@ -22,15 +22,14 @@ nonisolated final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.click()
         field.typeText("What did I save about Japan rail?")
-        app.buttons["chat-send"].click()
-        let view = app.buttons["chat-rendered-ui-call-ui"]
-        XCTAssertTrue(view.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", "Narita Express", "Narita Express")).firstMatch.waitForExistence(timeout: 5))
-        settle()
+        let send = app.buttons["chat-send"]
+        XCTAssertTrue(send.isEnabled)
         capture(app, "02-chat")
 
-        view.click()
-        XCTAssertTrue(app.descendants(matching: .any)["chat-native-ui"].firstMatch.waitForExistence(timeout: 5))
+        send.click()
+        let reply = app.staticTexts.matching(NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", "Narita Express", "Narita Express")).firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "value == %@ OR label == %@", "Getting there", "Getting there")).firstMatch.exists)
         settle()
         capture(app, "03-chat-rendered-ui")
     }

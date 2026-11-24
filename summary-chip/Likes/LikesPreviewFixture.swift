@@ -45,6 +45,8 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 
     private let lock = NSLock()
     private var likes: [String: Date]
+    private var selectedModelID: String?
+    private var didFailModelUsage = false
     private var viewed: Set<String> = ["s-solar", "trip-01"]
     /// The trip's plan options picked so far (plan id → option id).
     private var planSelections: [String: String] = [:]
@@ -103,6 +105,27 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         guard parts.count >= 3, parts[0] == "api", parts[1] == "v1" else { return notFound }
         let path = Array(parts.dropFirst(2))
+        if path == ["ai", "models"] {
+            if method == "PUT" {
+                let data = request.httpBodyStream.map(Self.read) ?? request.httpBody ?? Data()
+                let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                selectedModelID = body?["modelId"] as? String
+            }
+            return json(["models": [["modelId": "fixture/chat", "alias": "Preview Chat"]],
+                         "selectedModelId": selectedModelID as Any? ?? NSNull()])
+        }
+        if path == ["ai", "usage"], method == "GET" {
+            if ProcessInfo.processInfo.arguments.contains("--preview-retry-model-usage"), !didFailModelUsage {
+                didFailModelUsage = true
+                return (503, Data(#"{"error":{"code":"FLOWCY_USAGE_UNAVAILABLE","message":"Flowcy could not load model usage."}}"#.utf8))
+            }
+            let meters: [[String: Any]] = [
+                ["key": "agent_cost_5h", "used": 1_250_000, "limit": 5_000_000, "resetsAt": iso(.now.addingTimeInterval(3600))],
+                ["key": "agent_cost_7d", "used": 3_500_000, "limit": 25_000_000, "resetsAt": NSNull()],
+                ["key": "agent_cost_30d", "used": 4_500_000, "limit": NSNull(), "resetsAt": NSNull()],
+            ]
+            return json(["unit": "micro_usd", "meters": meters])
+        }
         if path == ["summaries", "headlines"], method == "GET" {
             let picks = ProcessInfo.processInfo.arguments.contains("--preview-editor-picks") ? ["s-coffee", "s-swift", "s-sourdough"] : []
             return json(["generatedAt": NSNull(), "pending": false, "items": [], "highlighted": NSNull(), "editorPickIDs": picks])

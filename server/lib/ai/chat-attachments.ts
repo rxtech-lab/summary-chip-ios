@@ -6,13 +6,13 @@ import { ApiError } from "@/lib/http/errors";
 import { getCompletedUpload } from "@/lib/services/uploads";
 import { getObjectStore } from "@/lib/storage/r2";
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+export const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FILES_PER_MESSAGE = 5;
 const chatMimeType = z.enum(["text/plain", "application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
 export const chatUploadSchema = createFileUploadSchema.extend({
   mimeType: chatMimeType,
-  byteSize: createFileUploadSchema.shape.byteSize.max(MAX_FILE_BYTES),
+  byteSize: createFileUploadSchema.shape.byteSize.max(MAX_CHAT_FILE_BYTES),
 }).refine(input => input.mimeType !== "text/plain" || input.byteSize <= MAX_TEXT_LENGTH, {
   path: ["byteSize"], message: `Text attachments must be at most ${MAX_TEXT_LENGTH} UTF-8 bytes`,
 });
@@ -31,7 +31,7 @@ async function attachmentPart(
   const store = getObjectStore();
   try {
     const key = reference.uploadKey;
-    const { upload, mimeType } = await getCompletedUpload(db, ownerId, key, store, MAX_FILE_BYTES, "chat-uploads");
+    const { upload, mimeType } = await getCompletedUpload(db, ownerId, key, store, MAX_CHAT_FILE_BYTES, "chat-uploads");
     chatUploadSchema.parse({ filename: upload.filename, byteSize: upload.byteSize, mimeType });
     if (upload.byteSize > budget.remainingBytes) {
       return { type: "text", text: `Previously attached file ${JSON.stringify(upload.filename)} was omitted from this turn to limit attachment size.` };
@@ -63,7 +63,7 @@ export async function resolveChatAttachments(
   db: Database, ownerId: string, messages: ChatMessageWithAttachments[],
 ): Promise<UIMessage[]> {
   const resolved: UIMessage[] = [...messages];
-  const budget = { remainingBytes: MAX_FILE_BYTES * MAX_FILES_PER_MESSAGE };
+  const budget = { remainingBytes: MAX_CHAT_FILE_BYTES * MAX_FILES_PER_MESSAGE };
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index];
     const attachments = message.metadata?.attachments;

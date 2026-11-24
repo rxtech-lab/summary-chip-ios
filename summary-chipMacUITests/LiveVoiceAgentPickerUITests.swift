@@ -39,6 +39,22 @@ nonisolated final class LiveVoiceAgentPickerUITests: XCTestCase {
 
     @MainActor func testPickerListsEveryAgentAndKeepsTheCloudVoiceAvailable() {
         let app = launch()
+        let composer = app.descendants(matching: .any)["chat-composer"].firstMatch
+        let attach = composer.buttons["chat-attach-files"]
+        let input = composer.descendants(matching: .any)["chat-input"].firstMatch
+        let model = composer.buttons["chat-ai-models"]
+        let voice = composer.buttons["chat-voice-agent"]
+        let mic = composer.buttons["chat-voice-start"]
+        XCTAssertTrue(attach.isHittable && input.isHittable && model.isHittable && voice.isHittable && mic.isHittable)
+        XCTAssertLessThanOrEqual(attach.frame.maxX, input.frame.minX)
+        XCTAssertEqual(attach.frame.midY, input.frame.midY, accuracy: 5)
+        XCTAssertLessThan(input.frame.maxY, model.frame.midY)
+        XCTAssertEqual(model.frame.midY, voice.frame.midY, accuracy: 3)
+        XCTAssertEqual(voice.frame.midY, mic.frame.midY, accuracy: 3)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "Two-row Mac chat composer"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         openSheet(app)
         XCTAssertTrue(row("claudeCode", app).exists)
         XCTAssertTrue(row("codex", app).exists)

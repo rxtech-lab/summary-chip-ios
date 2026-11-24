@@ -34,6 +34,20 @@ CI runs the iOS (iPhone) and Mac UI test suites on every push (`.github/workflow
 
 The published RxAgentSDK 1.0.8 lacks the `userMessagePinning` parameter used by the current iOS chat implementation. Mac chat uses its published API. The iOS implementation is preserved and currently requires the existing local SDK edits until that API is released.
 
+## AI models and local text chat
+
+Click the model name in the lower-left corner of the chat input, or open **Settings → General → AI Models**. The cloud catalog comes from Flowcy.
+The selected cloud model follows your Chippy account across devices. Choose **Automatic** to use each task's default.
+
+**Settings → Flowcy Model Usage** shows the percentage of your account allowance used over 5 hours, 7 days, and 30 days.
+
+Under **Text Chat on This Mac**, choose Flowcy Cloud, Codex, or Claude Code. Install the CLI and sign into it
+before selecting a local agent. Chippy shows the models reported by that CLI and remembers a separate choice
+for each agent on this Mac. Local text chat uses your CLI account and Chippy's MCP tools. It carries the
+conversation, open document and attached files into each turn. Scheduled and queued generation runs on Flowcy.
+To work on a podcast video locally, open chat for its chip and ask the agent to design or revise the video.
+The Chippy podcast tools let it read the project, edit its composition, preview frames and submit a revision.
+
 ## Local agents in live voice
 
 On the Mac, live voice can be answered by the user's own Claude Code or Codex instead of the cloud voice model. The composer's small button next to the microphone opens the picker, and the last pick is remembered (`LiveVoiceSettings`). The same sheet picks each agent's model, per agent, from the list the installed CLI reports through RxAgentSDK's `availableModels()`, called in the runner because a sandboxed app can't launch the CLI; leaving it on Agent Default uses the model from the agent's own settings. Models with no preset voices get a Voice Seed in Settings → Voice Models → Details, with a Play Sample button: the worker clones a clip it generates from that seed, so each seed is a different voice that stays the same for a whole conversation. iOS and visionOS always use the cloud voice.
@@ -43,6 +57,6 @@ On the Mac, live voice can be answered by the user's own Claude Code or Codex in
 - **Runtime:** `kokoro_worker.py` runs in a `uv`-managed environment under `~/Library/Application Support/Chippy/LocalVoice`, separate from the app. The Swift Kokoro packages checked bring in GPL-3.0 code (FluidAudio's eSpeak-NG phonemizer, and mlx-swift-audio itself), which doesn't suit Chippy's license, so none is linked into the app. The runtime still downloads `espeakng-loader` as a separate component on the user's Mac. It needs Apple silicon and `uv`.
 - **`ChippyLocalAgentRunner`:** an XPC service embedded in the app. The app stays sandboxed, but whatever a sandboxed app launches inherits its sandbox, and agents can't work under that. launchd starts XPC services separately, so the runner isn't sandboxed. This works for a Developer ID app but wouldn't pass Mac App Store review. It exposes named operations only, never arbitrary commands, and ends its processes when the app goes away. `scripts/ci/sign-sparkle.sh` signs it and asserts it has the hardened runtime and no sandbox.
 - **Permissions:** nobody can approve prompts during a voice session. Claude Code runs in its default mode with only Chippy's tools and read-only tools allowed, so anything else is denied unless the user's own settings allow it. Codex runs with approvals off in a read-only sandbox, with only the Chippy server's tools auto-approved.
-- **Library access:** the first session creates a normal API key named "Live Voice on <device>", kept in the keychain and revocable in Settings → MCP Server. Agents get it through an environment variable, so it never appears in process arguments.
+- **Library access** uses a device key shared by the local text and voice agents. New keys are named "Chippy agents on <device>". Existing keys keep their names. The key stays in the keychain and can be revoked in Settings → MCP Server. Agents receive it through an environment variable.
 
 Run `swift test` in `Packages/LocalAgentKit` for the parsers, command building and turn detection.

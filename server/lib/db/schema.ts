@@ -40,6 +40,7 @@ const now = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
+  aiModelId: text("ai_model_id"),
   email: text("email"),
   name: text("name"),
   /** Pending account deletion iff non-null; see `lib/services/account-deletion.ts`. */

@@ -195,7 +195,12 @@ extension ResumeDocument {
 }
 
 public struct ResumePresentation: Codable, Hashable, Sendable {
-    public enum Template: String, Codable, CaseIterable, Sendable { case compact = "compact-v1", profile = "profile-v1" }
+    public enum Template: String, Codable, CaseIterable, Sendable {
+        case compact = "compact-v1"
+        case profile = "profile-v1"
+        case editorial = "editorial-v1"
+        case modern = "modern-v1"
+    }
     public enum PaperSize: String, Codable, CaseIterable, Sendable { case a4 = "A4", letter = "Letter" }
     public var template: Template = .compact
     public var paperSize: PaperSize = .a4

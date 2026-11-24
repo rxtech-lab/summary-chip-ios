@@ -6,6 +6,7 @@ import { authenticateApiKey } from "@/lib/services/api-keys";
 import { ACCESS_TOKEN_PREFIX, authChallenge } from "@/lib/mcp/oauth-config";
 import { authenticateOAuthToken, type McpPrincipal } from "@/lib/mcp/oauth-tokens";
 import { ensureUser } from "@/lib/services/users";
+import { withAIAccount } from "@/lib/ai/model-preference";
 
 function requestIdFor(request: Request): string {
   return request.headers.get("x-request-id")?.slice(0, 80) || crypto.randomUUID();
@@ -59,7 +60,8 @@ export async function withApiAuth(
     principal = await requireApiPrincipal(request);
     const db = getDatabase();
     await ensureUser(db, principal);
-    const response = await action({ principal, db, requestId });
+    const context = { principal, db, requestId };
+    const response = await withAIAccount(db, principal.sub, () => action(context));
     status = response.status;
     response.headers.set("x-request-id", requestId);
     return response;
@@ -92,7 +94,8 @@ export async function withMcpAuth(request: Request, action: (context: McpAuthCon
     const oauth = key.startsWith(ACCESS_TOKEN_PREFIX);
     principal = await (oauth ? authenticateOAuthToken(db, key) : authenticateApiKey(db, key)) ?? undefined;
     if (!principal) throw new ApiError(401, oauth ? "INVALID_ACCESS_TOKEN" : "INVALID_API_KEY", "The credential is invalid, expired, or revoked.");
-    const response = await action({ principal, db, requestId });
+    const context = { principal, db, requestId };
+    const response = await withAIAccount(db, principal.sub, () => action(context));
     status = response.status;
     response.headers.set("x-request-id", requestId);
     return response;
