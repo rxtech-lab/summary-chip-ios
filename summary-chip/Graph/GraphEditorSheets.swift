@@ -423,3 +423,31 @@ extension Color {
         return String(format: "#%02X%02X%02X", byte(red), byte(green), byte(blue))
     }
 }
+
+enum GraphSheet: Identifiable, Hashable {
+    case newNode
+    case editNode(String)
+    case newEdge(source: String?)
+    case editEdge(String)
+    case meta(GraphDocument)
+    case elements
+    case query
+    case agent
+    case delete
+    case share
+
+    var id: String {
+        switch self {
+        case .newNode: "new-node"
+        case .editNode(let id): "node-\(id)"
+        case .newEdge(let source): "new-edge-\(source ?? "")"
+        case .editEdge(let id): "edge-\(id)"
+        case .meta: "meta"
+        case .elements: "elements"
+        case .query: "query"
+        case .agent: "agent"
+        case .delete: "delete"
+        case .share: "share"
+        }
+    }
+}

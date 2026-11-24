@@ -1,8 +1,5 @@
 import SummaryKit
 import SwiftUI
-#if os(macOS)
-import AppKit
-#endif
 
 /// A graph: drawn in 3D or on a plane, with queries, an agent, and each element's info in a
 /// popover on wide layouts and a half sheet on iPhone.
@@ -114,8 +111,8 @@ struct GraphDetailView: View {
                     queryBar
                     HStack(alignment: .top, spacing: 12) {
                         GraphLegend(nodes: document.nodes)
-                        viewModePicker
-                        cameraButtons
+                        GraphViewModePicker(model: model)
+                        GraphCameraButtons(model: model) { tapFeedback += 1 }
                     }
                     HStack(spacing: 12) { toolbarActions }
                         .labelStyle(.iconOnly)
@@ -167,7 +164,7 @@ struct GraphDetailView: View {
                     if !document.nodes.isEmpty {
                         GraphLegend(nodes: document.nodes)
                     }
-                    viewModePicker
+                    GraphViewModePicker(model: model)
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -201,61 +198,12 @@ struct GraphDetailView: View {
         }
     }
 
-    /// Floats over the graph so the bar keeps the graph's title.
-    private var viewModePicker: some View {
-        HStack(spacing: 10) {
-            Picker("View", selection: $model.mode) {
-                Text(verbatim: "3D").tag(GraphViewMode.globe)
-                Text(verbatim: "2D").tag(GraphViewMode.plane)
-            }
-            .pickerStyle(.segmented)
-            .fixedSize()
-            .accessibilityIdentifier("graph-view-mode")
-
-            if model.mode == .globe {
-                Toggle(isOn: $model.autoRotate) {
-                    Label("Auto-Rotate", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
-                }
-                .toggleStyle(.button)
-                .labelStyle(.iconOnly)
-                .help(model.autoRotate ? "Turn off auto-rotate" : "Turn on auto-rotate")
-                .accessibilityIdentifier("graph-auto-rotate")
-                .sensoryFeedback(.selection, trigger: model.autoRotate)
-            }
-        }
-    }
-
     private var cameraControls: some View {
-        cameraButtons
+        GraphCameraButtons(model: model) { tapFeedback += 1 }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
     }
 
-    private var cameraButtons: some View {
-        VStack(spacing: 0) {
-            cameraButton("Zoom In", systemImage: "plus", identifier: "graph-zoom-in") { model.animateCamera(to: model.camera.zoomed(by: 1.5), duration: 0.2) }
-            Divider().frame(width: 28)
-            cameraButton("Zoom Out", systemImage: "minus", identifier: "graph-zoom-out") { model.animateCamera(to: model.camera.zoomed(by: 1 / 1.5), duration: 0.2) }
-            Divider().frame(width: 28)
-            cameraButton("Reset View", systemImage: "arrow.counterclockwise", identifier: "graph-reset-view") { model.resetCamera() }
-        }
-        .platformGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    private func cameraButton(_ title: LocalizedStringKey, systemImage: String, identifier: String, action: @escaping () -> Void) -> some View {
-        Button {
-            tapFeedback += 1
-            action()
-        } label: {
-            Label(title, systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(.body.weight(.medium))
-                .frame(width: 44, height: 40)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
-    }
 
 }
 
@@ -348,92 +296,11 @@ private extension GraphDetailView {
         }
     }
 
-    /// Floats the query selection controls over the graph without shrinking the canvas.
     @ViewBuilder
     private var queryBar: some View {
         if !versions.isPreviewing, let selection = model.selection {
-            VStack(alignment: .leading, spacing: 12) {
-                Button {
-                    tapFeedback += 1
-                    withAnimation(.easeInOut(duration: 0.2)) { queryExpanded.toggle() }
-                } label: {
-                    HStack {
-                        Label("Query", systemImage: "line.3.horizontal.decrease.circle")
-                        Spacer(minLength: 0)
-                        Image(systemName: queryExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityValue(queryExpanded ? "Expanded" : "Collapsed")
-                .accessibilityHint("Show or hide query controls")
-                .accessibilityIdentifier("graph-selection-disclosure")
-
-                if queryExpanded {
-                    Text("\(selection.nodeIds.count) nodes, \(selection.edgeIds.count) edges")
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .accessibilityIdentifier("graph-selection-count")
-
-                    if let query = selection.query {
-                        Button {
-                            tapFeedback += 1
-                            sheet = .query
-                        } label: {
-                            HStack(spacing: 10) {
-                                Text(query)
-                                    .font(.caption.monospaced())
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(10)
-                            .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("View and edit full query")
-                        .accessibilityLabel("Edit query")
-                        .accessibilityValue(query)
-                        .accessibilityIdentifier("graph-selection-edit-query")
-                    }
-
-                    Divider()
-                    HStack(spacing: 12) {
-                        Text("Show")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Picker("Show", selection: Binding(get: { selection.mode }, set: {
-                            tapFeedback += 1
-                            model.setSelectionMode($0)
-                        })) {
-                            Text("Highlight").tag(GraphSelectionMode.highlight)
-                            Text("Only").tag(GraphSelectionMode.isolate)
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .accessibilityIdentifier("graph-selection-mode")
-                    }
-                    Button("Clear Query") {
-                        tapFeedback += 1
-                        model.select(nil)
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .help("Clear query and show all nodes")
-                    .accessibilityIdentifier("graph-selection-clear")
-                }
-            }
-            .padding(12)
-            .frame(width: queryExpanded ? 220 : 120)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            GraphQueryBar(model: model, selection: selection, queryExpanded: $queryExpanded,
+                          onTap: { tapFeedback += 1 }, editQuery: { sheet = .query })
         }
     }
 
@@ -751,34 +618,6 @@ private extension GraphDetailView {
     }
 }
 
-enum GraphSheet: Identifiable, Hashable {
-    case newNode
-    case editNode(String)
-    case newEdge(source: String?)
-    case editEdge(String)
-    case meta(GraphDocument)
-    case elements
-    case query
-    case agent
-    case delete
-    case share
-
-    var id: String {
-        switch self {
-        case .newNode: "new-node"
-        case .editNode(let id): "node-\(id)"
-        case .newEdge(let source): "new-edge-\(source ?? "")"
-        case .editEdge(let id): "edge-\(id)"
-        case .meta: "meta"
-        case .elements: "elements"
-        case .query: "query"
-        case .agent: "agent"
-        case .delete: "delete"
-        case .share: "share"
-        }
-    }
-}
-
 private extension GraphElementRef {
     var kindTitle: String {
         switch self {
@@ -794,37 +633,3 @@ private extension GraphElementRef {
         }
     }
 }
-
-
-#if os(macOS)
-/// Retains one reusable agent window for this graph detail's lifetime.
-@MainActor
-private final class GraphAgentWindow {
-    private var window: NSWindow?
-
-    func show(_ content: some View) {
-        if let window {
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 680),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing: .buffered, defer: false
-        )
-        window.title = String(localized: "Graph Agent")
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 380, height: 420)
-        window.contentViewController = NSHostingController(rootView: content.frame(maxWidth: .infinity, maxHeight: .infinity))
-        self.window = window
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-    }
-
-    func close() {
-        window?.close()
-    }
-}
-#endif

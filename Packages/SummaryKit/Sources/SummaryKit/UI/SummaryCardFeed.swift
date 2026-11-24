@@ -132,26 +132,7 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
         return GeometryReader { geometry in
             let columnWidth = Self.columnWidth(in: geometry.size.width, count: columnCount)
             ScrollView {
-                // Headers and bands are flat rows of one lazy stack, so a long day loads band by
-                // band instead of as one giant row of nested lazy columns.
-                LazyVStack(alignment: .leading, spacing: Self.spacing) {
-                    if let header { header.padding(.horizontal, -Self.horizontalPadding) }
-                    ForEach(sections) { section in
-                        if showsDateHeaders {
-                            dateHeader(for: section)
-                                .padding(.top, section.id == sections.first?.id ? 0 : 28 - Self.spacing)
-                        }
-                        ForEach(section.bands) { band in
-                            // The last band may be only partly filled, so it stays uneven.
-                            masonryColumns(band.columns, tail: tail, columnWidth: columnWidth, levelsColumns: band.id != section.bands.last?.id)
-                        }
-                    }
-                    footer.frame(maxWidth: .infinity)
-                }
-                .padding(.horizontal, Self.horizontalPadding)
-                .padding(.top, Self.topPadding)
-                .padding(.bottom, 24)
-                .coordinateSpace(.named(summaryFeedContentSpace))
+                feedContent(sections: sections, tail: tail, columnWidth: columnWidth)
             }
             .accessibilityIdentifier("summary-card-feed")
             #if os(iOS) || os(visionOS)
@@ -226,6 +207,29 @@ public struct SummaryCardFeed<Footer: View, MenuItems: View>: View {
                 $0.disablesAnimations = true
             }
         }
+    }
+
+    private func feedContent(sections: [FeedSection], tail: Set<String>, columnWidth: CGFloat) -> some View {
+        // Headers and bands are flat rows of one lazy stack, so a long day loads band by
+        // band instead of as one giant row of nested lazy columns.
+        LazyVStack(alignment: .leading, spacing: Self.spacing) {
+            if let header { header.padding(.horizontal, -Self.horizontalPadding) }
+            ForEach(sections) { section in
+                if showsDateHeaders {
+                    dateHeader(for: section)
+                        .padding(.top, section.id == sections.first?.id ? 0 : 28 - Self.spacing)
+                }
+                ForEach(section.bands) { band in
+                    // The last band may be only partly filled, so it stays uneven.
+                    masonryColumns(band.columns, tail: tail, columnWidth: columnWidth, levelsColumns: band.id != section.bands.last?.id)
+                }
+            }
+            footer.frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, Self.horizontalPadding)
+        .padding(.top, Self.topPadding)
+        .padding(.bottom, 24)
+        .coordinateSpace(.named(summaryFeedContentSpace))
     }
 
     private func restoreScrollPosition() {

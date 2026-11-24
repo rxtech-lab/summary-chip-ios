@@ -7,6 +7,11 @@ const podcastVideoPreview = ["./lib/podcast-video/frame-worker.mjs", "./lib/podc
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Route handlers preserve private, no-store headers on the landing HTML as well as the PDF.
+  // Existing summary slugs (10 characters) and chip tokens (12) never match this namespace.
+  async rewrites() {
+    return {beforeFiles:[{source:"/s/:slug(resume[A-Za-z0-9]{12})",destination:"/s/:slug/publication"}],afterFiles:[],fallback:[]};
+  },
   // Do not write AGENTS.md / CLAUDE.md into the package on `next dev`.
   agentRules: false,
   outputFileTracingIncludes: {

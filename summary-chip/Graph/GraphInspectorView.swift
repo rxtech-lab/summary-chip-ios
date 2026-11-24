@@ -383,3 +383,36 @@ final class GraphInspectorWindow: NSObject, NSWindowDelegate {
     }
 }
 #endif
+
+#if os(macOS)
+/// Retains one reusable agent window for this graph detail's lifetime.
+@MainActor
+private final class GraphAgentWindow {
+    private var window: NSWindow?
+
+    func show(_ content: some View) {
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered, defer: false
+        )
+        window.title = String(localized: "Graph Agent")
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 380, height: 420)
+        window.contentViewController = NSHostingController(rootView: content.frame(maxWidth: .infinity, maxHeight: .infinity))
+        self.window = window
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func close() {
+        window?.close()
+    }
+}
+#endif

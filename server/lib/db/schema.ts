@@ -5,7 +5,7 @@ import type { TripDocument } from "@/lib/contracts/trip";
 import type { ProviderFlight } from "@/lib/flights/provider";
 import type { NowcastAlertState } from "@/lib/weather/conditions";
 import type { LocationForecast } from "@/lib/weather/provider";
-import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** `local`: a file on the user's device; its text is summarised but never stored. */
 export const SOURCE_TYPES = ["url", "webpage", "pdf", "text", "local"] as const;
@@ -18,7 +18,7 @@ export const VISIBILITIES = ["public", "private"] as const;
  * a LaTeX paper (its source files live in `papers`), a graph (its nodes and edges live in `graphs`) or a
  * rich document (its blocks live in `rich_documents`).
  */
-export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "audiobook", "graph", "rich_document", "todo_list"] as const;
+export const SUMMARY_KINDS = ["summary", "trip", "paper", "mini_app", "podcast", "audiobook", "graph", "rich_document", "todo_list", "resume"] as const;
 /** Who may open an extra share link: anyone holding it, or only the invited email addresses. */
 export const SHARE_LINK_ACCESS = ["anyone", "invited"] as const;
 
@@ -893,3 +893,107 @@ export const todoNotificationDeliveries = sqliteTable("todo_notification_deliver
   installationId: text("installation_id").notNull(),
   ownerId: text("owner_id").notNull(),
 }, (t) => [primaryKey({ columns: [t.eventId, t.installationId, t.ownerId] })]);
+
+export const resumeFamilies = sqliteTable("resume_families", {
+  id: text("id").primaryKey().references(() => summaries.id, {onDelete:"cascade"}),
+  sourceLanguage: text("source_language").notNull(),
+  revision: integer("revision").notNull(),
+});
+export const resumeEditions = sqliteTable("resume_editions", {
+  familyId: text("family_id").notNull().references(() => resumeFamilies.id, {onDelete:"cascade"}),
+  language: text("language").notNull(),
+}, t => [
+  primaryKey({columns:[t.familyId,t.language]}),
+  check("resume_supported_language", sql`${t.language} in ('en','zh-Hans','zh-Hant','ja','ko','es','fr','de')`),
+]);
+export const resumeVariants = sqliteTable("resume_variants", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => resumeFamilies.id, {onDelete:"cascade"}),
+  company: text("company").notNull(),
+  targetRole: text("target_role"),
+  jobDescription: text("job_description"),
+}, t => [index("resume_variants_family").on(t.familyId)]);
+/** Immutable snapshots of each changed component. Components share a sequence when committed together. */
+export const resumeRevisions = sqliteTable("resume_revisions", {
+  familyId: text("family_id").notNull().references(() => resumeFamilies.id, {onDelete:"cascade"}),
+  component: text("component").notNull(),
+  revision: integer("revision").notNull(),
+  payload: text("payload",{mode:"json"}).$type<unknown>().notNull(),
+  origin: text("origin").notNull(),
+  language: text("language").notNull(),
+  createdAt: integer("created_at",{mode:"timestamp_ms"}).notNull().default(now),
+}, t => [primaryKey({columns:[t.familyId,t.component,t.revision]})]);
+export const resumeReceipts = sqliteTable("resume_receipts", {
+  ownerId: text("owner_id").notNull().references(() => users.id, {onDelete:"cascade"}),
+  key: text("key").notNull(),
+  familyId: text("family_id").notNull().references(() => resumeFamilies.id, {onDelete:"cascade"}),
+  requestHash: text("request_hash").notNull(),
+  result: text("result",{mode:"json"}).$type<unknown>().notNull(),
+}, t => [primaryKey({columns:[t.ownerId,t.key]}),index("resume_receipts_family").on(t.familyId)]);
+
+// Private, immutable binaries. These tables have no public object-storage URLs.
+export const resumeAssets = sqliteTable("resume_assets", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at",{mode:"timestamp_ms"}).notNull().default(now),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  mimeType: text("mime_type").notNull(),
+  sourceKey: text("source_key").notNull(),
+}, t => [uniqueIndex("resume_asset_source_idx").on(t.familyId,t.sourceKey)]);
+
+export const resumePreviews = sqliteTable("resume_previews", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => summaries.id, { onDelete: "cascade" }),
+  revisionToken: text("revision_token").notNull(),
+  language: text("language").notNull(),
+  variantId: text("variant_id"),
+  document: text("document", {mode:"json"}).$type<import("@/lib/contracts/resume").ResumeDocument>().notNull(),
+  presentation: text("presentation", {mode:"json"}).$type<import("@/lib/resume/render").ResumePresentation>().notNull(),
+  missingTranslationPaths: text("missing_translation_paths",{mode:"json"}).$type<string[]>().notNull(),
+  html: text("html").notNull(),
+  assetId: text("asset_id").references(() => resumeAssets.id),
+  createdAt: integer("created_at", {mode:"timestamp_ms"}).notNull(),
+});
+export const resumeArtifactChunks = sqliteTable("resume_artifact_chunks", {
+  previewId: text("preview_id").notNull().references(() => resumePreviews.id, {onDelete:"cascade"}),
+  format: text("format", { enum: ["pdf","docx"] }).notNull(),
+  ordinal: integer("ordinal").notNull(),
+  bytes: blob("bytes", {mode:"buffer"}).notNull(),
+}, t => [primaryKey({columns:[t.previewId,t.format,t.ordinal]})]);
+export const resumePublications = sqliteTable("resume_publications", {
+  linkId: text("link_id").primaryKey().references(() => shareLinks.id, {onDelete:"cascade"}),
+  previewId: text("preview_id").notNull().references(() => resumePreviews.id),
+});
+export const resumePublicationWrites = sqliteTable("resume_publication_writes", {
+  familyId: text("family_id").notNull().references(() => summaries.id, {onDelete:"cascade"}),
+  key: text("key").notNull(), digest: text("digest").notNull(), result: text("result").notNull(),
+}, t => [primaryKey({columns:[t.familyId,t.key]})]);
+export const resumePublicationViews = sqliteTable("resume_publication_views", {
+  userId: text("user_id").notNull().references(() => users.id, {onDelete:"cascade"}),
+  linkId: text("link_id").notNull().references(() => resumePublications.linkId, {onDelete:"cascade"}),
+  viewedAt: integer("viewed_at", {mode:"timestamp_ms"}).notNull(),
+}, t => [primaryKey({columns:[t.userId,t.linkId]})]);
+
+export const resumeProposals = sqliteTable("resume_proposals", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => summaries.id, {onDelete:"cascade"}),
+  ownerId: text("owner_id").notNull().references(() => users.id, {onDelete:"cascade"}),
+  requestKey: text("request_key").notNull(),
+  input: text("input", {mode:"json"}).$type<import("@/lib/resume/proposal-contract").ProposalInput>().notNull(),
+  targetToken: text("target_token"),
+  status: text("status", {enum:["queued","running","ready","failed"]}).notNull(),
+  findings: text("findings", {mode:"json"}).$type<import("@/lib/resume/proposal-contract").Finding[]>().notNull().default([]),
+  error: text("error"),
+  createdAt: integer("created_at").notNull(),
+}, table => [
+  uniqueIndex("resume_proposals_request_key").on(table.ownerId, table.requestKey),
+  check("resume_proposal_status", sql`${table.status} in ('queued','running','ready','failed')`),
+]);
+
+export const resumeRenderLeases = sqliteTable("resume_render_leases", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => summaries.id,{onDelete:"cascade"}),
+  revisionToken: text("revision_token").notNull(),
+  assetId: text("asset_id").references(() => resumeAssets.id),
+  expiresAt: integer("expires_at",{mode:"timestamp_ms"}).notNull(),
+});

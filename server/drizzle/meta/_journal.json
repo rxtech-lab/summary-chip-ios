@@ -372,6 +372,27 @@
       "when": 1794804650242,
       "tag": "0052_todo_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1795457648262,
+      "tag": "0053_resumes",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1795457648263,
+      "tag": "0054_resume_publications",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1795457648264,
+      "tag": "0055_resume_proposals",
+      "breakpoints": true
     }
   ]
 }

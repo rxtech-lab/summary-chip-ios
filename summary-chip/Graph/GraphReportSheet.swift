@@ -177,6 +177,20 @@ private enum GraphReportRenderer {
     }
 
     private static func reportBody(document: GraphDocument, nodes: [GraphNode], analysis: String?) -> NSAttributedString {
+        let report = ReportText()
+        let title = nodes.count == 1 ? nodes[0].label : document.title
+        report.append(title + " - Research", size: 24, bold: true, spacing: 14)
+        report.append("As of: " + Date().formatted() + " | Data: Graph snapshot", size: 9, spacing: 20)
+        if let analysis {
+            appendAnalysis(analysis, to: report)
+        } else {
+            appendSnapshot(document: document, nodes: nodes, to: report)
+            appendViewContent(document: document, nodes: nodes, append: report.append)
+        }
+        return report.body
+    }
+
+    private struct ReportText {
         let body = NSMutableAttributedString(string: "")
         func append(_ text: String, size: CGFloat = 11, bold: Bool = false, spacing: CGFloat = 9) {
             let base = CTFontCreateWithName("Helvetica" as CFString, size, nil)
@@ -191,81 +205,79 @@ private enum GraphReportRenderer {
                 NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(red: 0.08, green: 0.36, blue: 0.20, alpha: 1)
             ]))
         }
-        let title = nodes.count == 1 ? nodes[0].label : document.title
-        append(title + " - Research", size: 24, bold: true, spacing: 14)
-        append("As of: " + Date().formatted() + " | Data: Graph snapshot", size: 9, spacing: 20)
-        if let analysis {
-            var columns = 1
-            var figureKind: String?
-            var figureJSON = ""
-            for line in analysis.components(separatedBy: .newlines) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed == "<!-- columns:1 -->" { columns = 1; continue }
-                if trimmed == "<!-- columns:2 -->" { columns = 2; continue }
-                if let kind = figureKind {
-                    if trimmed == "```" {
-                        if let data = figureJSON.data(using: .utf8),
-                           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let items = object["items"] as? [[String: Any]], !items.isEmpty {
-                            append(object["title"] as? String ?? kind.capitalized, size: 14, bold: true)
-                            for item in items {
-                                let start = body.length
-                                let label = item["label"] as? String ?? ""
-                                let detail = item["detail"] as? String ?? ""
-                                let value = item["value"] as? Double
-                                append(label + (value.map { ": " + String($0) } ?? "") + (detail.isEmpty ? "" : " — " + detail), spacing: 26)
-                                let range = NSRange(location: start, length: body.length - start)
-                                body.addAttribute(NSAttributedString.Key("reportFigure"), value: kind, range: range)
-                                if let value, value.isFinite {
-                                    let scale = items.compactMap { $0["value"] as? Double }.filter(\.isFinite).map { abs($0) }.max() ?? 1
-                                    body.addAttribute(NSAttributedString.Key("reportValue"), value: value / max(scale, 0.000001), range: range)
-                                }
-                            }
-                        } else { append(figureJSON) }
-                        figureKind = nil
-                        figureJSON = ""
-                    } else { figureJSON += line + "\n" }
-                    continue
-                }
-                if ["```chart", "```timeline", "```graph"].contains(trimmed) {
-                    figureKind = String(trimmed.dropFirst(3)); continue
-                }
-                guard !trimmed.isEmpty else { continue }
-                let level = trimmed.prefix(while: { $0 == "#" }).count
-                let text = level > 0 ? String(trimmed.dropFirst(level)).trimmingCharacters(in: .whitespaces) : trimmed
-                let start = body.length
-                append(text.replacingOccurrences(of: "**", with: ""), size: level > 0 ? (level < 3 ? 16 : 12) : 11, bold: level > 0)
-                body.addAttribute(NSAttributedString.Key("reportColumns"), value: columns, range: NSRange(location: start, length: body.length - start))
+    }
+
+    private static func appendAnalysis(_ analysis: String, to report: ReportText) {
+        var columns = 1
+        var figureKind: String?
+        var figureJSON = ""
+        for line in analysis.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "<!-- columns:1 -->" { columns = 1; continue }
+            if trimmed == "<!-- columns:2 -->" { columns = 2; continue }
+            if let kind = figureKind {
+                if trimmed == "```" {
+                    appendFigure(figureJSON, kind: kind, to: report)
+                    figureKind = nil
+                    figureJSON = ""
+                } else { figureJSON += line + "\n" }
+                continue
             }
-            if !figureJSON.isEmpty { append(figureJSON) }
-        } else {
-            append("Executive Summary", size: 16, bold: true)
-            append("Research snapshot covering " + nodes.map { $0.label }.joined(separator: ", ") + ".")
-            append("Company Overview", size: 16, bold: true)
-            for node in nodes {
-                append(node.label, size: 13, bold: true)
-                if !node.types.isEmpty { append(node.types.joined(separator: ", ")) }
-                for key in node.properties.keys.sorted() {
-                    let data = (try? JSONEncoder().encode(node.properties[key])) ?? Data()
-                    append(key + ": " + (String(data: data, encoding: .utf8) ?? ""))
-                }
-                for edge in document.edges where edge.source == node.id || edge.target == node.id {
-                    let source = document.nodes.first { $0.id == edge.source }?.label ?? edge.source
-                    let target = document.nodes.first { $0.id == edge.target }?.label ?? edge.target
-                    append(source + (edge.directed ? " → " : " ↔ ") + target + " • " + edge.label)
+            if ["```chart", "```timeline", "```graph"].contains(trimmed) {
+                figureKind = String(trimmed.dropFirst(3)); continue
+            }
+            guard !trimmed.isEmpty else { continue }
+            let level = trimmed.prefix(while: { $0 == "#" }).count
+            let text = level > 0 ? String(trimmed.dropFirst(level)).trimmingCharacters(in: .whitespaces) : trimmed
+            let start = report.body.length
+            report.append(text.replacingOccurrences(of: "**", with: ""), size: level > 0 ? (level < 3 ? 16 : 12) : 11, bold: level > 0)
+            report.body.addAttribute(NSAttributedString.Key("reportColumns"), value: columns, range: NSRange(location: start, length: report.body.length - start))
+        }
+        if !figureJSON.isEmpty { report.append(figureJSON) }
+    }
+
+    private static func appendFigure(_ figureJSON: String, kind: String, to report: ReportText) {
+        if let data = figureJSON.data(using: .utf8),
+           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let items = object["items"] as? [[String: Any]], !items.isEmpty {
+            report.append(object["title"] as? String ?? kind.capitalized, size: 14, bold: true)
+            for item in items {
+                let start = report.body.length
+                let label = item["label"] as? String ?? ""
+                let detail = item["detail"] as? String ?? ""
+                let value = item["value"] as? Double
+                report.append(label + (value.map { ": " + String($0) } ?? "") + (detail.isEmpty ? "" : " — " + detail), spacing: 26)
+                let range = NSRange(location: start, length: report.body.length - start)
+                report.body.addAttribute(NSAttributedString.Key("reportFigure"), value: kind, range: range)
+                if let value, value.isFinite {
+                    let scale = items.compactMap { $0["value"] as? Double }.filter(\.isFinite).map { abs($0) }.max() ?? 1
+                    report.body.addAttribute(NSAttributedString.Key("reportValue"), value: value / max(scale, 0.000001), range: range)
                 }
             }
-            append("Appendix and Sources", size: 16, bold: true)
-            append("Source: supplied graph snapshot. No independent financial verification or valuation was performed. Not rated.")
-            for url in Set(nodes.flatMap { $0.images.map { $0.url.absoluteString } }).sorted() { append(url, size: 9) }
-            append("This report is analysis, not investment advice. Figures are as of the timestamps shown and may have moved.", size: 9)
+        } else { report.append(figureJSON) }
+    }
+
+    private static func appendSnapshot(document: GraphDocument, nodes: [GraphNode], to report: ReportText) {
+        report.append("Executive Summary", size: 16, bold: true)
+        report.append("Research snapshot covering " + nodes.map { $0.label }.joined(separator: ", ") + ".")
+        report.append("Company Overview", size: 16, bold: true)
+        for node in nodes {
+            report.append(node.label, size: 13, bold: true)
+            if !node.types.isEmpty { report.append(node.types.joined(separator: ", ")) }
+            for key in node.properties.keys.sorted() {
+                let data = (try? JSONEncoder().encode(node.properties[key])) ?? Data()
+                report.append(key + ": " + (String(data: data, encoding: .utf8) ?? ""))
+            }
+            for edge in document.edges where edge.source == node.id || edge.target == node.id {
+                let source = document.nodes.first { $0.id == edge.source }?.label ?? edge.source
+                let target = document.nodes.first { $0.id == edge.target }?.label ?? edge.target
+                report.append(source + (edge.directed ? " → " : " ↔ ") + target + " • " + edge.label)
+            }
         }
-        // The agent report already includes its own appendix and sources.
-        // UI-derived content belongs only to the direct graph snapshot export.
-        if analysis == nil {
-            appendViewContent(document: document, nodes: nodes, append: append)
-        }
-        return body
+        report.append("Appendix and Sources", size: 16, bold: true)
+        report.append("Source: supplied graph snapshot. No independent financial verification or valuation was performed. Not rated.")
+        for url in Set(nodes.flatMap { $0.images.map { $0.url.absoluteString } }).sorted() { report.append(url, size: 9) }
+        report.append("This report is analysis, not investment advice. Figures are as of the timestamps shown and may have moved.", size: 9)
     }
 
     private static func renderText(_ body: NSAttributedString, company: String, in context: CGContext) {

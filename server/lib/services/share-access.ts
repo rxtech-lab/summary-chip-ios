@@ -34,7 +34,7 @@ export function grantTokenSql(viewerId: string | AnySQLiteColumn, now = new Date
   const summaryId = sql`${sql.identifier("summaries")}.${sql.identifier("id")}`;
   const viewer = typeof viewerId === "string" ? sql`${viewerId}` : sql`${sql.identifier(getTableName(viewerId.table))}.${sql.identifier(viewerId.name)}`;
   return sql<string | null>`(SELECT l.token FROM share_links l JOIN summary_views v ON v.share_link_id = l.id
-    WHERE v.user_id = ${viewer} AND v.summary_id = ${summaryId} AND l.summary_id = v.summary_id
+    WHERE summaries.kind <> 'resume' AND v.user_id = ${viewer} AND v.summary_id = ${summaryId} AND l.summary_id = v.summary_id
       AND (l.expires_at IS NULL OR l.expires_at > ${now.getTime()})
       AND (l.access = 'anyone' OR EXISTS (SELECT 1 FROM share_link_emails e JOIN users u ON u.id = v.user_id
         WHERE e.link_id = l.id AND e.email = lower(u.email)))
@@ -44,7 +44,7 @@ export function grantTokenSql(viewerId: string | AnySQLiteColumn, now = new Date
 /** The list query already joined the viewer's view; reuse its link instead of reading it again. */
 export function grantTokenForViewSql(viewerId: string, shareLinkId: AnySQLiteColumn, now = new Date()): SQL<string | null> {
   return sql<string | null>`(SELECT l.token FROM share_links l
-    WHERE l.id = ${shareLinkId} AND l.summary_id = summaries.id
+    WHERE summaries.kind <> 'resume' AND l.id = ${shareLinkId} AND l.summary_id = summaries.id
       AND (l.expires_at IS NULL OR l.expires_at > ${now.getTime()})
       AND (l.access = 'anyone' OR EXISTS (SELECT 1 FROM share_link_emails e JOIN users u ON u.id = ${viewerId}
         WHERE e.link_id = l.id AND e.email = lower(u.email)))
@@ -63,6 +63,7 @@ export async function findGrantToken(db: Database, summaryId: string, viewerId: 
 
 /** The owner always; anyone else while the public link is live or a share link still lets them in. */
 export async function canViewerRead(db: Database, row: SummaryRow, viewerId: string | null, now = new Date()): Promise<boolean> {
+  if (row.kind === "resume") return row.ownerId === viewerId;
   if (row.ownerId === viewerId || isLinkLive(row, now)) return true;
   if (row.kind === "mini_app" && viewerId) {
     const result = await db.get<{ n: number }>(sql`SELECT count(*) AS n FROM mini_app_members m JOIN users u ON lower(u.email) = m.email WHERE m.app_id = ${row.id} AND u.id = ${viewerId}`);
@@ -106,6 +107,7 @@ export type ShareKeyResolution =
 export async function resolveShareKey(db: Database, key: string, viewer: ShareViewer | null, now = new Date()): Promise<ShareKeyResolution> {
   const [bySlug] = await db.select().from(summaries).where(eq(summaries.slug, key)).limit(1);
   if (bySlug) {
+    if (bySlug.kind === "resume") return { status: "missing" };
     return await canViewerRead(db, bySlug, viewer?.id ?? null, now) ? { status: "ok", row: bySlug, link: null } : { status: "missing" };
   }
   const [found] = await db.select({ link: shareLinks, row: summaries }).from(shareLinks)
@@ -113,6 +115,7 @@ export async function resolveShareKey(db: Database, key: string, viewer: ShareVi
     .where(eq(shareLinks.token, key)).limit(1);
   if (!found) return { status: "missing" };
   const { link, row } = found;
+  if (row.kind === "resume") return { status: "missing" };
   if (row.ownerId === viewer?.id) return { status: "ok", row, link };
   if (!isShareLinkLive(link, now)) return { status: "missing" };
   if (link.access === "anyone") return { status: "ok", row, link };
@@ -120,7 +123,7 @@ export async function resolveShareKey(db: Database, key: string, viewer: ShareVi
   return await isInvited(db, link.id, viewer) ? { status: "ok", row, link } : { status: "not-invited", link };
 }
 
-async function isInvited(db: Database, linkId: string, viewer: ShareViewer): Promise<boolean> {
+export async function shareViewerEmail(db: Database, viewer: ShareViewer): Promise<string | undefined> {
   let email = viewer.email?.trim().toLowerCase();
   if (!email) {
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, viewer.id)).limit(1);
@@ -131,6 +134,11 @@ async function isInvited(db: Database, linkId: string, viewer: ShareViewer): Pro
     // Remembered, so later checks (and `grantTokenSql`, which reads `users.email`) see it.
     if (email) await db.update(users).set({ email }).where(eq(users.id, viewer.id));
   }
+  return email;
+}
+
+async function isInvited(db: Database, linkId: string, viewer: ShareViewer): Promise<boolean> {
+  const email = await shareViewerEmail(db,viewer);
   if (!email) return false;
   const [match] = await db.select({ email: shareLinkEmails.email }).from(shareLinkEmails)
     .where(and(eq(shareLinkEmails.linkId, linkId), eq(shareLinkEmails.email, email))).limit(1);

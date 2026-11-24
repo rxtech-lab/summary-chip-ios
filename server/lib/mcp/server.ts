@@ -1,3 +1,4 @@
+import { registerResumeTools } from "@/lib/resume/mcp";
 import { registerTodoTools } from "@/lib/todo/mcp";
 import { registerPodcastTools } from "./podcast";
 import { registerMiniAppTools } from "@/lib/mini-app/mcp";
@@ -18,6 +19,7 @@ import { editorsPicksInputSchema, getRawTextForAgent, listEditorsPicksForChat } 
 import { recordApiKeyUsage } from "@/lib/services/api-keys";
 import type { McpPrincipal } from "./oauth-tokens";
 import { authChallenge, securitySchemes, toolScope } from "./oauth-config";
+import { failure, toolErrorResult } from "./tool-errors";
 import { getOwnedSummary, importSummary, listSummaries, patchSummary } from "@/lib/services/summaries";
 import type { SummaryJson } from "@/lib/services/serialize";
 import { uploadTripImage, uploadTripImageSchema } from "@/lib/services/trip-images";
@@ -69,6 +71,7 @@ export const INSTRUCTIONS = "Podcast tools: list_podcasts accepts day or summary
   + "list_editors_picks to answer Editor’s Picks by date (today/yesterday or YYYY-MM-DD, device time zone by default; follow nextCursor for all picks), and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
   + "Graphs are node-and-edge documents with JSON properties, images and JSON-rendered views: list_graphs and get_graph read them, create_graph starts one, update_graph adds, changes or removes nodes, edges and saved queries (each call is one version), query_graph runs a read-only Cypher-style query, select_graph_elements highlights or isolates elements in the app, and upload_graph_image stores an image for a node or edge (from create_upload's uploadKey or a public URL). "
+  + "Private résumés: create_resume and list_resumes manage families. get_resume resolves one language and company, edit_resume changes stable field paths, and preview_resume returns authenticated PDF and editable DOCX handles. Only publish a preview when the user asks to share it. "
   + "Todo lists: create_todo_list, list_todo_lists, get_todo_list, update_todo_list and delete_todo_list manage lists and per-item deadlines, Markdown descriptions and completion. AI creation and unfinished deadlines notify the owner. Rich documents are block-based pages rendered top to bottom (text in Markdown, images, videos and audio; one or two columns; leading, center or trailing alignment; link children): list_rich_documents and get_rich_document read them (get_rich_document also returns Markdown), create_rich_document starts one from Markdown or blocks, update_rich_document inserts, changes, moves or removes blocks (each call is one version), delete_rich_document removes one, and upload_rich_document_image stores an image for a block. "
   + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover; add_mini_app_records fills a table with initial data (or pass records to create_mini_app), list_mini_app_records reads it back, and upload_mini_app_file stores an image or file (from create_upload's uploadKey or a public URL) and returns a file reference to keep in a json field or initialState. Never include credentials in their JSON. "
   + "update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
@@ -134,10 +137,6 @@ function success(payload: Record<string, unknown>, text?: string): CallToolResul
   };
 }
 
-function failure(message: string): CallToolResult {
-  return { content: [{ type: "text", text: message }], isError: true };
-}
-
 function listPayload(page: { items: SummaryJson[]; nextCursor: string | null }) {
   // An explicit null tells the agent there is nothing more to fetch.
   return { count: page.items.length, items: page.items.map(chipPayload), nextCursor: page.nextCursor };
@@ -192,40 +191,6 @@ function tripPayload(trip: TripJson) {
   };
 }
 
-function describe(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.code === "DUPLICATE_SUMMARY") {
-      const details = error.details as { reason?: string; duplicate?: SummaryJson } | undefined;
-      let message = "Not added: this chip is already in the library";
-      if (details?.duplicate) message += ` as "${details.duplicate.title}" (${details.duplicate.shareUrl})`;
-      message += ".";
-      if (details?.reason) message += ` Reason: ${details.reason}`;
-      return `${message} Call add_summary again with allowDuplicate: true to save it anyway.`;
-    }
-    if (error.code === "PAPER_REVISION_CONFLICT") return `${error.message} Call get_paper for the latest files, then update_paper again. (${error.code})`;
-    if (error.code === "LATEX_COMPILE_FAILED") {
-      const details = error.details as { errors?: { file: string | null; line: number | null; message: string }[] } | undefined;
-      const listed = (details?.errors ?? []).map((issue) => `${issue.file ?? "?"}${issue.line ? `:${issue.line}` : ""}: ${issue.message}`).join("\n");
-      return `LaTeX could not compile the paper (${error.code}).${listed ? `\n${listed}` : ""}`;
-    }
-    if (error.code === "MINI_APP_INVALID") return `${error.message}: ${JSON.stringify(error.details)}. Use validate_mini_app to repair the definition.`;
-    if (error.code === "MINI_RECORD_INVALID" && error.details) return `${error.message}. Fields: ${JSON.stringify((error.details as { fields?: unknown }).fields)}. Only declared fields are allowed; required ones must be set.`;
-    if (error.code === "MINI_REVISION_CONFLICT") return `${error.message} Call get_mini_app, then update_mini_app with its revision.`;
-    if (error.code === "RICH_DOCUMENT_REVISION_CONFLICT") return `${error.message} Call get_rich_document for the latest document, then update_rich_document again. (${error.code})`;
-    if (error.code === "RICH_DOCUMENT_INVALID" && error.details) return `${error.message} Issues: ${JSON.stringify((error.details as { issues?: unknown }).issues)}. Fix them and call the tool again. (${error.code})`;
-    if (error.code === "GRAPH_REVISION_CONFLICT") return `${error.message} Call get_graph for the latest document, then update_graph again. (${error.code})`;
-    if (error.code === "TRIP_REVISION_CONFLICT") return `${error.message} Call get_trip for the latest document, then update_trip again. (${error.code})`;
-    return `${error.message} (${error.code})`;
-  }
-  if (error instanceof z.ZodError) {
-    // Named as the tool's arguments: the import schema calls key points `highlights`.
-    const argument = (path: PropertyKey[]) => path.map((part) => (part === "highlights" ? "keyPoints" : String(part))).join(".") || "arguments";
-    return error.issues.slice(0, 3).map((issue) => `Invalid ${argument(issue.path)}: ${issue.message}`).join("; ");
-  }
-  console.error("[mcp] tool failed", error);
-  return "An unexpected error occurred. Please try again.";
-}
-
 const filters = {
   scope: z.enum(LIBRARY_SCOPES).optional()
     .describe("all: the user's own chips and others' public chips they opened (default). mine: only chips the user created. viewed: only others' chips the user opened. liked: only chips the user starred, most recently starred first."),
@@ -270,12 +235,13 @@ export function createMcpServer(context: McpContext): McpServer {
     try {
       ({ result, summaryAdded = false } = await action());
     } catch (error) {
-      result = failure(describe(error));
+      result = toolErrorResult(error);
     }
     if (principal.apiKeyId) await recordApiKeyUsage(db, principal.apiKeyId, { summaryAdded }).catch((error) => console.error("[mcp] usage not recorded", error));
     return result;
   }
 
+  registerResumeTools(server,context,run);
   registerMiniAppTools(server, db, principal.sub, run);
   registerPodcastTools(server, context, run);
   registerGraphTools(server, { db, principal, billingEnvironment: context.billingEnvironment }, run);

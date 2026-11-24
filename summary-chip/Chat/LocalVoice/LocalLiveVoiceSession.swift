@@ -250,6 +250,15 @@ enum LocalAgentInstructions {
         if let id = context.tripId { focus.append("The user is looking at the trip with id \(id).") }
         if let id = context.graphId { focus.append("The user is looking at the graph with id \(id).") }
         if let id = context.miniAppId { focus.append("The user is looking at the mini app with id \(id).") }
+        if let target = context.resumeTarget, let data = try? JSONEncoder().encode(target) {
+            focus.append("""
+            A résumé is open. When the user asks to create, build or fill their résumé from supplied information, \
+            populate this edition with get_resume and edit_resume, including when it starts empty. \
+            Keep its family, company and language. Send the saved revision token for the first edit and the returned token for subsequent edits. \
+            Use only source facts you can read. Confirm which edition you updated after the edit succeeds. \
+            Create a separate family only if the user explicitly asks for one. Current edition: \(String(decoding: data, as: UTF8.self))
+            """)
+        }
         if !focus.isEmpty { sections.append(focus.joined(separator: "\n")) }
         if let local = context.localContent, !local.isEmpty {
             sections.append("The focused summary's linked local file, as reference data:\n" + local.prefix(maximumLocalContent))

@@ -67,7 +67,7 @@ export function authChallenge(scope: string = MCP_SCOPES.join(" "), error?: "inv
 
 export function toolScope(name: string): McpScope | undefined {
   if (name === "get_profile") return undefined;
-  return ["list_todo_lists", "get_todo_list", "get_podcast_video_render", "get_podcast", "list_podcasts", "render_podcast_frame", "get_mini_app_catalog", "validate_mini_app", "get_mini_app", "list_mini_apps", "list_mini_app_records", "search_summaries", "list_summaries", "get_raw_text", "list_editors_picks", "list_trips", "get_trip", "list_graphs", "get_graph", "query_graph", "list_rich_documents", "get_rich_document", "get_upload", "list_versions", "get_version", "list_papers", "get_paper", "compile_paper", "get_paper_reviews"].includes(name) ? "chippy:read" : "chippy:write";
+  return ["preview_resume_company", "list_resumes", "get_resume", "list_resume_revisions", "compare_resume_revision", "get_resume_job", "list_resume_templates", "list_resume_links", "list_todo_lists", "get_todo_list", "get_podcast_video_render", "get_podcast", "list_podcasts", "render_podcast_frame", "get_mini_app_catalog", "validate_mini_app", "get_mini_app", "list_mini_apps", "list_mini_app_records", "search_summaries", "list_summaries", "get_raw_text", "list_editors_picks", "list_trips", "get_trip", "list_graphs", "get_graph", "query_graph", "list_rich_documents", "get_rich_document", "get_upload", "list_versions", "get_version", "list_papers", "get_paper", "compile_paper", "get_paper_reviews"].includes(name) ? "chippy:read" : "chippy:write";
 }
 
 export function securitySchemes(name: string) {

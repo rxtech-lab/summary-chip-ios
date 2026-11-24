@@ -45,7 +45,8 @@ export function appendPlanTurn(messages: PodcastPlanMessage[], turn: {
     if (kept[index].kind !== "plan") continue;
     snapshots += 1;
     if (snapshots > MAX_PLAN_SNAPSHOTS && kept[index].plan !== undefined) {
-      const { plan: _dropped, ...placeholder } = kept[index];
+      const placeholder = { ...kept[index] };
+      delete placeholder.plan;
       kept[index] = placeholder;
     }
   }

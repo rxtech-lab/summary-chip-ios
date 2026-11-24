@@ -3,6 +3,7 @@ import AgentMessageListUI
 import LocalAgentKit
 import SummaryKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 
 /// The library-wide agent (Chat tab, or the trailing chat column on large screens), or —
@@ -19,6 +20,7 @@ struct ChatView: View {
     @AppStorage(LiveVoiceSettings.engineKey) private var savedVoiceEngine = LiveVoiceEngine.chippy.rawValue
     @AppStorage(LiveVoiceSettings.languageKey) private var savedVoiceLanguage = ""
     @State private var showsVoiceEngines = false
+    @State private var showsFilePicker = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: ChatModel
     @State private var transcriptEntries: [ChatEntry]
@@ -26,7 +28,6 @@ struct ChatView: View {
     @State private var isAtBottom = true
     @State private var selectedReference: ChatSummaryReference?
     @State private var referenceToOpen: Summary?
-    @State private var contextDocument: Summary?
     @State private var inputBarHeight: CGFloat = 0
     @State private var headerHeight: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,13 +37,13 @@ struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openLibraryItem) private var openLibraryItem
 
-    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil, onClose: (() -> Void)? = nil, onFocus: (() -> Void)? = nil) {
+    init(environment: AppEnvironment, summary: Summary? = nil, trip: TripChat? = nil, miniAppID: String? = nil, resumeTarget: ResumeTarget? = nil, isPanel: Bool = false, model: ChatModel? = nil, onTripUpdated: (() -> Void)? = nil, onGraphUpdated: (() -> Void)? = nil, onGraphSelection: ((GraphSelection?) -> Void)? = nil, onClose: (() -> Void)? = nil, onFocus: (() -> Void)? = nil) {
         self.environment = environment
         self.summary = summary
         self.isPanel = isPanel
         self.onClose = onClose
         self.onFocus = onFocus
-        let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip, miniAppID: miniAppID)
+        let model = model ?? ChatModel(client: environment.chatClient, store: environment.chatStore, summaryID: summary?.id, trip: trip, miniAppID: miniAppID, resumeTarget: resumeTarget)
         if let onTripUpdated { model.onTripUpdated = onTripUpdated }
         if let onGraphUpdated { model.onGraphUpdated = onGraphUpdated }
         if let onGraphSelection { model.onGraphSelection = onGraphSelection }
@@ -54,9 +55,10 @@ struct ChatView: View {
 
     private var trip: TripChat? { model.trip }
     /// A chat about one summary or trip, presented as a sheet over it.
-    private var isSheet: Bool { summary != nil || trip != nil || model.miniAppID != nil || model.graph != nil }
+    private var isSheet: Bool { summary != nil || trip != nil || model.miniAppID != nil || model.graph != nil || model.resumeTarget != nil }
 
     private var title: Text {
+        if let target = model.resumeTarget { return Text("Résumé · \(SummaryLanguage.displayName(for: target.language))") }
         if model.miniAppID != nil { return Text("Clip Builder") }
         if model.graph != nil { return Text("Graph Agent") }
         if let trip { return trip.isExpense ? Text("Add Expense with AI") : Text("Trip Agent") }
@@ -64,6 +66,7 @@ struct ChatView: View {
     }
 
     private var placeholder: String {
+        if model.resumeTarget != nil { return String(localized: "Ask about this résumé") }
         if model.graph != nil { return String(localized: "Ask, change or highlight the graph") }
         if let trip {
             return trip.isExpense ? String(localized: "Paste a receipt or describe a cost") : String(localized: "Ask, or paste a booking or link")
@@ -139,7 +142,7 @@ struct ChatView: View {
                     .help("New Chat")
                     .buttonStyle(.plain)
                     .platformGlassEffect(.regular.interactive(), in: Circle())
-                    .disabled(model.entries.isEmpty || voice.isActive)
+                    .disabled(!canStartNewChat)
 
                 }
                 #if os(iOS)
@@ -160,7 +163,9 @@ struct ChatView: View {
         .onChange(of: model.isStreaming) { _, isStreaming in
             if !isStreaming { flushTranscript() }
         }
+        .onChange(of: voice.isActive) { _, active in model.isResumeVoiceActive = active && model.resumeTarget != nil }
         .onDisappear {
+            model.isResumeVoiceActive = false
             voice.stop()
             transcriptUpdateTask?.cancel()
             transcriptUpdateTask = nil
@@ -176,6 +181,7 @@ struct ChatView: View {
                     inputBarHeight = height
                 }
         }
+        .modifier(ChatFileImporter(files: model.files, isPresented: $showsFilePicker))
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { voice.stop() }
         }
@@ -248,7 +254,7 @@ struct ChatView: View {
                 } label: {
                     Label("New Chat", systemImage: "square.and.pencil")
                 }
-                .disabled(model.entries.isEmpty || voice.isActive)
+                .disabled(!canStartNewChat)
             }
             }
         }
@@ -325,6 +331,7 @@ struct ChatView: View {
                             .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .disabled(model.files.uploadProgress != nil)
                     }
                 }
             }
@@ -407,97 +414,20 @@ struct ChatView: View {
         transcriptEntries = model.entries
     }
 
-    private var canSend: Bool {
-        !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+}
+
+// MARK: - Voice and message composer
+
+private extension ChatView {
+    var canSend: Bool {
+        model.files.uploadProgress == nil && (!model.files.attachments.isEmpty || !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
-    private var contextDocumentID: String? {
-        model.summaryID ?? model.trip?.id ?? model.graph?.id ?? model.miniAppID
+    var canStartNewChat: Bool {
+        !voice.isActive && (!model.entries.isEmpty || !model.files.attachments.isEmpty || model.files.uploadProgress != nil)
     }
 
-    private var contextDocumentTitle: String? {
-        guard let id = contextDocumentID else { return nil }
-        return environment.library.items.first(where: { $0.id == id })?.title
-            ?? summary?.title ?? model.trip?.title
-            ?? contextDocument?.title
-    }
-
-    private var contextIcon: String {
-        if model.graph != nil { return "point.3.connected.trianglepath.dotted" }
-        if model.trip != nil { return "map" }
-        if model.miniAppID != nil { return "app.badge" }
-        return "doc.text"
-    }
-
-    private var contextBar: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 6) {
-                if contextDocumentID != nil {
-                    Label {
-                        Text(contextDocumentTitle ?? String(localized: "Current Document"))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .frame(maxWidth: 180, alignment: .leading)
-                    } icon: {
-                        Image(systemName: contextIcon)
-                    }
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.regularMaterial, in: Capsule())
-                    .overlay(Capsule().strokeBorder(.primary.opacity(0.2), lineWidth: 1))
-                    .accessibilityIdentifier("chat-context-document")
-                } else {
-                    Label("Chippy Library", systemImage: "books.vertical")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.regularMaterial, in: Capsule())
-                        .overlay(Capsule().strokeBorder(.primary.opacity(0.2), lineWidth: 1))
-                        .accessibilityIdentifier("chat-context-library")
-                }
-                ForEach(model.graphElements) { element in
-                    Button {
-                        model.graphElements.removeAll { $0 == element }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: {
-                                if case .node = element { return "circle.fill" }
-                                return "line.diagonal"
-                            }())
-                            Text(model.graphElementLabel(element))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .frame(maxWidth: 180, alignment: .leading)
-                            Image(systemName: "xmark").font(.caption2)
-                        }
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.regularMaterial, in: Capsule())
-                        .overlay(Capsule().strokeBorder(.primary.opacity(0.2), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove " + model.graphElementLabel(element))
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-        .scrollIndicators(.hidden)
-        .sensoryFeedback(.selection, trigger: model.graphElements)
-        .task(id: contextDocumentID) {
-            contextDocument = nil
-            guard let id = contextDocumentID, contextDocumentTitle == nil else { return }
-            let document = try? await environment.api.summary(id: id)
-            guard !Task.isCancelled, contextDocumentID == id else { return }
-            contextDocument = document
-        }
-    }
-
-    private var liveContent: some View {
+    var liveContent: some View {
         GeometryReader { geometry in
             // Keep controls within the viewport; allow scrolling only in compact windows.
             ScrollView {
@@ -518,9 +448,9 @@ struct ChatView: View {
         }
     }
 
-    private var inputBar: some View {
+    var inputBar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            contextBar
+            ChatContextBar(environment: environment, model: model, summary: summary)
             composer
         }
         .padding(.horizontal)
@@ -528,7 +458,7 @@ struct ChatView: View {
     }
 
     /// Only the Mac can run local agents, so iOS and visionOS always use the cloud voice.
-    private var voiceEngine: LiveVoiceEngine {
+    var voiceEngine: LiveVoiceEngine {
         #if os(macOS)
         LiveVoiceEngine(saved: savedVoiceEngine)
         #else
@@ -536,7 +466,7 @@ struct ChatView: View {
         #endif
     }
 
-    private var voiceButtonsWidth: CGFloat {
+    var voiceButtonsWidth: CGFloat {
         #if os(macOS)
         70
         #else
@@ -544,8 +474,23 @@ struct ChatView: View {
         #endif
     }
 
-    private var composer: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+    var composer: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            Button {
+                inputFocused = false
+                interactionFeedback += 1
+                showsFilePicker = true
+            } label: {
+                Label("Attach Files", systemImage: "paperclip")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 40, height: 40)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .platformGlassEffect(.regular.interactive(), in: Circle())
+            .help("Attach Files")
+            .accessibilityIdentifier("chat-attach-files")
+            .disabled(model.isStreaming || model.files.uploadProgress != nil || model.files.attachments.count >= ChatFileAttachment.maxCount)
             TextField(placeholder, text: $model.draft, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($inputFocused)
@@ -579,12 +524,12 @@ struct ChatView: View {
                             Image(systemName: "mic.fill").frame(width: 36, height: 40)
                         }
                         .buttonStyle(.plain)
-                        .disabled(model.isStreaming)
+                        .disabled(model.isStreaming || model.files.uploadProgress != nil || !model.files.attachments.isEmpty)
                         .accessibilityLabel("Start voice chat")
                         .accessibilityIdentifier("chat-voice-start")
                     }
                 }
-                .onSubmit { model.send() }
+                .onSubmit { if canSend { model.send() } }
                 .submitLabel(.send)
                 .accessibilityIdentifier("chat-input")
             if model.isStreaming {
@@ -641,12 +586,22 @@ private struct ChatEntryView: View, Equatable {
         case .user:
             HStack {
                 Spacer(minLength: 48)
-                Text(entry.text)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .foregroundStyle(.white)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .textSelection(.enabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    if !entry.text.isEmpty {
+                        Text(entry.text)
+                            .textSelection(.enabled)
+                    }
+                    ForEach(entry.attachments ?? []) { file in
+                        Label(file.filename, systemImage: file.mimeType.hasPrefix("image/") ? "photo" : "doc.text")
+                            .font(.callout)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .foregroundStyle(.white)
+                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {

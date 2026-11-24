@@ -58,51 +58,8 @@ final class LiveVoiceAudio {
               let converter = AVAudioConverter(from: source, to: target) else {
             throw NSError(domain: "Voice", code: 1, userInfo: [NSLocalizedDescriptionKey: "No microphone is available."])
         }
-        engine.attach(player)
-        engine.attach(toolPlayer)
-        #if os(iOS) || os(visionOS)
-        engine.attach(captureMixer)
-        #endif
-        let mixer = engine.mainMixerNode
-        // Keep capture in the rendered graph, without monitoring the microphone
-        // through the speaker. The tap remains upstream of this muted mixer.
-        #if os(iOS) || os(visionOS)
-        engine.connect(input, to: captureMixer, format: source)
-        captureMixer.outputVolume = 0
-        engine.connect(captureMixer, to: mixer, format: source)
-        #endif
-        engine.connect(player, to: mixer, format: AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1))
-        engine.connect(toolPlayer, to: mixer, format: AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1))
-        // VoiceProcessingIO requires matching client-side capture/playback formats.
-        // Without an explicit output connection, the mixer's first input (Gemini's
-        // 24 kHz player) can determine its output rate, mismatching the microphone.
-        // Keep the I/O graph at the capture format; the mixer resamples model audio.
-        #if os(iOS) || os(visionOS)
-        engine.connect(mixer, to: engine.outputNode, format: source)
-        #else
-        engine.connect(mixer, to: engine.outputNode, format: nil)
-        #endif
-        // Meter rendered player audio, not network arrival or microphone input.
-        let playbackLevel = playbackLevel
-        player.installTap(onBus: 0, bufferSize: 1024, format: nil) { @Sendable buffer, _ in
-            guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
-            var energy = 0.0
-            for index in 0..<Int(buffer.frameLength) {
-                let sample = Double(samples[index])
-                energy += sample * sample
-            }
-            let rms = sqrt(energy / Double(buffer.frameLength))
-            playbackLevel.withLock { $0 = min(1, rms * 5) }
-        }
-        playbackTapped = true
-        meterTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { return }
-                let level = self.queuedFrames > 0 ? playbackLevel.withLock { $0 } : 0
-                self.onLevel?(level)
-                do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
-            }
-        }
+        connectAudioGraph(input: input, format: source)
+        startPlaybackMeter()
         let (stream, continuation) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(8))
         let playbackGate = playbackGate
         let toolPlaybackGate = toolPlaybackGate
@@ -144,6 +101,57 @@ final class LiveVoiceAudio {
         player.play()
         observeConfigurationChanges()
         return stream
+    }
+
+    private func connectAudioGraph(input: AVAudioInputNode, format source: AVAudioFormat) {
+        engine.attach(player)
+        engine.attach(toolPlayer)
+        #if os(iOS) || os(visionOS)
+        engine.attach(captureMixer)
+        #endif
+        let mixer = engine.mainMixerNode
+        // Keep capture in the rendered graph, without monitoring the microphone
+        // through the speaker. The tap remains upstream of this muted mixer.
+        #if os(iOS) || os(visionOS)
+        engine.connect(input, to: captureMixer, format: source)
+        captureMixer.outputVolume = 0
+        engine.connect(captureMixer, to: mixer, format: source)
+        #endif
+        engine.connect(player, to: mixer, format: AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1))
+        engine.connect(toolPlayer, to: mixer, format: AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1))
+        // VoiceProcessingIO requires matching client-side capture/playback formats.
+        // Without an explicit output connection, the mixer's first input (Gemini's
+        // 24 kHz player) can determine its output rate, mismatching the microphone.
+        // Keep the I/O graph at the capture format; the mixer resamples model audio.
+        #if os(iOS) || os(visionOS)
+        engine.connect(mixer, to: engine.outputNode, format: source)
+        #else
+        engine.connect(mixer, to: engine.outputNode, format: nil)
+        #endif
+    }
+
+    private func startPlaybackMeter() {
+        // Meter rendered player audio, not network arrival or microphone input.
+        let playbackLevel = playbackLevel
+        player.installTap(onBus: 0, bufferSize: 1024, format: nil) { @Sendable buffer, _ in
+            guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
+            var energy = 0.0
+            for index in 0..<Int(buffer.frameLength) {
+                let sample = Double(samples[index])
+                energy += sample * sample
+            }
+            let rms = sqrt(energy / Double(buffer.frameLength))
+            playbackLevel.withLock { $0 = min(1, rms * 5) }
+        }
+        playbackTapped = true
+        meterTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let level = self.queuedFrames > 0 ? playbackLevel.withLock { $0 } : 0
+                self.onLevel?(level)
+                do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
+            }
+        }
     }
 
     private func observeConfigurationChanges() {

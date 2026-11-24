@@ -76,38 +76,7 @@ struct GraphCanvasView: View {
                 .accessibilityHidden(true)
             }
             #endif
-            .simultaneousGesture(
-                SpatialTapGesture(count: 2, coordinateSpace: .local)
-                    .exclusively(before: SpatialTapGesture(count: 1, coordinateSpace: .local))
-                    .onEnded { value in
-                        pauseAutomaticRotation()
-                        switch value {
-                        case .first(let tap):
-                            guard let element = model.hit(at: tap.location, in: size) else { return }
-                            onTap(element, size)
-                        case .second(let tap):
-                            guard let element = model.hit(at: tap.location, in: size) else {
-                                onSelect(nil, false)
-                                return
-                            }
-                            #if os(macOS)
-                            let additive = additiveSelection
-                            #else
-                            let additive = false
-                            #endif
-                            onSelect(element, additive)
-                            guard !additive, case .node = element,
-                                  let position = GraphHitTest.position(of: element, document: document, positions: model.positions) else { return }
-                            let target = model.camera.focused(on: position, zoom: model.camera.zoom, in: size)
-                            if reduceMotion {
-                                model.stopCamera()
-                                model.camera = target
-                            } else {
-                                model.animateCamera(to: target, duration: 0.55)
-                            }
-                        }
-                    }
-            )
+            .simultaneousGesture(tap(size: size))
             .gesture(drag(size: size))
             .simultaneousGesture(pinch)
             .simultaneousGesture(
@@ -154,6 +123,39 @@ struct GraphCanvasView: View {
 
     private func pauseAutomaticRotation() {
         rotationResumeTime = ContinuousClock.now.advanced(by: .seconds(30))
+    }
+
+    private func tap(size: CGSize) -> some Gesture {
+        SpatialTapGesture(count: 2, coordinateSpace: .local)
+            .exclusively(before: SpatialTapGesture(count: 1, coordinateSpace: .local))
+            .onEnded { value in
+                pauseAutomaticRotation()
+                switch value {
+                case .first(let tap):
+                    guard let element = model.hit(at: tap.location, in: size) else { return }
+                    onTap(element, size)
+                case .second(let tap):
+                    guard let element = model.hit(at: tap.location, in: size) else {
+                        onSelect(nil, false)
+                        return
+                    }
+                    #if os(macOS)
+                    let additive = additiveSelection
+                    #else
+                    let additive = false
+                    #endif
+                    onSelect(element, additive)
+                    guard !additive, case .node = element,
+                          let position = GraphHitTest.position(of: element, document: document, positions: model.positions) else { return }
+                    let target = model.camera.focused(on: position, zoom: model.camera.zoom, in: size)
+                    if reduceMotion {
+                        model.stopCamera()
+                        model.camera = target
+                    } else {
+                        model.animateCamera(to: target, duration: 0.55)
+                    }
+                }
+            }
     }
 
     private func drag(size: CGSize) -> some Gesture {

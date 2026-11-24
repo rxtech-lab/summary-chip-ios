@@ -40,42 +40,7 @@ struct AudiobookPlanSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        PlanChatBubble(role: .assistant, text: String(localized: "Here's a plan for the book, with its chapters, speakers, music and scenes. Ask me to change anything, or tap a part to edit it yourself."))
-                        ForEach(PlanTranscriptItem.items(plan.messages)) { item in
-                            switch item {
-                            case .message(let message): PlanChatBubble(role: message.role, text: message.text)
-                            case .snapshot(let message): snapshotCard(message)
-                            case .live: card.id("plan")
-                            }
-                        }
-                        if let pendingMessage {
-                            VStack(alignment: .leading, spacing: 14) {
-                                PlanChatBubble(role: .user, text: pendingMessage)
-                                PlanWorkingBubble(text: String(localized: "Thinking about the plan…"))
-                                Spacer(minLength: 0)
-                            }
-                            .frame(minHeight: max(0, viewportHeight - 32), alignment: .top)
-                            .id("pending")
-                        }
-                        Color.clear.frame(height: 1).id("end")
-                    }
-                    .padding()
-                    .frame(maxWidth: 760)
-                    .frame(maxWidth: .infinity)
-                }
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
-#if !os(visionOS)
-                .scrollDismissesKeyboard(.interactively)
-#endif
-                // Keep a sent request at the top while the planner works.
-                .onChange(of: plan.messages.map(\.id)) {
-                    withAnimation { plan.messages.showedPlanLast() ? proxy.scrollTo("plan", anchor: .top) : proxy.scrollTo("end", anchor: .bottom) }
-                }
-                .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("pending", anchor: .top) } } }
-            }
+            transcript
             .safeAreaInset(edge: .bottom) { composer }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Audiobook Plan")
@@ -96,46 +61,7 @@ struct AudiobookPlanSheet: View {
                 }
             }
             .sheet(isPresented: $showsChapterSelection) {
-                NavigationStack {
-                    List {
-                        Section {
-                            HStack {
-                                Button("Select All") {
-                                    selectedChapters = Set(plan.plan.chapters.indices)
-                                }
-                                .disabled(selectedChapters.count == plan.plan.chapters.count)
-                                .accessibilityIdentifier("audiobook-chapters-select-all")
-                                Spacer()
-                                Button("Deselect All") { selectedChapters.removeAll() }
-                                    .disabled(selectedChapters.isEmpty)
-                                    .accessibilityIdentifier("audiobook-chapters-deselect-all")
-                            }
-                            .buttonStyle(.borderless)
-                        }
-                        Section {
-                            ForEach(plan.plan.chapters.indices, id: \.self) { index in
-                                Toggle(isOn: Binding(get: { selectedChapters.contains(index) }, set: { value in
-                                    if value { selectedChapters.insert(index) } else { selectedChapters.remove(index) }
-                                })) { Text("\(index + 1). \(plan.plan.chapters[index].title)") }
-                            }
-                        } footer: {
-                            Text("Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more.")
-                        }
-                    }
-                    .navigationTitle("Generate Chapters")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showsChapterSelection = false } }
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Generate") { showsChapterSelection = false; confirmGeneration() }
-                                .disabled(selectedChapters.isEmpty)
-                        }
-                    }
-                    .sensoryFeedback(.selection, trigger: selectedChapters)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 480)
-                .presentationSizing(.page.fitted(horizontal: true, vertical: false))
-                .presentationDetents([.large])
+                chapterSelection
             }
             .sheet(item: $editingChapter) { choice in
                 AudiobookChapterSheet(plan: plan, index: choice.id) { save($0) }
@@ -177,6 +103,88 @@ struct AudiobookPlanSheet: View {
         }
         .interactiveDismissDisabled(pendingMessage != nil || saving)
         .summarySheetFrame(minWidth: 520, idealWidth: 700, minHeight: 600)
+        .presentationSizing(.page.fitted(horizontal: true, vertical: false))
+        .presentationDetents([.large])
+    }
+
+    private var transcript: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    PlanChatBubble(role: .assistant, text: String(localized: "Here's a plan for the book, with its chapters, speakers, music and scenes. Ask me to change anything, or tap a part to edit it yourself."))
+                    ForEach(PlanTranscriptItem.items(plan.messages)) { item in
+                        switch item {
+                        case .message(let message): PlanChatBubble(role: message.role, text: message.text)
+                        case .snapshot(let message): snapshotCard(message)
+                        case .live: card.id("plan")
+                        }
+                    }
+                    if let pendingMessage {
+                        VStack(alignment: .leading, spacing: 14) {
+                            PlanChatBubble(role: .user, text: pendingMessage)
+                            PlanWorkingBubble(text: String(localized: "Thinking about the plan…"))
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: max(0, viewportHeight - 32), alignment: .top)
+                        .id("pending")
+                    }
+                    Color.clear.frame(height: 1).id("end")
+                }
+                .padding()
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
+#if !os(visionOS)
+            .scrollDismissesKeyboard(.interactively)
+#endif
+            // Keep a sent request at the top while the planner works.
+            .onChange(of: plan.messages.map(\.id)) {
+                withAnimation { plan.messages.showedPlanLast() ? proxy.scrollTo("plan", anchor: .top) : proxy.scrollTo("end", anchor: .bottom) }
+            }
+            .onChange(of: pendingMessage) { if pendingMessage != nil { withAnimation { proxy.scrollTo("pending", anchor: .top) } } }
+        }
+    }
+
+    private var chapterSelection: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        Button("Select All") {
+                            selectedChapters = Set(plan.plan.chapters.indices)
+                        }
+                        .disabled(selectedChapters.count == plan.plan.chapters.count)
+                        .accessibilityIdentifier("audiobook-chapters-select-all")
+                        Spacer()
+                        Button("Deselect All") { selectedChapters.removeAll() }
+                            .disabled(selectedChapters.isEmpty)
+                            .accessibilityIdentifier("audiobook-chapters-deselect-all")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                Section {
+                    ForEach(plan.plan.chapters.indices, id: \.self) { index in
+                        Toggle(isOn: Binding(get: { selectedChapters.contains(index) }, set: { value in
+                            if value { selectedChapters.insert(index) } else { selectedChapters.remove(index) }
+                        })) { Text("\(index + 1). \(plan.plan.chapters[index].title)") }
+                    }
+                } footer: {
+                    Text("Chapters join one audiobook, and generating a chapter again adds a new version of it. Reopen this plan from the library to generate more.")
+                }
+            }
+            .navigationTitle("Generate Chapters")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showsChapterSelection = false } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Generate") { showsChapterSelection = false; confirmGeneration() }
+                        .disabled(selectedChapters.isEmpty)
+                }
+            }
+            .sensoryFeedback(.selection, trigger: selectedChapters)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .summarySheetFrame(minWidth: 320, idealWidth: 520, minHeight: 480)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
     }

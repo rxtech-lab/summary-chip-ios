@@ -63,52 +63,7 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
         // Keep the first day's summary and viewed trip together even around midnight.
         let now = Calendar.current.startOfDay(for: .now).addingTimeInterval(12 * 3600)
         let day: TimeInterval = 86_400
-        items = [
-            Item(id: "clip-01", slug: "P0cketClip", kind: "mini_app", title: "Pocket Checklist",
-                 summary: "A small interactive checklist for everyday tasks.",
-                 category: "Lifestyle", tags: ["checklist"], source: "text",
-                 colors: ["#004D40", "#26A69A"], emoji: "✅", accent: "#4db6ac", isOwner: true,
-                 createdAt: now.addingTimeInterval(-2 * 3600)),
-            Item(id: "s-coffee", slug: "C0ffeeRst1", title: "Why specialty roasters are buying their own farms",
-                 summary: "Small coffee roasters are investing directly in growers to secure quality beans as climate swings make harvests less predictable.",
-                 highlights: ["Direct trade keeps more of the price with growers.", "Owning land gives roasters steadier supply."],
-                 category: "Business", tags: ["coffee", "supply chain"], sourceUrl: "https://example.com/coffee", siteName: "Sprudge",
-                 colors: ["#3E2723", "#8D6E63"], emoji: "☕️", accent: "#a1887f", isOwner: true,
-                 expiresAt: now.addingTimeInterval(6 * day), createdAt: now.addingTimeInterval(-3 * 3600)),
-            Item(id: "s-swift", slug: "SwiftCnc01", title: "Swift 6.2 makes strict concurrency approachable",
-                 summary: "The release defaults new projects to main-actor isolation and adds clearer diagnostics, so most app code compiles without annotations.",
-                 highlights: ["Main-actor-by-default removes most Sendable warnings.", "`@concurrent` marks work that should leave the main actor."],
-                 category: "Technology", tags: ["swift", "concurrency"], source: "github", sourceUrl: "https://github.com/swiftlang/swift", siteName: "GitHub",
-                 colors: ["#BF360C", "#FF7043"], emoji: "🕊️", accent: "#ff8a65", isOwner: true,
-                 expiresAt: now.addingTimeInterval(25 * day), createdAt: now.addingTimeInterval(ProcessInfo.processInfo.arguments.contains("--preview-editor-picks") ? -4 * 3600 : -26 * 3600)),
-            Item(id: "s-sourdough", slug: "S0urD0ugh1", title: "The science of a better sourdough crumb",
-                 summary: "Hydration, fermentation time and oven steam decide how open a loaf's crumb gets; a cold overnight proof gives bakers the most control.",
-                 highlights: ["75% hydration is a forgiving starting point.", "A cold proof slows fermentation and deepens flavour."],
-                 category: "Food", tags: ["baking", "sourdough"], source: "youtube", sourceUrl: "https://www.youtube.com/watch?v=sourdough", siteName: "YouTube",
-                 colors: ["#4E342E", "#D7CCC8"], emoji: "🍞", accent: "#bcaaa4", isOwner: true,
-                 expiresAt: now.addingTimeInterval(12 * day), createdAt: now.addingTimeInterval(-3 * day)),
-            Item(id: "s-trains", slug: "NightTrn01", title: "Night trains are making a comeback across Europe",
-                 summary: "New sleeper routes link Paris, Berlin, Vienna and Milan as travellers look for low-carbon alternatives to short flights. Operators are ordering modern carriages with private cabins, though tickets still cost more than budget airlines.",
-                 highlights: ["Nightjet and European Sleeper are adding routes through 2027.", "Private cabins with showers are replacing six-berth couchettes.", "Fares remain higher than budget flights on most routes."],
-                 category: "Travel", tags: ["rail", "europe", "climate"], sourceUrl: "https://example.com/night-trains", siteName: "The Guardian",
-                 colors: ["#1A237E", "#5C6BC0"], emoji: "🚆", accent: "#7986cb",
-                 expiresAt: now.addingTimeInterval(20 * day), createdAt: now.addingTimeInterval(-2 * day)),
-            Item(id: "trip-01", slug: "N0rthB0und", kind: "trip", title: "Northbound Japan",
-                 summary: "Three days from Narita to Sendai by rail, with a side trip to Matsushima.",
-                 category: "Travel", tags: ["japan", "rail"], source: "text",
-                 colors: ["#004D40", "#26A69A"], emoji: "🗾", accent: "#4db6ac",
-                 expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-4 * day),
-                 viewedAt: now.addingTimeInterval(-1 * 3600)),
-            Item(id: "s-solar", slug: "S0larBalc1", title: "The quiet rise of balcony solar in Germany",
-                 summary: "", category: "Science", tags: ["energy", "germany"], sourceUrl: "https://example.com/balcony-solar", siteName: "Clean Energy Wire",
-                 colors: ["#F57F17", "#FFCA28"], emoji: "☀️", accent: "#ffb300",
-                 expiresAt: now.addingTimeInterval(-1 * day), isExpired: true, createdAt: now.addingTimeInterval(-9 * day)),
-            Item(id: "paper-01", slug: "PaperRdr01", kind: "paper", title: "Reading Papers Natively",
-                 summary: "A paper's LaTeX set as native text that reflows and grows with the reader.",
-                 category: "Research", tags: ["latex", "reading"], source: "text",
-                 colors: ["#263238", "#78909C"], emoji: "📄", accent: "#90a4ae", isOwner: true,
-                 expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-5 * 3600)),
-        ]
+        items = Self.initialItems(on: now, day: day)
         if ProcessInfo.processInfo.arguments.contains("--preview-graph-chip") {
             items.append(Item(id: GraphPreviewAPI.graphID, slug: "GraphChip1", kind: "graph", title: "Computing Pioneers",
                               summary: "People and machines from early computing.",
@@ -465,89 +420,57 @@ nonisolated final class LikesPreviewStore: @unchecked Sendable {
 """#
 }
 
-/// The fixture paper's LaTeX: text, math, a theorem, a figure, a table and a TikZ drawing.
-nonisolated enum LikesPreviewPaper {
-    /// `edited` is version 3, with the agent's change for the finished review.
-    static func source(edited: Bool) -> PaperSource {
-        let main = edited ? mainLaTeX.replacingOccurrences(of: introduction, with: editedIntroduction) : mainLaTeX
-        return PaperSource(title: "Reading Papers Natively", files: [
-            PaperFile(path: "main.tex", content: main),
-            PaperFile(path: "refs.bib", content: bibliography),
-            PaperFile(path: "figures/chart.png", asset: PaperAsset(key: "chart", mimeType: "image/png", byteSize: 1)),
-        ], mainFile: "main.tex")
+nonisolated private extension LikesPreviewStore {
+    private static func initialItems(on now: Date, day: TimeInterval) -> [Item] {
+        [
+            Item(id: "clip-01", slug: "P0cketClip", kind: "mini_app", title: "Pocket Checklist",
+                 summary: "A small interactive checklist for everyday tasks.",
+                 category: "Lifestyle", tags: ["checklist"], source: "text",
+                 colors: ["#004D40", "#26A69A"], emoji: "✅", accent: "#4db6ac", isOwner: true,
+                 createdAt: now.addingTimeInterval(-2 * 3600)),
+            Item(id: "s-coffee", slug: "C0ffeeRst1", title: "Why specialty roasters are buying their own farms",
+                 summary: "Small coffee roasters are investing directly in growers to secure quality beans as climate swings make harvests less predictable.",
+                 highlights: ["Direct trade keeps more of the price with growers.", "Owning land gives roasters steadier supply."],
+                 category: "Business", tags: ["coffee", "supply chain"], sourceUrl: "https://example.com/coffee", siteName: "Sprudge",
+                 colors: ["#3E2723", "#8D6E63"], emoji: "☕️", accent: "#a1887f", isOwner: true,
+                 expiresAt: now.addingTimeInterval(6 * day), createdAt: now.addingTimeInterval(-3 * 3600)),
+            Item(id: "s-swift", slug: "SwiftCnc01", title: "Swift 6.2 makes strict concurrency approachable",
+                 summary: "The release defaults new projects to main-actor isolation and adds clearer diagnostics, so most app code compiles without annotations.",
+                 highlights: ["Main-actor-by-default removes most Sendable warnings.", "`@concurrent` marks work that should leave the main actor."],
+                 category: "Technology", tags: ["swift", "concurrency"], source: "github", sourceUrl: "https://github.com/swiftlang/swift", siteName: "GitHub",
+                 colors: ["#BF360C", "#FF7043"], emoji: "🕊️", accent: "#ff8a65", isOwner: true,
+                 expiresAt: now.addingTimeInterval(25 * day), createdAt: now.addingTimeInterval(ProcessInfo.processInfo.arguments.contains("--preview-editor-picks") ? -4 * 3600 : -26 * 3600)),
+            Item(id: "s-sourdough", slug: "S0urD0ugh1", title: "The science of a better sourdough crumb",
+                 summary: "Hydration, fermentation time and oven steam decide how open a loaf's crumb gets; a cold overnight proof gives bakers the most control.",
+                 highlights: ["75% hydration is a forgiving starting point.", "A cold proof slows fermentation and deepens flavour."],
+                 category: "Food", tags: ["baking", "sourdough"], source: "youtube", sourceUrl: "https://www.youtube.com/watch?v=sourdough", siteName: "YouTube",
+                 colors: ["#4E342E", "#D7CCC8"], emoji: "🍞", accent: "#bcaaa4", isOwner: true,
+                 expiresAt: now.addingTimeInterval(12 * day), createdAt: now.addingTimeInterval(-3 * day)),
+            Item(id: "s-trains", slug: "NightTrn01", title: "Night trains are making a comeback across Europe",
+                 summary: "New sleeper routes link Paris, Berlin, Vienna and Milan as travellers look for low-carbon alternatives to short flights. Operators are ordering modern carriages with private cabins, though tickets still cost more than budget airlines.",
+                 highlights: ["Nightjet and European Sleeper are adding routes through 2027.", "Private cabins with showers are replacing six-berth couchettes.", "Fares remain higher than budget flights on most routes."],
+                 category: "Travel", tags: ["rail", "europe", "climate"], sourceUrl: "https://example.com/night-trains", siteName: "The Guardian",
+                 colors: ["#1A237E", "#5C6BC0"], emoji: "🚆", accent: "#7986cb",
+                 expiresAt: now.addingTimeInterval(20 * day), createdAt: now.addingTimeInterval(-2 * day)),
+            Item(id: "trip-01", slug: "N0rthB0und", kind: "trip", title: "Northbound Japan",
+                 summary: "Three days from Narita to Sendai by rail, with a side trip to Matsushima.",
+                 category: "Travel", tags: ["japan", "rail"], source: "text",
+                 colors: ["#004D40", "#26A69A"], emoji: "🗾", accent: "#4db6ac",
+                 expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-4 * day),
+                 viewedAt: now.addingTimeInterval(-1 * 3600)),
+            Item(id: "s-solar", slug: "S0larBalc1", title: "The quiet rise of balcony solar in Germany",
+                 summary: "", category: "Science", tags: ["energy", "germany"], sourceUrl: "https://example.com/balcony-solar", siteName: "Clean Energy Wire",
+                 colors: ["#F57F17", "#FFCA28"], emoji: "☀️", accent: "#ffb300",
+                 expiresAt: now.addingTimeInterval(-1 * day), isExpired: true, createdAt: now.addingTimeInterval(-9 * day)),
+            Item(id: "paper-01", slug: "PaperRdr01", kind: "paper", title: "Reading Papers Natively",
+                 summary: "A paper's LaTeX set as native text that reflows and grows with the reader.",
+                 category: "Research", tags: ["latex", "reading"], source: "text",
+                 colors: ["#263238", "#78909C"], emoji: "📄", accent: "#90a4ae", isOwner: true,
+                 expiresAt: now.addingTimeInterval(30 * day), createdAt: now.addingTimeInterval(-5 * 3600)),
+        ]
     }
 
-    private static let introduction = #"Literate programming~\cite{knuth84} treats a program as \textbf{literature}."#
-
-    private static let editedIntroduction = #"""
-        Literate programming~\cite{knuth84} treats a program as \textbf{literature}: an essay written for people,
-        from which the compiler's input is extracted. Reading it first as prose makes its design visible.
-        """#
-
-    private static let mainLaTeX = #"""
-        \documentclass{article}
-        \title{Reading Papers \emph{Natively}}
-        \author{Ada Lovelace \and Alan Turing}
-        \date{1 May 2025}
-        \begin{document}
-        \maketitle
-        \begin{abstract}
-        We set a paper's LaTeX as native text, so it reflows and grows with the reader.
-        \end{abstract}
-        \section{Introduction}\label{sec:intro}
-        Literate programming~\cite{knuth84} treats a program as \textbf{literature}.
-        For $x \in \mathbb{R}$ we have $e^{i\pi} + 1 = 0$, see Section~\ref{sec:intro}.\footnote{A footnote.}
-        \begin{itemize}
-          \item Text that \textit{reflows}
-          \item Formulas like $\frac{a}{b}$
-        \end{itemize}
-        \begin{theorem}[Fermat]
-        No three positive integers satisfy $a^n + b^n = c^n$ for $n > 2$.
-        \end{theorem}
-        \section{Results}
-        The roots of $ax^2 + bx + c = 0$ are
-        \begin{equation}\label{eq:roots}
-          x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
-        \end{equation}
-        \begin{figure}[h]
-          \centering
-          \includegraphics[width=0.7\linewidth]{figures/chart}
-          \caption{Growth over five years.}\label{fig:chart}
-        \end{figure}
-        \begin{table}[h]
-          \centering
-          \caption{Scores by model.}
-          \begin{tabular}{lcr}
-            \toprule
-            Model & \multicolumn{2}{c}{Score} \\
-            \midrule
-            Base & 71.2 & \textbf{3.1} \\
-            Ours & 84.5 & 2.4 \\
-            \bottomrule
-          \end{tabular}
-        \end{table}
-        \begin{figure}[h]
-          \begin{tikzpicture}\draw (0,0) -- (1,1);\end{tikzpicture}
-          \caption{A diagram.}
-        \end{figure}
-        \bibliographystyle{plain}
-        \bibliography{refs}
-        \end{document}
-        """#
-
-    private static let bibliography = #"""
-        @article{knuth84,
-          author = {Knuth, Donald E.},
-          title = {Literate Programming},
-          journal = {The Computer Journal},
-          volume = {27}, number = {2}, pages = {97--111},
-          year = 1984,
-        }
-        """#
-}
-
-private extension LikesPreviewStore {
-    nonisolated func routeBackgroundJob(path: [String], method: String) -> (Int, Data) {
+    func routeBackgroundJob(path: [String], method: String) -> (Int, Data) {
         if path == ["background-jobs", "preview-video-job"], method == "DELETE" {
             backgroundJobDeleted = true
             return (204, Data())
@@ -555,7 +478,7 @@ private extension LikesPreviewStore {
         return method == "GET" ? backgroundJobResponse(list: path.count == 1) : notFound
     }
 
-    nonisolated func libraryResponse(query: [URLQueryItem]) -> (Int, Data) {
+    func libraryResponse(query: [URLQueryItem]) -> (Int, Data) {
         let liked = query.first { $0.name == "scope" }?.value == "liked"
         let kind = query.first { $0.name == "kind" }?.value
         let excludedKind = query.first { $0.name == "excludeKind" }?.value
@@ -576,7 +499,7 @@ private extension LikesPreviewStore {
         return json(["items": listed.map(summary), "nextCursor": NSNull()])
     }
 
-    nonisolated func miniAppResponse(id: String) -> (Int, Data) {
+    func miniAppResponse(id: String) -> (Int, Data) {
         // Its own tab bar, so the screenshots show it replacing the app's on iPhone.
         var document = MiniAppDocument.blank(title: "Pocket Checklist")
         document.ui.elements = [
@@ -595,7 +518,7 @@ private extension LikesPreviewStore {
                               "shareUrl": "https://summary.rxlab.app/s/P0cketClip", "permissions": [:]]])
     }
 
-    nonisolated func routePodcast(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
+    func podcastPlanOrOptions(path: [String], method: String) -> (Int, Data)? {
         if method == "GET", path == ["daily-podcasts", "plans"] {
             let plans: [[String: Any]] = ProcessInfo.processInfo.arguments.contains("--preview-podcast-plans") && !previewPlanConfirmed ? [
                 ["id": "preview-plan", "revision": 0, "title": "Planned battery explainer", "lineCount": 7,
@@ -636,6 +559,34 @@ private extension LikesPreviewStore {
                 "defaultVideoStyle": "news"
             ])
         }
+        return nil
+    }
+
+    func createPodcast(_ request: URLRequest, duration: Int) -> (Int, Data) {
+        let data = request.httpBodyStream.map(Self.read) ?? request.httpBody ?? Data()
+        let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        let day = body["day"] as? [String: String] ?? [:]
+        let key = UUID().uuidString.lowercased()
+        var podcast: [String: Any] = [
+            "key": key, "title": "A day of discoveries", "language": body["language"] ?? "en",
+            "day": day, "audioPath": "/api/v1/daily-podcasts/\(key)/audio", "durationSeconds": duration,
+            "createdAt": iso(.now), "speakers": [["name": "Alex", "voice": "preview"]],
+            "segments": [["speaker": 0, "startSeconds": 0, "endSeconds": duration, "chipId": "s-coffee", "caption": "Today we explore how coffee growers and specialty roasters work together to secure better harvests.",
+                          "audioPath": "/api/v1/daily-podcasts/\(key)/segments/0", "icon": "☕️"]]
+        ]
+        if body["library"] as? Bool == true {
+            let id = UUID().uuidString.lowercased()
+            podcast["summaryId"] = id
+            items.append(Item(id: id, slug: id, kind: "podcast", title: "A day of discoveries", summary: "Your selected chips as a podcast.",
+                category: "Other", tags: [], source: "text", colors: ["#242354", "#7566b0"], emoji: "🎙️", accent: "#7566b0", isOwner: true, createdAt: .now))
+        }
+        podcastVersions[day["start"] ?? "", default: []].append(podcast)
+        if body["library"] as? Bool != true { dailyPodcasts[day["start"] ?? ""] = podcast }
+        return json(["podcast": podcast])
+    }
+
+    func routePodcast(_ request: URLRequest, path: [String], method: String, query: [URLQueryItem]) -> (Int, Data) {
+        if let response = podcastPlanOrOptions(path: path, method: method) { return response }
         let dayKey = query.first { $0.name == "start" }?.value ?? ""
         let duration = ProcessInfo.processInfo.arguments.contains("--preview-podcast-navigation") ? 60 : 2
         if method == "GET", path.count == 2, path[1] == "versions" {
@@ -661,26 +612,7 @@ private extension LikesPreviewStore {
             return json(["podcast": dailyPodcasts[dayKey].map { $0 as Any } ?? NSNull()])
         }
         if method == "POST", path.count == 1 {
-            let data = request.httpBodyStream.map(Self.read) ?? request.httpBody ?? Data()
-            let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-            let day = body["day"] as? [String: String] ?? [:]
-            let key = UUID().uuidString.lowercased()
-            var podcast: [String: Any] = [
-                "key": key, "title": "A day of discoveries", "language": body["language"] ?? "en",
-                "day": day, "audioPath": "/api/v1/daily-podcasts/\(key)/audio", "durationSeconds": duration,
-                "createdAt": iso(.now), "speakers": [["name": "Alex", "voice": "preview"]],
-                "segments": [["speaker": 0, "startSeconds": 0, "endSeconds": duration, "chipId": "s-coffee", "caption": "Today we explore how coffee growers and specialty roasters work together to secure better harvests.",
-                              "audioPath": "/api/v1/daily-podcasts/\(key)/segments/0", "icon": "☕️"]]
-            ]
-            if body["library"] as? Bool == true {
-                let id = UUID().uuidString.lowercased()
-                podcast["summaryId"] = id
-                items.append(Item(id: id, slug: id, kind: "podcast", title: "A day of discoveries", summary: "Your selected chips as a podcast.",
-                    category: "Other", tags: [], source: "text", colors: ["#242354", "#7566b0"], emoji: "🎙️", accent: "#7566b0", isOwner: true, createdAt: .now))
-            }
-            podcastVersions[day["start"] ?? "", default: []].append(podcast)
-            if body["library"] as? Bool != true { dailyPodcasts[day["start"] ?? ""] = podcast }
-            return json(["podcast": podcast])
+            return createPodcast(request, duration: duration)
         }
         if method == "GET", path.count == 3, path[2] == "audio" {
             // A short PCM WAV fixture: AVAudioPlayer accepts the file signature regardless of the endpoint suffix.

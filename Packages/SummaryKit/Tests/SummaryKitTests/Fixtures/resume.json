@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "candidateName": "林明 · Mariam علي",
+  "headline": "Ingénieure logiciel",
+  "contact": { "email": "mariam@example.org", "location": "香港" },
+  "links": [{ "id": "link1", "label": "Portfolio", "url": "https://example.org" }],
+  "sections": [{
+    "id": "work", "kind": "experience", "title": "Expérience",
+    "entries": [{
+      "id": "job1", "title": "Ingénieure", "organization": "Atelier",
+      "startDate": "2022-04", "current": true,
+      "bullets": [{ "id": "bullet1", "text": "Création d’outils multilingues." }]
+    }, {
+      "id": "job2", "title": "研究員", "startDate": "2018", "endDate": "2022-03-15",
+      "bullets": []
+    }]
+  }]
+}

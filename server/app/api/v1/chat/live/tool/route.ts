@@ -1,3 +1,4 @@
+import { billingEnvironment } from "@/lib/subscription/environment";
 import { requireAppFeature } from "@/lib/http/app-version";
 import { voiceToolCatalog } from "@/lib/ai/live-tools";
 import { asSchema, type ToolSet } from "ai";
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   return withApiAuth(request, async ({ principal, db }) => {
     const body = await readJson(request, value => schema.parse(value));
     if (body.context.tripId) requireAppFeature(request, "trips");
-    const prepared = await prepareChat(db, principal.sub, body.context);
+    const prepared = await prepareChat(db, principal.sub, {...body.context,billingEnvironment:await billingEnvironment(request,principal)});
     const tools = voiceToolCatalog(prepared.tools);
     const tool = Object.hasOwn(tools, body.name) ? (tools as ToolSet)[body.name] : undefined;
     if (!tool?.execute) throw new ApiError(400, "INVALID_TOOL", "This tool is not available in this context.");

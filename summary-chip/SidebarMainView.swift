@@ -10,6 +10,7 @@ struct SidebarMainView: View {
     /// while the layout settles (it was just created by unfolding, or the size class changed) the
     /// split view picks its own visibility, and that must not overwrite the user's choice.
     @State private var columnVisibility: NavigationSplitViewVisibility
+    @State private var pendingEditionAgent: ChatModel?
     @State private var layoutSettled = false
     @State private var settleTask: Task<Void, Never>?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -65,15 +66,21 @@ struct SidebarMainView: View {
         }
         .environment(\.chatPanelVisibility, chatVisibility)
         .environment(\.openSideAgent, { model in
-            navigation.sideAgent = model
+            presentDocumentAgent(model)
             navigation.lastFocusedChat = true
             showsChat = true
         })
         .environment(\.setSideAgentContext, { model in
-            let id = model.summaryID ?? model.trip?.id ?? model.graph?.id ?? model.miniAppID
+            let id = model.documentID
             guard id == activeDocument?.id else { return }
-            navigation.sideAgent = model
+            presentDocumentAgent(model)
         })
+        .onChange(of: navigation.sideAgent?.isResumeVoiceActive) { _, active in
+            guard active != true else { return }
+            if let pendingEditionAgent, pendingEditionAgent.documentID == activeDocument?.id { navigation.sideAgent = pendingEditionAgent }
+            self.pendingEditionAgent = nil
+            updateDocumentContext()
+        }
         .onChange(of: navigation.selection) { _, selection in
             if selection != .chat { navigation.contentSelection = selection }
             updateDocumentContext()
@@ -238,13 +245,22 @@ struct SidebarMainView: View {
         }
     }
 
+    private func presentDocumentAgent(_ model: ChatModel) {
+        // Keep a live microphone session attached to its original edition until the call ends.
+        if navigation.sideAgent?.isResumeVoiceActive == true { pendingEditionAgent = model }
+        else { navigation.sideAgent = model }
+    }
+
     private func updateDocumentContext() {
+        guard navigation.sideAgent?.isResumeVoiceActive != true else { return }
         guard let document = activeDocument, !document.isExpired else {
             navigation.sideAgent = nil
             return
         }
-        let currentID = navigation.sideAgent.flatMap { $0.summaryID ?? $0.trip?.id ?? $0.graph?.id ?? $0.miniAppID }
+        let currentID = navigation.sideAgent?.documentID
         guard currentID != document.id else { return }
+        // A résumé edition supplies its scoped agent after resolving company, language and revision.
+        if document.kind == .resume { navigation.sideAgent = nil; return }
         let usesSpecialist = document.isOwner
         navigation.sideAgent = ChatModel(
             client: environment.chatClient, store: environment.chatStore,

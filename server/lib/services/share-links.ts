@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import { defaultTtlDays, expiresAtFor } from "@/lib/config";
 import { MAX_SHARE_LINKS, type CreateShareLinkInput, type PatchShareLinkInput } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
@@ -25,7 +25,7 @@ export interface ShareLinkJson {
 
 type EmailRow = { email: string; addedAt: Date };
 
-function toShareLinkJson(link: ShareLinkRow, emails: EmailRow[], now = new Date()): ShareLinkJson {
+export function toShareLinkJson(link: ShareLinkRow, emails: EmailRow[], now = new Date()): ShareLinkJson {
   return {
     id: link.id,
     url: shareUrlFor(link.token),
@@ -62,9 +62,9 @@ async function getOwnedLink(db: Database, ownerId: string, summaryId: string, li
 }
 
 /** A token unused by any summary slug or other link (both open at `/s/<key>`). */
-async function freshToken(db: Database): Promise<string> {
+export async function freshToken(db: Database, prefix = ""): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const token = generateSlug(12);
+    const token = prefix + generateSlug(12);
     const [slug] = await db.select({ id: summaries.id }).from(summaries).where(eq(summaries.slug, token)).limit(1);
     const [link] = await db.select({ id: shareLinks.id }).from(shareLinks).where(eq(shareLinks.token, token)).limit(1);
     if (!slug && !link) return token;
@@ -82,11 +82,8 @@ export async function listShareLinks(db: Database, ownerId: string, summaryId: s
 }
 
 export async function createShareLink(db: Database, ownerId: string, summaryId: string, input: CreateShareLinkInput, now = new Date()): Promise<ShareLinkJson> {
-  await getOwnedSummary(db, summaryId, ownerId);
-  const [{ total }] = await db.select({ total: count() }).from(shareLinks).where(eq(shareLinks.summaryId, summaryId));
-  if (total >= MAX_SHARE_LINKS) {
-    throw new ApiError(409, "TOO_MANY_SHARE_LINKS", `A summary can have at most ${MAX_SHARE_LINKS} share links`);
-  }
+  const row = await getOwnedSummary(db, summaryId, ownerId);
+  if (row.kind === "resume") throw new ApiError(409, "RESUME_PREVIEW_REQUIRED", "Publish a previewed résumé revision to create a link");
   const ttlDays = input.ttlDays === undefined ? defaultTtlDays() : input.ttlDays;
   const link: ShareLinkRow = {
     id: crypto.randomUUID(),
@@ -100,10 +97,14 @@ export async function createShareLink(db: Database, ownerId: string, summaryId: 
     updatedAt: now,
   };
   const emails = input.emails.map((email) => ({ linkId: link.id, email, addedAt: now }));
-  await db.batch([
+  try {
+    await db.batch([
     db.insert(shareLinks).values(link),
     ...(emails.length ? [db.insert(shareLinkEmails).values(emails)] : []),
   ] as unknown as Parameters<typeof db.batch>[0]);
+  } catch (error) {
+    throw mapShareLimit(error);
+  }
   return toShareLinkJson(link, emails, now);
 }
 
@@ -120,6 +121,9 @@ export async function patchShareLink(
   now = new Date(),
 ): Promise<ShareLinkJson> {
   const existing = await getOwnedLink(db, ownerId, summaryId, linkId);
+  if (patch.ttlDays === null && (await getOwnedSummary(db, summaryId, ownerId)).kind === "resume") {
+    throw new ApiError(400, "EXPIRY_REQUIRED", "Choose an expiry for the résumé link");
+  }
   const changes: Partial<ShareLinkRow> = { updatedAt: now };
   if (patch.label !== undefined) changes.label = patch.label;
   if (patch.access !== undefined) changes.access = patch.access;
@@ -149,4 +153,14 @@ export async function patchShareLink(
 export async function deleteShareLink(db: Database, ownerId: string, summaryId: string, linkId: string): Promise<void> {
   await getOwnedLink(db, ownerId, summaryId, linkId);
   await db.delete(shareLinks).where(eq(shareLinks.id, linkId));
+}
+
+/** The SQLite trigger checks the count inside the same write transaction for all link creators. */
+export function mapShareLimit(error: unknown): unknown {
+  for (let cause = error; cause instanceof Error; cause = cause.cause) {
+    if (cause.message.includes("share_links_limit")) {
+      return new ApiError(409, "TOO_MANY_SHARE_LINKS", `A summary can have at most ${MAX_SHARE_LINKS} share links`);
+    }
+  }
+  return error;
 }

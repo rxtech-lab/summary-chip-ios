@@ -295,6 +295,7 @@ final class LiveVoiceModel {
                 output = String(decoding: try JSONEncoder().encode(result), as: UTF8.self)
             } catch {
                 guard self.generation == revision, !Task.isCancelled else { return }
+                if (error as? SummaryAPIError)?.needsTopUp == true { self.chat?.needsTopUp = true }
                 output = "Tool failed: " + error.localizedDescription
                 if let entryID { self.chat?.recordVoiceTool(.toolOutputError(toolCallId: id, errorText: output), entryID: entryID) }
             }

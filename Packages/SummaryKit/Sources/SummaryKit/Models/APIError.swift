@@ -95,7 +95,7 @@ public enum SummaryAPIError: Error, LocalizedError, Sendable, Equatable {
     public var needsTopUp: Bool {
         statusCode == 402
             && (code == "SUMMARY_ALLOWANCE_EXHAUSTED" || code == "CHAT_POINTS_EXHAUSTED" || code == "TRANSLATION_POINTS_EXHAUSTED"
-                || code == "TRIP_POINTS_EXHAUSTED")
+                || code == "RESUME_POINTS_EXHAUSTED" || code == "TRIP_POINTS_EXHAUSTED")
     }
     /// The trip changed since it was loaded (`409 TRIP_REVISION_CONFLICT`); reload and reapply.
     public var isTripRevisionConflict: Bool { statusCode == 409 && code == "TRIP_REVISION_CONFLICT" }

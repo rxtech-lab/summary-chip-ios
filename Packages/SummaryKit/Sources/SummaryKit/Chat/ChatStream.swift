@@ -1,6 +1,6 @@
 import Foundation
 
-/// One UI message in the AI SDK shape. iOS only ever sends text parts.
+/// One chat message with text parts and optional references to the user's uploads.
 public struct ChatUIMessage: Codable, Sendable, Hashable {
     public struct Part: Codable, Sendable, Hashable {
         public var type: String
@@ -16,11 +16,13 @@ public struct ChatUIMessage: Codable, Sendable, Hashable {
     public var id: String
     public var role: Role
     public var parts: [Part]
+    public var attachments: [ChatAttachmentReference]?
 
-    public init(id: String = UUID().uuidString, role: Role, text: String) {
+    public init(id: String = UUID().uuidString, role: Role, text: String, attachments: [ChatAttachmentReference]? = nil) {
         self.id = id
         self.role = role
-        self.parts = [Part(text: text)]
+        self.parts = text.isEmpty && attachments?.isEmpty == false ? [] : [Part(text: text)]
+        self.attachments = attachments
     }
 }
 
@@ -35,13 +37,15 @@ public struct ChatRequestBody: Codable, Sendable {
     public var miniAppId: String?
     /// Chats with the graph agent about one of the user's graphs; the agent can edit it and light elements up.
     public var graphId: String?
-    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil, miniAppId: String? = nil, graphId: String? = nil) {
+    public var resumeTarget: ResumeTarget?
+    public init(messages: [ChatUIMessage], summaryId: String? = nil, localContent: String? = nil, tripId: String? = nil, miniAppId: String? = nil, graphId: String? = nil, resumeTarget: ResumeTarget? = nil) {
         self.messages = messages
         self.summaryId = summaryId
         self.localContent = localContent
         self.tripId = tripId
         self.miniAppId = miniAppId
         self.graphId = graphId
+        self.resumeTarget = resumeTarget
     }
 }
 
@@ -133,12 +137,12 @@ public final class ChatStreamClient: Sendable {
 
     public init(api: SummaryAPIClient) { self.api = api }
 
-    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil, miniAppID: String? = nil, graphID: String? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
+    public func stream(messages: [ChatUIMessage], summaryID: String? = nil, localContent: String? = nil, tripID: String? = nil, miniAppID: String? = nil, graphID: String? = nil, resumeTarget: ResumeTarget? = nil) -> AsyncThrowingStream<ChatStreamEvent, any Error> {
         let api = self.api
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
         let task = Task {
             do {
-                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID, miniAppId: miniAppID, graphId: graphID))
+                var request = try api.json("/api/v1/chat", method: "POST", body: ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: tripID, miniAppId: miniAppID, graphId: graphID, resumeTarget: resumeTarget))
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 request.timeoutInterval = 300
                 let bytes = try await Self.openStream(api: api, request: request)

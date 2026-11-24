@@ -40,9 +40,10 @@ export async function POST(request: Request) {
         }
       }
       if (!summaryId) throw new ApiError(400, "INVALID_CONTENT", "Choose content");
-      const [owned] = await tx.select({ id: summaries.id }).from(summaries)
+      const [owned] = await tx.select({ id: summaries.id, kind: summaries.kind }).from(summaries)
         .where(and(eq(summaries.id, summaryId), eq(summaries.ownerId, principal.sub)));
       if (!owned) throw new ApiError(404, "NOT_FOUND", "Content not found");
+      if (owned.kind === "resume") throw new ApiError(409, "RESUME_PUBLICATION_REQUIRED", "Publish a pinned résumé preview using its share sheet.");
       const episodes = await tx.select().from(podcastEpisodes).where(and(eq(podcastEpisodes.summaryId, summaryId), eq(podcastEpisodes.isDefault, true), eq(podcastEpisodes.deleted, false)));
       for (const episode of episodes) {
         for (const id of episode.document.chipIds) {
