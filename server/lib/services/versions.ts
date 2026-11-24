@@ -82,6 +82,7 @@ function toVersionJson(row: Pick<DocumentVersionRow, "version" | "kind" | "actor
  */
 export async function listVersions(db: Database, ownerId: string, id: string, query: { cursor?: string; limit?: number } = {}): Promise<{ items: VersionJson[]; nextCursor: string | null }> {
   const summary = await getOwnedSummary(db, id, ownerId);
+  if (summary.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_HISTORY", "Use the résumé history and restore operations for the selected company and language.");
   const limit = Math.min(Math.max(query.limit ?? DEFAULT_VERSION_PAGE, 1), MAX_VERSION_PAGE);
   const before = query.cursor === undefined ? null : Number(query.cursor);
   if (before !== null && !(Number.isInteger(before) && before > 0)) throw new ApiError(400, "INVALID_CURSOR", "The pagination cursor is invalid");
@@ -123,6 +124,7 @@ function titleOf(row: DocumentVersionRow): string {
 /** One of the owner's versions with its content. */
 export async function getVersion(db: Database, ownerId: string, id: string, version: number): Promise<VersionDetailJson> {
   const summary = await getOwnedSummary(db, id, ownerId);
+  if (summary.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_HISTORY", "Use the résumé history and restore operations for the selected company and language.");
   const [row, current] = await Promise.all([findVersion(db, summary.id, version), latestVersion(db, summary.id)]);
   const content = row.kind === "trip"
     ? { document: withStoredDefaults((row.content as unknown as VersionContentByKind["trip"]).document) }
@@ -143,6 +145,7 @@ export async function restoreVersion(
   deps: Pick<ServiceDeps, "ai" | "now" | "store"> & { billingEnvironment?: BillingEnvironmentResolver } = {},
 ): Promise<RestoreJson> {
   const summary = await getOwnedSummary(db, id, ownerId);
+  if (summary.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_HISTORY", "Use the résumé history and restore operations for the selected company and language.");
   const row = await findVersion(db, summary.id, version);
   if (row.kind !== summary.kind) throw new ApiError(409, "VERSION_KIND_MISMATCH", "This version can't be restored onto the item");
   const before = await latestVersion(db, summary.id);

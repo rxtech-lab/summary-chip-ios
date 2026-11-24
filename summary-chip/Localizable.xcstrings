@@ -67,6 +67,16 @@
     "%@ · %@" : {
       "shouldTranslate" : false
     },
+    "%@ · %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$@"
+          }
+        }
+      }
+    },
     "%@ · Last used %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -95,6 +105,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ · 從未使用"
+          }
+        }
+      }
+    },
+    "%@ · r%lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · r%2$lld · %3$@"
           }
         }
       }
@@ -278,6 +298,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 點"
+          }
+        }
+      }
+    },
+    "%@ r%lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ r%2$lld · %3$@"
           }
         }
       }
@@ -529,6 +559,9 @@
     "%lld options" : {
 
     },
+    "%lld overrides" : {
+
+    },
     "%lld pieces" : {
 
     },
@@ -669,6 +702,9 @@
         }
       }
     },
+    "%lld to review" : {
+
+    },
     "%lld tool calls" : {
       "localizations" : {
         "en" : {
@@ -714,6 +750,9 @@
           }
         }
       }
+    },
+    "%lld translations" : {
+
     },
     "%lld Versions" : {
 
@@ -1086,6 +1125,9 @@
     "Abstract" : {
 
     },
+    "Accept change" : {
+
+    },
     "Access" : {
 
     },
@@ -1123,6 +1165,9 @@
           }
         }
       }
+    },
+    "Action" : {
+
     },
     "Actions" : {
       "localizations" : {
@@ -1258,6 +1303,9 @@
     "Add an API integration with Edit with AI, then connect your account here." : {
 
     },
+    "Add Avatar…" : {
+
+    },
     "Add Content" : {
 
     },
@@ -1348,6 +1396,9 @@
       }
     },
     "Add Expense with AI" : {
+
+    },
+    "Add experience, education and skills to build out this résumé." : {
 
     },
     "Add Figure…" : {
@@ -1863,6 +1914,9 @@
         }
       }
     },
+    "Agent Chat" : {
+
+    },
     "Agent Default" : {
 
     },
@@ -2233,6 +2287,9 @@
         }
       }
     },
+    "Anyone with this link can open the résumé in a browser." : {
+
+    },
     "API Key" : {
 
     },
@@ -2299,6 +2356,9 @@
           }
         }
       }
+    },
+    "Append a restored revision?" : {
+
     },
     "Apple Maps" : {
       "localizations" : {
@@ -2369,6 +2429,9 @@
         }
       }
     },
+    "Apply Change" : {
+
+    },
     "Apply Preset…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2385,6 +2448,15 @@
           }
         }
       }
+    },
+    "Apply Selected" : {
+
+    },
+    "Apply to this company?" : {
+
+    },
+    "Approve wording without a translation" : {
+
     },
     "Apps you authorize with OAuth appear here. Clients using an API key are listed under API Keys." : {
 
@@ -2475,6 +2547,9 @@
         }
       }
     },
+    "Ask about this résumé" : {
+
+    },
     "Ask about this summary" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2508,6 +2583,9 @@
       }
     },
     "Ask Again" : {
+
+    },
+    "Ask Agent" : {
 
     },
     "Ask Agent to Write It" : {
@@ -2611,6 +2689,9 @@
           }
         }
       }
+    },
+    "Attach Files" : {
+
     },
     "Attachments" : {
       "localizations" : {
@@ -2758,6 +2839,9 @@
     "Available Voices" : {
 
     },
+    "Avatar" : {
+
+    },
     "Azure" : {
 
     },
@@ -2814,6 +2898,15 @@
           }
         }
       }
+    },
+    "Base r%lld" : {
+
+    },
+    "Base résumé" : {
+
+    },
+    "Base value changed" : {
+
     },
     "Black" : {
       "extractionState" : "manual",
@@ -2960,6 +3053,9 @@
     "Build a table comparing a rail pass with paying each fare by IC card" : {
 
     },
+    "Bullet" : {
+
+    },
     "Bus" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3088,6 +3184,15 @@
 
     },
     "Cancelling download…" : {
+
+    },
+    "Candidate" : {
+
+    },
+    "Candidate name" : {
+
+    },
+    "Candidate photo" : {
 
     },
     "Caption" : {
@@ -3636,6 +3741,9 @@
     "Choose Route" : {
 
     },
+    "Choose Template" : {
+
+    },
     "Choose the original file to keep it with this summary. Chat reads it on this device to answer questions." : {
       "localizations" : {
         "zh-Hans" : {
@@ -3667,6 +3775,9 @@
           }
         }
       }
+    },
+    "Choose up to %lld files per message." : {
+
     },
     "Choose Voice" : {
 
@@ -4027,6 +4138,24 @@
         }
       }
     },
+    "Compact" : {
+
+    },
+    "Companies" : {
+
+    },
+    "Company" : {
+
+    },
+    "Company name" : {
+
+    },
+    "Company Overrides" : {
+
+    },
+    "Company variant" : {
+
+    },
     "Compare two options side by side." : {
 
     },
@@ -4344,6 +4473,9 @@
         }
       }
     },
+    "Copy changes from %@" : {
+
+    },
     "Copy Configuration" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4640,6 +4772,9 @@
           }
         }
       }
+    },
+    "Couldn’t load links" : {
+
     },
     "Couldn't Load Models" : {
 
@@ -5095,6 +5230,9 @@
           }
         }
       }
+    },
+    "Create Company Variant…" : {
+
     },
     "Create PDF" : {
 
@@ -5898,6 +6036,9 @@
     "Delete Record" : {
 
     },
+    "Delete Résumé" : {
+
+    },
     "Delete Review" : {
 
     },
@@ -6194,6 +6335,9 @@
         }
       }
     },
+    "Dense single column, ideal for applicant tracking systems." : {
+
+    },
     "Departs %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -6345,6 +6489,12 @@
           }
         }
       }
+    },
+    "Discard" : {
+
+    },
+    "Discard unsaved edits?" : {
+
     },
     "Disconnect" : {
 
@@ -6757,6 +6907,9 @@
         }
       }
     },
+    "Edit Base Résumé" : {
+
+    },
     "Edit Content" : {
 
     },
@@ -6951,6 +7104,9 @@
     "Edit Record" : {
 
     },
+    "Edit Résumé" : {
+
+    },
     "Edit Sharing" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7063,6 +7219,9 @@
         }
       }
     },
+    "Edition" : {
+
+    },
     "Editor %lld percent, preview %lld percent" : {
       "localizations" : {
         "en" : {
@@ -7166,6 +7325,9 @@
       }
     },
     "Encoding video…" : {
+
+    },
+    "End date" : {
 
     },
     "Ends" : {
@@ -7382,6 +7544,9 @@
     "Expires %@" : {
 
     },
+    "Expires in" : {
+
+    },
     "Explain this in simpler terms" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7449,6 +7614,12 @@
     "Export Markdown…" : {
 
     },
+    "Export or Publish" : {
+
+    },
+    "Export or Publish…" : {
+
+    },
     "Export Paper" : {
       "localizations" : {
         "zh-Hans" : {
@@ -7481,7 +7652,16 @@
         }
       }
     },
+    "Export Preview" : {
+
+    },
+    "Export Résumé" : {
+
+    },
     "Export the selected graph data and its supporting content." : {
+
+    },
+    "Export this résumé" : {
 
     },
     "Export with reference errors?" : {
@@ -8405,6 +8585,9 @@
         }
       }
     },
+    "Generate Proposal" : {
+
+    },
     "Generate this audiobook?" : {
 
     },
@@ -8852,6 +9035,9 @@
     "Headings start new sections, and a line with only an image, video or audio link becomes a media block. Your agent can edit the document through Chippy's MCP server." : {
 
     },
+    "Headline" : {
+
+    },
     "Help" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8886,6 +9072,9 @@
           }
         }
       }
+    },
+    "Hidden in this company" : {
+
     },
     "Hide" : {
       "extractionState" : "stale",
@@ -8946,6 +9135,9 @@
       }
     },
     "Highlight the nodes with no connections" : {
+
+    },
+    "History" : {
 
     },
     "HKD" : {
@@ -9164,6 +9356,9 @@
         }
       }
     },
+    "Inheriting companies" : {
+
+    },
     "Input %@ · Output %@ · Cached %@" : {
       "localizations" : {
         "en" : {
@@ -9217,6 +9412,9 @@
           }
         }
       }
+    },
+    "Invited email addresses" : {
+
     },
     "It becomes the newest version. The current one stays in the history, so you can switch back." : {
 
@@ -9307,6 +9505,9 @@
         }
       }
     },
+    "Job description" : {
+
+    },
     "Job Details" : {
 
     },
@@ -9367,6 +9568,9 @@
           }
         }
       }
+    },
+    "Keep as Company Content" : {
+
     },
     "Keep Chippy up to date." : {
       "localizations" : {
@@ -9564,6 +9768,9 @@
         }
       }
     },
+    "Language and Revision" : {
+
+    },
     "Language changed" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9634,6 +9841,9 @@
         }
       }
     },
+    "Latest saved revision" : {
+
+    },
     "LaTeX Errors" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9684,6 +9894,9 @@
           }
         }
       }
+    },
+    "Layout" : {
+
     },
     "Leave times empty to use the first and last legs' times." : {
       "localizations" : {
@@ -9785,6 +9998,9 @@
     "Library Actions" : {
 
     },
+    "Library title" : {
+
+    },
     "Likes" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9881,6 +10097,9 @@
           }
         }
       }
+    },
+    "Link" : {
+
     },
     "Link a file…" : {
       "localizations" : {
@@ -10783,6 +11002,12 @@
         }
       }
     },
+    "Move Down" : {
+
+    },
+    "Move Up" : {
+
+    },
     "Music" : {
 
     },
@@ -10900,6 +11125,12 @@
       }
     },
     "New Clip" : {
+
+    },
+    "New Company Variant" : {
+
+    },
+    "New Company Variant…" : {
 
     },
     "New cover ready" : {
@@ -11039,6 +11270,9 @@
         }
       }
     },
+    "New link" : {
+
+    },
     "New Node" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11102,6 +11336,9 @@
           }
         }
       }
+    },
+    "New Résumé" : {
+
     },
     "New Summary" : {
       "localizations" : {
@@ -11308,6 +11545,9 @@
           }
         }
       }
+    },
+    "No changes proposed." : {
+
     },
     "No Chips" : {
 
@@ -11738,6 +11978,9 @@
         }
       }
     },
+    "No sections yet" : {
+
+    },
     "No summaries match the current filters." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11806,6 +12049,9 @@
 
     },
     "No Versions Yet" : {
+
+    },
+    "No viewed résumés" : {
 
     },
     "No Voice Models" : {
@@ -12581,6 +12827,9 @@
     "Open Podcast" : {
 
     },
+    "Open Résumé" : {
+
+    },
     "Open Review of “%@”" : {
 
     },
@@ -12937,6 +13186,9 @@
         }
       }
     },
+    "Organization" : {
+
+    },
     "Orientation" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13168,6 +13420,9 @@
         }
       }
     },
+    "Paper size" : {
+
+    },
     "Paper unavailable" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13395,6 +13650,9 @@
       }
     },
     "Pick a language and choose Done. Languages that aren't translated yet are translated first: the summary, key points, category, tags and source text. Chippy remembers your choice for this summary. People you share it with read it in their own language." : {
+
+    },
+    "Pick an older revision to export the résumé exactly as it was saved then." : {
 
     },
     "Pieces play in the numbered order, changing as the content does. Tap to add or remove." : {
@@ -13903,6 +14161,9 @@
         }
       }
     },
+    "Preparing %@…" : {
+
+    },
     "Preparing download…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -13960,6 +14221,9 @@
     "Preparing podcast…" : {
 
     },
+    "Preparing proposal…" : {
+
+    },
     "Preparing sample…" : {
 
     },
@@ -13986,6 +14250,9 @@
 
     },
     "Preparing your analysis and sources." : {
+
+    },
+    "Present" : {
 
     },
     "Press Return to add the next item and Shift-Return for a new line. Paste images or files into an item to attach them. Unfinished items and lists send a reminder when their deadlines are reached." : {
@@ -14021,6 +14288,15 @@
       }
     },
     "Preview %@" : {
+
+    },
+    "Preview Displayed Saved Revision" : {
+
+    },
+    "Preview PDF" : {
+
+    },
+    "Preview Restore…" : {
 
     },
     "Preview storyboard" : {
@@ -14129,6 +14405,9 @@
         }
       }
     },
+    "Profile" : {
+
+    },
     "Properties" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14177,6 +14456,9 @@
         }
       }
     },
+    "Proposed" : {
+
+    },
     "Public API — no account needed" : {
 
     },
@@ -14196,6 +14478,18 @@
           }
         }
       }
+    },
+    "Publish" : {
+
+    },
+    "Publish Link" : {
+
+    },
+    "Publish Previewed PDF" : {
+
+    },
+    "Publish Résumé" : {
+
     },
     "Publish to Discover…" : {
 
@@ -14617,6 +14911,9 @@
     "Receive notifications when video scripts are ready to render, for new summaries, trip updates, tomorrow’s itinerary and weather together at 8 pm in the trip’s time zone, and the start of each timed travel leg. Tap a notification to open it. Trip details may appear on your lock screen." : {
 
     },
+    "Recipients sign in to the Chippy app with an invited email address." : {
+
+    },
     "Record" : {
 
     },
@@ -14823,6 +15120,9 @@
     "Remove %@" : {
 
     },
+    "Remove Avatar" : {
+
+    },
     "Remove file link" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14931,6 +15231,9 @@
     "Remove the published video?" : {
 
     },
+    "Remove this item?" : {
+
+    },
     "Remove this member?" : {
 
     },
@@ -14979,6 +15282,9 @@
 
     },
     "Removed" : {
+
+    },
+    "Removed from base" : {
 
     },
     "Removed from calendar" : {
@@ -15220,6 +15526,9 @@
     "Rendering video…" : {
 
     },
+    "Replace Avatar…" : {
+
+    },
     "Replace file link…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15269,6 +15578,12 @@
 
     },
     "Report Options" : {
+
+    },
+    "Republish Previewed PDF" : {
+
+    },
+    "Republishing an existing link keeps its URL and swaps in this preview." : {
 
     },
     "Requires a Mac with Apple silicon." : {
@@ -15387,6 +15702,12 @@
     "Restore %@?" : {
 
     },
+    "Restore Base Résumé" : {
+
+    },
+    "Restore Company Overrides" : {
+
+    },
     "Restore Purchases" : {
       "localizations" : {
         "zh-Hans" : {
@@ -15466,7 +15787,25 @@
         }
       }
     },
+    "Résumé" : {
+
+    },
+    "Résumé · %@" : {
+
+    },
+    "Résumé Actions" : {
+
+    },
     "Resume Download" : {
+
+    },
+    "Résumé published" : {
+
+    },
+    "Résumé Review" : {
+
+    },
+    "Résumé unavailable" : {
 
     },
     "Retry" : {
@@ -15612,6 +15951,9 @@
     "Review what each app can access. Select an app to manage its authorization." : {
 
     },
+    "Review, Tailor or Translate" : {
+
+    },
     "Reviews" : {
 
     },
@@ -15637,6 +15979,9 @@
           }
         }
       }
+    },
+    "Revision" : {
+
     },
     "Revision %lld" : {
       "localizations" : {
@@ -15701,6 +16046,12 @@
           }
         }
       }
+    },
+    "Revoke Link" : {
+
+    },
+    "Revoke this published link?" : {
+
     },
     "Revoke…" : {
       "localizations" : {
@@ -15919,7 +16270,13 @@
         }
       }
     },
+    "Save and Preview Draft" : {
+
+    },
     "Save App" : {
+
+    },
+    "Save DOCX" : {
 
     },
     "Save PDF" : {
@@ -16502,6 +16859,12 @@
         }
       }
     },
+    "Section title" : {
+
+    },
+    "Section type" : {
+
+    },
     "sections" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16795,6 +17158,9 @@
         }
       }
     },
+    "Share Published Résumé" : {
+
+    },
     "Share Source" : {
       "localizations" : {
         "zh-Hans" : {
@@ -16831,6 +17197,9 @@
       }
     },
     "Shared Account" : {
+
+    },
+    "Shared by every company" : {
 
     },
     "Sharing" : {
@@ -16885,6 +17254,9 @@
       }
     },
     "Show %lld Completed" : {
+
+    },
+    "Show avatar" : {
 
     },
     "Show Chat" : {
@@ -17055,6 +17427,9 @@
           }
         }
       }
+    },
+    "Sidebar layout with an optional photo." : {
+
     },
     "Sight" : {
 
@@ -17471,6 +17846,9 @@
           }
         }
       }
+    },
+    "Start date" : {
+
     },
     "Start live voice" : {
 
@@ -18062,6 +18440,18 @@
         }
       }
     },
+    "Tailor" : {
+
+    },
+    "Tailor for company" : {
+
+    },
+    "Target language" : {
+
+    },
+    "Target role" : {
+
+    },
     "Teal" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -18520,6 +18910,9 @@
         }
       }
     },
+    "The translation was manually edited. Compare both versions before accepting." : {
+
+    },
     "The transport and its options are removed from the trip." : {
       "localizations" : {
         "zh-Hans" : {
@@ -18636,6 +19029,9 @@
     "This Clip needs a newer renderer." : {
 
     },
+    "This company · %@" : {
+
+    },
     "This day has a drawn path; stops here mark the places it visits." : {
       "localizations" : {
         "zh-Hans" : {
@@ -18731,6 +19127,9 @@
         }
       }
     },
+    "This link has expired." : {
+
+    },
     "This link is saved on this device. Chat reads the latest version of the file; changing it does not regenerate the summary." : {
       "localizations" : {
         "zh-Hans" : {
@@ -18751,6 +19150,9 @@
 
     },
     "This paper can't be edited." : {
+
+    },
+    "This permanently removes the résumé, its company versions and its published links." : {
 
     },
     "This permanently removes the todo list and cancels its deadline reminders." : {
@@ -19169,6 +19571,9 @@
           }
         }
       }
+    },
+    "Translate or refresh" : {
+
     },
     "Translate to" : {
       "localizations" : {
@@ -19862,6 +20267,16 @@
         }
       }
     },
+    "Uploading %@\n%@ · %@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Uploading %1$@\n%2$@ · %3$@ / %4$@"
+          }
+        }
+      }
+    },
     "Uploading…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -20014,6 +20429,9 @@
     "Use as a Shared Connection" : {
 
     },
+    "Use Base Value" : {
+
+    },
     "Use Current Location" : {
       "localizations" : {
         "zh-Hans" : {
@@ -20110,6 +20528,9 @@
           }
         }
       }
+    },
+    "Use YYYY, YYYY-MM or YYYY-MM-DD." : {
+
     },
     "Used %@" : {
       "localizations" : {
@@ -20243,6 +20664,9 @@
     "Version %lld isn't a paper." : {
 
     },
+    "Version History" : {
+
+    },
     "Version History…" : {
 
     },
@@ -20357,6 +20781,12 @@
           }
         }
       }
+    },
+    "Viewed Résumé Links" : {
+
+    },
+    "Viewed Résumés" : {
+
     },
     "Viewed summaries are ones other people shared that you opened." : {
       "localizations" : {

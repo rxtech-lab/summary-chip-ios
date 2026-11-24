@@ -51,6 +51,10 @@ async function readPdfResponse(response: Response): Promise<Uint8Array> {
 export interface PdfPageOptions {
   /** Repeated at the top of every page; Chromium fills `.pageNumber`, `.totalPages`, `.title` and `.date`. */
   headerTemplate: string;
+  paperSize?: "A4" | "Letter";
+  displayHeaderFooter?: boolean;
+  /** Only for our own escaped résumé template with a validated private JPEG embedded by the server. */
+  serverInlinedImages?: boolean;
   footerTemplate: string;
   /** CSS lengths (`"24mm"`); the header and footer draw inside the top and bottom margins. */
   margin: { top: string; bottom: string; left: string; right: string };
@@ -71,7 +75,7 @@ export async function renderPdf(html: string, page: PdfPageOptions): Promise<Uin
   if (!config) throw new ApiError(503, "PDF_UNAVAILABLE", "PDF export is not available right now.");
   const startedAt = Date.now();
   try {
-    const preparedHtml = await prepareReportImages(html);
+    const preparedHtml = page.serverInlinedImages ? html : await prepareReportImages(html);
     const response = await fetch(PDF_ENDPOINT.replace("%s", encodeURIComponent(config.accountId)), {
       method: "POST",
       signal: AbortSignal.timeout(PDF_TIMEOUT_MS),
@@ -80,9 +84,9 @@ export async function renderPdf(html: string, page: PdfPageOptions): Promise<Uin
         html: preparedHtml,
         gotoOptions: { waitUntil: "networkidle0", timeout: 60_000 },
         pdfOptions: {
-          format: "a4",
+          format: page.paperSize?.toLowerCase() ?? "a4",
           printBackground: true,
-          displayHeaderFooter: true,
+          displayHeaderFooter: page.displayHeaderFooter ?? true,
           headerTemplate: page.headerTemplate,
           footerTemplate: page.footerTemplate,
           margin: page.margin,

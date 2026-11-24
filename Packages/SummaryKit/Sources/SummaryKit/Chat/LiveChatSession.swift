@@ -16,7 +16,8 @@ extension SummaryAPIClient {
     public func executeLiveChatTool(context: ChatRequestBody, name: String, callID: String, input: JSONValue) async throws -> JSONValue {
         struct Body: Encodable { let context: ChatRequestBody; let name: String; let callId: String; let input: JSONValue }
         struct Result: Decodable { let output: JSONValue }
-        let request = try json("api/v1/chat/live/tool", method: "POST", body: Body(context: context, name: name, callId: callID, input: input))
+        var request = try json("api/v1/chat/live/tool", method: "POST", body: Body(context: context, name: name, callId: callID, input: input))
+        await applyBillingProof(to: &request)
         let result: Result = try await send(request)
         return result.output
     }

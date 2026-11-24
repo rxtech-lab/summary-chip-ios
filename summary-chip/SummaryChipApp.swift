@@ -18,7 +18,9 @@ struct SummaryChipApp: App {
 
     init() {
         #if DEBUG
-        let environment = LikesPreviewFixture.isEnabled ? LikesPreviewFixture.environment() : AppEnvironment.live()
+        let environment: AppEnvironment
+        if let local = Self.resumeTestEnvironment() { environment = local }
+        else { environment = LikesPreviewFixture.isEnabled ? LikesPreviewFixture.environment() : AppEnvironment.live() }
         #else
         let environment = AppEnvironment.live()
         #endif
@@ -31,6 +33,19 @@ struct SummaryChipApp: App {
         serviceProvider.register()
         #endif
     }
+
+    #if DEBUG
+    /// The cross-platform UI test creates an isolated family through the loopback E2E issuer.
+    /// Keep its short-lived token in memory and restrict the API origin to loopback.
+    private static func resumeTestEnvironment() -> AppEnvironment? {
+        let process = ProcessInfo.processInfo
+        guard process.arguments.contains("--preview-resume-http"), let token = process.environment["RESUME_TEST_TOKEN"] else { return nil }
+        let bundle = SharedTokenBundle(accessToken: token, refreshToken: nil, idToken: nil,
+                                      expiresAt: .now.addingTimeInterval(600), subject: "resume-local-owner")
+        return AppEnvironment.live(configuration: .init(apiBaseURL: URL(string: "http://127.0.0.1:3180")!),
+                                   vault: InMemoryTokenVault(bundle), session: URLSession(configuration: .ephemeral), authenticationState: .signedIn)
+    }
+    #endif
 
     var body: some Scene {
         // Keep the main window first: macOS uses the first scene for the default launch.
@@ -52,6 +67,7 @@ struct SummaryChipApp: App {
                     #endif
                     #if DEBUG
                     if ProcessInfo.processInfo.arguments.contains("--preview-mini-app") || ProcessInfo.processInfo.arguments.contains("--preview-mini-app-loading") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--preview-resume-http") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-todo") || ProcessInfo.processInfo.arguments.contains("--preview-graph") { return }
                     #if os(iOS) || os(visionOS)
@@ -85,6 +101,10 @@ struct SummaryChipApp: App {
         #endif
         #if os(macOS)
         .defaultSize(width: 1100, height: 760)
+        #if DEBUG
+        .defaultLaunchBehavior(ProcessInfo.processInfo.arguments.contains("--preview-resume-http") ? .presented : .automatic)
+        .restorationBehavior(ProcessInfo.processInfo.arguments.contains("--preview-resume-http") ? .disabled : .automatic)
+        #endif
         .commands {
             SummaryMacCommands()
             CommandGroup(after: .appInfo) {
@@ -128,7 +148,9 @@ struct SummaryChipApp: App {
     @ViewBuilder
     private var standardAppContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-todo") {
+        if ProcessInfo.processInfo.arguments.contains("--preview-resume-http"), let family = ProcessInfo.processInfo.environment["RESUME_TEST_FAMILY"] {
+            NavigationStack { ResumeDetailView(environment: environment, id: family) }
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-todo") {
             TodoPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-graph") {
             GraphPreviewHost()

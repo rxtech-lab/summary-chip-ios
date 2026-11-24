@@ -817,6 +817,9 @@
         }
       }
     },
+    "Chat attachments can be up to 25 MiB each." : {
+
+    },
     "Check-in" : {
       "localizations" : {
         "zh-Hans" : {
@@ -949,6 +952,9 @@
       }
     },
     "Choose a PNG, JPEG or PDF whose contents match its file extension." : {
+
+    },
+    "Choose a text file, PDF or image." : {
 
     },
     "Choose a valid PNG, JPEG or PDF, up to 10 MB." : {
@@ -3822,6 +3828,12 @@
         }
       }
     },
+    "Résumé" : {
+
+    },
+    "Résumés" : {
+
+    },
     "Revoke" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4370,6 +4382,9 @@
         }
       }
     },
+    "Text attachments can contain up to 200 KB of UTF-8 text." : {
+
+    },
     "Text file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4853,6 +4868,9 @@
         }
       }
     },
+    "This image could not be read." : {
+
+    },
     "This item will no longer appear in Discover." : {
 
     },
@@ -4903,6 +4921,9 @@
           }
         }
       }
+    },
+    "This PDF could not be read." : {
+
     },
     "This PDF has no selectable text. Scanned PDFs can't be read on this device." : {
       "extractionState" : "stale",

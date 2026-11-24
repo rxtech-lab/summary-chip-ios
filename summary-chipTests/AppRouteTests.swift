@@ -35,6 +35,17 @@ import Testing
         #expect(messages[0].role == .user)
         #expect(messages[1].parts.first?.text.contains("Chips (id: s1, https://summary.rxlab.app/s/x)") == true)
     }
+
+    @Test func attachmentOnlyTurnSurvivesTranscriptRestoration() throws {
+        let ref = ChatAttachmentReference(uploadKey: "chat-uploads/key", filename: "notes.md", mimeType: "text/plain")
+        let entry = ChatEntry(id: "1", role: .user, text: "", attachments: [ref])
+        let data = try JSONEncoder().encode([entry])
+        let restored = ChatModel.restored(try JSONDecoder().decode([ChatEntry].self, from: data))
+        let messages = ChatModel.uiMessages(from: restored)
+        #expect(messages.count == 1)
+        #expect(messages.first?.parts == [])
+        #expect(messages.first?.attachments == [ref])
+    }
 }
 
 #if os(iOS) && DEBUG

@@ -13,6 +13,9 @@ struct LibraryView: View {
     @State private var showsNewPaper = false
     @State private var showsNewGraph = false
     @State private var showsNewDocument = false
+    @State private var showsViewedResumes = false
+    @State private var selectedPublicationSlug: String?
+    @State private var showsNewResume = false
     @State private var showsNewTodo = false
     @State private var showsNewMiniApp = false
     @State private var showsCredits = false
@@ -148,7 +151,109 @@ struct LibraryView: View {
         #endif
     }
 
-    private var creationContent: some View {
+    private func applyFilter(_ filter: LibraryFilter) {
+        guard filter != model.filter else { return }
+        feedScroll.reset()
+        model.filter = filter
+        Task { await model.reload() }
+    }
+
+    private var plannedPodcastsHeader: AnyView? {
+        guard !isMiniApps, model.showsPlannedPodcasts,
+              !model.plannedPodcasts.isEmpty || !model.plannedAudiobooks.isEmpty || !model.audiobookJobs.isEmpty else { return nil }
+        return AnyView(VStack(spacing: 0) {
+            if (model.kind ?? model.filter.kind) != .podcast, !model.audiobookJobs.isEmpty || !model.plannedAudiobooks.isEmpty {
+                AudiobooksStrip(jobs: model.audiobookJobs, plans: model.plannedAudiobooks, onOpenJob: { podcastTaps += 1; environment.libraryCreation = .audiobookJob($0) },
+                                onOpenPlan: openBook, onDeletePlan: { deletingBook = $0 })
+                    .task(id: model.audiobookJobs.filter { $0.status == "running" }.count) { await model.followAudiobookJobs() }
+            }
+            if (model.kind ?? model.filter.kind) != .audiobook, !model.plannedPodcasts.isEmpty {
+                PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 })
+            }
+        })
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if !model.hasLoaded {
+            ProgressView(isMiniApps ? String(localized: "Loading your clips…") : String(localized: "Loading your summaries…"))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if model.items.isEmpty {
+            VStack(spacing: 0) {
+                plannedPodcastsHeader
+                LibraryEmptyState(model: model, isMiniApps: isMiniApps, createClip: { showsNewMiniApp = true },
+                                  createSummary: { showsNewSummary = true })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        } else {
+            // Clips are a plain grid; only the Feed is grouped by day with a timeline.
+            SummaryCardFeed(entries: model.entries, scrollState: feedScroll, editorPickIDs: model.editorPickIDs, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, header: plannedPodcastsHeader, onReachEnd: {
+                Task { await model.loadMore() }
+            }, onSelect: { summary in
+                if (summary.kind == .podcast || summary.kind == .audiobook), let openPodcast { openPodcast(summary) }
+                else { stackPath.wrappedValue.append(summary) }
+            }, onPlayDay: { day in
+                podcastTaps += 1
+                environment.podcastPlayer.present(date: day)
+            }, menuItems: { summary in
+                LikeMenuButton(summary: summary) {
+                    Task {
+                        let result = await environment.toggleLike(summary)
+                        likeStatus = result.1
+                        if isMiniApps { model.upsert(result.0) }
+                    }
+                }
+                if summary.kind == .resume {
+                    Button("Open Résumé", systemImage: "person.text.rectangle") { stackPath.wrappedValue.append(summary) }
+                } else {
+                Menu {
+                    Button { sharingSummary = summary } label: {
+                        Label("Share…", systemImage: "square.and.arrow.up")
+                    }
+                    Button("Share to X", systemImage: "arrow.up.forward") {
+                        xSharingRequest = XSharingRequest(summary: summary)
+                    }
+                    .accessibilityIdentifier("chip-share-x")
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                }
+                if summary.isOwner {
+                    Divider()
+                    Button {
+                        podcastTaps += 1
+                        renamingSummary = summary
+                    } label: {
+                        Label("Rename…", systemImage: "pencil")
+                    }
+                    .accessibilityIdentifier("chip-rename")
+                    Button(role: .destructive) {
+                        deletingSummary = summary
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }) {
+                if model.isLoadingMore {
+                    ProgressView().padding()
+                } else if model.isOffline {
+                    Label("You're offline. Showing summaries saved on this device.", systemImage: "wifi.slash")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding()
+                } else if let error = model.errorMessage {
+                    Text(error).font(.footnote).foregroundStyle(.red).padding()
+                }
+            }
+            #if !os(visionOS)
+            .background(Color.summaryGroupedBackground)
+            #endif
+        }
+    }
+}
+
+private extension LibraryView {
+    var creationContent: some View {
         navigationContent
             .sheet(isPresented: $showsFilters) {
                 LibraryFilterSheet(model: model) { applyFilter($0) }
@@ -183,7 +288,7 @@ struct LibraryView: View {
             }
     }
 
-    private var podcastContent: some View {
+    var podcastContent: some View {
         creationContent
             .confirmationDialog("Delete this planned audiobook?", isPresented: Binding(get: { deletingBook != nil }, set: { if !$0 { deletingBook = nil } }),
                                 titleVisibility: .visible, presenting: deletingBook) { book in
@@ -192,7 +297,7 @@ struct LibraryView: View {
             } message: { _ in Text("The plan and its drawn scenes are removed. No audiobook has been made from it.") }
     }
 
-    private func openBook(_ summary: AudiobookPlanSummary) {
+    func openBook(_ summary: AudiobookPlanSummary) {
         podcastTaps += 1
         planStatus = String(localized: "Opening plan…")
         Task {
@@ -205,7 +310,7 @@ struct LibraryView: View {
         }
     }
 
-    private func deleteBook(_ book: AudiobookPlanSummary) {
+    func deleteBook(_ book: AudiobookPlanSummary) {
         planStatus = String(localized: "Deleting plan…")
         Task {
             do {
@@ -217,7 +322,7 @@ struct LibraryView: View {
         }
     }
 
-    private var planFeedbackContent: some View {
+    var planFeedbackContent: some View {
         podcastContent
             .confirmationDialog("Delete this planned podcast?", isPresented: Binding(get: { deletingPlan != nil }, set: { if !$0 { deletingPlan = nil } }),
                                 titleVisibility: .visible, presenting: deletingPlan) { plan in
@@ -239,7 +344,7 @@ struct LibraryView: View {
             .sensoryFeedback(.error, trigger: planError)
     }
 
-    private var documentCreationContent: some View {
+    var documentCreationContent: some View {
         planFeedbackContent
             .sheet(isPresented: $showsNewGraph) {
                 NewGraphSheet(api: environment.api, onCreated: openCreated)
@@ -255,6 +360,14 @@ struct LibraryView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showsViewedResumes, onDismiss: {
+                if let slug = selectedPublicationSlug { selectedPublicationSlug = nil; environment.pendingRoute = .slug(slug) }
+            }) {
+                ViewedResumeLinksSheet(api: environment.api) { slug in selectedPublicationSlug = slug; showsViewedResumes = false }
+            }
+            .sheet(isPresented: $showsNewResume) {
+                NewResumeSheet(api: environment.api) { openCreated(id: $0.familyId) }
+            }
             .sheet(isPresented: $showsNewDocument) {
                 NewRichDocumentSheet(api: environment.api, onCreated: openCreated)
             }
@@ -266,7 +379,7 @@ struct LibraryView: View {
             }
     }
 
-    private var newDocumentMenu: some View {
+    var newDocumentMenu: some View {
         Menu {
             Section {
                 Button {
@@ -293,6 +406,8 @@ struct LibraryView: View {
                     Label("Document", systemImage: "doc.text.image")
                 }
                 .accessibilityIdentifier("new-rich-document")
+                Button("Résumé", systemImage: "person.text.rectangle") { showsNewResume = true }
+                    .accessibilityIdentifier("new-resume")
                 Button { showsNewTodo = true } label: { Label("Todo List", systemImage: "checklist") }
                     .accessibilityIdentifier("new-todo-list")
             }
@@ -326,17 +441,18 @@ struct LibraryView: View {
         .sensoryFeedback(.selection, trigger: showsNewSummary) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewPaper) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewGraph) { _, presented in presented }
+        .sensoryFeedback(.selection, trigger: showsNewResume)
         .sensoryFeedback(.selection, trigger: showsNewTodo) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewDocument) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewTrip) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewMiniApp) { _, presented in presented }
     }
 
-    private func refreshPlans() {
+    func refreshPlans() {
         Task { await model.refreshPlannedPodcasts() }
     }
 
-    private func openPlan(_ summary: PodcastPlanSummary) {
+    func openPlan(_ summary: PodcastPlanSummary) {
         podcastTaps += 1
         planStatus = String(localized: "Opening plan…")
         Task {
@@ -361,7 +477,7 @@ struct LibraryView: View {
         }
     }
 
-    private func deletePlan(_ plan: PodcastPlanSummary) {
+    func deletePlan(_ plan: PodcastPlanSummary) {
         planStatus = String(localized: "Deleting plan…")
         Task {
             do {
@@ -374,7 +490,7 @@ struct LibraryView: View {
     }
 
     /// Pushes a paper made in the New Paper sheet once the sheet has closed.
-    private func openCreated(_ paper: Paper) {
+    func openCreated(_ paper: Paper) {
         Task {
             guard let summary = await environment.libraryItem(forCreated: paper) else { return }
             // Let the sheet finish dismissing before pushing.
@@ -384,255 +500,20 @@ struct LibraryView: View {
     }
 
     /// Pushes a graph made in the New Graph sheet once the sheet has closed.
-    private func openCreated(_ graph: Graph) {
-        Task {
-            guard let summary = try? await environment.api.summary(id: graph.id) else {
-                await environment.library.reload()
-                return
-            }
-            environment.library.insert(summary)
-            try? await Task.sleep(for: .milliseconds(350))
-            stackPath.wrappedValue.append(summary)
-        }
-    }
+    func openCreated(_ graph: Graph) { openCreated(id: graph.id) }
 
     /// Pushes a document made in the New Document sheet once the sheet has closed.
-    private func openCreated(_ document: RichDocument) {
+    func openCreated(_ document: RichDocument) { openCreated(id: document.id) }
+
+    func openCreated(id: String) {
         Task {
-            guard let summary = try? await environment.api.summary(id: document.id) else {
+            guard let summary = try? await environment.api.summary(id: id) else {
                 await environment.library.reload()
                 return
             }
             environment.library.insert(summary)
             try? await Task.sleep(for: .milliseconds(350))
             stackPath.wrappedValue.append(summary)
-        }
-    }
-
-    /// Quick filters apply as soon as they're picked; category and tag need the searchable sheet.
-    private var filterMenu: some View {
-        Menu {
-            Picker("Show", selection: filterBinding(\.scope)) {
-                ForEach(LibraryScope.filterCases) { scope in
-                    Text(scope.title).tag(scope)
-                }
-            }
-            .pickerStyle(.inline)
-
-            if model.kind == nil {
-                Picker("Kind", selection: filterBinding(\.kind)) {
-                    Text("All").tag(SummaryKind?.none)
-                    ForEach(model.availableKinds) { kind in
-                        Text(kind.title).tag(SummaryKind?.some(kind))
-                    }
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("library-filter-kind")
-            }
-
-            if model.filter.scope != .viewed {
-                Picker("Visibility", selection: filterBinding(\.visibility)) {
-                    Text("All").tag(SummaryVisibility?.none)
-                    ForEach(SummaryVisibility.allCases) { value in
-                        Text(value.title).tag(SummaryVisibility?.some(value))
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            Picker("Source", selection: filterBinding(\.source)) {
-                Text("Any source").tag(SummaryOrigin?.none)
-                ForEach(SummaryOrigin.known) { origin in
-                    Label { Text(origin.title) } icon: { origin.image }.tag(SummaryOrigin?.some(origin))
-                }
-            }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("library-filter-source")
-
-            if model.kind == nil || model.kind == .summary || model.kind == .podcast {
-                Toggle("Editor’s Pick", isOn: filterBinding(\.editorsPick))
-                    .accessibilityIdentifier("library-filter-editors-pick")
-            }
-
-            Divider()
-
-            Button {
-                podcastTaps += 1
-                showsFilters = true
-            } label: {
-                Label("More Filters…", systemImage: "slider.horizontal.3")
-            }
-            .accessibilityIdentifier("library-filter-more")
-
-            if model.filter.isActive {
-                Button(role: .destructive) {
-                    applyFilter(LibraryFilter())
-                } label: {
-                    Label("Clear All Filters", systemImage: "xmark.circle")
-                }
-            }
-        } label: {
-            Label("Filter", systemImage: model.filter.isActive
-                ? "line.3.horizontal.decrease.circle.fill"
-                : "line.3.horizontal.decrease.circle")
-        }
-        .badge(model.filter.activeCount)
-        .accessibilityIdentifier("library-filter")
-    }
-
-    private func filterBinding<Value>(_ keyPath: WritableKeyPath<LibraryFilter, Value>) -> Binding<Value> {
-        Binding {
-            model.filter[keyPath: keyPath]
-        } set: { value in
-            var filter = model.filter
-            filter[keyPath: keyPath] = value
-            // Viewed summaries are always public; a visibility filter would only hide them.
-            if filter.scope == .viewed { filter.visibility = nil }
-            applyFilter(filter)
-        }
-    }
-
-    private func applyFilter(_ filter: LibraryFilter) {
-        guard filter != model.filter else { return }
-        feedScroll.reset()
-        model.filter = filter
-        Task { await model.reload() }
-    }
-
-    private var plannedPodcastsHeader: AnyView? {
-        guard !isMiniApps, model.showsPlannedPodcasts,
-              !model.plannedPodcasts.isEmpty || !model.plannedAudiobooks.isEmpty || !model.audiobookJobs.isEmpty else { return nil }
-        return AnyView(VStack(spacing: 0) {
-            if (model.kind ?? model.filter.kind) != .podcast, !model.audiobookJobs.isEmpty || !model.plannedAudiobooks.isEmpty {
-                AudiobooksStrip(jobs: model.audiobookJobs, plans: model.plannedAudiobooks, onOpenJob: { podcastTaps += 1; environment.libraryCreation = .audiobookJob($0) },
-                                onOpenPlan: openBook, onDeletePlan: { deletingBook = $0 })
-                    .task(id: model.audiobookJobs.filter { $0.status == "running" }.count) { await model.followAudiobookJobs() }
-            }
-            if (model.kind ?? model.filter.kind) != .audiobook, !model.plannedPodcasts.isEmpty {
-                PlannedPodcastsStrip(plans: model.plannedPodcasts, onOpen: openPlan, onDelete: { deletingPlan = $0 })
-            }
-        })
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if !model.hasLoaded {
-            ProgressView(isMiniApps ? String(localized: "Loading your clips…") : String(localized: "Loading your summaries…"))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if model.items.isEmpty {
-            VStack(spacing: 0) {
-                plannedPodcastsHeader
-                emptyState.frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        } else {
-            // Clips are a plain grid; only the Feed is grouped by day with a timeline.
-            SummaryCardFeed(entries: model.entries, scrollState: feedScroll, editorPickIDs: model.editorPickIDs, showsTimeline: !isMiniApps, showsDateHeaders: !isMiniApps, header: plannedPodcastsHeader, onReachEnd: {
-                Task { await model.loadMore() }
-            }, onSelect: { summary in
-                if (summary.kind == .podcast || summary.kind == .audiobook), let openPodcast { openPodcast(summary) }
-                else { stackPath.wrappedValue.append(summary) }
-            }, onPlayDay: { day in
-                podcastTaps += 1
-                environment.podcastPlayer.present(date: day)
-            }, menuItems: { summary in
-                LikeMenuButton(summary: summary) {
-                    Task {
-                        let result = await environment.toggleLike(summary)
-                        likeStatus = result.1
-                        if isMiniApps { model.upsert(result.0) }
-                    }
-                }
-                Menu {
-                    Button { sharingSummary = summary } label: {
-                        Label("Share…", systemImage: "square.and.arrow.up")
-                    }
-                    Button("Share to X", systemImage: "arrow.up.forward") {
-                        xSharingRequest = XSharingRequest(summary: summary)
-                    }
-                    .accessibilityIdentifier("chip-share-x")
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-                if summary.isOwner {
-                    Divider()
-                    Button {
-                        podcastTaps += 1
-                        renamingSummary = summary
-                    } label: {
-                        Label("Rename…", systemImage: "pencil")
-                    }
-                    .accessibilityIdentifier("chip-rename")
-                    Button(role: .destructive) {
-                        deletingSummary = summary
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
-            }) {
-                if model.isLoadingMore {
-                    ProgressView().padding()
-                } else if model.isOffline {
-                    Label("You're offline. Showing summaries saved on this device.", systemImage: "wifi.slash")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding()
-                } else if let error = model.errorMessage {
-                    Text(error).font(.footnote).foregroundStyle(.red).padding()
-                }
-            }
-            #if !os(visionOS)
-            .background(Color.summaryGroupedBackground)
-            #endif
-        }
-    }
-
-    @ViewBuilder
-    private var emptyState: some View {
-        if model.isOffline {
-            ContentUnavailableView {
-                Label("You're offline", systemImage: "wifi.slash")
-            } description: {
-                !model.filter.isActive
-                    ? Text("Summaries you open while online are saved on this device for offline reading.")
-                    : Text("No saved summaries match. Connect to the internet to search your whole library.")
-            } actions: {
-                Button("Try Again") { Task { await model.reload() } }
-                    .buttonStyle(.bordered)
-            }
-        } else if let error = model.errorMessage {
-            ContentUnavailableView {
-                Label(isMiniApps ? String(localized: "Couldn't load your clips") : String(localized: "Couldn't load your Feed"), systemImage: "wifi.exclamationmark")
-            } description: {
-                Text(error)
-            } actions: {
-                Button("Try Again") { Task { await model.reload() } }
-                    .buttonStyle(.bordered)
-            }
-        } else if model.filter.isActive {
-            ContentUnavailableView(
-                isMiniApps ? String(localized: "No Matching Clips") : String(localized: "No Matching Summaries"),
-                systemImage: "line.3.horizontal.decrease.circle",
-                description: Text(isMiniApps ? String(localized: "No clips match the current filters.") : String(localized: "No summaries match the current filters."))
-            )
-        } else if isMiniApps {
-            ContentUnavailableView {
-                Label("No clips yet", systemImage: "app.badge")
-            } description: {
-                Text("Create a clip or ask Chat to build one. Your saved clips appear here.")
-            } actions: {
-                Button("New Clip") { showsNewMiniApp = true }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("create-first-mini-app")
-            }
-        } else {
-            ContentUnavailableView {
-                Label("No summaries yet", systemImage: "text.quote")
-            } description: {
-                Text("Summaries you create, and ones you open from shared links, appear here. Share a web page, PDF or text to Chippy, or paste a link.")
-            } actions: {
-                Button("New Summary") { showsNewSummary = true }
-                    .buttonStyle(.borderedProminent)
-            }
         }
     }
 }
@@ -710,7 +591,10 @@ private extension LibraryView {
                     } label: { Label("Search", systemImage: "magnifyingglass") }
                     .accessibilityIdentifier("summary-search")
                 }
-                filterMenu
+                LibraryFilterMenu(model: model, showViewedResumes: { showsViewedResumes = true }, showMoreFilters: {
+                    podcastTaps += 1
+                    showsFilters = true
+                }, applyFilter: applyFilter)
                 backgroundJobsButton
             } label: {
                 VStack(spacing: 3) {
@@ -744,87 +628,6 @@ private extension LibraryView {
             .accessibilityIdentifier("new-mini-app")
         } else {
             newDocumentMenu
-        }
-    }
-
-}
-
-/// Unconfirmed podcast plans, scrolling with the feed: open one to keep reviewing it, or delete it.
-private struct PlannedPodcastsStrip: View {
-    @ScaledMetric(relativeTo: .body) private var rowHeight = 110
-    let plans: [PodcastPlanSummary]
-    let onOpen: (PodcastPlanSummary) -> Void
-    let onDelete: (PodcastPlanSummary) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Label("Planned Podcasts", systemImage: "list.bullet.clipboard").font(.subheadline.weight(.semibold))
-                Text("\(plans.count)").font(.caption.weight(.semibold)).monospacedDigit()
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Capsule().fill(.quaternary))
-            }
-            .padding(.horizontal, 16)
-            ScrollView(.horizontal) {
-                HStack(spacing: 12) {
-                    ForEach(plans) { plan in card(plan) }
-                }
-                .padding(.horizontal, 16)
-            }
-            // A horizontal scroll view otherwise claims the whole vertical safe-area inset, hiding the feed.
-            .frame(height: rowHeight)
-            .scrollIndicators(.hidden)
-        }
-        .padding(.vertical, 10)
-        .background(Color.summaryGroupedBackground)
-        .accessibilityIdentifier("planned-podcasts")
-    }
-
-    private func card(_ plan: PodcastPlanSummary) -> some View {
-        HStack(spacing: 10) {
-            Button { onOpen(plan) } label: {
-                HStack(spacing: 10) {
-                    PlanFrameImage(url: plan.thumbnailUrl, storyboard: false, drawing: false)
-                        .frame(width: 96, height: 54)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("PLANNED").font(.caption2.weight(.bold)).tracking(0.6).foregroundStyle(.tint)
-                        Text(plan.title).font(.subheadline.weight(.semibold)).lineLimit(2).multilineTextAlignment(.leading)
-                        Group {
-                            if plan.updatedAt.timeIntervalSince1970 > 0 {
-                                Text("\(plan.lineCount) lines · \(plan.updatedAt, format: .relative(presentation: .named))")
-                            } else {
-                                Text("\(plan.lineCount) lines")
-                            }
-                        }
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens the plan to keep reviewing it")
-            .accessibilityIdentifier("planned-podcast-\(plan.id)")
-            Menu {
-                Button { onOpen(plan) } label: { Label("Review Plan", systemImage: "list.bullet.clipboard") }
-                Button(role: .destructive) { onDelete(plan) } label: { Label("Delete Plan", systemImage: "trash") }
-            } label: {
-                Image(systemName: "ellipsis.circle").font(.title3).foregroundStyle(.secondary)
-                    .frame(width: 32, height: 32).contentShape(Rectangle())
-            }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .menuIndicator(.hidden)
-            .accessibilityLabel("Plan Actions")
-            .accessibilityIdentifier("planned-podcast-actions")
-        }
-        .padding(10)
-        .frame(width: 320, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.background))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.separator.opacity(0.4)))
-        .contextMenu {
-            Button { onOpen(plan) } label: { Label("Review Plan", systemImage: "list.bullet.clipboard") }
-            Button(role: .destructive) { onDelete(plan) } label: { Label("Delete Plan", systemImage: "trash") }
         }
     }
 }

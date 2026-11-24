@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreText
 import Foundation
+import ImageIO
 import PDFKit
 import Testing
 import UniformTypeIdentifiers
@@ -22,6 +23,60 @@ struct LocalFileTests {
         defer { LocalDocument.discardCopy(copy) }
         #expect(try LocalDocument.input(fileURL: copy) == .localFile(LocalFileSource(filename: "Notes.md", kind: .text, text: "# Meeting\n\nDecisions and next steps.")))
         #expect(FileManager.default.fileExists(atPath: file.path))
+    }
+
+    @Test func chatPreservesTextWhitespaceAndNormalizesEncoding() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let content = "  # 議程\n\n- Item one\n"
+        for name in ["Notes.md", "example.ts", "notes.txt"] {
+            let file = root.appending(path: name)
+            try content.write(to: file, atomically: true, encoding: .utf16)
+            let attachment = try ChatFileAttachment.read(file)
+            #expect(attachment.filename == name)
+            #expect(attachment.mimeType == "text/plain")
+            #expect(attachment.data == Data(content.utf8))
+        }
+    }
+
+    @Test func chatPreservesPDFAndConvertsNonProviderImages() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pdf = root.appending(path: "Scan.pdf")
+        try writePDF(nil, to: pdf)
+        let document = try ChatFileAttachment.read(pdf)
+        #expect(document.mimeType == "application/pdf")
+        #expect(document.data == (try Data(contentsOf: pdf)))
+        let bitmap = try #require(CGContext(data: nil, width: 10, height: 10, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        let image = try #require(bitmap.makeImage())
+        for type in [UTType.tiff, .png] {
+            let file = root.appending(path: "Figure").appendingPathExtension(for: type)
+            let destination = try #require(CGImageDestinationCreateWithURL(file as CFURL, type.identifier as CFString, 1, nil))
+            CGImageDestinationAddImage(destination, image, nil)
+            try #require(CGImageDestinationFinalize(destination))
+            let attachment = try ChatFileAttachment.read(file)
+            #expect(attachment.filename == file.lastPathComponent)
+            if type == .png {
+                #expect(attachment.mimeType == "image/png")
+                #expect(attachment.data == (try Data(contentsOf: file)))
+            } else {
+                #expect(attachment.mimeType == "image/jpeg")
+                let source = try #require(CGImageSourceCreateWithData(attachment.data as CFData, nil))
+                #expect(CGImageSourceGetType(source) as String? == UTType.jpeg.identifier)
+            }
+        }
+    }
+
+    @Test func chatRejectsUnsupportedAndOversizedText() throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let zip = root.appending(path: "archive.zip")
+        try Data([0x50, 0x4b, 3, 4]).write(to: zip)
+        #expect(throws: (any Error).self) { try ChatFileAttachment.read(zip) }
+        let file = root.appending(path: "notes.md")
+        try Data(String(repeating: "🍎", count: 50_001).utf8).write(to: file)
+        #expect(throws: (any Error).self) { try ChatFileAttachment.read(file) }
     }
 
     private func fixture(_ name: String) throws -> URL {

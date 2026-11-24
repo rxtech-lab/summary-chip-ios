@@ -69,6 +69,41 @@ struct AudiobookSpeakersSheet: View {
         _speakers = State(initialValue: speakers)
     }
 
+    private var speakersSection: some View {
+        Section {
+            ForEach(speakers.indices, id: \.self) { index in
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Name", text: $speakers[index].name)
+                        .accessibilityIdentifier("audiobook-speaker-name-\(index)")
+                    if !speakers[index].role.isEmpty {
+                        Text(speakers[index].role).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button { taps += 1; choosing = VoiceChoice(index: index) } label: {
+                        LabeledContent("Voice") {
+                            HStack(spacing: 6) {
+                                Text(options.voice(speakers[index].voice)?.name ?? speakers[index].voice)
+                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("audiobook-speaker-voice-\(index)")
+                }
+                .padding(.vertical, 2)
+            }
+            .onDelete { speakers.remove(atOffsets: $0); taps += 1 }
+            if speakers.count < options.speakers.maxCount {
+                Button { taps += 1; choosing = VoiceChoice(index: nil) } label: {
+                    Label("Add Speaker", systemImage: "plus")
+                }
+                .accessibilityIdentifier("audiobook-speaker-add")
+            }
+        } header: { Text("Speakers") } footer: {
+            Text("Each speaker needs a different voice, up to \(options.speakers.maxCount).")
+        }
+    }
+
     private var valid: Bool {
         if automatic { return true }
         return !speakers.isEmpty && speakers.count <= options.speakers.maxCount
@@ -93,38 +128,7 @@ struct AudiobookSpeakersSheet: View {
                     }
                 }
                 if !automatic {
-                    Section {
-                        ForEach(speakers.indices, id: \.self) { index in
-                            VStack(alignment: .leading, spacing: 8) {
-                                TextField("Name", text: $speakers[index].name)
-                                    .accessibilityIdentifier("audiobook-speaker-name-\(index)")
-                                if !speakers[index].role.isEmpty {
-                                    Text(speakers[index].role).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Button { taps += 1; choosing = VoiceChoice(index: index) } label: {
-                                    LabeledContent("Voice") {
-                                        HStack(spacing: 6) {
-                                            Text(options.voice(speakers[index].voice)?.name ?? speakers[index].voice)
-                                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("audiobook-speaker-voice-\(index)")
-                            }
-                            .padding(.vertical, 2)
-                        }
-                        .onDelete { speakers.remove(atOffsets: $0); taps += 1 }
-                        if speakers.count < options.speakers.maxCount {
-                            Button { taps += 1; choosing = VoiceChoice(index: nil) } label: {
-                                Label("Add Speaker", systemImage: "plus")
-                            }
-                            .accessibilityIdentifier("audiobook-speaker-add")
-                        }
-                    } header: { Text("Speakers") } footer: {
-                        Text("Each speaker needs a different voice, up to \(options.speakers.maxCount).")
-                    }
+                    speakersSection
                 }
             }
             .formStyle(.grouped)

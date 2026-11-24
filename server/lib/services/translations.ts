@@ -241,7 +241,7 @@ export async function readSummary(
   payer: TranslationPayer,
   options: ReadOptions = {},
 ): Promise<SummaryReading> {
-  if (!language) return ORIGINAL_READING;
+  if (!language || row.kind === "resume") return ORIGINAL_READING;
   const ai = options.ai ?? await getAiProvider();
   let translation: SummaryTranslationRow | null = await findTranslation(db, row.id, language) ?? null;
   if (!translation || !hasTranslatedTags(row, translation)) {

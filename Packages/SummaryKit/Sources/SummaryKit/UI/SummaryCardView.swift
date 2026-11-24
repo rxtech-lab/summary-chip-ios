@@ -173,7 +173,7 @@ public struct KindBadge: View {
 
     /// Nil for kinds that open as a plain summary and carry no badge.
     public init?(kind: SummaryKind) {
-        guard kind == .trip || kind == .podcast || kind == .audiobook || kind == .paper || kind == .miniApp || kind == .graph || kind == .richDocument || kind == .todoList else { return nil }
+        guard kind == .trip || kind == .podcast || kind == .audiobook || kind == .paper || kind == .miniApp || kind == .graph || kind == .richDocument || kind == .todoList || kind == .resume else { return nil }
         self.kind = kind
     }
 
@@ -202,6 +202,7 @@ public struct KindBadge: View {
         case .miniApp: Text("Clip", bundle: .module, comment: "Badge on a library tile that is a Clip")
         case .graph: Text("Graph", bundle: .module, comment: "Badge on a library tile that is a graph")
         case .todoList: Text("Todo List", bundle: .module)
+        case .resume: Text("Résumé", bundle: .module)
         case .richDocument: Text("Document", bundle: .module, comment: "Badge on a library tile that is a rich document")
         default: Text("Paper", bundle: .module, comment: "Badge on a library tile that is a LaTeX paper")
         }
@@ -215,6 +216,7 @@ public struct KindBadge: View {
         case .miniApp: "app.badge.fill"
         case .graph: "point.3.connected.trianglepath.dotted"
         case .todoList: "checklist"
+        case .resume: "person.text.rectangle.fill"
         case .richDocument: "doc.text.image.fill"
         default: "doc.richtext.fill"
         }

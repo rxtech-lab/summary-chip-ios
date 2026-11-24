@@ -204,6 +204,7 @@ targets:
     platform: macOS
     sources:
       - path: summary-chipMacUITests
+      - path: summary-chipUITests/ResumeUITests.swift
     dependencies:
       - target: summary-chip
     settings:

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -38,9 +38,14 @@ function safeFilename(filename: string | undefined): string {
   return filename?.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "document.pdf";
 }
 
+function encryptedUpload(key: string): boolean {
+  return key.startsWith("chat-uploads/") || key.startsWith("resume-uploads/");
+}
+
 class R2ObjectStore implements ObjectStore {
   private readonly client: S3Client;
   private readonly bucket: string;
+  private readonly secretAccessKey: string;
 
   constructor() {
     const accountId = process.env.R2_ACCOUNT_ID;
@@ -51,6 +56,7 @@ class R2ObjectStore implements ObjectStore {
       throw new ApiError(503, "STORAGE_NOT_CONFIGURED", "Cloudflare R2 is not configured");
     }
     this.bucket = bucket;
+    this.secretAccessKey = secretAccessKey;
     this.client = new S3Client({
       region: "auto",
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -60,19 +66,45 @@ class R2ObjectStore implements ObjectStore {
     });
   }
 
+  // A UUID in each staged object's key gives it a distinct SSE-C key. Only the authenticated
+  // upload ticket carries that object's key; the bucket's public domain cannot decrypt it.
+  private encryption(key: string) {
+    if (!encryptedUpload(key)) return undefined;
+    const material = createHmac("sha256", this.secretAccessKey)
+      .update("chippy/r2/sse-c/v1\0").update(this.bucket).update("\0").update(key).digest();
+    return {
+      SSECustomerAlgorithm: "AES256",
+      SSECustomerKey: material.toString("base64"),
+      SSECustomerKeyMD5: createHash("md5").update(material).digest("base64"),
+    };
+  }
+
   async signedPut(key: string, contentType: string, byteSize: number) {
-    const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType, ContentLength: byteSize });
+    const encryption = this.encryption(key);
+    const headers: Record<string, string> = { "content-type": contentType };
+    if (encryption) {
+      headers["x-amz-server-side-encryption-customer-algorithm"] = encryption.SSECustomerAlgorithm;
+      headers["x-amz-server-side-encryption-customer-key"] = encryption.SSECustomerKey;
+      headers["x-amz-server-side-encryption-customer-key-md5"] = encryption.SSECustomerKeyMD5;
+    }
+    const command = new PutObjectCommand({
+      Bucket: this.bucket, Key: key, ContentType: contentType, ContentLength: byteSize, ...encryption,
+    });
     return {
       url: await getSignedUrl(this.client, command, {
         expiresIn: UPLOAD_URL_TTL_SECONDS,
-        signableHeaders: new Set(["content-type"]),
+        signableHeaders: new Set(Object.keys(headers)),
+        unhoistableHeaders: new Set(Object.keys(headers)),
       }),
       expiresAt: new Date(Date.now() + UPLOAD_URL_TTL_SECONDS * 1000),
-      headers: { "content-type": contentType },
+      headers,
     };
   }
 
   async signedGet(key: string, options: { filename?: string; expiresInSeconds?: number; inline?: boolean } = {}) {
+    if (encryptedUpload(key)) {
+      throw new ApiError(403, "PRIVATE_UPLOAD", "This file requires an authenticated storage read");
+    }
     const expiresIn = options.expiresInSeconds ?? 300;
     let disposition: string | undefined;
     if (options.filename) {
@@ -96,13 +128,14 @@ class R2ObjectStore implements ObjectStore {
       Key: key,
       Body: object.bytes,
       ContentType: object.contentType,
+      ...this.encryption(key),
       ...(object.cacheControl ? { CacheControl: object.cacheControl } : {}),
     }));
   }
 
   async get(key: string): Promise<StoredObject> {
     try {
-      const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key, ...this.encryption(key) }));
       if (!result.Body) throw new ApiError(404, "OBJECT_MISSING", "The stored object does not exist");
       return { bytes: await result.Body.transformToByteArray(), contentType: result.ContentType ?? "application/octet-stream" };
     } catch (error) {
@@ -113,7 +146,7 @@ class R2ObjectStore implements ObjectStore {
 
   async head(key: string) {
     try {
-      const result = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      const result = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key, ...this.encryption(key) }));
       return { contentType: result.ContentType, byteSize: result.ContentLength };
     } catch (error) {
       if (isMissing(error)) return null;
@@ -179,24 +212,26 @@ export function getObjectStore(): ObjectStore {
   return r2Store;
 }
 
+export type UploadNamespace = "uploads" | "resume-uploads" | "chat-uploads";
+
 /** Owner-scoped prefix for uploads; hashing keeps the RxAuth subject out of object keys. */
 export function ownerKeyPrefix(ownerId: string): string {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 24);
 }
 
-export function uploadKey(ownerId: string, uploadId: string, mimeType = "application/pdf"): string {
+export function uploadKey(ownerId: string, uploadId: string, mimeType = "application/pdf", namespace: UploadNamespace = "uploads"): string {
   const extension = ({
     "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
     "image/gif": "gif", "image/avif": "avif", "image/heic": "heic", "text/plain": "txt",
   } as Record<string, string>)[mimeType] ?? "bin";
-  return `uploads/${ownerKeyPrefix(ownerId)}/${uploadId}.${extension}`;
+  return `${namespace}/${ownerKeyPrefix(ownerId)}/${uploadId}.${extension}`;
 }
 
-const UPLOAD_KEY_PATTERN = /^uploads\/([0-9a-f]{24})\/([0-9a-f-]{36})\.(?:pdf|jpg|png|webp|gif|avif|heic|txt|bin)$/;
+const UPLOAD_KEY_PATTERN = /^(uploads|resume-uploads|chat-uploads)\/([0-9a-f]{24})\/([0-9a-f-]{36})\.(?:pdf|jpg|png|webp|gif|avif|heic|txt|bin)$/;
 
-export function isOwnedUploadKey(ownerId: string, key: string): boolean {
+export function isOwnedUploadKey(ownerId: string, key: string, namespace: UploadNamespace = "uploads"): boolean {
   const match = UPLOAD_KEY_PATTERN.exec(key);
-  return Boolean(match && match[1] === ownerKeyPrefix(ownerId));
+  return Boolean(match && match[1] === namespace && match[2] === ownerKeyPrefix(ownerId));
 }
 
 /**
@@ -217,6 +252,7 @@ export const OG_CACHE_CONTROL = "public, max-age=300";
 
 /** URL of an object on the bucket's public custom domain, or null when `R2_PUBLIC_BASE_URL` is unset. */
 export function publicObjectUrl(key: string): string | null {
+  if (encryptedUpload(key)) return null;
   const base = r2PublicBaseUrl();
   return base ? `${base}/${key.split("/").map(encodeURIComponent).join("/")}` : null;
 }

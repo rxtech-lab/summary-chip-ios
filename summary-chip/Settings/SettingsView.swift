@@ -93,30 +93,7 @@ struct SettingsView: View {
                 accountHeader
             }
 
-            Section {
-                SettingsActionRow(String(localized: "Notifications"), systemImage: "bell.badge.fill", tint: .red,
-                                  detail: notifications.isEnabled
-                                    ? String(localized: "On for summaries added by agents and the API.")
-                                    : String(localized: "Off")) {
-                    Button("Configure…") { showsNotifications = true }
-                        .accessibilityIdentifier("notification-settings")
-                }
-                SettingsActionRow(String(localized: "Daily Recap"), systemImage: "video.badge.waveform", tint: .purple,
-                                  detail: String(localized: "Off by default. Automatic recaps use credits.")) {
-                    Button("Configure…") { showsDailyRecap = true }
-                        .accessibilityIdentifier("daily-recap-settings")
-                }
-                SettingsActionRow(String(localized: "MCP Server"), systemImage: "point.3.connected.trianglepath.dotted", tint: .indigo,
-                                  detail: String(localized: "API keys for AI agents.")) {
-                    Button("Configure…") { showsMCPServer = true }
-                        .accessibilityIdentifier("mcp-server-settings")
-                }
-            } header: {
-                Text("General")
-            } footer: {
-                Text("The MCP server lets AI agents such as Claude add, search and list your summaries from anywhere.")
-                    .foregroundStyle(.secondary)
-            }
+            macGeneralSection
 
             Section {
                 SettingsActionRow(String(localized: "Voice Models"), systemImage: "waveform", tint: .purple,
@@ -184,6 +161,33 @@ struct SettingsView: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { formWidth = $0 }
         .task { await notifications.refreshStatus() }
         .task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
+    }
+
+    private var macGeneralSection: some View {
+        Section {
+            SettingsActionRow(String(localized: "Notifications"), systemImage: "bell.badge.fill", tint: .red,
+                              detail: notifications.isEnabled
+                                ? String(localized: "On for summaries added by agents and the API.")
+                                : String(localized: "Off")) {
+                Button("Configure…") { showsNotifications = true }
+                    .accessibilityIdentifier("notification-settings")
+            }
+            SettingsActionRow(String(localized: "Daily Recap"), systemImage: "video.badge.waveform", tint: .purple,
+                              detail: String(localized: "Off by default. Automatic recaps use credits.")) {
+                Button("Configure…") { showsDailyRecap = true }
+                    .accessibilityIdentifier("daily-recap-settings")
+            }
+            SettingsActionRow(String(localized: "MCP Server"), systemImage: "point.3.connected.trianglepath.dotted", tint: .indigo,
+                              detail: String(localized: "API keys for AI agents.")) {
+                Button("Configure…") { showsMCPServer = true }
+                    .accessibilityIdentifier("mcp-server-settings")
+            }
+        } header: {
+            Text("General")
+        } footer: {
+            Text("The MCP server lets AI agents such as Claude add, search and list your summaries from anywhere.")
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var macHelpSection: some View {

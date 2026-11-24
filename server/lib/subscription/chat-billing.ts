@@ -252,3 +252,14 @@ export function reservePodcastPoints(userId: string, key: string, model: string,
       notConfigured: "PODCAST_BILLING_NOT_CONFIGURED", unavailable: "PODCAST_BILLING_UNAVAILABLE",
       unavailableMessage: "Your points balance could not be checked. Please try again." } });
 }
+
+/** Each persisted résumé proposal owns one reservation, including workflow retries. */
+export function reserveResumePoints(userId: string, proposalId: string, operation: string, model: string, environment?: BillingEnvironment) {
+  return holdPoints({
+    userId, environment, key: `resume:${proposalId}`, description: `Résumé ${operation}`,
+    metadata: { proposalId, operation, model },
+    codes: { exhausted: "RESUME_POINTS_EXHAUSTED", exhaustedMessage: "Your points balance is empty. Top up to continue.",
+      notConfigured: "RESUME_BILLING_NOT_CONFIGURED", unavailable: "RESUME_BILLING_UNAVAILABLE",
+      unavailableMessage: "Your points balance could not be checked." },
+  });
+}

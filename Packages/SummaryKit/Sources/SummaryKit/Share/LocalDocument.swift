@@ -54,9 +54,11 @@ public struct LocalFileSource: Sendable, Hashable {
 /// Coordinates reads from Files providers, including iCloud downloads, while access is held.
 public enum LocalDocument {
     public static var contentTypes: [UTType] {
-        var types: [UTType] = [.pdf, .text, .sourceCode, .json, .yaml, .commaSeparatedText, .tabSeparatedText, .log]
-        types += richTextTypes
-        types += OfficeDocument.contentTypes
+        [.pdf] + textContentTypes + richTextTypes + OfficeDocument.contentTypes
+    }
+
+    static var textContentTypes: [UTType] {
+        var types: [UTType] = [.text, .sourceCode, .json, .yaml, .commaSeparatedText, .tabSeparatedText, .log]
         // Code that the system doesn't type as text (or types as something else, like `.ts`).
         types += (markdownExtensions + codeExtensions).compactMap { UTType(filenameExtension: $0) }
         var seen = Set<UTType>()
@@ -207,31 +209,35 @@ public enum LocalDocument {
     }
 
     public static func copyForReading(_ url: URL, filename: String? = nil) throws -> URL {
+        try withCoordinatedRead(url) { source in
+            let size = try source.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= SummaryAPIClient.maxUploadBytes else {
+                throw SummaryAPIError.fileTooLarge(maxBytes: SummaryAPIClient.maxUploadBytes)
+            }
+            let directory = FileManager.default.temporaryDirectory
+                .appending(path: "SummaryChipImport/\(UUID().uuidString)", directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            var name = filename.map { URL(fileURLWithPath: $0).lastPathComponent } ?? source.lastPathComponent
+            if URL(fileURLWithPath: name).pathExtension.isEmpty, !source.pathExtension.isEmpty {
+                name += "." + source.pathExtension
+            }
+            let destination = directory.appending(path: name)
+            try FileManager.default.copyItem(at: source, to: destination)
+            return destination
+        }
+    }
+
+    static func withCoordinatedRead<Value>(_ url: URL, read: (URL) throws -> Value) throws -> Value {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         var coordinationError: NSError?
-        var copied: Result<URL, any Error>?
+        var result: Result<Value, any Error>?
         NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordinationError) { source in
-            copied = Result {
-                let size = try source.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-                guard size <= SummaryAPIClient.maxUploadBytes else {
-                    throw SummaryAPIError.fileTooLarge(maxBytes: SummaryAPIClient.maxUploadBytes)
-                }
-                let directory = FileManager.default.temporaryDirectory
-                    .appending(path: "SummaryChipImport/\(UUID().uuidString)", directoryHint: .isDirectory)
-                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                var name = filename.map { URL(fileURLWithPath: $0).lastPathComponent } ?? source.lastPathComponent
-                if URL(fileURLWithPath: name).pathExtension.isEmpty, !source.pathExtension.isEmpty {
-                    name += "." + source.pathExtension
-                }
-                let destination = directory.appending(path: name)
-                try FileManager.default.copyItem(at: source, to: destination)
-                return destination
-            }
+            result = Result { try read(source) }
         }
         if let coordinationError { throw coordinationError }
-        guard let copied else { throw LocalDocumentError.unavailable }
-        return try copied.get()
+        guard let result else { throw LocalDocumentError.unavailable }
+        return try result.get()
     }
 
     public static func discardCopy(_ url: URL) {

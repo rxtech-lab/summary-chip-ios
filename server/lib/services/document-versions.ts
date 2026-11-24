@@ -21,13 +21,13 @@ export interface VersionContentByKind {
   rich_document: import("@/lib/contracts/rich-document").RichDocument;
 }
 
-export type VersionContent = VersionContentByKind[SummaryKind];
+export type VersionContent = VersionContentByKind[keyof VersionContentByKind];
 
 /** How many versions each item keeps; older ones are dropped as new ones are saved. */
 export const MAX_DOCUMENT_VERSIONS = 100;
 
 /** Where each kind's title sits in its content, for listing versions without loading them. */
-export const VERSION_TITLE_PATHS: Record<SummaryKind, string> = {
+export const VERSION_TITLE_PATHS: Record<keyof VersionContentByKind, string> = {
   summary: "$.title",
   podcast: "$.title",
   audiobook: "$.title",
@@ -69,6 +69,7 @@ export function versionStatements(
   content: VersionContent,
   options: VersionOptions & { at: Date; fenced?: boolean },
 ) {
+  if (item.kind === "resume") throw new Error("Use scoped résumé revisions");
   return [
     db.run(sql`
       INSERT INTO document_versions (summary_id, version, kind, content, actor, restored_from, created_at)

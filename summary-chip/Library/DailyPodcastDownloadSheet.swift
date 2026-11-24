@@ -39,48 +39,7 @@ struct DailyPodcastDownloadSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    if podcast.availableLanguages.count > 1 {
-                        Picker("Language", selection: $language) {
-                            ForEach(podcast.availableLanguages, id: \.self) { Text(PodcastLanguagesSheet.title(for: $0)).tag($0) }
-                        }
-                        .disabled(preparing)
-                        .accessibilityIdentifier("podcast-download-language")
-                    }
-                    Picker("Format", selection: $format) {
-                        ForEach(PodcastDownloadFormat.allCases.filter { $0 != .video || podcast.video != nil }) { Text($0.title).tag($0) }
-                    }
-                    .disabled(preparing)
-                    .accessibilityIdentifier("podcast-download-format")
-                    if format == .video {
-                        Picker("Resolution", selection: $resolution) {
-                            ForEach(resolutions) { Text($0.title).tag($0) }
-                        }
-                        .disabled(preparing)
-                        .accessibilityIdentifier("podcast-download-resolution")
-                        Text(resolution.rawValue <= 1080 ? "HD video renders in the cloud. You can return later while it finishes." : "This export renders on this device. Keep the app open until it finishes.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                    #if os(iOS)
-                    if format == .video {
-                        Picker("Save To", selection: $saveToPhotos) {
-                            Text("Files").tag(false)
-                            Text("Photos").tag(true)
-                        }
-                        .disabled(preparing)
-                        .accessibilityIdentifier("podcast-save-destination")
-                    }
-                    #endif
-                } footer: {
-                    if podcast.bookKey != nil {
-                        Text("Saves this chapter. Audio saves it as MP3, video as MP4 with selectable embedded captions, and captions as a timed SRT subtitle file.")
-                    } else {
-                        Text("Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file.")
-                    }
-                }
-            }
-            .formStyle(.grouped)
+            downloadOptions
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(podcast.bookKey != nil ? "Download Chapter" : "Download Podcast")
             .summaryInlineNavigationTitle()
@@ -128,6 +87,51 @@ struct DailyPodcastDownloadSheet: View {
         .summarySheetFrame(minWidth: 320, idealWidth: 480, minHeight: 320)
         .presentationSizing(.page.fitted(horizontal: true, vertical: false))
         .presentationDetents([.large])
+    }
+
+    private var downloadOptions: some View {
+        Form {
+            Section {
+                if podcast.availableLanguages.count > 1 {
+                    Picker("Language", selection: $language) {
+                        ForEach(podcast.availableLanguages, id: \.self) { Text(PodcastLanguagesSheet.title(for: $0)).tag($0) }
+                    }
+                    .disabled(preparing)
+                    .accessibilityIdentifier("podcast-download-language")
+                }
+                Picker("Format", selection: $format) {
+                    ForEach(PodcastDownloadFormat.allCases.filter { $0 != .video || podcast.video != nil }) { Text($0.title).tag($0) }
+                }
+                .disabled(preparing)
+                .accessibilityIdentifier("podcast-download-format")
+                if format == .video {
+                    Picker("Resolution", selection: $resolution) {
+                        ForEach(resolutions) { Text($0.title).tag($0) }
+                    }
+                    .disabled(preparing)
+                    .accessibilityIdentifier("podcast-download-resolution")
+                    Text(resolution.rawValue <= 1080 ? "HD video renders in the cloud. You can return later while it finishes." : "This export renders on this device. Keep the app open until it finishes.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                #if os(iOS)
+                if format == .video {
+                    Picker("Save To", selection: $saveToPhotos) {
+                        Text("Files").tag(false)
+                        Text("Photos").tag(true)
+                    }
+                    .disabled(preparing)
+                    .accessibilityIdentifier("podcast-save-destination")
+                }
+                #endif
+            } footer: {
+                if podcast.bookKey != nil {
+                    Text("Saves this chapter. Audio saves it as MP3, video as MP4 with selectable embedded captions, and captions as a timed SRT subtitle file.")
+                } else {
+                    Text("Audio saves the complete podcast as MP3. Video saves the motion animation with selectable embedded captions as MP4. Captions saves a timed SRT subtitle file.")
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 
     @ViewBuilder private var transferOverlay: some View {

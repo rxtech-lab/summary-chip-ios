@@ -4,6 +4,7 @@ import { summaries, uploads } from "@/lib/db/schema";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
 import { rotateImageKeys } from "./summaries";
 import { retireTranslatedCovers } from "./translations";
+import { collectUnusedResumeOutputs } from "@/lib/resume/retention";
 import { cleanupOAuth } from "@/lib/mcp/oauth-tokens";
 
 const BATCH_SIZE = 100;
@@ -34,6 +35,7 @@ export async function runCleanup(db: Database, options: { store?: ObjectStore; n
   const store = options.store ?? getObjectStore();
   const now = options.now ?? new Date();
   await cleanupOAuth(db, now);
+  await db.transaction(tx => collectUnusedResumeOutputs(tx,null,now));
   const report: CleanupReport = { expiredLinks: 0, orphanUploads: 0, objectsDeleted: 0, objectFailures: 0 };
 
   let after: { expiresAt: Date; id: string } | null = null;
@@ -86,7 +88,7 @@ export async function runCleanup(db: Database, options: { store?: ObjectStore; n
       .where(and(isNull(uploads.attachedAt), lt(uploads.createdAt, cutoff)))
       .limit(BATCH_SIZE);
     if (rows.length === 0) break;
-    const results = await Promise.allSettled(rows.map((row) => store.delete(row.key)));
+    const results = await Promise.allSettled(rows.map(row => store.delete(row.key)));
     const deletedKeys = rows.filter((_, index) => results[index].status === "fulfilled").map((row) => row.key);
     report.objectFailures += rows.length - deletedKeys.length;
     report.objectsDeleted += deletedKeys.length;

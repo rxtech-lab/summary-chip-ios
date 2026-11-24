@@ -43,7 +43,7 @@ extension SummaryAPIClient {
         return result.image.url
     }
 
-    private func uploadDocumentData(_ data: Data, ticket: UploadTicket,
+    func uploadDocumentData(_ data: Data, ticket: UploadTicket,
                                     progress: @escaping @Sendable (Int64, Int64) -> Void) async throws {
         var request = URLRequest(url: ticket.uploadUrl)
         request.httpMethod = "PUT"

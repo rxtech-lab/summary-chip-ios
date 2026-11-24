@@ -22,7 +22,11 @@ export async function compressChatHistory(
     }
   }
   if (split === 0 || split === messages.length) return messages;
-  const serialized = JSON.stringify(messages.slice(0, split));
+  // File URLs grant temporary access. The summarizer only needs filenames and the surrounding discussion.
+  const serialized = JSON.stringify(messages.slice(0, split), (_key, value) =>
+    value?.type === "file" && value.data?.type === "url"
+      ? { type: "file", filename: value.filename, mediaType: value.mediaType }
+      : value);
   const width = CHAT_CONTEXT.chunkTokens * CHAT_CONTEXT.charsPerToken;
   let summary = "";
   // Rolling summary keeps the final context bounded even for very long histories.

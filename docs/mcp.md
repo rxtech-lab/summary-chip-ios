@@ -492,3 +492,22 @@ Ready results include byte size and `downloadUrl` (valid for ten minutes). Faile
 renders can be retried with `render_podcast_video`. `submit_podcast_video` queues the
 1080p render automatically; poll after successful submission. Rendering leaves web
 publication unchanged. The native app renders 4K exports on device.
+
+## Private résumés
+
+A family has one private library item. A target contains `familyId`, `language` and an optional `variantId`. Omitting the variant selects the base. Read the resolved document to obtain its opaque `revisionToken`. Pass that exact value as `expectedRevisionToken` and supply a unique `idempotencyKey` for each logical edit. Retry a lost response with identical arguments. A conflict requires rereading the target and reviewing the change.
+
+| Tool | Arguments and result |
+| --- | --- |
+| `list_resumes`, `get_resume` | List takes no arguments. Get takes the target and optionally a historical `revisionToken`. The response includes the document, company and language choices, provenance, recovery paths, and missing translations. |
+| `create_resume` | `{title, language, document, idempotencyKey}`. Document version 1 contains candidateName, links and sections. Optional fields include headline, contact and avatarAssetId. Sections contain entries, entries contain bullets. Every section, entry, link and bullet has a stable ID. Dates accept YYYY, YYYY-MM and YYYY-MM-DD. |
+| `edit_resume` | Target plus `expectedRevisionToken`, `idempotencyKey`, and `operations`. Set a field with `{op:"set",path:"/sections/work/entries/job1/bullets/b1/text",value:"Led onboarding"}`. Insert supplies a parent list path, typed value and optional anchor ID. Move supplies the item path and `after` (null means first). Remove hides a company item. Reset restores inheritance. Keep or discard resolves a recoverable subtree. |
+| `preview_resume_company`, `create_resume_company` | Preview accepts familyId, language and sourceRevisionToken. Creation takes the current base token, idempotency key, company and optional targetRole/jobDescription. To start from another revision, pass sourceRevisionToken and acceptedPaths from the comparison. An empty selection inherits the current base. |
+| `review_resume`, `tailor_resume`, `translate_resume` | Target, expectedRevisionToken and idempotencyKey. Tailor requires a company. Translate adds targetLanguage. Each returns a proposal ID and status. Findings identify fields, rationale, current and proposed wording, and conflicts. Large translations can return a queued job. These operations require points. |
+| `get_resume_job`, `apply_resume_proposal` | Read by familyId and proposalId. Apply adds expectedRevisionToken (the reviewed source), idempotencyKey and acceptedPaths. Optional keepPaths records the decision to retain hand-edited wording on conflicting fields. The server checks the reviewed target revision as well. |
+| `list_resume_revisions`, `compare_resume_revision`, `restore_resume_revision` | List by target. Compare adds the historical revisionToken. Restore adds the current expectedRevisionToken and idempotencyKey. Review affected companies before restoring the base. |
+| `start_resume_avatar_upload`, `finish_resume_avatar_upload` | Start by familyId, filename, mimeType and byteSize. PUT to the presigned private S3 URL, then finish with familyId and uploadId (the staging key). Attach the resulting opaque ID using edit_resume. |
+| `list_resume_templates`, `preview_resume`, `export_resume` | List takes no arguments. Preview takes the target, saved revisionToken and presentation with template (compact-v1 or profile-v1), paperSize (A4 or Letter), and showAvatar. Export also takes format (pdf or docx). Fetch the returned relative handle at the same server with authorized owner credentials. The preview and PDF export use identical bytes. |
+| `publish_resume`, `list_resume_links`, `revoke_resume_link` | Publish takes familyId, previewId, idempotencyKey, access (anyone or invited), ttlDays, optional label and emails. Invited access requires an email and Chippy sign-in. For a replacement, include linkId and expectedPreviewId. If the preview identifies untranslated paths, publishing requires acceptedWordingPaths matching every displayed exception. List by familyId, revoke by familyId and linkId. Recipients can download the published PDF. DOCX is owner-only. |
+
+The same owner operations live under `/api/v1/resumes`. Text and voice requests can carry `resumeTarget: {familyId, variantId, language, revisionToken}` captured when the call starts.

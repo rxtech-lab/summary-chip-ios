@@ -778,6 +778,7 @@ export async function patchSummary(
   deps: Pick<ServiceDeps, "ai" | "now" | "store"> & VersionOptions & { billingEnvironment?: BillingEnvironmentResolver; asWritten?: boolean } = {},
 ): Promise<SummaryJson> {
   const existing = await getOwnedSummary(db, id, ownerId);
+  if (existing.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_EDIT", "Use the résumé editor for this private document.");
   const now = deps.now?.() ?? new Date();
   const changes: Partial<SummaryRow> = { updatedAt: now };
   if (patch.summary !== undefined) changes.summary = patch.summary;
@@ -907,6 +908,7 @@ export async function regenerateImage(
 ): Promise<SummaryJson> {
   const { ai, store, now } = await resolveDeps(deps);
   const existing = await getOwnedSummary(db, id, ownerId);
+  if (existing.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_EDIT", "Use the résumé editor for this private document.");
   const updatedAt = now();
   // Never reuse the previous key, even if the clock has not moved.
   const timestamp = Math.max(updatedAt.getTime(), existing.updatedAt.getTime() + 1);

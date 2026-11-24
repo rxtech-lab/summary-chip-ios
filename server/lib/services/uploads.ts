@@ -4,16 +4,17 @@ import { createFileUploadSchema, MAX_UPLOAD_BYTES } from "@/lib/contracts/api";
 import type { Database } from "@/lib/db/client";
 import { uploads } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
-import { getObjectStore, isOwnedUploadKey, uploadKey, type ObjectStore } from "@/lib/storage/r2";
+import { getObjectStore, isOwnedUploadKey, uploadKey, type ObjectStore, type UploadNamespace } from "@/lib/storage/r2";
 
 export async function createUpload(
   db: Database,
   ownerId: string,
   input: z.infer<typeof createFileUploadSchema>,
   store: ObjectStore = getObjectStore(),
+  namespace: UploadNamespace = "uploads",
 ) {
   input = createFileUploadSchema.parse(input);
-  const key = uploadKey(ownerId, crypto.randomUUID(), input.mimeType);
+  const key = uploadKey(ownerId, crypto.randomUUID(), input.mimeType, namespace);
   const signed = await store.signedPut(key, input.mimeType, input.byteSize);
   await db.insert(uploads).values({
     key,
@@ -38,8 +39,9 @@ export async function getCompletedUpload(
   key: string,
   store: ObjectStore = getObjectStore(),
   maxBytes = MAX_UPLOAD_BYTES,
+  namespace: UploadNamespace = "uploads",
 ) {
-  if (!isOwnedUploadKey(ownerId, key)) {
+  if (!isOwnedUploadKey(ownerId, key, namespace)) {
     throw new ApiError(403, "UPLOAD_FORBIDDEN", "This upload does not belong to you");
   }
   const [upload] = await db.select().from(uploads)

@@ -36,6 +36,7 @@ nonisolated struct ChatEntry: Identifiable, Hashable, Codable, MessageListItem {
     let role: Role
     var text: String
     var graphContext: String? = nil
+    var attachments: [ChatAttachmentReference]? = nil
     var tools: [ChatToolActivity] = []
     var errorText: String?
     var isStreaming = false
@@ -86,6 +87,14 @@ final class ChatModel {
     /// Set when chatting from a summary's detail screen; the agent answers from its original text.
     let summaryID: String?
     let miniAppID: String?
+    private(set) var resumeTarget: ResumeTarget?
+    var resumeCompany: String?
+    var isResumeVoiceActive = false
+    @ObservationIgnored var onResumeUpdated: ((ResolvedResume) -> Void)?
+    var documentID: String? {
+        if let resumeTarget { return resumeTarget.familyId }
+        return summaryID ?? trip?.id ?? graph?.id ?? miniAppID
+    }
     /// Set when chatting with the trip agent from a trip's screen; the agent can edit the trip.
     let trip: TripChat?
     /// Called after the trip agent saved an edit to `trip`.
@@ -104,6 +113,7 @@ final class ChatModel {
     /// The last turn was refused because the points balance is empty.
     var needsTopUp = false
     var draft = ""
+    let files: ChatAttachmentDraft
     var graphElements: [GraphElementRef] = []
     var graphDocument: GraphDocument?
 
@@ -127,20 +137,24 @@ final class ChatModel {
 
     private var task: Task<Void, Never>?
 
-    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil, miniAppID: String? = nil, graph: GraphChat? = nil) {
+    init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil, miniAppID: String? = nil, graph: GraphChat? = nil, resumeTarget: ResumeTarget? = nil) {
         self.client = client
+        self.files = ChatAttachmentDraft(client: client)
         self.store = store
         self.summaryID = trip == nil && graph == nil ? summaryID : nil
+        self.resumeTarget = resumeTarget
         self.graph = graph
         self.trip = trip
         self.miniAppID = miniAppID
-        storeKey = miniAppID.map { "mini-app:\($0)" } ?? graph.map { "graph:\($0.id)" } ?? trip.map { ChatTranscriptStore.key(tripID: $0.id) }
+        let documentKey = miniAppID.map { "mini-app:\($0)" } ?? graph.map { "graph:\($0.id)" } ?? trip.map { ChatTranscriptStore.key(tripID: $0.id) }
             ?? summaryID.map(ChatTranscriptStore.key(summaryID:))
             ?? ChatTranscriptStore.libraryKey
+        storeKey = resumeTarget.map { "resume:\($0.familyId):\($0.variantId ?? "base"):\($0.language)" } ?? documentKey
         entries = Self.restored(store.load([ChatEntry].self, key: storeKey) ?? [])
     }
 
     var suggestions: [String] {
+        if resumeTarget != nil { return ["Review this résumé", "Suggest improvements to my headline"] }
         if graph != nil { return Self.graphSuggestions }
         if let trip { return trip.isExpense ? Self.expenseSuggestions : Self.tripSuggestions }
         return summaryID == nil ? Self.librarySuggestions : Self.summarySuggestions
@@ -183,15 +197,19 @@ final class ChatModel {
 
     func send(_ text: String? = nil) {
         let content = (text ?? draft).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty, !isStreaming else { return }
+        let attachments = files.attachments
+        guard !isStreaming, files.uploadProgress == nil, !content.isEmpty || !attachments.isEmpty else { return }
         draft = ""
-        entries.append(ChatEntry(id: UUID().uuidString, role: .user, text: content, graphContext: selectedGraphContext))
+        files.reset()
+        entries.append(ChatEntry(id: UUID().uuidString, role: .user, text: content, graphContext: selectedGraphContext,
+                                 attachments: attachments.isEmpty ? nil : attachments))
         let request = Self.uiMessages(from: entries)
         let assistantID = UUID().uuidString
         entries.append(ChatEntry(id: assistantID, role: .assistant, text: "", isStreaming: true))
         isStreaming = true
         persist()
-        task = Task { await stream(request, into: assistantID) }
+        let captured = resumeTarget
+        task = Task { await stream(request, into: assistantID, target: captured) }
     }
 
     func stop() {
@@ -230,7 +248,7 @@ final class ChatModel {
         if messages.isEmpty { messages.append(ChatUIMessage(role: .user, text: Self.voiceStartPlaceholder)) }
         return ChatRequestBody(messages: messages, summaryId: summaryID,
             localContent: await Self.localContent(summaryID: summaryID), tripId: trip?.id,
-            miniAppId: miniAppID, graphId: graph?.id)
+            miniAppId: miniAppID, graphId: graph?.id, resumeTarget: resumeTarget)
     }
 
     func recordVoiceTool(_ event: ChatStreamEvent, entryID: String) {
@@ -249,7 +267,7 @@ final class ChatModel {
         do {
             let local = await Self.localContent(summaryID: summaryID)
             for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: local,
-                tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id) {
+                tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id, resumeTarget: resumeTarget) {
                 try Task.checkCancellation()
                 apply(event, to: id)
             }
@@ -267,12 +285,13 @@ final class ChatModel {
 
     func newChat() {
         stop()
+        files.reset()
         entries = []
         draft = ""
         store.remove(key: storeKey)
     }
 
-    private func stream(_ messages: [ChatUIMessage], into id: String) async {
+    private func stream(_ messages: [ChatUIMessage], into id: String, target: ResumeTarget?) async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
             await previewStream(into: id)
@@ -281,7 +300,7 @@ final class ChatModel {
         #endif
         do {
             let localContent = await Self.localContent(summaryID: summaryID)
-            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id) {
+            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id, resumeTarget: target) {
                 apply(event, to: id)
             }
             finish(id)
@@ -369,50 +388,7 @@ final class ChatModel {
                 ))
             }
         case .toolOutputAvailable(let callID, let output):
-            update(id) { entry in
-                entry.recordTool(callID)
-                let index = entry.tools.firstIndex(where: { $0.id == callID }) ?? {
-                    entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: []))
-                    return entry.tools.count - 1
-                }()
-                entry.tools[index].isRunning = false
-                entry.tools[index].finished = true
-                entry.tools[index].references = ChatToolOutput.references(from: output)
-                entry.tools[index].isSemantic = ChatToolOutput.isSemantic(output)
-                entry.tools[index].errorText = ChatToolOutput.errorText(from: output)
-                entry.tools[index].status = ChatToolOutput.localFileStatus(toolName: entry.tools[index].toolName, output: output)
-                if entry.tools[index].toolName == "searchWeb" {
-                    entry.tools[index].webReferences = ChatToolOutput.webReferences(from: output)
-                }
-                if let draft = output["miniAppDraft"] { entry.tools[index].miniAppDraft = try? draft.decode(MiniAppDocument.self) }
-                if let appID = output["app"]?["id"]?.stringValue { entry.tools[index].miniAppID = appID }
-                if entry.tools[index].toolName == "renderUI" {
-                    entry.tools[index].renderedUI = ChatToolOutput.renderedUI(from: output)
-                    if let ui = entry.tools[index].renderedUI, ui.nodeId != nil { onGraphUI?(ui) }
-                    entry.tools[index].renderedText = output["text"]?.stringValue
-                }
-                if entry.tools[index].toolName == "updateTrip", entry.tools[index].errorText != nil {
-                    // Sent back to the agent to fix; the raw issues are for the model, not the reader.
-                    entry.tools[index].errorText = String(localized: "Some edits didn't fit the trip, so the agent corrected them.")
-                }
-                if entry.tools[index].toolName == "updateGraph", entry.tools[index].errorText != nil {
-                    entry.tools[index].errorText = String(localized: "Some edits didn't fit the graph, so the agent corrected them.")
-                }
-                if entry.tools[index].toolName == "selectGraphElements", let selection = ChatToolOutput.graphSelection(from: output) {
-                    entry.tools[index].status = selection.map { String(localized: "\($0.nodeIds.count) nodes, \($0.edgeIds.count) edges") } ?? String(localized: "Showing the whole graph")
-                }
-                if let update = ChatToolOutput.tripUpdate(from: output) {
-                    entry.tools[index].detail = update.summary
-                    entry.tools[index].status = update.applied == 1 ? String(localized: "1 change saved") : String(localized: "\(update.applied) changes saved")
-                }
-            }
-            if ChatToolOutput.tripUpdate(from: output).map({ $0.applied > 0 }) == true {
-                onTripUpdated?()
-                onGraphUpdated?()
-            }
-            if let selection = ChatToolOutput.graphSelection(from: output) {
-                onGraphSelection?(selection)
-            }
+            applyToolOutput(output, callID: callID, to: id)
         case .toolOutputError(let callID, let error):
             applyToolError(callID, error: error, to: id)
         case .error(let message):
@@ -423,6 +399,30 @@ final class ChatModel {
             update(id) { entry in
                 for index in entry.tools.indices { entry.tools[index].isRunning = false }
             }
+        }
+    }
+
+    private func applyToolOutput(_ output: JSONValue, callID: String, to id: String) {
+        let editedResume = output["document"] != nil ? try? output.decode(ResolvedResume.self) : nil
+        if let editedResume, let target = resumeTarget, editedResume.familyId == target.familyId,
+           editedResume.language == target.language, editedResume.variantId == target.variantId {
+            resumeTarget = editedResume.target
+            onResumeUpdated?(editedResume)
+        }
+        update(id) { entry in
+            entry.recordTool(callID)
+            let index = entry.tools.firstIndex(where: { $0.id == callID }) ?? {
+                entry.tools.append(ChatToolActivity(id: callID, toolName: "", label: "", isRunning: false, references: []))
+                return entry.tools.count - 1
+            }()
+            finishToolActivity(&entry.tools[index], output: output, editedResume: editedResume)
+        }
+        if ChatToolOutput.tripUpdate(from: output).map({ $0.applied > 0 }) == true {
+            onTripUpdated?()
+            onGraphUpdated?()
+        }
+        if let selection = ChatToolOutput.graphSelection(from: output) {
+            onGraphSelection?(selection)
         }
     }
 
@@ -474,13 +474,14 @@ final class ChatModel {
         change(&entries[index])
     }
 
-    /// History as text-only UI messages. Tool results are folded into the assistant text so
+    /// History with the user's file references. Tool results are folded into the assistant text so
     /// the agent keeps the context without iOS sending tool parts.
     static func uiMessages(from entries: [ChatEntry]) -> [ChatUIMessage] {
         entries.compactMap { entry in
             switch entry.role {
             case .user:
-                return ChatUIMessage(id: entry.id, role: .user, text: entry.text + (entry.graphContext.map { "\n\n" + $0 } ?? ""))
+                return ChatUIMessage(id: entry.id, role: .user, text: entry.text + (entry.graphContext.map { "\n\n" + $0 } ?? ""),
+                                     attachments: entry.attachments)
             case .assistant:
                 var text = entry.text
                 let references = entry.tools.flatMap(\.references)
@@ -506,6 +507,45 @@ final class ChatModel {
                 guard !text.isEmpty else { return nil }
                 return ChatUIMessage(id: entry.id, role: .assistant, text: text)
             }
+        }
+    }
+}
+
+private extension ChatModel {
+    func finishToolActivity(_ activity: inout ChatToolActivity, output: JSONValue, editedResume: ResolvedResume?) {
+        activity.isRunning = false
+        activity.finished = true
+        activity.references = ChatToolOutput.references(from: output)
+        activity.isSemantic = ChatToolOutput.isSemantic(output)
+        activity.errorText = ChatToolOutput.errorText(from: output)
+        activity.status = ChatToolOutput.localFileStatus(toolName: activity.toolName, output: output)
+        if let editedResume {
+            activity.status = "\(editedResume.companyName) · \(SummaryLanguage.displayName(for: editedResume.language))"
+            activity.detail = editedResume.title
+        }
+        if activity.toolName == "searchWeb" {
+            activity.webReferences = ChatToolOutput.webReferences(from: output)
+        }
+        if let draft = output["miniAppDraft"] { activity.miniAppDraft = try? draft.decode(MiniAppDocument.self) }
+        if let appID = output["app"]?["id"]?.stringValue { activity.miniAppID = appID }
+        if activity.toolName == "renderUI" {
+            activity.renderedUI = ChatToolOutput.renderedUI(from: output)
+            if let ui = activity.renderedUI, ui.nodeId != nil { onGraphUI?(ui) }
+            activity.renderedText = output["text"]?.stringValue
+        }
+        if activity.toolName == "updateTrip", activity.errorText != nil {
+            // Sent back to the agent to fix; the raw issues are for the model, not the reader.
+            activity.errorText = String(localized: "Some edits didn't fit the trip, so the agent corrected them.")
+        }
+        if activity.toolName == "updateGraph", activity.errorText != nil {
+            activity.errorText = String(localized: "Some edits didn't fit the graph, so the agent corrected them.")
+        }
+        if activity.toolName == "selectGraphElements", let selection = ChatToolOutput.graphSelection(from: output) {
+            activity.status = selection.map { String(localized: "\($0.nodeIds.count) nodes, \($0.edgeIds.count) edges") } ?? String(localized: "Showing the whole graph")
+        }
+        if let update = ChatToolOutput.tripUpdate(from: output) {
+            activity.detail = update.summary
+            activity.status = update.applied == 1 ? String(localized: "1 change saved") : String(localized: "\(update.applied) changes saved")
         }
     }
 }
