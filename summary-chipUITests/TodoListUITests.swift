@@ -91,7 +91,7 @@ nonisolated final class TodoListUITests: XCTestCase {
         field.typeText("\n")
         let saved = app.buttons["Complete Review\nproposal"]
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
-        app.buttons["Done"].firstMatch.tap()
+        app.navigationBars.buttons["Done"].firstMatch.tap()
         // Returning to the foreground reloads the saved document from the preview API.
         XCUIDevice.shared.press(.home)
         app.activate()
@@ -99,9 +99,19 @@ nonisolated final class TodoListUITests: XCTestCase {
         XCTAssertEqual(tiles.count, 2)
     }
     @MainActor private func paste(into field: XCUIElement, in app: XCUIApplication) {
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.8)).press(forDuration: 1)
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Paste")).firstMatch
-        XCTAssertTrue(paste.waitForExistence(timeout: 5), app.debugDescription)
+        // The edit menu occasionally fails to appear after a long press on a field that already holds
+        // multiline text (the press lands on a glyph and only moves the caret), so retry a few times.
+        for attempt in 0..<3 where !paste.exists {
+            if attempt > 0 {
+                // Tapping the caret toggles the edit menu; tap once to clear any half-open state first.
+                field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.9)).tap()
+                if paste.waitForExistence(timeout: 2) { break }
+            }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.9)).press(forDuration: 1.2)
+            if paste.waitForExistence(timeout: 4) { break }
+        }
+        XCTAssertTrue(paste.exists, app.debugDescription)
         paste.tap()
     }
 }
