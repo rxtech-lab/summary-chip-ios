@@ -182,7 +182,7 @@ struct LiveVoiceEngineSheet: View {
     }
 
     private func subtitle(_ option: LiveVoiceEngine) -> String {
-        guard let agent = option.localAgent else { return String(localized: "Cloud voice, uses your Chippy points") }
+        guard let agent = option.localAgent else { return String(localized: "Cloud voice powered by Flowcy") }
         guard let status = setup.status else { return String(localized: "Checking…") }
         guard let install = status.install(for: agent), install.path != nil else {
             return String(localized: "Not found. Install the \(agent.executableName) command to use it.")

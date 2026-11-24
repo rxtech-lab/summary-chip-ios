@@ -178,34 +178,6 @@ describe("résumé proposals and focused calls", () => {
     expect(await env.handle.db.select().from(resumeProposals)).toEqual([]);
     expect(env.ai.calls.translateStrings).toHaveLength(0);
   });
-  it("reserves before execution, charges one completed request and releases failures", async () => {
-    const source = await created();
-    vi.stubEnv("RX_SUBSCRIPTION_ENVIRONMENT", "sandbox");
-    vi.stubEnv("RX_SUBSCRIPTION_URL", "https://subscription.test");
-    vi.stubEnv("RX_SUBSCRIPTION_API_KEY", "rxs_sandbox_example");
-    let insufficient = true;
-    const bodies: { url: string; amount: number; idempotencyKey: string }[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init: RequestInit) => {
-        const payload = JSON.parse(String(init.body));
-        bodies.push({ url, ...payload });
-        if (url.endsWith("/reserve") && insufficient)
-          return Response.json({ error: "insufficient_balance" }, { status: 409 });
-        return Response.json(url.endsWith("/reserve") ? { reservationId: "reservation" } : { status: "closed" });
-      }),
-    );
-    expect((await propose(source, "empty")).status).toBe(402);
-    expect(env.ai.calls.translateStrings).toHaveLength(0);
-    insufficient = false;
-    expect((await propose(source, "paid")).status).toBe(200);
-    expect((await propose(source, "paid")).status).toBe(200);
-    expect(bodies.filter((b) => b.url.endsWith("/settle"))).toHaveLength(1);
-    expect(bodies.at(-1)?.amount).toBeGreaterThan(0);
-    env.ai.translates = false;
-    expect((await propose(source, "failed")).status).toBe(502);
-    expect(bodies.at(-1)?.amount).toBe(0);
-  });
   it("queues large translations once and refreshes unchanged strings inline", async () => {
     const bullets = Array.from({ length: 65 }, (_, i) => ({ id: "b" + i, text: "Project milestone " + i }));
     const document = {

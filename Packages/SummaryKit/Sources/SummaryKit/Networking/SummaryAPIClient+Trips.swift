@@ -14,11 +14,6 @@ extension SummaryAPIClient {
     /// The agent reads the source in the background and updates the trip; it can run past the extension's lifetime.
     public static let ingestTimeout: TimeInterval = 120
 
-    static func isTripIngestPath(_ path: String?) -> Bool {
-        guard let path else { return false }
-        return path.hasPrefix("/api/v1/trips/") && path.hasSuffix("/ingest")
-    }
-
     // MARK: Trips
 
     /// The account's trips (`GET /api/v1/trips`).
@@ -108,7 +103,7 @@ extension SummaryAPIClient {
     }
 
     /// Hands a shared page, PDF or text to the trip agent, which updates the trip in the background
-    /// and sends a push when done. Out of points fails with `402 TRIP_POINTS_EXHAUSTED` (`needsTopUp`).
+    /// and sends a push when done.
     @discardableResult
     public func ingestIntoTrip(
         id: String,

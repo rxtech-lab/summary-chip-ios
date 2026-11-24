@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { createGraphSchema, GRAPH_SELECTION_MODES, graphDocumentSchema, graphElementId, graphOperationSchema, graphOperationsRequestSchema, MAX_GRAPH_OPERATIONS, MAX_SELECTION_IDS } from "@/lib/contracts/graph";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
@@ -24,7 +23,7 @@ const summary = (graph: GraphJson) => ({
 type Run = (name: string, action: () => Promise<{ result: CallToolResult }>) => Promise<CallToolResult>;
 
 /** Graphs over MCP: an agent reads and edits the document, runs queries and lights elements up in the app. */
-export function registerGraphTools(server: McpServer, context: { db: Database; principal: McpPrincipal; billingEnvironment?: BillingEnvironment }, run: Run) {
+export function registerGraphTools(server: McpServer, context: { db: Database; principal: McpPrincipal }, run: Run) {
   const { db, principal } = context;
   const result = (payload: Record<string, unknown>, text?: string): { result: CallToolResult } => ({
     result: { content: [...(text ? [{ type: "text" as const, text }] : []), { type: "text", text: JSON.stringify(payload) }], structuredContent: payload },
@@ -62,7 +61,7 @@ export function registerGraphTools(server: McpServer, context: { db: Database; p
     },
   }, (args) => run("create_graph", async () => {
     const input = createGraphSchema.parse({ document: args.document, visibility: args.visibility });
-    const graph = await createGraph(db, principal, input, { billingEnvironment: context.billingEnvironment, actor: "agent" });
+    const graph = await createGraph(db, principal, input, { actor: "agent" });
     return result({ graph: summary(graph) }, `Created graph "${graph.document.title}" (${graph.visibility}).\n${graph.shareUrl}`);
   }));
 

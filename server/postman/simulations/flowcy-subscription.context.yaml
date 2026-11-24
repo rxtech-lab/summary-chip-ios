@@ -1,0 +1,23 @@
+purpose:
+  stands_in_for: RxSubscription for Flowcy's GitHub Autopilot project
+  unblocks: Verify Chippy's membership gate and Apple purchase handoff over HTTP.
+assumptions:
+  - id: entitlement-shared-across-providers
+    status: supported
+    claim: Stripe and Apple purchases for the same Flowcy Plus plan appear as entitlements for the same RxLab subject.
+    reason: The entitlement query resolves active subscriptions independently of their provider.
+    verification: Inspected the provider contract and confirmed the catalog mapping in the live console.
+    source: rxtech-lab/rx-subscription-service app/api/v1/entitlements/route.ts and lib/subscription/entitlements.ts
+    updated_at: "2026-11-24"
+  - id: apple-purchase-fulfillment
+    status: unknown
+    claim: Apple's sandbox can create and restore an entitlement for the mapped Chippy subscription.
+    reason: The fixture exercises Chippy's handoff but cannot verify Apple's signed data or callbacks.
+    verification: The local HTTP run checked initial denial, signed-transaction handoff, subsequent access, and upstream failure. An Apple sandbox purchase and restore are still pending.
+    source: rxtech-lab/rx-subscription-service app/api/v1/iap/apple/transactions/route.ts
+    updated_at: "2026-11-24"
+fingerprints:
+  - id: flowcy-subscription-local
+    date: "2026-11-24"
+    commit: null
+    cli: 1.75.0

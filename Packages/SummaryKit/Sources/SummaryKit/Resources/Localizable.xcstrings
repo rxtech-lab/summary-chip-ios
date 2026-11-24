@@ -124,6 +124,7 @@
       }
     },
     "%lld free summaries left today" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "variations" : {
@@ -324,6 +325,7 @@
       }
     },
     "1 free summary left today" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1996,6 +1998,9 @@
         }
       }
     },
+    "Flowcy Plus Required" : {
+
+    },
     "Fog" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2917,6 +2922,7 @@
       }
     },
     "Not Enough Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3887,6 +3893,7 @@
       }
     },
     "Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3901,6 +3908,9 @@
           }
         }
       }
+    },
+    "Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Only you can open it." : {
+
     },
     "Saving link…" : {
       "localizations" : {
@@ -4217,6 +4227,9 @@
           }
         }
       }
+    },
+    "Subscribe" : {
+
     },
     "Summaries" : {
       "comment" : "Library kind filter: summary cards",
@@ -5113,6 +5126,7 @@
       }
     },
     "Top Up" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {

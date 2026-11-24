@@ -97,6 +97,10 @@ final class LiveVoiceModel {
 
             } catch {
                 if generation == revision, !Task.isCancelled {
+                    if let apiError = error as? SummaryAPIError, apiError.needsSubscription {
+                        fail(apiError.localizedDescription)
+                        return
+                    }
                     let failure = error as NSError
                     let closeCode = 0
                     voiceLogger.error("Voice failed: domain=\(failure.domain, privacy: .public) code=\(failure.code) WebSocketClose=\(closeCode) message=\(failure.localizedDescription, privacy: .public)")
@@ -295,7 +299,6 @@ final class LiveVoiceModel {
                 output = String(decoding: try JSONEncoder().encode(result), as: UTF8.self)
             } catch {
                 guard self.generation == revision, !Task.isCancelled else { return }
-                if (error as? SummaryAPIError)?.needsTopUp == true { self.chat?.needsTopUp = true }
                 output = "Tool failed: " + error.localizedDescription
                 if let entryID { self.chat?.recordVoiceTool(.toolOutputError(toolCallId: id, errorText: output), entryID: entryID) }
             }

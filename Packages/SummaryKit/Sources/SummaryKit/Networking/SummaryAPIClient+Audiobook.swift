@@ -191,7 +191,7 @@ extension SummaryAPIClient {
         return result.url
     }
 
-    /// Reads the sources and drafts the plan (spends points). With `planMode` off the plan is confirmed and its job returned.
+    /// Reads the sources and drafts the plan. With `planMode` off the plan is confirmed and its job returned.
     public func uploadAudiobookPDF(fileURL: URL, filename: String,
                                    onProgress: (@Sendable (Int, Int) -> Void)? = nil,
                                    onRead: (@Sendable () -> Void)? = nil) async throws -> AudiobookPDFSource {
@@ -241,7 +241,7 @@ extension SummaryAPIClient {
         let response: AudiobookPlanEnvelope = try await send(json("/api/v1/audiobooks/plans/\(plan.id.urlPathEscaped)", method: "PATCH", body: Body(revision: plan.revision, plan: document)))
         return response.plan
     }
-    /// Revises the plan from one chat message (spends points).
+    /// Revises the plan from one chat message.
     public func refineAudiobookPlan(_ plan: AudiobookPlan, message: String) async throws -> AudiobookPlan {
         struct Body: Encodable { var revision: Int; var message: String }
         var refine = try json("/api/v1/audiobooks/plans/\(plan.id.urlPathEscaped)/messages", method: "POST", body: Body(revision: plan.revision, message: message))
@@ -249,7 +249,7 @@ extension SummaryAPIClient {
         let response: AudiobookPlanEnvelope = try await send(refine)
         return response.plan
     }
-    /// Draws the scene images the plan is missing (spends points). The video reuses them.
+    /// Draws the scene images the plan is missing. The video reuses them.
     public func drawAudiobookPlanFrames(_ plan: AudiobookPlan) async throws -> AudiobookPlan {
         struct Body: Encodable { var revision: Int }
         var draw = try json("/api/v1/audiobooks/plans/\(plan.id.urlPathEscaped)/frames", method: "POST", body: Body(revision: plan.revision))

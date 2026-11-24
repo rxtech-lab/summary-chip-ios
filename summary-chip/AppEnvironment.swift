@@ -52,10 +52,11 @@ final class AppEnvironment {
     let assetLoader: SummaryAssetLoader
     let library: LibraryModel
     let likes: LikesModel
-    let credits = SummaryCreditsStore()
-    var pendingTopUp = false
+    let subscription: FlowcySubscriptionStore
     private(set) var authenticationState: AuthenticationPresentationState
     var backgroundJobsRequest: BackgroundJobsRequest?
+    /// Presents the Flowcy Plus subscription sheet when an AI feature requires access or `summarychip://subscription` is opened.
+    var showsSubscriptionSheet = false
     /// A podcast or audiobook being made. Presented above the compact/regular layout switch, so
     /// folding or unfolding a phone recreates the library without closing the flow or its plan.
     var libraryCreation: LibraryCreation?
@@ -76,6 +77,7 @@ final class AppEnvironment {
         self.authManager = authManager
         self.tokenBroker = tokenBroker
         self.api = SummaryAPIClient(baseURL: configuration.apiBaseURL, tokenProvider: tokenBroker, session: session)
+        self.subscription = FlowcySubscriptionStore(api: api)
         self.podcastPlayer = DailyPodcastPlayer(api: api)
         self.chatClient = ChatStreamClient(api: api)
         self.cloudChatModels = FlowcyModelSelection(api: api)
@@ -85,6 +87,9 @@ final class AppEnvironment {
         self.likes = LikesModel(api: api, offline: offline)
         SummaryAssetLoader.retainImagesForOfflineUse()
         self.authenticationState = authenticationState
+        #if DEBUG
+        if authenticationState == .signedIn { subscription.enablePreviewAccess() }
+        #endif
     }
 
     static func live() -> AppEnvironment {
@@ -139,7 +144,7 @@ final class AppEnvironment {
         await authManager.checkExistingAuth()
         synchronizeAuthenticationState()
         if authenticationState == .signedIn {
-            Task { await credits.refresh(api: api, broker: tokenBroker) }
+            await subscription.connect()
             await SummaryNotifications.shared.synchronize()
         }
     }
@@ -147,10 +152,19 @@ final class AppEnvironment {
     func authenticationCompleted() {
         synchronizeAuthenticationState()
         Task {
+            guard authenticationState == .signedIn else { return }
+            await subscription.connect()
             await SummaryNotifications.shared.synchronize()
-            await library.reload()
-            await credits.refresh(api: api, broker: tokenBroker)
         }
+    }
+
+    func refreshSubscription() async {
+        guard authenticationState == .signedIn else { return }
+        await subscription.refresh()
+    }
+
+    func presentSubscriptionSheet() {
+        showsSubscriptionSheet = true
     }
 
     func handleIncomingURL(_ url: URL) {
@@ -158,8 +172,9 @@ final class AppEnvironment {
             pendingFile = DroppedSummaryFile(url: url, isStagedCopy: false)
             return
         }
-        if url.scheme == "summarychip", url.host() == "top-up" {
-            pendingTopUp = true
+        if url.scheme == "summarychip", url.host() == "subscription" {
+            showsSubscriptionSheet = true
+            Task { await refreshSubscription() }
             return
         }
         // The OAuth callback shares the custom scheme and is owned by RxAuthSwift.
@@ -223,6 +238,8 @@ final class AppEnvironment {
         podcastPlayer.close()
         PodcastMotionRenderer.clearCache()
         authenticationState = .signedOut
+        subscription.reset()
+        showsSubscriptionSheet = false
         cloudChatModels = FlowcyModelSelection(api: api)
         await SummaryNotifications.shared.signOut()
         try? await tokenBroker.logout()
@@ -230,8 +247,6 @@ final class AppEnvironment {
         SharedLogoutPurger.purge()
         library.reset()
         likes.reset()
-        credits.reset()
-        pendingTopUp = false
         pendingRoute = nil
         pendingServiceText = nil
         pendingFile = nil
@@ -243,6 +258,7 @@ final class AppEnvironment {
         case .unknown: authenticationState = .checking
         case .authenticated: authenticationState = .signedIn
         case .unauthenticated: authenticationState = .signedOut
+        @unknown default: authenticationState = .signedOut
         }
     }
 }

@@ -387,26 +387,7 @@ describe("/api/v1/trips/:id/ingest", () => {
   const device = { installationId: "f6daa60d-d123-47a2-8512-596ffb2a9872", token: "a".repeat(64), environment: "sandbox", platform: "ios" };
   const booking = { source: { type: "text", text: "Booking confirmed: Memmo Alfama, 6–9 November 2026, confirmation MA-5521, total €540.", title: "Memmo Alfama booking" }, instructions: "Add the hotel" };
 
-  function billing(reserve: () => Response) {
-    vi.stubEnv("RX_SUBSCRIPTION_URL", "https://subscription.test");
-    vi.stubEnv("RX_SUBSCRIPTION_ENVIRONMENT", "sandbox");
-    vi.stubEnv("RX_SUBSCRIPTION_API_KEY", "rxs_sandbox_test-secret");
-    vi.stubEnv("RX_SUBSCRIPTION_SANDBOX_API_KEY", "");
-    vi.stubEnv("RX_SUBSCRIPTION_PRODUCTION_API_KEY", "");
-    const fetch = vi.fn<(url: unknown, init?: RequestInit) => Promise<Response>>(async (url) => {
-      const path = new URL(String(url)).pathname;
-      if (path === "/api/v1/balances/reserve") return reserve();
-      if (path === "/api/v1/balances/reservations/res-trip/settle") return Response.json({ operationShortfallAmount: 0, status: "closed" });
-      throw new Error(`Unexpected ${path}`);
-    });
-    vi.stubGlobal("fetch", fetch);
-    return fetch;
-  }
-  const bodies = (fetch: ReturnType<typeof billing>, path: string) => fetch.mock.calls
-    .filter(([url]) => new URL(String(url)).pathname === path)
-    .map(([, init]) => JSON.parse(init?.body as string));
-
-  it("queues the trip agent, applies its operations, charges points and queues a delayed update", async () => {
+  it("queues the trip agent, applies its operations and queues a delayed update", async () => {
     expect((await devicesRoute.POST(apiRequest("POST", "/api/v1/devices", { token: env.tokens.alice, body: device }))).status).toBe(204);
     const trip = await create();
     env.ai.tripAgent = (input) => ({
@@ -418,7 +399,6 @@ describe("/api/v1/trips/:id/ingest", () => {
       ],
       changeSummary: "Booked Memmo Alfama for 6–9 November.",
     });
-    const fetch = billing(() => Response.json({ reservationId: "res-trip", amount: 1, available: 9 }));
 
     const response = await ingest(trip.id, booking);
     expect(response.status).toBe(202);
@@ -436,21 +416,6 @@ describe("/api/v1/trips/:id/ingest", () => {
     expect(notification).toMatchObject({ tripId: trip.id, revision: 1, status: "pending", changeSummary: null });
     expect(notification.afterDocument.hotels.map((hotel) => hotel.id)).toEqual(["hotel-memmo-alfama"]);
 
-    await vi.waitFor(() => expect(bodies(fetch, "/api/v1/balances/reservations/res-trip/settle")).toHaveLength(1));
-    const [reserve] = bodies(fetch, "/api/v1/balances/reserve");
-    expect(reserve).toMatchObject({ rxlabUserId: "user-alice", unit: "points", amount: 1, metadata: { tripId: trip.id } });
-    expect(reserve.idempotencyKey).toMatch(/^trip:/);
-    // One mock step of 10 input + 10 output tokens at $0.01/$0.04 = $0.50 → 25 points.
-    expect(bodies(fetch, "/api/v1/balances/reservations/res-trip/settle")[0]).toMatchObject({ amount: 25, metadata: { outcome: "finished", tripId: trip.id } });
-  });
-
-  it("refuses an empty balance with 402 before queueing anything", async () => {
-    const trip = await create();
-    billing(() => Response.json({ error: "insufficient_balance", available: 0, required: 1 }, { status: 409 }));
-    const response = await ingest(trip.id, booking);
-    expect(response.status).toBe(402);
-    expect((await response.json()).error.code).toBe("TRIP_POINTS_EXHAUSTED");
-    expect(env.ai.calls.updateTrip).toHaveLength(0);
   });
 
   it("only takes the owner's trips", async () => {
@@ -460,13 +425,10 @@ describe("/api/v1/trips/:id/ingest", () => {
     expect((await ingest(trip.id, { source: { type: "text", text: " " } })).status).toBe(400);
   });
 
-  it("leaves the trip alone when the agent fails, settling the hold as failed", async () => {
+  it("leaves the trip alone when the agent fails", async () => {
     const trip = await create();
     env.ai.tripAgent = () => null;
-    const fetch = billing(() => Response.json({ reservationId: "res-trip", amount: 1, available: 9 }));
     expect((await ingest(trip.id, booking)).status).toBe(202);
-    await vi.waitFor(() => expect(bodies(fetch, "/api/v1/balances/reservations/res-trip/settle")).toHaveLength(1));
-    expect(bodies(fetch, "/api/v1/balances/reservations/res-trip/settle")[0]).toMatchObject({ metadata: { outcome: "failed" } });
     expect((await storedTrip(trip.id)).revision).toBe(0);
     expect(sendPush).not.toHaveBeenCalled();
   });

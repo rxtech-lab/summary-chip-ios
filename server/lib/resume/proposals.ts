@@ -1,5 +1,4 @@
 import { and, eq, inArray, lt } from "drizzle-orm";
-import { generateText, Output, type LanguageModelUsage } from "ai";
 import { z } from "zod";
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
@@ -9,8 +8,6 @@ import { splitWording } from "@/lib/resume/editing";
 import { createHash } from "node:crypto";
 import { getResume, editResume, commitResumeTranslation } from "@/lib/services/resumes";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
-import { reserveResumePoints, settleUsage } from "@/lib/subscription/chat-billing";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import type { ResumeBaseline, ResumeOperation } from "@/lib/contracts/resume";
 import { deliver } from "@/lib/services/notifications";
 
@@ -96,13 +93,12 @@ async function translate(
   target: Resolved | undefined,
   input: ProposalInput,
   ai: AiProvider,
-  usage: LanguageModelUsage[],
+
 ) {
   const { originals, current, baselines, paths, words } = translationWork(source, target, input);
   const translated = new Map<string, string>();
   if (words.length) {
     const result = await ai.translateStrings(words, input.targetLanguage!, {
-      onUsage: (step) => usage.push(step),
       timeoutMs: 200_000,
     });
     if (!result || result.length !== words.length || result.some((word) => !word?.trim()))
@@ -153,7 +149,7 @@ const reviewOutput = z.object({
     .max(100),
 });
 
-async function review(source: Resolved, input: ProposalInput, ai: AiProvider, usage: LanguageModelUsage[]) {
+async function review(source: Resolved, input: ProposalInput, ai: AiProvider) {
   const fields = splitWording(source.document).words;
   const sections = source.document.sections.map((s) => s.id);
   const result = await generateText({
@@ -170,7 +166,6 @@ async function review(source: Resolved, input: ProposalInput, ai: AiProvider, us
     }),
     abortSignal: AbortSignal.timeout(100_000),
   });
-  usage.push(result.usage);
   const findings: Finding[] = [];
   for (const f of result.output.findings) {
     if (findings.some((other) => other.path === f.path)) continue;
@@ -196,7 +191,7 @@ async function review(source: Resolved, input: ProposalInput, ai: AiProvider, us
   return findings;
 }
 
-export async function runResumeProposal(db: Database, id: string, environment?: BillingEnvironment, selectedModelId?: string | null) {
+export async function runResumeProposal(db: Database, id: string, selectedModelId?: string | null) {
   const [row] = await db
     .update(resumeProposals)
     .set({ status: "running" })
@@ -204,58 +199,41 @@ export async function runResumeProposal(db: Database, id: string, environment?: 
     .returning();
   if (!row) return;
   const { input, familyId, ownerId } = row;
-  const usage: LanguageModelUsage[] = [];
-  let charge,
-    ready = false;
   try {
     const ai = await getAiProvider(selectedModelId);
-    try {
-      const source = await getResume(db, ownerId, familyId, {
-        language: input.language,
-        variantId: input.variantId,
-        revisionToken: input.expectedRevisionToken,
-      });
-      const target =
-        input.targetLanguage && row.targetToken
-          ? await getResume(db, ownerId, familyId, {
-              variantId: input.variantId,
-              language: input.targetLanguage,
-              revisionToken: row.targetToken,
-            })
-          : undefined;
-      const newBase =
-        input.kind === "translate" && source.variantId && !target
-          ? await getResume(db, ownerId, familyId, {
-              language: input.language,
-              variantId: null,
-              revisionToken: source.baseRevisionToken,
-            })
-          : undefined;
-      if (
-        input.kind !== "translate" ||
-        translationWork(source, target, input).words.length ||
-        (newBase && translationWork(newBase, undefined, input).words.length)
-      ) {
-        charge = await reserveResumePoints(ownerId, id, input.kind, ai.chatModelId(), environment);
-      }
-      const findings =
-        input.kind === "translate"
-          ? await translate(source, target, input, ai, usage)
-          : await review(source, input, ai, usage);
-      if (newBase) {
-        const inherited = await translate(newBase, undefined, input, ai, usage);
-        findings.unshift(...inherited.map((f) => ({ ...f, path: "/base" + f.path, scope: "base" as const })));
-      }
-      const persisted = await db
-        .update(resumeProposals)
-        .set({ status: "ready", findings })
-        .where(and(eq(resumeProposals.id, id), eq(resumeProposals.status, "running")))
-        .returning({ id: resumeProposals.id });
-      ready = persisted.length > 0;
-    } finally {
-      if (charge && ready) await settleUsage(charge, ai, usage, { operation: input.kind });
-      else await charge?.settle(0, { operation: input.kind });
+    const source = await getResume(db, ownerId, familyId, {
+      language: input.language,
+      variantId: input.variantId,
+      revisionToken: input.expectedRevisionToken,
+    });
+    const target =
+      input.targetLanguage && row.targetToken
+        ? await getResume(db, ownerId, familyId, {
+            variantId: input.variantId,
+            language: input.targetLanguage,
+            revisionToken: row.targetToken,
+          })
+        : undefined;
+    const newBase =
+      input.kind === "translate" && source.variantId && !target
+        ? await getResume(db, ownerId, familyId, {
+            language: input.language,
+            variantId: null,
+            revisionToken: source.baseRevisionToken,
+          })
+        : undefined;
+    const findings =
+      input.kind === "translate"
+        ? await translate(source, target, input, ai)
+        : await review(source, input, ai);
+    if (newBase) {
+      const inherited = await translate(newBase, undefined, input, ai);
+      findings.unshift(...inherited.map((f) => ({ ...f, path: "/base" + f.path, scope: "base" as const })));
     }
+    await db
+      .update(resumeProposals)
+      .set({ status: "ready", findings })
+      .where(and(eq(resumeProposals.id, id), eq(resumeProposals.status, "running")));
   } catch (error) {
     await db
       .update(resumeProposals)
@@ -285,7 +263,6 @@ export async function createResumeProposal(
   ownerId: string,
   familyId: string,
   raw: ProposalInput,
-  environment?: BillingEnvironment,
 ) {
   const input = proposalSchema.parse(raw);
   const id = createHash("sha256")
@@ -294,7 +271,6 @@ export async function createResumeProposal(
   const replay = (row: Row) => {
     if (row.familyId !== familyId || JSON.stringify(row.input) !== JSON.stringify(input))
       throw new ApiError(409, "IDEMPOTENCY_CONFLICT", "That idempotency key belongs to a different request.");
-    if (row.error === "RESUME_POINTS_EXHAUSTED") throw new ApiError(402, row.error, "Top up to continue.");
     return publicProposal(row);
   };
   const [existing] = await db.select().from(resumeProposals).where(eq(resumeProposals.id, id));
@@ -339,17 +315,11 @@ export async function createResumeProposal(
   if (missing > INLINE_FIELDS) {
     try {
       const ai = await getAiProvider();
-      const hold = await reserveResumePoints(ownerId, id, input.kind, ai.chatModelId(), environment);
-      try {
-        const [{ start }, { resumeProposalWorkflow }] = await Promise.all([
-          import("workflow/api"),
-          import("@/workflows/resume-proposal"),
-        ]);
-        await start(resumeProposalWorkflow, [{ id, familyId, ownerId, environment, selectedModelId: ai.selectedModelId }]);
-      } catch (error) {
-        await hold?.settle(0, { operation: input.kind });
-        throw error;
-      }
+      const [{ start }, { resumeProposalWorkflow }] = await Promise.all([
+        import("workflow/api"),
+        import("@/workflows/resume-proposal"),
+      ]);
+      await start(resumeProposalWorkflow, [{ id, familyId, ownerId, selectedModelId: ai.selectedModelId }]);
     } catch (error) {
       await db
         .update(resumeProposals)
@@ -359,7 +329,7 @@ export async function createResumeProposal(
     }
     return publicProposal(created);
   }
-  await runResumeProposal(db, id, environment);
+  await runResumeProposal(db, id);
   return getResumeProposal(db, ownerId, familyId, id);
 }
 
@@ -418,3 +388,4 @@ export async function applyResumeProposal(
     expectedRevisionToken: input.expectedRevisionToken,
   });
 }
+import { generateText, Output } from "ai";

@@ -1,6 +1,6 @@
 version: 1
-name: RxSubscription pricing catalog contract fixture
-slug: landing-pricing
+name: Flowcy subscription API fixture
+slug: flowcy-subscription
 protocol: http
 interceptRequests: true
 scenarios:

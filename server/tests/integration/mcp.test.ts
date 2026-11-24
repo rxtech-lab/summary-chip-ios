@@ -6,7 +6,6 @@ import * as apiKeysRoute from "@/app/api/v1/api-keys/route";
 import * as apiKeyRoute from "@/app/api/v1/api-keys/[id]/route";
 import * as mcpRoute from "@/app/api/mcp/route";
 import * as mcpToolsRoute from "@/app/api/v1/mcp/tools/route";
-import * as importRoute from "@/app/api/v1/summaries/import/route";
 import * as tripImageRoute from "@/app/api/public/trip-images/[file]/route";
 import type { TripDocument } from "@/lib/contracts/trip";
 import { MAX_UPLOAD_BYTES } from "@/lib/contracts/api";
@@ -425,36 +424,7 @@ describe("/api/mcp", () => {
     expect(bobList.structuredContent).toMatchObject({ count: 0, items: [], nextCursor: null });
   });
 
-  it("adds chips and trips for free, without metering the allowance or points", async () => {
-    vi.stubEnv("SUMMARY_OG_REMOTE_ASSETS", "false");
-    vi.stubEnv("RX_SUBSCRIPTION_URL", "https://subscription.test");
-    vi.stubEnv("RX_SUBSCRIPTION_ENVIRONMENT", "sandbox");
-    vi.stubEnv("RX_SUBSCRIPTION_API_KEY", "rxs_sandbox_test-secret");
-    vi.stubEnv("RX_SUBSCRIPTION_PUBLISHABLE_KEY", "rxs_pk_sandbox_test-public");
-    // An allowance that is used up: anything metered would be refused.
-    const usage = vi.fn(async () => Response.json({ allowed: false }, { status: 402 }));
-    vi.stubGlobal("fetch", usage);
-    const { key, apiKey } = await createKey();
 
-    const added = await callTool(key, "add_summary", CHIP);
-    expect(added.isError).toBeFalsy();
-    const trip = await callTool(key, "create_trip", { document: {
-      title: "Weekend in Kyoto", startDate: "2027-04-03", endDate: "2027-04-04", timeZone: "Asia/Tokyo", currency: "JPY",
-      places: [{ id: "kyoto", name: "Kyoto", kind: "city", coordinate: { lat: 35.0116, lng: 135.7681 } }],
-      days: [{ id: "day-1", date: "2027-04-03", title: "Temples" }],
-    } });
-    expect(trip.isError).toBeFalsy();
-    expect(usage).not.toHaveBeenCalled();
-    const [row] = await env.handle.db.select().from(apiKeys).where(eq(apiKeys.id, apiKey.id));
-    expect(row.summariesAddedCount).toBe(1);
-
-    // The import API is still metered.
-    const imported = await importRoute.POST(apiRequest("POST", "/api/v1/summaries/import", {
-      token: env.tokens.alice, body: { ...CHIP, highlights: CHIP.keyPoints, keyPoints: undefined, title: "Other", allowDuplicate: true },
-    }));
-    expect(imported.status).toBe(402);
-    expect(usage).toHaveBeenCalledTimes(1);
-  });
 
   it("reports a duplicate as a tool error naming the existing chip", async () => {
     const { key, apiKey } = await createKey();

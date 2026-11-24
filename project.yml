@@ -43,9 +43,6 @@ settings:
     SUMMARY_CHIP_KEYCHAIN_GROUP: $(AppIdentifierPrefix)com.rxlab.summary-chip.shared
 
 packages:
-  RxSubscriptionIOS:
-    url: https://github.com/rxtech-lab/RxSubscriptionIOS
-    from: 1.2.1
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.10.0
@@ -250,7 +247,6 @@ targets:
         product: RxAuthSwiftUI
       - package: RxAgentSDK
         product: RxAgentSDK
-      - package: RxSubscriptionIOS
       - target: MacSmartShare
         destinationFilters: [macOS]
       - target: SmartShare

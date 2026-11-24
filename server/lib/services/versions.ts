@@ -7,7 +7,6 @@ import { ApiError } from "@/lib/http/errors";
 import type { ServiceDeps } from "./summaries";
 import { getOwnedSummary, patchSummary } from "./summaries";
 import type { SummaryJson } from "./serialize";
-import type { BillingEnvironmentResolver } from "./translations";
 import { VERSION_TITLE_PATHS, type VersionContent, type VersionContentByKind } from "./document-versions";
 import { getOwnedTrip, saveDocument, validDocument, withStoredDefaults, type TripJson } from "./trips";
 import { updateMiniApp, getMiniApp } from "@/lib/mini-app/service";
@@ -142,7 +141,7 @@ export async function restoreVersion(
   ownerId: string,
   id: string,
   version: number,
-  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & { billingEnvironment?: BillingEnvironmentResolver } = {},
+  deps: Pick<ServiceDeps, "ai" | "now" | "store"> = {},
 ): Promise<RestoreJson> {
   const summary = await getOwnedSummary(db, id, ownerId);
   if (summary.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_HISTORY", "Use the résumé history and restore operations for the selected company and language.");

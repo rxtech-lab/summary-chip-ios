@@ -51,7 +51,7 @@ export default function DownloadPage() {
         Get <span className="md-text-primary">Chippy</span>
       </h1>
       <p className="md-text-secondary mt-6 max-w-xl text-lg leading-relaxed">
-        Your summaries and points sync across every device signed in to the same account.
+        Your summaries sync across every device signed in to the same account.
       </p>
       <ul className="mt-14 grid gap-4 sm:grid-cols-2">
         {platforms().map((platform) => (

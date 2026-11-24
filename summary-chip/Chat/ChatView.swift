@@ -19,8 +19,12 @@ struct ChatView: View {
     @State private var voice = LiveVoiceModel()
     @AppStorage(LiveVoiceSettings.engineKey) private var savedVoiceEngine = LiveVoiceEngine.chippy.rawValue
     @AppStorage(LiveVoiceSettings.languageKey) private var savedVoiceLanguage = ""
+    #if os(macOS)
+    @AppStorage(ChatAgentSelection.providerKey) private var savedChatProvider = ChatAgentSelection.cloud
+    #endif
     @State private var showsVoiceEngines = false
     @State private var showsAIModels = false
+    @State private var showsSubscription = false
     @State private var showsFilePicker = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: ChatModel
@@ -183,7 +187,8 @@ struct ChatView: View {
                 }
         }
         .modifier(ChatFileImporter(files: model.files, isPresented: $showsFilePicker))
-        .sheet(isPresented: $showsAIModels) { ChatAgentSheet(cloud: environment.cloudChatModels) }
+        .sheet(isPresented: $showsAIModels) { ChatAgentSheet(environment: environment) }
+        .sheet(isPresented: $showsSubscription) { FlowcySubscriptionView(environment: environment, isSheet: true) }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { voice.stop() }
         }
@@ -220,21 +225,6 @@ struct ChatView: View {
         .sensoryFeedback(trigger: model.isStreaming) { _, isStreaming in
             if isStreaming { return .impact(weight: .light) }
             return model.entries.last?.errorText == nil ? .impact(flexibility: .soft) : .error
-        }
-        .onChange(of: model.isStreaming) { _, isStreaming in
-            // Each answer spends points; keep the balance shown elsewhere current.
-            guard !isStreaming else { return }
-            Task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
-        }
-        .alert("Not Enough Points", isPresented: $model.needsTopUp) {
-            Button("Top Up") {
-                // The top-up sheet is presented from the root, so close this chat sheet first.
-                if isSheet { closeChat() }
-                environment.pendingTopUp = true
-            }
-            Button("Later", role: .cancel) {}
-        } message: {
-            Text("Chatting uses points based on the AI's usage. Top up to keep chatting.")
         }
         .summarySearchToolbar(isEnabled: !isSheet && !isPanel)
         .toolbar {
@@ -319,10 +309,31 @@ struct ChatView: View {
                             .multilineTextAlignment(.center)
                     }
                 }
+                if requiresSubscriptionForChat {
+                    VStack(spacing: 12) {
+                        #if os(macOS)
+                        Text("Subscribe to Flowcy Plus for cloud AI chat, or switch to a local agent in AI Models.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        #else
+                        Text("Subscribe to Flowcy Plus to chat with AI about your library.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        #endif
+                        Button("Subscribe to Flowcy Plus") {
+                            interactionFeedback += 1
+                            showsSubscription = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("chat-subscribe-button")
+                    }
+                } else {
                 VStack(spacing: 10) {
                     ForEach(model.suggestions, id: \.self) { suggestion in
                         Button {
-                            model.send(suggestion)
+                            sendMessage(suggestion)
                         } label: {
                             HStack {
                                 Text(suggestion).multilineTextAlignment(.leading)
@@ -335,6 +346,7 @@ struct ChatView: View {
                         .buttonStyle(.plain)
                         .disabled(model.files.uploadProgress != nil)
                     }
+                }
                 }
             }
             .padding()
@@ -468,6 +480,36 @@ private extension ChatView {
         #endif
     }
 
+    var usesCloudChat: Bool {
+        #if os(macOS)
+        LocalAgentKind(rawValue: savedChatProvider) == nil
+        #else
+        true
+        #endif
+    }
+
+    var requiresSubscriptionForChat: Bool {
+        usesCloudChat && !environment.subscription.isActive
+    }
+
+    var requiresSubscriptionForVoice: Bool {
+        voiceEngine == .chippy && !environment.subscription.isActive
+    }
+
+    func sendMessage(_ text: String? = nil) {
+        if requiresSubscriptionForChat {
+            inputFocused = false
+            interactionFeedback += 1
+            showsSubscription = true
+            return
+        }
+        if let text {
+            model.send(text)
+        } else {
+            model.send()
+        }
+    }
+
     var composerControlSize: CGFloat {
         #if os(macOS)
         32
@@ -501,12 +543,12 @@ private extension ChatView {
                     .padding(.vertical, 6)
                     .padding(.trailing, 8)
                     .frame(maxWidth: .infinity, minHeight: composerControlSize, alignment: .leading)
-                    .onSubmit { if canSend { model.send() } }
+                    .onSubmit { if canSend { sendMessage() } }
                     .submitLabel(.send)
                     .accessibilityIdentifier("chat-input")
             }
             HStack(spacing: 2) {
-                ChatModelPickerButton(cloud: environment.cloudChatModels, controlSize: composerControlSize) {
+                ChatModelPickerButton(cloud: environment.cloudChatModels, isSubscribed: environment.subscription.isActive, controlSize: composerControlSize) {
                     inputFocused = false
                     interactionFeedback += 1
                     showsAIModels = true
@@ -531,6 +573,11 @@ private extension ChatView {
                 #endif
                 Button {
                     inputFocused = false
+                    if requiresSubscriptionForVoice {
+                        interactionFeedback += 1
+                        showsSubscription = true
+                        return
+                    }
                     let language = LocalVoiceLanguage.resolve(saved: savedVoiceLanguage.isEmpty ? nil : savedVoiceLanguage)
                     voice.start(api: environment.api, chat: model, engine: voiceEngine, language: language)
                 } label: {
@@ -555,7 +602,7 @@ private extension ChatView {
 
     var sendButton: some View {
         Button {
-            if model.isStreaming { model.stop() } else { model.send() }
+            if model.isStreaming { model.stop() } else { sendMessage() }
         } label: {
             Image(systemName: model.isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
                 .font(.system(size: composerControlSize - 8))

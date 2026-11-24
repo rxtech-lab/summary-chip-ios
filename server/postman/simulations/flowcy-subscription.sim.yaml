@@ -1,0 +1,5 @@
+simulation: flowcy-subscription
+routing: path
+mocks:
+  - routeKey: subscription
+    path: ../mocks/flowcy-subscription/config.yaml

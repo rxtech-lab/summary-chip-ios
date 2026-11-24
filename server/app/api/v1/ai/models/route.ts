@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       readModelPreference(db, principal.sub),
     ]);
     return noStoreJson({ models, selectedModelId });
-  });
+  }, { requireSubscription: true });
 }
 
 export async function PUT(request: Request) {
@@ -27,5 +27,5 @@ export async function PUT(request: Request) {
     }
     await db.update(users).set({ aiModelId: modelId }).where(eq(users.id, principal.sub));
     return noStoreJson({ selectedModelId: modelId });
-  });
+  }, { requireSubscription: true });
 }

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { getAiProvider } from "@/lib/ai/provider";
-import { podcastArticleSchema, type DailyPodcast } from "@/lib/contracts/daily-podcast";
+import { podcastArticleSchema, type DailyPodcast, type PodcastArticle } from "@/lib/contracts/daily-podcast";
 import { generateOgImages } from "@/lib/og/generate";
 import { getObjectStore } from "@/lib/storage/r2";
 import { ApiError } from "@/lib/http/errors";
@@ -19,7 +19,7 @@ async function once<T>(key: string, task: () => Promise<T>): Promise<T> {
   pending.set(key, result);
   return result;
 }
-export async function podcastArticle(podcast: DailyPodcast) {
+export async function podcastArticle(podcast: DailyPodcast, options: { aiEnabled?: boolean } = {}): Promise<PodcastArticle | null> {
   const key = `${publicationKey(podcast)}/article.json`;
   return once(key, async () => {
     const store = getObjectStore();
@@ -28,13 +28,14 @@ export async function podcastArticle(podcast: DailyPodcast) {
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 404)) throw error;
     }
+    if (options.aiEnabled === false) return null;
     const article = podcastArticleSchema.parse(await (await getAiProvider()).writePodcastArticle(podcast));
     if (article.sections.some(s => s.segmentIndex >= podcast.segments.length)) throw new Error("Invalid article timestamp reference");
     await store.put(key, { bytes: new TextEncoder().encode(JSON.stringify(article)), contentType: "application/json", cacheControl: "private, no-store" });
     return article;
   });
 }
-export async function podcastCover(podcast: DailyPodcast) {
+export async function podcastCover(podcast: DailyPodcast, options: { aiEnabled?: boolean } = {}) {
   const key = `${publicationKey(podcast)}/cover-v2.png`;
   return once(key, async () => {
     const store = getObjectStore();
@@ -43,7 +44,8 @@ export async function podcastCover(podcast: DailyPodcast) {
     const images = await generateOgImages({ id: podcast.key, headline: podcast.title,
       summary: podcast.segments.map(s => s.caption).join(" ").slice(0, 2000), category: "Podcast", keywords: ["podcast"],
       theme: { colors: ["#171c46", "#5149a6", "#cdb9ec"], mode: "dark", accent: "#cdb9ec", emoji: "🎙️" },
-      siteLabel: "Chippy Podcast", language: podcast.language, kind: "podcast" }, "illustration", await getAiProvider());
+      siteLabel: "Chippy Podcast", language: podcast.language, kind: "podcast" }, "illustration",
+      options.aiEnabled === false ? null : await getAiProvider());
     const image = { bytes: images.card, contentType: "image/png", cacheControl: "private, no-store" };
     await store.put(key, image);
     return image;

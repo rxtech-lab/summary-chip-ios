@@ -1,3 +1,4 @@
+import { splitPodcastCaptions } from "@/lib/ai/podcast-caption-splitting";
 import { getAiProvider } from "@/lib/ai/provider";
 import { sandboxCredentials } from "./sandbox-auth";
 import { Sandbox } from "@vercel/sandbox";
@@ -7,6 +8,7 @@ import { summaries } from "@/lib/db/schema";
 import { MAX_PODCAST_VIDEO_BYTES, type DailyPodcast, type PodcastVideoSource } from "@/lib/contracts/daily-podcast";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { dailyPodcastRecording, dayKey, translationPath } from "@/lib/services/daily-podcast";
 import { currentPodcastRender, podcastRenderKey, type PodcastRenderJob } from "@/lib/services/podcast-render";
 import { podcastVideoInput, podcastVideoSource } from "@/lib/services/podcast-video";
@@ -98,7 +100,10 @@ const production: CloudPodcastRenderer = {
     })) });
     // Use normalized voice windows for legacy episodes, including empty cue arrays.
     const captions = input.segments.flatMap(segment => segment.phrases);
-    files.push({ path: `${directory}/captions.srt`, content: Buffer.from(cloudCaptionsSrt(await (await getAiProvider()).splitPodcastCaptions(captions))) });
+    const splitCaptions = await hasFlowcyAccess(job.userId)
+      ? await (await getAiProvider()).splitPodcastCaptions(captions)
+      : await splitPodcastCaptions(captions, undefined, async () => null);
+    files.push({ path: `${directory}/captions.srt`, content: Buffer.from(cloudCaptionsSrt(splitCaptions)) });
     files.push({ path: `${directory}/public/podcast.mp3`, content: Buffer.from((await dailyPodcastRecording(db, job.userId, job.day, job.key, store, job.language)).bytes) });
     files.push({ path: `${directory}/render.mjs`, content: Buffer.from(CLOUD_RENDER_RUNNER) });
     // No external network or account credentials while agent-authored code runs.

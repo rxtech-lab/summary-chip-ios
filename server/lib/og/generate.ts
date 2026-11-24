@@ -27,22 +27,11 @@ export interface OgImages {
  * Produces the PNGs for a summary. Artwork never carries text (image models garble it, CJK
  * especially); the headline is always laid out by the card template on top. "illustration" has the
  * image model draw the artwork and falls back to "graphic" when it is unavailable; "graphic" asks
- * the text model for decorative SVG, sanitises it, and falls back to generated art. The art version
- * is the same background without the text.
+ * the text model for decorative SVG, sanitises it, and falls back to generated art. When `ai` is
+ * null (no Flowcy Plus AI access), deterministic fallback artwork is rendered with zero AI calls.
+ * The art version is the same background without the text.
  */
-export async function generateOgImages(subject: OgSubject, imageStyle: ImageStyle, ai: AiProvider): Promise<OgImages> {
-  const design = {
-    title: subject.headline,
-    headline: subject.headline,
-    summary: subject.summary,
-    category: subject.category,
-    keywords: subject.keywords,
-    colors: subject.theme.colors,
-    mode: subject.theme.mode,
-    siteLabel: subject.siteLabel,
-    language: subject.language,
-    kind: subject.kind,
-  };
+export async function generateOgImages(subject: OgSubject, imageStyle: ImageStyle, ai: AiProvider | null): Promise<OgImages> {
   const card = {
     headline: subject.headline,
     category: subject.category,
@@ -52,14 +41,30 @@ export async function generateOgImages(subject: OgSubject, imageStyle: ImageStyl
     accent: subject.theme.accent,
     language: subject.language,
   };
-  if (imageStyle === "illustration") {
-    const art = await ai.illustrate(design);
-    if (art) return { card: await renderOgPng({ ...card, image: art }), art };
+  let svg: string | null = null;
+  if (ai) {
+    const design = {
+      title: subject.headline,
+      headline: subject.headline,
+      summary: subject.summary,
+      category: subject.category,
+      keywords: subject.keywords,
+      colors: subject.theme.colors,
+      mode: subject.theme.mode,
+      siteLabel: subject.siteLabel,
+      language: subject.language,
+      kind: subject.kind,
+    };
+    if (imageStyle === "illustration") {
+      const art = await ai.illustrate(design);
+      if (art) return { card: await renderOgPng({ ...card, image: art }), art };
+    }
+    svg = sanitizeSvg(await ai.designSvg(design));
   }
-  const svg = sanitizeSvg(await ai.designSvg(design)) ?? fallbackSvg(subject.id, subject.theme.colors, subject.theme.mode);
+  const finalSvg = svg ?? fallbackSvg(subject.id, subject.theme.colors, subject.theme.mode);
   const [cardPng, art] = await Promise.all([
-    renderOgPng({ ...card, svg }),
-    renderArtPng({ colors: subject.theme.colors, svg }).catch((error) => {
+    renderOgPng({ ...card, svg: finalSvg }),
+    renderArtPng({ colors: subject.theme.colors, svg: finalSvg }).catch((error) => {
       console.warn("[og] art render failed", error);
       return null;
     }),

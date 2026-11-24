@@ -173,7 +173,7 @@ struct DailyPodcastGenerationSheet: View {
     }
 
     private var generationNote: some View {
-        Text("Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it.")
+        Text("Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it.")
     }
 
     /// A form row that opens a dedicated sheet, styled like a navigation row on every platform.
@@ -200,7 +200,7 @@ struct DailyPodcastGenerationSheet: View {
                 #if os(macOS)
                 Toggle(isOn: planModeBinding) {
                     Text("Plan Mode")
-                    Text("Review and revise the script and camera storyboard after clicking Generate. Media is generated only after you confirm. Planning uses points.")
+                    Text("Review and revise the script and camera storyboard after clicking Generate. Media is generated only after you confirm.")
                 }
                 .toggleStyle(.checkbox)
                 .disabled(approvedPlan != nil)
@@ -226,7 +226,7 @@ struct DailyPodcastGenerationSheet: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     #if !os(macOS)
-                    Text("Review and revise the script and camera storyboard after tapping Generate. Media is generated only after you confirm. Planning uses points.")
+                    Text("Review and revise the script and camera storyboard after tapping Generate. Media is generated only after you confirm.")
                     #endif
                     generationNote
                 }

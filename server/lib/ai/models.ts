@@ -145,7 +145,7 @@ export function imageTimeoutMs(): number {
 /** About Gemini 2.5 Flash Image's list price per image, when `AI_IMAGE_USD_PER_IMAGE` isn't set. */
 const DEFAULT_IMAGE_USD_PER_IMAGE = 0.04;
 
-/** Price per generated image in USD (`AI_IMAGE_USD_PER_IMAGE`), used to charge points for video cut-outs. */
+/** Price per generated image in USD (`AI_IMAGE_USD_PER_IMAGE`). */
 export function imageUsdPerImage(): number {
   const configured = Number(process.env.AI_IMAGE_USD_PER_IMAGE);
   return Number.isFinite(configured) && configured >= 0 && process.env.AI_IMAGE_USD_PER_IMAGE?.trim() ? configured : DEFAULT_IMAGE_USD_PER_IMAGE;
@@ -216,7 +216,7 @@ export function speechModel(id: string): SpeechModel {
   return gateway().speechModel(id);
 }
 
-/** Price per spoken character in USD (`AI_SPEECH_USD_PER_CHARACTER`), used to charge points for narration. */
+/** Price per spoken character in USD (`AI_SPEECH_USD_PER_CHARACTER`). */
 export function speechUsdPerCharacter(): number {
   const configured = Number(process.env.AI_SPEECH_USD_PER_CHARACTER);
   if (Number.isFinite(configured) && configured >= 0 && process.env.AI_SPEECH_USD_PER_CHARACTER?.trim()) return configured;

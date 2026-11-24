@@ -11,7 +11,7 @@ struct SettingsView: View {
     @State private var confirmsClearCache = false
     @State private var clearedCount = 0
     @State private var helpSheet: HelpSheet?
-    @State private var showsCredits = false
+    @State private var showsSubscription = false
     @State private var showsNotifications = false
     @State private var showsDailyRecap = false
     @State private var showsMCPServer = false
@@ -34,11 +34,11 @@ struct SettingsView: View {
             .sheet(isPresented: $showsDeleteAccount) {
                 DeleteAccountSheet(environment: environment, state: $deletion)
             }
-            .sheet(isPresented: $showsCredits) { SummaryCreditsSheet(environment: environment) }
+            .sheet(isPresented: $showsSubscription) { FlowcySubscriptionView(environment: environment, isSheet: true) }
             .sheet(isPresented: $showsNotifications) { NotificationSettingsSheet() }
-            .sheet(isPresented: $showsDailyRecap) { DailyRecapSettingsSheet(api: environment.api) }
+            .sheet(isPresented: $showsDailyRecap) { DailyRecapSettingsSheet(environment: environment) }
             .sheet(isPresented: $showsMCPServer) { MCPSettingsSheet(api: environment.api) }
-            .sheet(isPresented: $showsAIModels) { ChatAgentSheet(cloud: environment.cloudChatModels) }
+            .sheet(isPresented: $showsAIModels) { ChatAgentSheet(environment: environment) }
             #if os(macOS)
             .sheet(isPresented: $showsVoiceModels) { VoiceModelsSheet() }
             #endif
@@ -95,7 +95,9 @@ struct SettingsView: View {
                 accountHeader
             }
 
-            flowcyUsageSection
+            if environment.subscription.isActive {
+                flowcyUsageSection
+            }
             macGeneralSection
 
             Section {
@@ -163,7 +165,6 @@ struct SettingsView: View {
         .contentMargins(.horizontal, max(0, (formWidth - Self.maxContentWidth) / 2), for: .scrollContent)
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { formWidth = $0 }
         .task { await notifications.refreshStatus() }
-        .task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
     }
 
     private var macGeneralSection: some View {
@@ -181,7 +182,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("notification-settings")
             }
             SettingsActionRow(String(localized: "Daily Recap"), systemImage: "video.badge.waveform", tint: .purple,
-                              detail: String(localized: "Off by default. Automatic recaps use credits.")) {
+                              detail: String(localized: "Schedule a daily video recap.")) {
                 Button("Configure…") { showsDailyRecap = true }
                     .accessibilityIdentifier("daily-recap-settings")
             }
@@ -231,25 +232,8 @@ struct SettingsView: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("signed-in-profile")
 
-            HStack(spacing: 10) {
-                UsageTile(String(localized: "Points"), systemImage: "circle.hexagongrid.fill", tint: .orange,
-                          value: credits.points.map { $0.formatted() })
-                    .accessibilityIdentifier("settings-points")
-                UsageTile(String(localized: "Free summaries left"), systemImage: "gift.fill", tint: .green,
-                          value: credits.allowance.map { $0.remaining.map { $0.formatted() } ?? String(localized: "Unlimited") })
-                    .accessibilityIdentifier("settings-free-remaining")
-            }
-
-            HStack {
-                if let reset = credits.allowance?.resetsAt {
-                    Text("Free summaries reset \(reset.formatted(.relative(presentation: .named))).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Summaries & Points…") { showsCredits = true }
-                    .accessibilityIdentifier("summary-credits")
-            }
+            Button(environment.subscription.isActive ? String(localized: "Flowcy Plus…") : String(localized: "Subscribe to Flowcy Plus…")) { showsSubscription = true }
+                .accessibilityIdentifier("flowcy-subscription-settings")
         }
         .padding(.vertical, 6)
     }
@@ -281,7 +265,6 @@ struct SettingsView: View {
     }
 
     private var notifications: SummaryNotifications { .shared }
-    private var credits: SummaryCreditsStore { environment.credits }
     #else
     private var iOSList: some View {
         List {
@@ -300,8 +283,10 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings-features")
             }
 
-            creditsSection
-            flowcyUsageSection
+            subscriptionSection
+            if environment.subscription.isActive {
+                flowcyUsageSection
+            }
             notificationSettingsSection
             integrationsSection
 
@@ -390,12 +375,17 @@ struct SettingsView: View {
         .accessibilityIdentifier("signed-in-profile")
     }
 
-    private var creditsSection: some View {
-        Section("Usage") {
-            Button { showsCredits = true } label: {
-                Label("Summaries & Points", systemImage: "plus.circle")
+    private var subscriptionSection: some View {
+        Section("Subscription") {
+            Button { showsSubscription = true } label: {
+                LabeledContent {
+                    Text(environment.subscription.isActive ? String(localized: "Active") : String(localized: "Unlock AI"))
+                        .foregroundStyle(.secondary)
+                } label: {
+                    Label("Flowcy Plus", systemImage: "sparkles")
+                }
             }
-            .accessibilityIdentifier("summary-credits")
+            .accessibilityIdentifier("flowcy-subscription-settings")
         }
     }
 
@@ -510,37 +500,6 @@ private struct SettingsRowLabel: View {
                 }
             }
         }
-    }
-}
-
-/// One usage figure in the account header; a dash until the billing service answers.
-private struct UsageTile: View {
-    let title: String
-    let systemImage: String
-    let tint: Color
-    let value: String?
-
-    init(_ title: String, systemImage: String, tint: Color, value: String?) {
-        self.title = title
-        self.systemImage = systemImage
-        self.tint = tint
-        self.value = value
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(title, systemImage: systemImage)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .labelStyle(TintedIconLabelStyle(tint: tint))
-            Text(value ?? "–")
-                .font(.title2.weight(.semibold).monospacedDigit())
-                .contentTransition(.numericText())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 10))
-        .accessibilityElement(children: .combine)
     }
 }
 

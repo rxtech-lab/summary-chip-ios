@@ -2,6 +2,7 @@ import { and, asc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { AiProvider } from "@/lib/ai/provider";
 import type { Database } from "@/lib/db/client";
 import { summaries, summaryEmbeddings, type SummaryRow } from "@/lib/db/schema";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 
 /** How much of the original text joins the card fields in a summary's embedding. */
 const CONTENT_CHARS = 2_000;
@@ -99,17 +100,27 @@ export async function indexSummary(db: Database, ai: AiProvider, row: Embeddable
 
 /**
  * Embeds summaries that have no embedding yet, or one from a different model (after
- * `AI_EMBEDDING_MODEL` changes). Bounded per run; the cleanup cron calls it daily.
+ * `AI_EMBEDDING_MODEL` changes). Only runs for owners with active Flowcy Plus access.
+ * Bounded per run; the cleanup cron calls it daily.
  */
 export async function backfillEmbeddings(db: Database, ai: AiProvider, options: { maxBatches?: number; batchSize?: number } = {}): Promise<{ embedded: number; failed: number }> {
   const model = ai.embeddingModelId();
   const report = { embedded: 0, failed: 0 };
   if (!model) return report;
   const batchSize = options.batchSize ?? BACKFILL_BATCH_SIZE;
+  const accessByOwner = new Map<string, boolean>();
+  const ownerHasAccess = async (ownerId: string) => {
+    const cached = accessByOwner.get(ownerId);
+    if (cached !== undefined) return cached;
+    const active = await hasFlowcyAccess(ownerId);
+    accessByOwner.set(ownerId, active);
+    return active;
+  };
   let afterId = "";
   for (let batch = 0; batch < (options.maxBatches ?? 10); batch += 1) {
     const rows = await db.select({
       id: summaries.id,
+      ownerId: summaries.ownerId,
       title: summaries.title,
       summary: summaries.summary,
       highlights: summaries.highlights,
@@ -127,13 +138,19 @@ export async function backfillEmbeddings(db: Database, ai: AiProvider, options: 
       .limit(batchSize);
     if (rows.length === 0) break;
     afterId = rows[rows.length - 1].id;
-    try {
-      const vectors = await ai.embed(rows.map(embeddingText));
-      await storeEmbeddings(db, model, rows.map((row, index) => ({ id: row.id, vector: vectors[index] })).filter((entry) => entry.vector?.length));
-      report.embedded += rows.length;
-    } catch (error) {
-      console.warn("[embeddings] backfill batch failed", error);
-      report.failed += rows.length;
+    const eligible: typeof rows = [];
+    for (const row of rows) {
+      if (await ownerHasAccess(row.ownerId)) eligible.push(row);
+    }
+    if (eligible.length > 0) {
+      try {
+        const vectors = await ai.embed(eligible.map(embeddingText));
+        await storeEmbeddings(db, model, eligible.map((row, index) => ({ id: row.id, vector: vectors[index] })).filter((entry) => entry.vector?.length));
+        report.embedded += eligible.length;
+      } catch (error) {
+        console.warn("[embeddings] backfill batch failed", error);
+        report.failed += eligible.length;
+      }
     }
     if (rows.length < batchSize) break;
   }

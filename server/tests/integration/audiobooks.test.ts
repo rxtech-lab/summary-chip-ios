@@ -110,7 +110,7 @@ describe("audiobook plans", () => {
     const plan = await draft();
     expect(plan.plan.chapters.length).toBeGreaterThan(1);
     expect(plan.estimate.seconds).toBeGreaterThan(0);
-    expect(plan.estimate.points).toBeGreaterThan(0);
+    expect(plan.estimate.characters).toBeGreaterThan(0);
     expect(speak).not.toHaveBeenCalled();
     expect(jobs).toHaveLength(0);
     expect(await env.handle.db.select().from(podcastEpisodes)).toHaveLength(0);

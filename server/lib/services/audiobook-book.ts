@@ -25,7 +25,6 @@ export interface ChapterState {
   title: string;
   synopsis?: string;
   turns: ChapterTurn[];
-  costUsd: number;
   mixed?: { cues: { startSeconds: number; endSeconds: number }[]; durationSeconds: number };
 }
 
@@ -218,7 +217,7 @@ async function restoreChapterVideo(db: Database, store: ObjectStore, user: strin
     const details = chapter.audiobook;
     if (!details?.scenes.length) return;
     const present = await Promise.all(details.scenes.map(scene => store.head(`${dayKey(user, chapter.day)}/${chapter.key}/${sceneFile(sceneHash(scene.prompt, details))}`)));
-    if (present.every(Boolean)) await startAudiobookVideo(db, user, chapter, { ai: deps.ai, store, billingEnvironment: deps.billingEnvironment, now: deps.now }, {});
+    if (present.every(Boolean)) await startAudiobookVideo(db, user, chapter, { ai: deps.ai, store, now: deps.now }, {});
   } catch (error) {
     console.error("[audiobook] chapter video could not start", error);
   }
@@ -228,7 +227,7 @@ async function restoreChapterVideo(db: Database, store: ObjectStore, user: strin
 function chapterStateFrom(segments: DailyPodcast["segments"], chapter: PodcastChapter): ChapterState {
   const start = chapter.startSeconds;
   const turns = segments.slice(chapter.startSegment, chapter.endSegment);
-  return { title: chapter.title, ...(chapter.synopsis ? { synopsis: chapter.synopsis } : {}), costUsd: 0,
+  return { title: chapter.title, ...(chapter.synopsis ? { synopsis: chapter.synopsis } : {}),
     turns: turns.map(turn => ({ speaker: turn.speaker, chipId: turn.chipId, caption: turn.caption, music: turn.music ?? "", scene: 0, imagePath: turn.imagePath, icon: turn.icon, voiced: true,
       captionCues: (turn.captionCues ?? []).map(cue => ({ ...cue, startSeconds: cue.startSeconds - (turn.startSeconds ?? 0), endSeconds: cue.endSeconds - (turn.startSeconds ?? 0) })) })),
     mixed: { durationSeconds: chapter.endSeconds - start, cues: turns.map(turn => ({ startSeconds: (turn.startSeconds ?? start) - start, endSeconds: (turn.endSeconds ?? start) - start })) } };

@@ -18,7 +18,6 @@ struct LibraryView: View {
     @State private var showsNewResume = false
     @State private var showsNewTodo = false
     @State private var showsNewMiniApp = false
-    @State private var showsCredits = false
     @State private var sharingSummary: Summary?
     @State private var xSharingRequest: XSharingRequest?
     @State private var deletingSummary: Summary?
@@ -62,10 +61,6 @@ struct LibraryView: View {
     private var isMiniApps: Bool { model.kind == .miniApp }
     /// Clips open full screen (or in their own window) rather than on this stack.
     private var stackPath: Binding<[Summary]> { (path ?? $localPath).presentingMiniApps(with: openMiniApp) }
-
-    private var pointsTitle: String {
-        environment.credits.points.map { $0.formatted() } ?? "–"
-    }
 
     var body: some View {
         FeedNavigationContainer(environment: environment, path: stackPath) {
@@ -133,9 +128,6 @@ struct LibraryView: View {
         .padding(.bottom, 80)
         .ornament(attachmentAnchor: .scene(.bottom)) {
             HStack(spacing: 16) {
-                Button { showsCredits = true } label: {
-                    Label("\(pointsTitle) pts", systemImage: "sparkles")
-                }
                 createButton
                 if let openSearch { SummarySearchButton(action: openSearch) }
                 Button("Filters", systemImage: "line.3.horizontal.decrease") { showsFilters = true }
@@ -182,7 +174,7 @@ struct LibraryView: View {
             VStack(spacing: 0) {
                 plannedPodcastsHeader
                 LibraryEmptyState(model: model, isMiniApps: isMiniApps, createClip: { showsNewMiniApp = true },
-                                  createSummary: { showsNewSummary = true })
+                                  createSummary: { startAICreation { showsNewSummary = true } })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else {
@@ -374,16 +366,13 @@ private extension LibraryView {
             .sheet(isPresented: $showsNewPaper) {
                 NewPaperSheet(api: environment.api, onCreated: openCreated)
             }
-            .sheet(isPresented: $showsCredits) {
-                SummaryCreditsSheet(environment: environment)
-            }
     }
 
     var newDocumentMenu: some View {
         Menu {
             Section {
                 Button {
-                    showsNewSummary = true
+                    startAICreation { showsNewSummary = true }
                 } label: {
                     Label("Summary", systemImage: "text.quote")
                 }
@@ -420,11 +409,11 @@ private extension LibraryView {
                 .accessibilityIdentifier("new-trip")
             }
             Section {
-                Button { environment.libraryCreation = .podcast() } label: {
+                Button { startAICreation { environment.libraryCreation = .podcast() } } label: {
                     Label("Podcast", systemImage: "waveform")
                 }
                 .accessibilityIdentifier("new-podcast")
-                Button { environment.libraryCreation = .audiobook } label: {
+                Button { startAICreation { environment.libraryCreation = .audiobook } } label: {
                     Label("Audiobook", systemImage: "book")
                 }
                 .accessibilityIdentifier("new-audiobook")
@@ -446,6 +435,14 @@ private extension LibraryView {
         .sensoryFeedback(.selection, trigger: showsNewDocument) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewTrip) { _, presented in presented }
         .sensoryFeedback(.selection, trigger: showsNewMiniApp) { _, presented in presented }
+    }
+
+    func startAICreation(_ action: () -> Void) {
+        if environment.subscription.isActive {
+            action()
+        } else {
+            environment.presentSubscriptionSheet()
+        }
     }
 
     func refreshPlans() {
@@ -567,20 +564,6 @@ private extension LibraryView {
 
     @ToolbarContentBuilder
     var libraryToolbar: some ToolbarContent {
-        if !isPhone {
-            ToolbarItem(placement: .summaryLeading) {
-                Button { showsCredits = true } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                        Text("\(pointsTitle) pts")
-                            .monospacedDigit()
-                            .fixedSize()
-                    }
-                }
-                .accessibilityLabel("Points: \(pointsTitle)")
-                .accessibilityIdentifier("library-points")
-            }
-        }
         ToolbarItemGroup(placement: .summaryTrailing) {
             createButton
             Menu {

@@ -1,4 +1,3 @@
-import type { LanguageModelUsage } from "ai";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, gt, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
@@ -32,10 +31,8 @@ import { runAfter } from "@/lib/http/after";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateOgImages } from "@/lib/og/generate";
 import { generateSlug } from "@/lib/slug";
-import { reserveDocumentPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
-import { consumeSummaryUsage } from "@/lib/subscription/usage";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { getObjectStore, isOwnedUploadKey, type ObjectStore } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { summaryContent, versionStatements, type VersionContent, type VersionOptions } from "./document-versions";
 import { findDuplicateChip } from "./duplicates";
 import { isNotSoloPodcast, withPodcastStacks } from "./podcast-stacks";
@@ -43,7 +40,7 @@ import { embedQuery, embedSummary, indexSummary, saveSummaryEmbedding, type Summ
 import { decodeCursor, decodeOffsetCursor, encodeCursor, encodeOffsetCursor, relevance } from "./search";
 import { toSummaryJson, type SummaryJson } from "./serialize";
 import { canViewerRead, findGrantToken, grantTokenForViewSql, isLinkLive, readableByViewer } from "./share-access";
-import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, translationPayer, type BillingEnvironmentResolver, type TranslationStatus } from "./translations";
+import { listTranslations, readingLanguage, readSourceMarkdown, readSummaries, readSummary, renameTranslation, retireTranslatedCovers, translationLanguageFor, translationAccount, type TranslationStatus } from "./translations";
 import { translateTrip } from "./trip-translations";
 import { notifySummaryAdded } from "./notifications";
 import { rerankHeadlines } from "./headlines";
@@ -57,7 +54,6 @@ export interface ServiceDeps {
   ai?: AiProvider;
   store?: ObjectStore;
   now?: () => Date;
-  billingEnvironment?: BillingEnvironment;
 }
 
 export async function resolveDeps(deps: ServiceDeps = {}) {
@@ -90,7 +86,7 @@ export async function getSummaryForViewer(db: Database, id: string, viewerId: st
 /**
  * The summary as `viewerId` reads it: the owner in the language they chose, anyone else in
  * `accepted` (their `Accept-Language`), translated now when it hasn't been yet — on the viewer's
- * points, or the owner's for a visitor who isn't signed in.
+ * membership. Public visitors use the publisher’s access for new translations.
  */
 export async function readSummaryJson(
   db: Database,
@@ -100,12 +96,12 @@ export async function readSummaryJson(
   options: {
     ai?: AiProvider;
     viewedAt?: Date | null;
-    billingEnvironment?: BillingEnvironmentResolver;
+
     /** The share link token the viewer opened it with; looked up when not given. */
     grantToken?: string | null;
   } = {},
 ): Promise<SummaryJson> {
-  const payer = translationPayer(row, viewerId, options.billingEnvironment);
+  const payer = translationAccount(row, viewerId);
   const needsGrant = options.grantToken === undefined && viewerId !== null && row.ownerId !== viewerId && !isLinkLive(row);
   const [reading, likedAt, grantToken] = await Promise.all([
     readSummary(db, row, readingLanguage(row, viewerId, accepted), payer, { ai: options.ai }),
@@ -290,35 +286,11 @@ export function keepsSourceMarkdown(input: CreateSummaryInput): boolean {
   }
 }
 
-interface DocumentBilling {
-  userId: string;
-  summaryId: string;
-  environment?: BillingEnvironment;
-  /** The summary came out of the free allowance, which then covers its document too. */
-  coveredByAllowance: boolean;
-}
-
-/**
- * The source as a formatted Markdown document written by the document agent from the page's markup
- * (or its text). Billed like the summary it belongs to: free while the summary came out of the free
- * allowance; past it, points are held first and the agent's tokens charged at the model's API price.
- * Without points, or when the agent fails (charged nothing), the plain text is kept instead —
- * plain text is valid Markdown.
- */
-async function sourceDocument(ai: AiProvider, content: ExtractedContent, billing: DocumentBilling): Promise<string | null> {
+/** Formats the kept source for reading, with its plain text as a fallback. */
+async function sourceDocument(ai: AiProvider, content: ExtractedContent): Promise<string | null> {
   const text = content.text.trim();
   if (!text) return null;
   const plain = text.slice(0, SOURCE_TEXT_LIMIT);
-  let charge: ChatCharge | null = null;
-  try {
-    if (!billing.coveredByAllowance) {
-      charge = await reserveDocumentPoints(billing.userId, billing.summaryId, ai.chatModelId(), billing.environment);
-    }
-  } catch (error) {
-    console.info("[summaries] source document not formatted; keeping the plain text", error instanceof ApiError ? error.code : error);
-    return plain;
-  }
-  const steps: LanguageModelUsage[] = [];
   const formatted = await ai.formatMarkdown({
     content: content.html || text,
     format: content.html ? "html" : "text",
@@ -326,20 +298,18 @@ async function sourceDocument(ai: AiProvider, content: ExtractedContent, billing
     siteName: content.siteName,
     sourceUrl: content.sourceUrl,
     imageUrl: content.imageUrl,
-  }, { onUsage: (usage) => steps.push(usage) });
-  // Only a delivered document is charged; a failed run releases the hold.
-  if (charge) await settleUsage(charge, ai, formatted ? steps : [], { outcome: formatted ? "finished" : "failed" });
+  });
   return formatted ? formatted.slice(0, SOURCE_TEXT_LIMIT) : plain;
 }
 
 /** Runs after the response: the summary is saved and returned before the document is written. */
-async function saveSourceDocument(db: Database, ai: AiProvider, content: ExtractedContent, billing: DocumentBilling): Promise<void> {
+async function saveSourceDocument(db: Database, ai: AiProvider, content: ExtractedContent, summaryId: string): Promise<void> {
   let contentMarkdown: string | null = null;
   try {
-    contentMarkdown = await sourceDocument(ai, content, billing);
+    contentMarkdown = await sourceDocument(ai, content);
   } finally {
     // Never leave the row pending: no document becomes "not kept".
-    await db.update(summaries).set({ contentMarkdown }).where(eq(summaries.id, billing.summaryId));
+    await db.update(summaries).set({ contentMarkdown }).where(eq(summaries.id, summaryId));
   }
 }
 
@@ -361,7 +331,6 @@ export async function createSummary(
   const { ai, store, now } = await resolveDeps(deps);
   const { content, uploadKey } = await extractSource(db, principal.sub, input, store, ai);
   const id = crypto.randomUUID();
-  const usage = await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
   const raw = await ai.summarize({
     text: truncateForModel(content.text),
@@ -427,15 +396,7 @@ export async function createSummary(
 
   const row = await insertSummary(db, store, base, embedding);
   runAfter(() => notifySummaryAdded(db, row));
-  // The document agent works after the response: free with an allowance summary, else on points.
-  if (keepsSourceMarkdown(input)) {
-    runAfter(() => saveSourceDocument(db, ai, content, {
-      userId: principal.sub,
-      summaryId: id,
-      environment: deps?.billingEnvironment,
-      coveredByAllowance: usage.chargedUnits === 0,
-    }));
-  }
+  if (keepsSourceMarkdown(input)) runAfter(() => saveSourceDocument(db, ai, content, id));
   return toSummaryJson(row, principal.sub);
 }
 
@@ -484,7 +445,7 @@ export async function insertSummary(
 }
 
 /** Renders and stores the cover; a failed render leaves the summary without images rather than failing it. */
-export async function coverImages(store: ObjectStore, ai: AiProvider, id: string, draft: SummaryDraft, siteLabel: string | null, imageStyle: ImageStyle, createdAt: Date, kind: SummaryKind = "summary"): Promise<ImageKeys> {
+export async function coverImages(store: ObjectStore, ai: AiProvider | null, id: string, draft: SummaryDraft, siteLabel: string | null, imageStyle: ImageStyle, createdAt: Date, kind: SummaryKind = "summary"): Promise<ImageKeys> {
   try {
     const images = await generateOgImages({
       id,
@@ -509,21 +470,21 @@ export async function coverImages(store: ObjectStore, ai: AiProvider, id: string
  * call. No model summarises it: the duplicate agent first checks the caller's library for the same
  * source, title or content (refusing a match with 409 unless `allowDuplicate`), then a model designs
  * the cover theme and artwork, and it is embedded for search. The raw text is kept as the source
- * document. Counts as one summary against the caller's allowance.
+ * document.
  */
 export async function importSummary(
   db: Database,
   principal: ApiPrincipal,
   input: ImportSummaryInput,
-  /** `free`: not charged to the allowance or points (chips added by the user's MCP agents). */
-  deps?: ServiceDeps & { free?: boolean },
+  deps?: ServiceDeps,
 ): Promise<SummaryJson> {
-  const { ai, store, now } = await resolveDeps(deps);
+  const store = deps?.store ?? getObjectStore();
+  const now = deps?.now ?? (() => new Date());
+  const ai = await hasFlowcyAccess(principal.sub) ? (deps?.ai ?? await getAiProvider()) : null;
   const text = input.text.trim();
   const sourceUrl = input.sourceUrl ?? null;
   const siteName = input.siteName || null;
   const sourceTitle = input.sourceTitle || null;
-  // Checked before the allowance is used, so a refused duplicate costs nothing.
   if (!input.allowDuplicate) {
     const duplicate = await findDuplicateChip(db, ai, principal.sub, { title: input.title, summary: input.summary, sourceUrl, sourceTitle, siteName, text });
     if (duplicate) {
@@ -534,26 +495,29 @@ export async function importSummary(
     }
   }
   const id = crypto.randomUUID();
-  if (!deps?.free) await consumeSummaryUsage(principal.sub, id, deps?.billingEnvironment);
 
   // The model designs the headline and emoji; the server assigns the palette below, including
   // when the model fails, so similar topics still get varied colors.
   // The agent may write the chip in another language than its source, and its declared `language`
   // (default "en") may be wrong: the evaluation model judges both. The declared one is only kept
   // when the model can't name the chip's language.
-  const [detected, sourceLanguage] = await Promise.all([
-    ai.detectLanguage({ title: input.title, summary: input.summary, highlights: input.highlights }),
-    ai.detectSourceLanguage(text),
-  ]);
+  const [detected, sourceLanguage] = ai
+    ? await Promise.all([
+        ai.detectLanguage({ title: input.title, summary: input.summary, highlights: input.highlights }),
+        ai.detectSourceLanguage(text),
+      ])
+    : [null, null];
   const language = detected ?? input.language;
-  const design = await ai.designCover({
-    title: input.title,
-    summary: input.summary,
-    category: input.category,
-    keywords: input.keywords,
-    text,
-    language,
-  });
+  const design = ai
+    ? await ai.designCover({
+        title: input.title,
+        summary: input.summary,
+        category: input.category,
+        keywords: input.keywords,
+        text,
+        language,
+      })
+    : null;
   const normalized = normalizeDraft({
     title: input.title,
     summary: input.summary,
@@ -571,7 +535,7 @@ export async function importSummary(
     theme: await selectCoverTheme(db, principal.sub, normalized.theme),
   };
 
-  const embedding = embedSummary(ai, { ...draft, siteName, sourceTitle, contentText: text });
+  const embedding = ai ? embedSummary(ai, { ...draft, siteName, sourceTitle, contentText: text }) : Promise.resolve(null);
 
   const createdAt = now();
   const imageKeys = await coverImages(store, ai, id, draft, siteName ?? hostOf(sourceUrl), input.imageStyle, createdAt);
@@ -625,8 +589,8 @@ export async function importSummary(
 export interface ListOptions extends Pick<ServiceDeps, "ai"> {
   /** The caller's `Accept-Language`: others' summaries come back translated into it. */
   accepted?: TranslationLanguage | null;
-  /** Billing environment of the caller, whose points pay for missing translations. */
-  billingEnvironment?: BillingEnvironmentResolver;
+
+
 }
 
 export async function listSummaries(db: Database, userId: string, query: ListQuery, deps: ListOptions = {}) {
@@ -689,7 +653,7 @@ export async function listSummaries(db: Database, userId: string, query: ListQue
     .limit(query.limit + 1);
   const page = rows.slice(0, query.limit);
   const last = page[page.length - 1];
-  const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
+  const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai });
   return {
     items: await withFeedAuthors(db, userId, await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))))),
     nextCursor: rows.length > query.limit && last ? encodeCursor(new Date(last.activity), last.summary.id) : null,
@@ -747,7 +711,7 @@ async function searchLibrary(
   deps: ListOptions,
 ) {
   const offset = decodeOffsetCursor(query.cursor);
-  const vector = await embedQuery(deps.ai ?? await getAiProvider(), query.q);
+  const vector = await hasFlowcyAccess(userId) ? await embedQuery(deps.ai ?? await getAiProvider(), query.q) : null;
   const match = relevance(query.q, vector);
   const rows = await db.select({ summary: summaries, viewedAt: summaryViews.viewedAt, likedAt: summaryLikes.likedAt, grant: grantTokenForViewSql(userId, summaryViews.shareLinkId) })
     .from(summaries)
@@ -758,7 +722,7 @@ async function searchLibrary(
     .limit(query.limit + 1)
     .offset(offset);
   const page = rows.slice(0, query.limit);
-  const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai, environment: deps.billingEnvironment });
+  const readings = await readSummaries(db, readable(page, userId), userId, deps.accepted ?? null, { ai: deps.ai });
   return {
     items: await withFeedAuthors(db, userId, await withEditorsPicks(db, userId, await withPodcastStacks(db, userId, page.map((row) => toSummaryJson(row.summary, userId, row.summary.ownerId === userId ? null : row.viewedAt, readings.get(row.summary.id), row.likedAt, row.grant))))),
     nextCursor: rows.length > query.limit ? encodeOffsetCursor(offset + query.limit) : null,
@@ -775,7 +739,7 @@ export async function patchSummary(
   id: string,
   patch: PatchSummaryInput,
   /** `asWritten`: the edit is to the text as written, never to the translation the owner reads (agents). */
-  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & VersionOptions & { billingEnvironment?: BillingEnvironmentResolver; asWritten?: boolean } = {},
+  deps: Pick<ServiceDeps, "ai" | "now" | "store"> & VersionOptions & { asWritten?: boolean } = {},
 ): Promise<SummaryJson> {
   const existing = await getOwnedSummary(db, id, ownerId);
   if (existing.kind === "resume") throw new ApiError(409, "RESUME_SCOPED_EDIT", "Use the résumé editor for this private document.");
@@ -800,16 +764,16 @@ export async function patchSummary(
     const language = patch.displayLanguage;
     changes.displayLanguage = language && translationLanguageFor(existing.language) !== language ? language : null;
   }
-  // Translated (on the owner's points) before anything is saved: a language that could not be translated is not stored.
+  // Translated before anything is saved: a language that could not be translated is not stored.
   const ai = deps.ai ?? await getAiProvider();
   const language = readingLanguage({ ...existing, ...changes }, ownerId, null);
-  const reading = await readSummary(db, { ...existing, ...changes }, language, translationPayer(existing, ownerId, deps.billingEnvironment), {
+  const reading = await readSummary(db, { ...existing, ...changes }, language, translationAccount(existing, ownerId), {
     ai,
     required: patch.displayLanguage !== undefined,
   });
   // A trip switches its whole diary: a few texts are translated now, so the trip opens in that
   // language at once; a large trip is translated in the background and the owner is notified.
-  if (existing.kind === "trip" && patch.displayLanguage !== undefined) await translateTrip(db, existing, language, translationPayer(existing, ownerId, deps.billingEnvironment), ai);
+  if (existing.kind === "trip" && patch.displayLanguage !== undefined) await translateTrip(db, existing, language, translationAccount(existing, ownerId), ai);
   // The owner edits the title they are reading: a translation's, or the original's.
   let renamedTranslation = false;
   if (patch.title !== undefined && !deps.asWritten && reading.translation && language) {
@@ -853,8 +817,10 @@ export async function patchSummary(
   if (retiredKeys.length) await retireTranslatedCovers(db, store, [existing.id]);
   const updated = { ...existing, ...changes };
   if (changes.title !== undefined || patch.tags !== undefined || patch.summary !== undefined || patch.highlights !== undefined
-    || patch.category !== undefined || patch.keywords !== undefined) await indexSummary(db, ai, updated);
-  if (tagsChanged && reading.translation) return readSummaryJson(db, updated, ownerId, null, { ai, billingEnvironment: deps.billingEnvironment });
+    || patch.category !== undefined || patch.keywords !== undefined) {
+    if (await hasFlowcyAccess(ownerId)) await indexSummary(db, ai, updated);
+  }
+  if (tagsChanged && reading.translation) return readSummaryJson(db, updated, ownerId, null, { ai });
   const [json] = await withPodcastStacks(db, ownerId, [toSummaryJson(updated, ownerId, null, reading)]);
   return json;
 }
@@ -942,10 +908,10 @@ export async function getSourceMarkdown(
   id: string,
   viewerId: string,
   accepted: TranslationLanguage | null = null,
-  deps: Pick<ServiceDeps, "ai"> & { billingEnvironment?: BillingEnvironmentResolver } = {},
+  deps: Pick<ServiceDeps, "ai"> = {},
 ): Promise<{ markdown: string; language: string; translationPending: boolean }> {
   const row = await getSummaryForViewer(db, id, viewerId);
-  const source = await readSourceMarkdown(db, row, viewerId, readingLanguage(row, viewerId, accepted), { ai: deps.ai, environment: deps.billingEnvironment });
+  const source = await readSourceMarkdown(db, row, viewerId, readingLanguage(row, viewerId, accepted), { ai: deps.ai });
   if (source === null) throw new ApiError(404, "SOURCE_NOT_KEPT", "The source text was not kept for this summary");
   return source;
 }

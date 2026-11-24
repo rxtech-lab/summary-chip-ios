@@ -21,6 +21,9 @@ struct SummaryChipApp: App {
         let environment: AppEnvironment
         if let local = Self.resumeTestEnvironment() { environment = local }
         else { environment = LikesPreviewFixture.isEnabled ? LikesPreviewFixture.environment() : AppEnvironment.live() }
+        if ProcessInfo.processInfo.arguments.contains("--preview-flowcy-subscription") {
+            environment.subscription.enablePurchasePreview(price: "$12.99")
+        }
         #else
         let environment = AppEnvironment.live()
         #endif
@@ -74,7 +77,7 @@ struct SummaryChipApp: App {
                     if ProcessInfo.processInfo.arguments.contains("--preview-local-file") { return }
                     #endif
                     if ProcessInfo.processInfo.arguments.contains("--preview-education") { return }
-                    if ProcessInfo.processInfo.arguments.contains("--preview-credits") { return }
+                    if ProcessInfo.processInfo.arguments.contains("--preview-flowcy-subscription") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-paper-editor") { return }
                     if ProcessInfo.processInfo.arguments.contains("--preview-paper-export") { return }
                     if LikesPreviewFixture.isEnabled { return }
@@ -89,7 +92,16 @@ struct SummaryChipApp: App {
                 }
                 .onOpenURL { url in environment.handleIncomingURL(url) }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { Task { await SummaryNotifications.shared.synchronize() } }
+                    if phase == .active {
+                        Task {
+                            await environment.refreshSubscription()
+                            await SummaryNotifications.shared.synchronize()
+                        }
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: FlowcySubscription.accessRequired)) { _ in
+                    guard environment.subscription.isActive else { return }
+                    Task { await environment.refreshSubscription() }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .rxAuthSessionExpired)) { _ in
                     Task { await environment.sessionExpired() }
@@ -148,7 +160,9 @@ struct SummaryChipApp: App {
     @ViewBuilder
     private var standardAppContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-resume-http"), let family = ProcessInfo.processInfo.environment["RESUME_TEST_FAMILY"] {
+        if ProcessInfo.processInfo.arguments.contains("--preview-flowcy-subscription") {
+            FlowcySubscriptionView(environment: environment)
+        } else if ProcessInfo.processInfo.arguments.contains("--preview-resume-http"), let family = ProcessInfo.processInfo.environment["RESUME_TEST_FAMILY"] {
             NavigationStack { ResumeDetailView(environment: environment, id: family) }
         } else if ProcessInfo.processInfo.arguments.contains("--preview-todo") {
             TodoPreviewHost()
@@ -160,8 +174,6 @@ struct SummaryChipApp: App {
             MiniAppPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
             ChatView(environment: environment, model: ChatModel(client: environment.chatClient, store: .init(directory: nil)))
-        } else if ProcessInfo.processInfo.arguments.contains("--preview-credits") {
-            CreditsPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-education") {
             OnboardingPreviewHost()
         } else if ProcessInfo.processInfo.arguments.contains("--preview-paper-editor") {

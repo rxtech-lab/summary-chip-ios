@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-const mocks = vi.hoisted(() => ({ session: vi.fn(), settle: vi.fn(), prepare: vi.fn() }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), prepare: vi.fn() }));
 vi.mock("@/lib/ai/chat", () => ({
   prepareChat: mocks.prepare,
   chatRequestSchema: z.object({ messages: z.array(z.unknown()) }),
@@ -10,8 +10,6 @@ vi.mock("@/lib/ai/chat", () => ({
 vi.mock("@/lib/http/handler", () => ({
   withApiAuth: (_: Request, run: (context: { principal: { sub: string }; db: object }) => Promise<Response>) => run({ principal: { sub: "owner" }, db: {} }),
 }));
-vi.mock("@/lib/subscription/chat-billing", () => ({ reserveChatPoints: async () => ({ settle: mocks.settle }) }));
-vi.mock("@/lib/subscription/environment", () => ({ billingEnvironment: async () => "test" }));
 vi.mock("@/lib/ai/live-chat", async importOriginal => ({
   ...await importOriginal<typeof import("@/lib/ai/live-chat")>(),
   createLiveChatSession: mocks.session,
@@ -34,6 +32,5 @@ describe("contextual voice session", () => {
     expect(config.instructions).toContain(liveVoiceLanguageInstructions);
     expect(config.instructions).toContain("Find astronomy chips");
     expect(config.instructions).toContain("Do not call updateGraph for these display requests");
-    expect(mocks.settle).toHaveBeenCalledWith(0, { surface: "live-voice-token" });
   });
 });

@@ -182,6 +182,7 @@
       "shouldTranslate" : false
     },
     "%@ added to your balance." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -249,6 +250,7 @@
 
     },
     "%@ left" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -287,6 +289,7 @@
       }
     },
     "%@ points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -303,6 +306,7 @@
       }
     },
     "%@ pts" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1173,17 +1177,7 @@
         }
       }
     },
-    "About %@ · about %lld points" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "About %1$@ · about %2$lld points"
-          }
-        }
-      }
-    },
-    "About %lld points, charged as each chapter is finished. It's made on the server and you can leave while it works." : {
+    "About %@" : {
 
     },
     "Abstract" : {
@@ -1265,7 +1259,11 @@
         }
       }
     },
+    "Active" : {
+
+    },
     "Active plan required" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1298,6 +1296,7 @@
       }
     },
     "Activity unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1899,6 +1898,7 @@
       }
     },
     "Adjustment" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2183,6 +2183,7 @@
       }
     },
     "Allowance" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2199,6 +2200,7 @@
       }
     },
     "Allowance resets" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2215,6 +2217,7 @@
       }
     },
     "Allowance unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2450,7 +2453,16 @@
         }
       }
     },
+    "App Store" : {
+
+    },
+    "App Store Subscription" : {
+
+    },
     "Append a restored revision?" : {
+
+    },
+    "Apple keeps billing until you cancel Flowcy Plus. Cancel your subscription before deleting your account to stop renewals." : {
 
     },
     "Apple Maps" : {
@@ -2837,6 +2849,9 @@
     "Audio + video" : {
 
     },
+    "Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it." : {
+
+    },
     "Audio only" : {
 
     },
@@ -2930,6 +2945,7 @@
       }
     },
     "Available" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2993,6 +3009,7 @@
 
     },
     "Balance" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3201,6 +3218,7 @@
       }
     },
     "Buy %@ for %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3471,6 +3489,7 @@
       }
     },
     "Chatting uses points based on the AI's usage. Top up to keep chatting." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3485,6 +3504,9 @@
           }
         }
       }
+    },
+    "Check Access" : {
+
     },
     "Check Again" : {
 
@@ -3588,6 +3610,9 @@
     "Checking" : {
 
     },
+    "Checking access…" : {
+
+    },
     "Checking available models…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3622,6 +3647,9 @@
           }
         }
       }
+    },
+    "Checking Flowcy Plus…" : {
+
     },
     "Checking LaTeX…" : {
       "localizations" : {
@@ -3659,6 +3687,7 @@
       }
     },
     "Checkout opens securely in your browser. Points are added to your account once payment completes." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3714,6 +3743,9 @@
           }
         }
       }
+    },
+    "Chippy could not check your Flowcy Plus subscription. Try again in a moment." : {
+
     },
     "Chippy could not register for notifications. Try again when you are online." : {
       "localizations" : {
@@ -4235,7 +4267,7 @@
         }
       }
     },
-    "Cloud voice, uses your Chippy points" : {
+    "Cloud voice powered by Flowcy" : {
 
     },
     "Codex Default" : {
@@ -4377,6 +4409,7 @@
 
     },
     "Completing purchase…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -4969,6 +5002,7 @@
 
     },
     "Couldn't load more. Try again" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -5582,6 +5616,7 @@
 
     },
     "Current balance" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -5967,6 +6002,9 @@
           }
         }
       }
+    },
+    "Delete Account…" : {
+
     },
     "Delete Audiobook" : {
 
@@ -6745,6 +6783,7 @@
 
     },
     "Dispute resolved" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8325,6 +8364,9 @@
         }
       }
     },
+    "Flowcy Cloud · Flowcy Plus" : {
+
+    },
     "Flowcy Cloud Model" : {
       "localizations" : {
         "zh-Hans" : {
@@ -8372,6 +8414,18 @@
           }
         }
       }
+    },
+    "Flowcy Plus" : {
+
+    },
+    "Flowcy Plus is required for Flowcy Cloud AI models." : {
+
+    },
+    "Flowcy Plus is required to enable automatic AI daily recaps." : {
+
+    },
+    "Flowcy Plus…" : {
+
     },
     "Folder (optional)" : {
       "localizations" : {
@@ -8629,6 +8683,7 @@
       }
     },
     "Free summaries" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8645,6 +8700,7 @@
       }
     },
     "Free summaries are used first. After that, each summary takes points, and chat and formatting a summary's source are charged by what the AI model used." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8661,6 +8717,7 @@
       }
     },
     "Free summaries left" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8677,6 +8734,7 @@
       }
     },
     "Free summaries reset %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8693,6 +8751,7 @@
       }
     },
     "Free summaries used" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8894,7 +8953,11 @@
         }
       }
     },
+    "Generation follows the script and storyboard you reviewed." : {
+
+    },
     "Generation uses points and follows the script and camera storyboard you reviewed. Shots without a frame are designed from their camera direction." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8911,6 +8974,7 @@
       }
     },
     "Generation uses points and follows the script and storyboard you reviewed." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8927,6 +8991,7 @@
       }
     },
     "Generation uses points and follows the script, camera storyboard and frames you reviewed." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -8941,12 +9006,6 @@
           }
         }
       }
-    },
-    "Generation uses points as each chapter is finished, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
-
-    },
-    "Generation uses points. Audio and video design are saved for future playback. The video is designed and then rendered in the cloud, so you can leave while it works. Each version is kept until you remove it." : {
-
     },
     "Generation uses points. Audio is saved for future playback. Regeneration creates a new episode using the current chips and selected language." : {
       "extractionState" : "stale",
@@ -10082,6 +10141,7 @@
 
     },
     "Later" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -10531,6 +10591,7 @@
       }
     },
     "Loading activity…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -10547,6 +10608,7 @@
       }
     },
     "Loading allowance…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -10667,6 +10729,7 @@
       }
     },
     "Loading more activity" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -10727,6 +10790,7 @@
 
     },
     "Loading top-ups…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -11065,6 +11129,12 @@
     "Manage Access" : {
 
     },
+    "Manage App Store Subscription" : {
+
+    },
+    "Manage Flowcy Subscription" : {
+
+    },
     "Manage Translations…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -11174,6 +11244,7 @@
 
     },
     "Membership required" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -11800,6 +11871,7 @@
 
     },
     "No activity yet" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -12220,6 +12292,7 @@
 
     },
     "No point packs are available right now." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -12496,6 +12569,7 @@
 
     },
     "Not available" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -12531,6 +12605,7 @@
       }
     },
     "Not currently eligible" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -12550,6 +12625,7 @@
 
     },
     "Not Enough Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -12863,12 +12939,6 @@
         }
       }
     },
-    "Off by default. Automatic recaps use credits." : {
-
-    },
-    "Off by default. When enabled, automatic recap generation consumes your credits. Turn this off and save to stop future automatic recaps." : {
-
-    },
     "Offline Cache" : {
       "localizations" : {
         "zh-Hans" : {
@@ -12950,6 +13020,7 @@
       }
     },
     "One-time purchase through the App Store. Points are added to your account right away, with no recurring subscription." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -13227,6 +13298,7 @@
       }
     },
     "Opening checkout…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -13852,6 +13924,7 @@
 
     },
     "Payment disputed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14398,6 +14471,7 @@
       }
     },
     "Point packs" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14414,6 +14488,7 @@
       }
     },
     "Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14430,6 +14505,7 @@
       }
     },
     "Points expired" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14446,6 +14522,7 @@
       }
     },
     "Points granted" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14462,6 +14539,7 @@
       }
     },
     "Points: %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14910,6 +14988,7 @@
 
     },
     "Purchase limit reached" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -14926,6 +15005,7 @@
       }
     },
     "Purchases restored. Consumable top-ups are saved in your account balance." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -15352,6 +15432,7 @@
 
     },
     "Refresh Usage" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -15368,6 +15449,7 @@
       }
     },
     "Refund" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -15486,6 +15568,7 @@
       }
     },
     "Remaining" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -16075,6 +16158,7 @@
       }
     },
     "Resets" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -16137,6 +16221,7 @@
 
     },
     "Restoring purchases…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -16288,7 +16373,11 @@
         }
       }
     },
+    "Review and revise the script and camera storyboard after clicking Generate. Media is generated only after you confirm." : {
+
+    },
     "Review and revise the script and camera storyboard after clicking Generate. Media is generated only after you confirm. Planning uses points." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -16305,6 +16394,7 @@
       }
     },
     "Review and revise the script and camera storyboard after tapping Generate. Media is generated only after you confirm. Planning uses points." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -16323,10 +16413,7 @@
     "Review Changes" : {
 
     },
-    "Review chapters, speakers, music and scenes after clicking Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points." : {
-
-    },
-    "Review chapters, speakers, music and scenes after tapping Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points." : {
+    "Review chapters, speakers, music and scenes after clicking Generate, and chat to change them. Nothing is recorded until you confirm." : {
 
     },
     "Review permissions and disconnect this authorization" : {
@@ -16880,7 +16967,11 @@
     "Saving plan…" : {
 
     },
+    "Saving redraws this frame from the new camera direction." : {
+
+    },
     "Saving redraws this frame from the new camera direction. Drawing uses points." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -16974,6 +17065,9 @@
 
     },
     "Schedule" : {
+
+    },
+    "Schedule a daily video recap." : {
 
     },
     "Schedule saved" : {
@@ -18094,6 +18188,7 @@
 
     },
     "Source document" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -18473,6 +18568,21 @@
         }
       }
     },
+    "Subscribe to Flowcy Plus" : {
+
+    },
+    "Subscribe to Flowcy Plus for cloud AI chat, or switch to a local agent in AI Models." : {
+
+    },
+    "Subscribe to Flowcy Plus to unlock AI features in Chippy — including AI summaries, chat, voice, podcasts, audiobooks, and translations. You can still use the app and add chips without a subscription." : {
+
+    },
+    "Subscribe to Flowcy Plus…" : {
+
+    },
+    "Subscription" : {
+
+    },
     "Subtitle" : {
       "localizations" : {
         "zh-Hans" : {
@@ -18506,6 +18616,7 @@
       }
     },
     "Summaries & Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -18522,6 +18633,7 @@
       }
     },
     "Summaries & Points…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -18718,6 +18830,7 @@
       }
     },
     "Summary Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -18986,6 +19099,9 @@
     "The audiobook will be removed from your library." : {
 
     },
+    "The book is made on the server, so you can leave while it works. Each version is kept until you remove it." : {
+
+    },
     "The day and its moments are removed from the diary." : {
       "localizations" : {
         "zh-Hans" : {
@@ -19214,7 +19330,7 @@
     "The music changes when the content does, and a piece returns when its feeling does. Ask in the chat to change it." : {
 
     },
-    "The narration is written again from the trip as it is now. This uses points." : {
+    "The narration is written again from the trip as it is now." : {
 
     },
     "The on-device voice stopped unexpectedly." : {
@@ -19275,7 +19391,7 @@
     "The plan and its drawn scenes are removed. No audiobook has been made from it." : {
 
     },
-    "The planned scenes are drawn in this theme and move slowly with the narration. Drawing uses points. It continues on the server if you leave, and every language gets the same scenes." : {
+    "The planned scenes are drawn in this theme and move slowly with the narration. It continues on the server if you leave, and every language gets the same scenes." : {
 
     },
     "The podcast will be removed from your library." : {
@@ -19357,6 +19473,9 @@
           }
         }
       }
+    },
+    "The translation is saved with this version and appears in the language list." : {
+
     },
     "The translation was manually edited. Compare both versions before accepting." : {
 
@@ -19446,7 +19565,7 @@
     "These diagrams are drawn by LaTeX." : {
 
     },
-    "These pictures are the video. Saving redraws only the scenes you changed, and drawing uses points." : {
+    "These pictures are the video. Saving redraws only the scenes you changed." : {
 
     },
     "These references didn't hold up. Correct them, replace them with a reliable source, or remove them. Saving the paper checks changed entries again." : {
@@ -19858,6 +19977,7 @@
       }
     },
     "Top Up" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -19874,6 +19994,7 @@
       }
     },
     "Top Up Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -19890,6 +20011,7 @@
       }
     },
     "Top-up" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -19906,6 +20028,7 @@
       }
     },
     "Top-ups and point charges appear here." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -19922,6 +20045,7 @@
       }
     },
     "Top-ups unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -20215,6 +20339,7 @@
       }
     },
     "Translation uses points. The translation is saved with this version and appears in the language list." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -20356,6 +20481,9 @@
     "Turn on auto-rotate" : {
 
     },
+    "Turn on Daily Recap to make a video on days with eligible chips." : {
+
+    },
     "Turn this day's chips into a podcast with captions and artwork. Choose a language before generating." : {
       "localizations" : {
         "zh-Hans" : {
@@ -20478,6 +20606,7 @@
       }
     },
     "Unlimited" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -20492,6 +20621,9 @@
           }
         }
       }
+    },
+    "Unlock AI" : {
+
     },
     "Untitled option" : {
       "localizations" : {
@@ -20808,6 +20940,7 @@
       }
     },
     "Usage" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -20824,6 +20957,7 @@
       }
     },
     "Usage & Activity" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -22069,7 +22203,11 @@
         }
       }
     },
+    "Your Flowcy Plus subscription unlocks all AI features in Chippy." : {
+
+    },
     "Your free allowance and point charges are set by the server. Top-ups add points without a recurring subscription." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -22086,6 +22224,7 @@
       }
     },
     "Your free allowance and point charges are set by the server. Top-ups open Stripe Checkout in your browser and add points without a recurring subscription." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -22118,6 +22257,7 @@
       }
     },
     "Your purchase is waiting for approval. Points will be added once it's approved." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {

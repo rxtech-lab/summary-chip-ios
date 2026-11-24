@@ -35,6 +35,7 @@ import {
 } from "@/lib/services/resume-outputs";
 import { RESUME_TEMPLATES } from "@/lib/resume/render";
 import { deleteShareLink } from "@/lib/services/share-links";
+import { requireFlowcyAccess } from "@/lib/subscription/flowcy";
 import { getResumeProposal, createResumeProposal, applyResumeProposal } from "./proposals";
 import { proposalSchema, applyProposalSchema } from "./proposal-contract";
 import { readResumeForAgent, translationLanguage } from "./agent-translation";
@@ -43,7 +44,7 @@ import { securitySchemes } from "@/lib/mcp/oauth-config";
 
 type Run = (name: string, action: () => Promise<{ result: CallToolResult }>) => Promise<CallToolResult>;
 export function registerResumeTools(server: McpServer, context: McpContext, run: Run) {
-  const { db, principal, billingEnvironment } = context,
+  const { db, principal } = context,
     owner = principal.sub;
   const target = { familyId: resumeIdSchema };
   function register<S extends z.ZodRawShape>(
@@ -147,10 +148,13 @@ export function registerResumeTools(server: McpServer, context: McpContext, run:
   for (const kind of ["review", "tailor", "translate"] as const) {
     register(
       kind + "_resume",
-      "Generate a points-billed " + kind + " proposal." + (kind === "translate" ? " Translation refresh reuses unchanged wording. To translate the résumé yourself or save wording you already have, use save_resume_translation." : ""),
+      "Generate a Flowcy Plus AI " + kind + " proposal." + (kind === "translate" ? " Translation refresh reuses unchanged wording. To translate the résumé yourself or save wording you already have, use save_resume_translation." : ""),
       z.object({ ...proposalSchema.shape, ...target }).omit({ kind: true }),
       false,
-      ({ familyId, ...input }) => createResumeProposal(db, owner, familyId, { ...input, kind }, billingEnvironment),
+      async ({ familyId, ...input }) => {
+        await requireFlowcyAccess(owner);
+        return createResumeProposal(db, owner, familyId, { ...input, kind });
+      },
     );
   }
   register(

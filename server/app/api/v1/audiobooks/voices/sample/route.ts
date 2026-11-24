@@ -11,5 +11,5 @@ export async function GET(request: Request) {
     const query = new URL(request.url).searchParams;
     const input = audiobookVoiceSampleSchema.parse({ voice: query.get("voice"), language: query.get("language") ?? undefined });
     return noStoreJson(await voiceSampleUrl(input.voice, input.language));
-  });
+  }, { requireSubscription: true });
 }

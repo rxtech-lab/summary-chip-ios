@@ -7,6 +7,8 @@ import { ACCESS_TOKEN_PREFIX, authChallenge } from "@/lib/mcp/oauth-config";
 import { authenticateOAuthToken, type McpPrincipal } from "@/lib/mcp/oauth-tokens";
 import { ensureUser } from "@/lib/services/users";
 import { withAIAccount } from "@/lib/ai/model-preference";
+import { subscriptionEnvironment, type SubscriptionEnvironment } from "@/lib/subscription/environment";
+import { requireFlowcyAccess, withFlowcyRequest, type FlowcyAccess } from "@/lib/subscription/flowcy";
 
 function requestIdFor(request: Request): string {
   return request.headers.get("x-request-id")?.slice(0, 80) || crypto.randomUUID();
@@ -37,15 +39,18 @@ function formatApp(request: Request): string | undefined {
 export interface ApiHandlerOptions {
   /** Answers `426 APP_UPDATE_REQUIRED` to apps older than the feature needs (`FEATURE_MIN_APP_VERSIONS`). */
   feature?: AppFeature;
+  /** Answers `402 FLOWCY_SUBSCRIPTION_REQUIRED` when the caller does not have an active Flowcy Plus subscription. */
+  requireSubscription?: boolean;
 }
 
 export interface ApiContext {
   principal: ApiPrincipal;
   db: Database;
   requestId: string;
+  storeEnvironment: SubscriptionEnvironment;
 }
 
-/** Bearer-authenticated `/api/v1` handler: app version → auth → ensure user row → action → consistent errors. */
+/** Bearer-authenticated `/api/v1` handler: app version → auth → optional subscription check → ensure user row → action → consistent errors. */
 export async function withApiAuth(
   request: Request,
   action: (context: ApiContext) => Promise<Response>,
@@ -58,10 +63,17 @@ export async function withApiAuth(
   try {
     if (options.feature) requireAppFeature(request, options.feature);
     principal = await requireApiPrincipal(request);
+    const storeEnvironment = await subscriptionEnvironment(request);
+    let initialAccess: FlowcyAccess | undefined;
+    if (options.requireSubscription) {
+      initialAccess = await requireFlowcyAccess(principal.sub, storeEnvironment);
+    }
     const db = getDatabase();
     await ensureUser(db, principal);
-    const context = { principal, db, requestId };
-    const response = await withAIAccount(db, principal.sub, () => action(context));
+    const context = { principal, db, requestId, storeEnvironment };
+    const response = await withAIAccount(db, principal.sub, () =>
+      withFlowcyRequest(context.principal.sub, storeEnvironment, () => action(context), initialAccess),
+    );
     status = response.status;
     response.headers.set("x-request-id", requestId);
     return response;
@@ -80,7 +92,7 @@ export interface McpAuthContext {
   requestId: string;
 }
 
-/** MCP accepts resource-bound OAuth access tokens and existing personal API keys. */
+/** MCP accepts resource-bound OAuth access tokens and existing personal API keys. Non-AI tools work without Flowcy Plus; AI tools gate individually. */
 export async function withMcpAuth(request: Request, action: (context: McpAuthContext) => Promise<Response>): Promise<Response> {
   const requestId = requestIdFor(request);
   const startedAt = performance.now();
@@ -95,7 +107,9 @@ export async function withMcpAuth(request: Request, action: (context: McpAuthCon
     principal = await (oauth ? authenticateOAuthToken(db, key) : authenticateApiKey(db, key)) ?? undefined;
     if (!principal) throw new ApiError(401, oauth ? "INVALID_ACCESS_TOKEN" : "INVALID_API_KEY", "The credential is invalid, expired, or revoked.");
     const context = { principal, db, requestId };
-    const response = await withAIAccount(db, principal.sub, () => action(context));
+    const response = await withAIAccount(db, principal.sub, () =>
+      withFlowcyRequest(context.principal.sub, "production", () => action(context)),
+    );
     status = response.status;
     response.headers.set("x-request-id", requestId);
     return response;

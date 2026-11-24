@@ -5,6 +5,7 @@ import { evaluationModel, evaluationModelId } from "@/lib/ai/models";
 import type { Database } from "@/lib/db/client";
 import { editorialScores, headlineRankings, summaries, type SummaryRow } from "@/lib/db/schema";
 import { mockServicesEnabled } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { isNotSoloPodcast } from "./podcast-stacks";
 import { shareUrlFor } from "./serialize";
 
@@ -43,6 +44,7 @@ export const scoreHeadlines: HeadlineScorer = async (chips) => {
 };
 
 export async function rerankHeadlines(db: Database, ownerId: string, scorer: HeadlineScorer = scoreHeadlines) {
+  if (scorer === scoreHeadlines && !(await hasFlowcyAccess(ownerId))) return;
   const startedAt = new Date();
   const chips = await headlineCandidates(db, ownerId);
   const fingerprint = revision(chips);

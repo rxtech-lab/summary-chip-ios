@@ -62,6 +62,7 @@ final class FlowcyModelSelection {
 
 struct ChatModelPickerButton: View {
     let cloud: FlowcyModelSelection
+    var isSubscribed = true
     let controlSize: CGFloat
     let action: () -> Void
     @Environment(\.scenePhase) private var scenePhase
@@ -86,12 +87,12 @@ struct ChatModelPickerButton: View {
             return modelID.isEmpty ? agent.displayName : "\(agent.displayName) · \(modelID)"
         }
         #endif
-        return cloud.displayName
+        return isSubscribed ? cloud.displayName : String(localized: "Flowcy Plus")
     }
 
     var body: some View {
         let title = modelTitle
-        let showCloudModel = localAgent == nil && scenePhase == .active
+        let showCloudModel = localAgent == nil && isSubscribed && scenePhase == .active
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: localAgent == nil ? "cloud" : "laptopcomputer")
@@ -117,14 +118,18 @@ struct ChatModelPickerButton: View {
 }
 
 struct ChatAgentSheet: View {
-    let cloud: FlowcyModelSelection
+    let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
     @State private var failure: String?
     @State private var feedback = 0
+    @State private var showsSubscription = false
     #if os(macOS)
     @AppStorage(ChatAgentSelection.providerKey) private var provider = ChatAgentSelection.cloud
     @State private var setup = LocalVoiceSetupModel()
     #endif
+
+    private var cloud: FlowcyModelSelection { environment.cloudChatModels }
+    private var isSubscribed: Bool { environment.subscription.isActive }
 
     var body: some View {
         NavigationStack {
@@ -132,7 +137,8 @@ struct ChatAgentSheet: View {
                 #if os(macOS)
                 Section {
                     Picker("Provider", selection: $provider) {
-                        Text("Flowcy Cloud").tag(ChatAgentSelection.cloud)
+                        Text(isSubscribed ? String(localized: "Flowcy Cloud") : String(localized: "Flowcy Cloud · Flowcy Plus"))
+                            .tag(ChatAgentSelection.cloud)
                         ForEach(LocalAgentKind.allCases, id: \.self) { agent in
                             let installed = setup.status?.install(for: agent)?.path != nil
                             Text(installed ? agent.displayName : "\(agent.displayName) · \(setup.isLoading ? String(localized: "Checking…") : String(localized: "Not installed"))")
@@ -152,7 +158,12 @@ struct ChatAgentSheet: View {
                 .task { await setup.refresh() }
                 #endif
                 Section {
-                    if let models = cloud.models {
+                    if !isSubscribed {
+                        Text("Flowcy Plus is required for Flowcy Cloud AI models.")
+                            .foregroundStyle(.secondary)
+                        Button("Subscribe to Flowcy Plus") { showsSubscription = true }
+                            .accessibilityIdentifier("chat-agent-subscribe")
+                    } else if let models = cloud.models {
                         modelRow(nil, title: String(localized: "Automatic"))
                         if let selectedID = cloud.selectedID, !models.contains(where: { $0.id == selectedID }) {
                             Label("\(selectedID) · Unavailable", systemImage: "exclamationmark.triangle")
@@ -185,7 +196,12 @@ struct ChatAgentSheet: View {
         #if os(macOS)
         .statusAlert("Local Agents", message: setup.errorMessage) { setup.errorMessage = nil }
         #endif
-        .task { await load() }
+        .sheet(isPresented: $showsSubscription) {
+            FlowcySubscriptionView(environment: environment, isSheet: true)
+        }
+        .task(id: isSubscribed) {
+            if isSubscribed { await load() }
+        }
     }
 
     private func modelRow(_ id: String?, title: String) -> some View {

@@ -35,6 +35,13 @@ struct DeleteAccountSheet: View {
                     Label("Your RxLab sign-in account", systemImage: "person.crop.circle")
                 }
 
+                if environment.subscription.state == .active(.apple) {
+                    Section("App Store Subscription") {
+                        Text("Apple keeps billing until you cancel Flowcy Plus. Cancel your subscription before deleting your account to stop renewals.")
+                        Link("Manage App Store Subscription", destination: URL(string: "https://apps.apple.com/account/subscriptions/")!)
+                    }
+                }
+
                 if let errorMessage {
                     Section {
                         Text(errorMessage)

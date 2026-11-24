@@ -14,7 +14,6 @@ import {
 import { createResumeProposal, applyResumeProposal, getResumeProposal } from "./proposals";
 import { applyProposalSchema } from "./proposal-contract";
 import { readResumeForAgent, translationLanguage } from "./agent-translation";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 
 export const chatResumeTarget = z.strictObject({
   familyId: resumeIdSchema,
@@ -32,14 +31,14 @@ When asked to translate and save a résumé, call getResume with translationLang
 }
 
 export function resumeChatTools(
-  db: Database, userId: string, target?: z.infer<typeof chatResumeTarget>, environment?: BillingEnvironment,
+  db: Database, userId: string, target?: z.infer<typeof chatResumeTarget>,
 ): ToolSet {
   const list = tool({
     description: "List your private résumé families.",
     inputSchema: z.object({}),
     execute: async () => ({ resumes: await listResumes(db, userId) }),
   });
-  if (target) return { listResumes: list, ...focusedResumeTools(db, userId, target, environment) };
+  if (target) return { listResumes: list, ...focusedResumeTools(db, userId, target) };
   return {
     listResumes: list,
     createResume: tool({
@@ -53,7 +52,6 @@ function focusedResumeTools(
   db: Database,
   userId: string,
   target: z.infer<typeof chatResumeTarget>,
-  environment?: BillingEnvironment,
 ) {
   const { familyId, variantId, language } = target;
   const scope = { variantId, language };
@@ -94,7 +92,7 @@ function focusedResumeTools(
         targetLanguage: resumeLanguageSchema.optional(),
       }),
       execute: async (input, { toolCallId }) =>
-        createResumeProposal(db, userId, familyId, { ...input, ...scope, idempotencyKey: toolCallId }, environment),
+        createResumeProposal(db, userId, familyId, { ...input, ...scope, idempotencyKey: toolCallId }),
     }),
     getResumeProposal: tool({
       description: "Check this résumé proposal's status and findings.",

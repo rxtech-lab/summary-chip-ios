@@ -1,6 +1,4 @@
 import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-render";
-import { randomUUID } from "node:crypto";
-import type { LanguageModelUsage } from "ai";
 import type { AiProvider } from "@/lib/ai/provider";
 import { AUDIOBOOK_VIDEO_THEMES, type AudiobookVideoTheme, type PodcastProgress, type DailyPodcast, type PodcastDay, type PodcastVideoAsset, type PodcastVideoSource, type PodcastVideoStyle, type PodcastVideoSummary } from "@/lib/contracts/daily-podcast";
 import type { PreviewAsset } from "@/lib/podcast-video/frame-preview";
@@ -10,7 +8,6 @@ import { ApiError } from "@/lib/http/errors";
 import { PODCAST_VIDEO_PHRASES, PODCAST_VIDEO_SCAFFOLD } from "@/lib/podcast-video/scaffold";
 import type { PodcastVideoInput } from "@/lib/ai/podcast-video-agent";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
-import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { getAiProvider } from "@/lib/ai/provider";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import type { TranslationLanguage } from "@/lib/contracts/api";
@@ -96,7 +93,7 @@ export async function podcastVideoAssetUrls(user: string, day: PodcastDay, key: 
  * translated chip titles and, when the model managed it safely, translated labels. Real timings arrive on device.
  */
 export async function translatePodcastVideoSource(ai: AiProvider, store: ObjectStore, user: string, podcast: DailyPodcast, language: TranslationLanguage,
-  chipTitles: Record<string, string>, abortSignal: AbortSignal, onUsage: (usage: LanguageModelUsage) => void): Promise<NonNullable<PodcastTranslation["video"]>> {
+  chipTitles: Record<string, string>, abortSignal: AbortSignal): Promise<NonNullable<PodcastTranslation["video"]>> {
   const original = await readVideoSource(store, `${dayKey(user, podcast.day)}/${podcast.key}`, podcast.video?.sourceFile);
   if (original.imageSequence) {
     // Stills have no labels: the same scenes replay against the translation's timings.
@@ -107,7 +104,7 @@ export async function translatePodcastVideoSource(ai: AiProvider, store: ObjectS
   const generated = Object.fromEntries(Object.entries(original.files).filter(([path]) => !(path in PODCAST_VIDEO_SCAFFOLD) && path !== PODCAST_VIDEO_PHRASES));
   // Phrase timing is proportional, so the translation replays the original staging; older compositions have none.
   const phrases = original.files[PODCAST_VIDEO_PHRASES] ?? "[]";
-  const translated = await ai.translatePodcastVideo(generated, LANGUAGE_NAMES[language], { abortSignal, onUsage }).catch((error) => {
+  const translated = await ai.translatePodcastVideo(generated, LANGUAGE_NAMES[language], { abortSignal }).catch((error) => {
     console.error("[podcast] video label translation failed, keeping the original labels", error);
     return null;
   });
@@ -156,16 +153,9 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
     if (!model && podcast.format !== "audiobook") throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Podcast videos are not available right now.");
     // A translation reuses the original composition, which is designed first when there is none.
     if (translation && podcast.video) {
-      const charge = await reservePodcastPoints(user, `${key}:video:${language}:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
-      try {
-        const result = await translateVideo(ai, store, db, user, podcast, language!, translation, report);
-        await charge?.settle(Math.max(1, pointsForCost(result.costUsd)), { translationCostUsd: result.costUsd });
-        report("complete", 100);
-        return result.podcast;
-      } catch (error) {
-        await charge?.settle(0, { failed: true });
-        throw error;
-      }
+      const result = await translateVideo(ai, store, db, user, podcast, language!, translation, report);
+      report("complete", 100);
+      return result;
     }
     const theme = AUDIOBOOK_VIDEO_THEMES.find(item => item === style);
     if (podcast.format === "audiobook") {
@@ -178,7 +168,7 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
       const chip = await getSummaryForViewer(db, id, user);
       return { id: chip.id, title: chip.title };
     }));
-    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, style: style as PodcastVideoStyle | undefined, checkPoints: true });
+    const started = await startPodcastVideoDesign(db, user, podcast, chips, { ...deps, ai, store }, { language: translated ? language : undefined, style: style as PodcastVideoStyle | undefined });
     if (state.listeners.size === 0 || !started.videoDesign) return started;
     // Streaming clients (older apps) follow the run; it continues in the background past the request.
     return waitForPodcastVideoDesign(db, user, day, key, started.videoDesign.id, report, AbortSignal.timeout(270_000));
@@ -188,12 +178,11 @@ export async function createPodcastVideo(db: Database, user: string, day: Podcas
   return run;
 }
 
-/** Gives a translation the current original composition with translated labels. Billing is the caller's. */
+/** Gives a translation the current original composition with translated labels. */
 export async function translateVideo(ai: AiProvider, store: ObjectStore, db: Database, user: string, podcast: DailyPodcast, language: TranslationLanguage,
   translation: PodcastTranslation, report: (stage: PodcastProgress["stage"], percent: number) => void) {
-  const usage: LanguageModelUsage[] = [];
   report("video-design", 10);
-  const video = await translatePodcastVideoSource(ai, store, user, podcast, language, translation.chipTitles ?? {}, AbortSignal.timeout(200_000), (step) => usage.push(step));
+  const video = await translatePodcastVideoSource(ai, store, user, podcast, language, translation.chipTitles ?? {}, AbortSignal.timeout(200_000));
   report("saving", 90);
   let stale: string | undefined;
   let retired: PodcastVideoSummary | undefined;
@@ -205,10 +194,9 @@ export async function translateVideo(ai: AiProvider, store: ObjectStore, db: Dat
     current.video = video;
   });
   if (stale) await store.delete(renderKey(user, podcast.day, podcast.key, stale));
-  const pricing = usage.length ? await ai.podcastPricing() : null;
   await retirePodcastRenders(store, user, podcast.day, podcast.key, retired);
   await queueDefaultPodcastRender(db, user, podcast.day, podcast.key, language);
-  return { podcast: saved, costUsd: pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0 };
+  return saved;
 }
 
 export function renderKey(user: string, day: PodcastDay, key: string, videoId: string) {
@@ -270,3 +258,4 @@ export async function publishedPodcastVideoUrl(owner: string, podcast: DailyPodc
   return (await store.signedGet(renderKey(owner, podcast.day, podcast.key, published.videoId),
     { filename: "podcast.mp4", inline: true, expiresInSeconds: 3600 })).url;
 }
+import { randomUUID } from "node:crypto";

@@ -72,10 +72,10 @@ struct ContentView: View {
                     presentationBinding.wrappedValue = nil
                 }
                 .id(request.id)
-            case .topUp:
-                SummaryCreditsSheet(environment: environment, opensTopUps: true)
             case .newSummary(let request):
                 NewSummarySheet(environment: environment, initialText: request.text, initialFile: request.file)
+            case .subscription:
+                FlowcySubscriptionView(environment: environment, isSheet: true)
             }
         }
         .task { presentNext() }
@@ -87,11 +87,15 @@ struct ContentView: View {
                 environment.podcastPlayer.close()
                 environment.backgroundJobsRequest = nil
                 environment.libraryCreation = nil
+                environment.showsSubscriptionSheet = false
                 presentation = nil
             }
         }
         .onChange(of: environment.pendingRoute) { _, route in
             if route != nil { presentNext() }
+        }
+        .onChange(of: environment.showsSubscriptionSheet) { _, shows in
+            if shows { presentNext() }
         }
         .onChange(of: environment.podcastPlayer.isPresented) { _, presented in
             if !presented, environment.backgroundJobsRequest != nil {
@@ -105,9 +109,6 @@ struct ContentView: View {
             if case .backgroundJobs = presentation, let request = environment.backgroundJobsRequest {
                 presentation = .backgroundJobs(request)
             } else if requestID != nil { presentNext() }
-        }
-        .onChange(of: environment.pendingTopUp) { _, pending in
-            if pending { presentNext() }
         }
         .onChange(of: environment.pendingServiceText) { _, text in
             if text != nil { presentNext() }
@@ -151,7 +152,7 @@ struct ContentView: View {
                 environment.pendingRoute = nil
             }
             if value == nil, case .backgroundJobs = presentation { environment.backgroundJobsRequest = nil }
-            if value == nil, case .topUp = presentation { environment.pendingTopUp = false }
+            if value == nil, case .subscription = presentation { environment.showsSubscriptionSheet = false }
             presentation = value
         })
     }
@@ -170,11 +171,11 @@ struct ContentView: View {
 
     private func presentNext() {
         guard environment.authenticationState == .signedIn, presentation == nil else { return }
-        if let request = environment.backgroundJobsRequest {
+        if environment.showsSubscriptionSheet {
+            presentation = .subscription
+        } else if let request = environment.backgroundJobsRequest {
             guard !environment.podcastPlayer.isPresented else { return }
             presentation = .backgroundJobs(request)
-        } else if environment.pendingTopUp {
-            presentation = .topUp
         } else if let file = environment.takePendingFile() {
             presentation = .newSummary(NewSummaryRequest(file: file))
         } else if let text = environment.pendingServiceText {
@@ -195,17 +196,17 @@ struct ContentView: View {
 private enum RootPresentation: Identifiable {
     case education(EducationPresentation)
     case summary(AppRoute)
-    case topUp
     case backgroundJobs(BackgroundJobsRequest)
     case newSummary(NewSummaryRequest)
+    case subscription
 
     var id: String {
         switch self {
         case .education(let flow): "education:\(flow.id)"
         case .summary(let route): route.id
-        case .topUp: "top-up"
         case .backgroundJobs(let request): "jobs:\(request.id)"
         case .newSummary(let request): "new-summary:\(request.id)"
+        case .subscription: "subscription"
         }
     }
 }

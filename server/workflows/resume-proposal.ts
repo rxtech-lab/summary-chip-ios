@@ -1,8 +1,7 @@
 import { getDatabase } from "@/lib/db/client";
 import { notifyResumeProposal, runResumeProposal } from "@/lib/resume/proposals";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 
-type Job = { id: string; familyId: string; ownerId: string; environment?: BillingEnvironment; selectedModelId?: string };
+type Job = { id: string; familyId: string; ownerId: string; selectedModelId?: string };
 export async function resumeProposalWorkflow(job: Job) {
   "use workflow";
   try {
@@ -13,7 +12,7 @@ export async function resumeProposalWorkflow(job: Job) {
 }
 async function generateProposal(job: Job) {
   "use step";
-  await runResumeProposal(getDatabase(), job.id, job.environment, job.selectedModelId ?? null);
+  await runResumeProposal(getDatabase(), job.id, job.selectedModelId ?? null);
 }
 async function notify(job: Job) {
   "use step";

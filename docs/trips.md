@@ -205,9 +205,7 @@ it optionally; a trip that changed since is `409 TRIP_REVISION_CONFLICT` with `d
 agent (`server/lib/ai/trip-agent.ts`, the gateway text model with one `apply_operations` tool) turns
 it into operations. Each operation is validated on its own (malformed ones are dropped); a result that
 leaves the trip invalid is sent back to the agent once with the issues; whatever still doesn't fit is
-dropped one operation at a time. A page with a URL is added to `sources`. The agent is charged in
-points (`402 TRIP_POINTS_EXHAUSTED` when the balance is empty, checked before anything runs); direct
-edits are free. All persisted edits queue a debounced "Trip updated" push with `tripId` for the creator
+dropped one operation at a time. A page with a URL is added to `sources`. Chippy verifies Flowcy Plus before running the agent. All persisted edits queue a debounced "Trip updated" push with `tripId` for the creator
 and signed-in shared-link readers. Vercel Workflow waits five minutes after the last edit, then a
 read-only agent summarizes the batch's net changes. See [notifications.md](notifications.md).
 

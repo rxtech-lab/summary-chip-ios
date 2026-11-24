@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { LanguageModelUsage } from "ai";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { tourVoice } from "@/lib/ai/models";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
@@ -10,8 +9,7 @@ import type { Database } from "@/lib/db/client";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
-import type { BillingEnvironment } from "@/lib/subscription/config";
-import { pointsForCost, reserveTourPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
+import { requireFlowcyAccess } from "@/lib/subscription/flowcy";
 import { activeTripDocument, tripDayCount } from "./trip-document";
 import { findTripForViewer, readSavedTripDocument } from "./trips";
 import { tourImageGroups } from "./trip-tour-images";
@@ -32,7 +30,6 @@ export interface TourDeps {
   ai?: AiProvider;
   store?: ObjectStore;
   now?: () => Date;
-  billingEnvironment?: BillingEnvironment;
 }
 
 /** A scene before narration: what it shows, and the facts the narrator may use. */
@@ -201,14 +198,14 @@ async function readTour(store: ObjectStore, tripId: string, key: string): Promis
   }
 }
 
-/** Tours being written in this instance, so a double tap doesn't write (and charge) twice. */
+/** Tours being written in this instance, so a double tap doesn't write twice. */
 const writing = new Map<string, Promise<TripTour>>();
 const speaking = new Map<string, Promise<Uint8Array>>();
 
 /**
  * `POST /api/v1/trips/:id/tour`: the tour of the trip as the viewer follows it, in the language
  * they read it in. A stored tour of the same version is returned as is (free); otherwise the tour
- * model narrates it, and the viewer is charged for the narration and the speech it will need.
+ * model writes the narration (requires Flowcy Plus).
  */
 export async function getOrCreateTour(db: Database, tripId: string, viewerId: string, accepted: TranslationLanguage | null, options: { regenerate?: boolean } = {}, deps: TourDeps = {}): Promise<TripTour> {
   const ai = deps.ai ?? await getAiProvider();
@@ -222,6 +219,7 @@ export async function getOrCreateTour(db: Database, tripId: string, viewerId: st
     const stored = await readTour(store, tripId, key);
     if (stored) return stored;
   }
+  await requireFlowcyAccess(viewerId);
   const inFlight = writing.get(`${tripId}:${key}`);
   if (inFlight) return inFlight;
   const run = writeTour(db, { tripId, viewerId, document, language: spoken, voice, key }, { ...deps, ai, store })
@@ -238,8 +236,6 @@ async function writeTour(
   const { ai, store } = deps;
   const skeleton = tourSkeleton(input.document);
   const imageGroups = tourImageGroups(input.document);
-  const charge = await reserveTourPoints(input.viewerId, input.tripId, input.key, ai.tourModelId(), deps.billingEnvironment);
-  const steps: LanguageModelUsage[] = [];
   let narration;
   try {
     narration = await ai.narrateTour({
@@ -278,10 +274,9 @@ async function writeTour(
           imageGroupIds: day ? imageGroups.filter((group) => !group.dayId || group.dayId === day.id).map((group) => group.id) : [],
         };
       }),
-    }, { onUsage: (usage) => steps.push(usage), abortSignal: AbortSignal.timeout(150_000) });
+    }, { abortSignal: AbortSignal.timeout(150_000) });
   } catch (error) {
     console.error("[tour] narration failed", { tripId: input.tripId, error });
-    await charge?.settle(0, { failed: true });
     throw new ApiError(502, "TOUR_FAILED", "The tour couldn't be written. Please try again.");
   }
 
@@ -306,17 +301,7 @@ async function writeTour(
   });
 
   const speechModel = ai.speechModelId();
-  if (charge) {
-    // Speech already stored (unchanged scenes of an earlier tour) costs nothing again; without a speech model there is none.
-    const missing = await Promise.all(scenes.map(async (scene) =>
-      !speechModel || await store.head(speechObjectKey(speechModel, input.voice, scene.narration)) ? 0 : scene.narration.length));
-    const characters = missing.reduce((sum, count) => sum + count, 0);
-    const pricing = await ai.tourPricing().catch(() => null);
-    const textCost = pricing ? steps.reduce((sum, usage) => sum + usageCostUsd(usage, pricing), 0) : 0;
-    const speechCost = characters * ai.speechUsdPerCharacter();
-    const points = Math.max(pointsForCost(textCost + speechCost), steps.length ? 1 : 0);
-    await charge.settle(points, { scenes: scenes.length, characters, textCostUsd: textCost, speechCostUsd: speechCost, speechModel });
-  }
+
 
   // Voice the first scenes now so playback can start while the rest is read on demand.
   if (speechModel) {
@@ -328,16 +313,17 @@ async function writeTour(
 }
 
 /** A scene's narration audio: stored once per text and voice, read aloud the first time it's asked for. */
-async function sceneSpeech(store: ObjectStore, ai: AiProvider, speechModel: string, voice: string, text: string): Promise<Uint8Array> {
+async function sceneSpeech(store: ObjectStore, ai: AiProvider, speechModel: string, voice: string, text: string, viewerId?: string): Promise<Uint8Array> {
   const objectKey = speechObjectKey(speechModel, voice, text);
   const pending = speaking.get(objectKey);
   if (pending) return pending;
+  try {
+    return (await store.get(objectKey)).bytes;
+  } catch (error) {
+    if (!(error instanceof ApiError && error.code === "OBJECT_MISSING")) throw error;
+  }
+  if (viewerId) await requireFlowcyAccess(viewerId);
   const run = (async () => {
-    try {
-      return (await store.get(objectKey)).bytes;
-    } catch (error) {
-      if (!(error instanceof ApiError && error.code === "OBJECT_MISSING")) throw error;
-    }
     const audio = await ai.speak(text, voice);
     await store.put(objectKey, { bytes: audio.bytes, contentType: "audio/mpeg", cacheControl: "private, max-age=31536000, immutable" });
     return audio.bytes;
@@ -348,7 +334,7 @@ async function sceneSpeech(store: ObjectStore, ai: AiProvider, speechModel: stri
 
 /**
  * `GET /api/v1/trips/:id/tour/:key/scenes/:index/audio`: a stored tour scene read aloud, for anyone
- * who can open the trip. The tour was charged when it was written, so this is free.
+ * who can open the trip. Cached scenes play for free; generating new speech requires Flowcy Plus.
  */
 export async function tourSceneAudio(db: Database, tripId: string, viewerId: string, key: string, index: number, deps: Pick<TourDeps, "ai" | "store"> = {}): Promise<Uint8Array> {
   if (!/^[0-9a-f]{32}$/.test(key) || !Number.isInteger(index) || index < 0) throw new ApiError(404, "NOT_FOUND", "The tour scene does not exist");
@@ -361,7 +347,7 @@ export async function tourSceneAudio(db: Database, tripId: string, viewerId: str
   const speechModel = ai.speechModelId();
   if (!speechModel) throw new ApiError(503, "TOUR_SPEECH_UNAVAILABLE", "Tour narration isn't available right now.");
   try {
-    return await sceneSpeech(store, ai, speechModel, tour.voice, scene.narration);
+    return await sceneSpeech(store, ai, speechModel, tour.voice, scene.narration, viewerId);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     console.error("[tour] speech failed", { tripId, key, index, error });

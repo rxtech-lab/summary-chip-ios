@@ -111,8 +111,6 @@ final class ChatModel {
     @ObservationIgnored var onGraphSelection: ((GraphSelection?) -> Void)?
     private(set) var entries: [ChatEntry] = []
     private(set) var isStreaming = false
-    /// The last turn was refused because the points balance is empty.
-    var needsTopUp = false
     var draft = ""
     let files: ChatAttachmentDraft
     var graphElements: [GraphElementRef] = []
@@ -332,7 +330,6 @@ final class ChatModel {
         } catch {
             guard activeTurnID == id, !Task.isCancelled else { return }
             update(id) { $0.errorText = error.localizedDescription }
-            needsTopUp = (error as? SummaryAPIError)?.needsTopUp == true
             finish(id)
         }
     }

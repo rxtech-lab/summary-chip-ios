@@ -7,6 +7,7 @@ import type { Database } from "@/lib/db/client";
 import { marketplacePublications, podcastEpisodes, podcastShareLinks, summaries, users, type PodcastShareLinkRow } from "@/lib/db/schema";
 import { ApiError, notFound } from "@/lib/http/errors";
 import { generateSlug, isValidSlug } from "@/lib/slug";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { dailyPodcastEpisode, podcastInLanguage } from "./daily-podcast";
 import { isLinkLive, isShareLinkLive } from "./share-access";
 
@@ -101,7 +102,8 @@ export async function createPodcastShareLink(db: Database, ownerId: string, key:
     updatedAt: now,
   };
   // Finish the original language's preview before returning a newly published URL.
-  await Promise.all([podcastArticle(episode), podcastCover(episode)]);
+  const aiEnabled = await hasFlowcyAccess(ownerId);
+  await Promise.all([podcastArticle(episode, { aiEnabled }), podcastCover(episode, { aiEnabled })]);
   await db.insert(podcastShareLinks).values(link);
   return toJson(link, now);
 }
@@ -159,11 +161,12 @@ export async function publicPodcast(db: Database, token: string, now = new Date(
 }
 
 export async function publicPodcastData(db: Database, token: string, language?: string | null) {
-  const { podcast } = await publicPodcast(db, token, undefined, language);
+  const { link, podcast } = await publicPodcast(db, token, undefined, language);
   // Media follow the listener's language; the original keeps the plain URLs.
   const suffix = podcast.language === podcast.originalLanguage ? "" : `?language=${encodeURIComponent(podcast.language)}`;
-  // Older published episodes acquire the same persisted article on their first visit.
-  const article = await podcastArticle(podcast).catch(error => {
+  // Older published episodes acquire the same persisted article on their first visit when the owner has Flowcy Plus.
+  const aiEnabled = await hasFlowcyAccess(link.ownerId);
+  const article = await podcastArticle(podcast, { aiEnabled }).catch(error => {
     console.warn("[podcast] companion article unavailable", error);
     return null;
   });

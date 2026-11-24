@@ -75,7 +75,6 @@ extension SummaryAPIClient {
                                body: Body(kind: kind, language: target.language, variantId: target.variantId, targetLanguage: targetLanguage,
                                           expectedRevisionToken: target.revisionToken, idempotencyKey: idempotencyKey))
         request.timeoutInterval = Self.createTimeout
-        await applyBillingProof(to: &request)
         return try await send(request)
     }
 

@@ -5,6 +5,7 @@ import type { TripDocument } from "@/lib/contracts/trip";
 import type { Database } from "@/lib/db/client";
 import { pushDevices, summaries, users, summaryViews, tripNotificationBatches as batches, tripNotificationDeliveries as deliveries } from "@/lib/db/schema";
 import { apnsConfigured, sendPush } from "@/lib/notifications/apns";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { getTripNotifier } from "@/lib/trips/notifier";
 import { isDeadToken, tripUpdatedPayload } from "./notifications";
 import { canViewerRead, readableByViewer } from "./share-access";
@@ -53,8 +54,15 @@ export async function planTripNotification(db: Database, batchId: string, runner
     await db.delete(batches).where(and(eq(batches.id, batchId), eq(batches.revision, row.revision), eq(batches.runnerId, runnerId)));
     return { status: "done" };
   }
-  const [summary] = await db.select({ language: summaries.language, model: users.aiModelId }).from(summaries).innerJoin(users, eq(users.id, summaries.ownerId)).where(eq(summaries.id, row.tripId));
+  const [summary] = await db.select({ ownerId: summaries.ownerId, language: summaries.language, model: users.aiModelId })
+    .from(summaries).innerJoin(users, eq(users.id, summaries.ownerId)).where(eq(summaries.id, row.tripId));
   if (!summary) return { status: "done" };
+  if (!(await hasFlowcyAccess(summary.ownerId))) {
+    const sections = [...new Set(changes.map((change) => change.section))].slice(0, 3).join(", ");
+    const fallback = sections ? `Updated ${sections}.` : "Trip updated.";
+    const published = await publishTripNotification(db, batchId, runnerId, row.revision, fallback);
+    return published ? { status: "deliver" } : { status: "wait", nextAt: now.getTime() + 1000 };
+  }
   return { status: "summarize", revision: row.revision, ...(summary.model ? { selectedModelId: summary.model } : {}), input: { language: summary.language, changes } };
 }
 

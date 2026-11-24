@@ -149,7 +149,7 @@ struct PodcastLanguagesSheet: View {
 }
 
 /// Creates one translation: its voices, captions and (optionally) the video with translated labels.
-/// Spends points; the video is then rendered on device like a new episode.
+/// The video is then rendered on device like a new episode.
 struct PodcastTranslationSheet: View {
     let api: SummaryAPIClient
     let podcast: DailyPodcast
@@ -185,7 +185,7 @@ struct PodcastTranslationSheet: View {
                     Text("The hosts read the same conversation in the new language, with new captions. The video keeps its scenes and translates its labels.")
                 }
                 Section {
-                    Text("Translation uses points. The translation is saved with this version and appears in the language list.")
+                    Text("The translation is saved with this version and appears in the language list.")
                         .foregroundStyle(.secondary)
                 }
             }

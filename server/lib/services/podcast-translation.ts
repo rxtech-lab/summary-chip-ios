@@ -1,6 +1,4 @@
 import { queueDefaultPodcastRender, retirePodcastRenders } from "./podcast-render";
-import { randomUUID } from "node:crypto";
-import type { LanguageModelUsage } from "ai";
 import { getAiProvider } from "@/lib/ai/provider";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
 import type { TranslationLanguage } from "@/lib/contracts/api";
@@ -8,7 +6,6 @@ import type { DailyPodcast, PodcastDay, PodcastProgress, PodcastTranslation } fr
 import type { Database } from "@/lib/db/client";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore } from "@/lib/storage/r2";
-import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import {
   dailyPodcastEpisode, dayKey, episodeAudioPath, storeContinuousAudio, translationMissing, translationPath,
   updatePodcastDocument, voiceSegments,
@@ -23,7 +20,7 @@ const writing = new Map<string, { promise: Promise<DailyPodcast>; listeners: Set
 /**
  * Speaks a saved episode in another language: the script is translated turn for turn, voiced with the
  * same hosts, captioned, mixed with the same music, and the video reuses the original composition with
- * translated labels. Spends points; an existing translation is returned unchanged for free.
+ * translated labels. An existing translation is returned unchanged.
  * Returns the stored document (the route presents it in `language`).
  */
 export async function translateDailyPodcast(db: Database, user: string, day: PodcastDay, key: string,
@@ -57,14 +54,12 @@ export async function translateDailyPodcast(db: Database, user: string, day: Pod
       const chip = await getSummaryForViewer(db, id, user);
       return { id: chip.id, title: chip.title };
     }));
-    const charge = await reservePodcastPoints(user, `${key}:translation:${language}:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
-    const usage: LanguageModelUsage[] = [];
     const deadline = AbortSignal.timeout(270_000);
     try {
       report("translating", 5);
       const translated = await ai.translatePodcast({ language: LANGUAGE_NAMES[language], title: podcast.title, chips,
         segments: podcast.segments.map((segment) => ({ speaker: podcast.speakers[segment.speaker]?.name ?? "", caption: segment.caption })) },
-      { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]), onUsage: (step) => usage.push(step) });
+      { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]) });
       if (translated.captions.length !== podcast.segments.length || translated.chipTitles.length !== chips.length) {
         throw new Error("Translated podcast doesn't match the original turns");
       }
@@ -86,23 +81,16 @@ export async function translateDailyPodcast(db: Database, user: string, day: Pod
       if (podcast.video && input.includeVideo !== false) {
         report("video-design", 85);
         translation.video = await translatePodcastVideoSource(ai, store, user, podcast, language, chipTitles,
-          AbortSignal.any([deadline, AbortSignal.timeout(120_000)]), (step) => usage.push(step));
+          AbortSignal.any([deadline, AbortSignal.timeout(120_000)]));
       }
       report("saving", 95);
       const saved = await updatePodcastDocument(db, user, key, (latest) => {
         latest.translations = { ...latest.translations, [language]: translation };
       });
-      const pricing = charge ? await ai.podcastPricing() : null;
-      const textCost = pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0;
-      const speechCost = translation.segments.reduce((sum, segment) => sum + segment.caption.length, 0) * ai.speechUsdPerCharacter();
-      const musicCost = (music?.generatedClips ?? 0) * ai.musicUsdPerClip();
-      await charge?.settle(Math.max(1, pointsForCost(textCost + speechCost + musicCost)),
-        { translation: language, segments: translation.segments.length, textCostUsd: textCost, speechCostUsd: speechCost, musicCostUsd: musicCost });
       if (translation.video) await queueDefaultPodcastRender(db, user, day, key, language);
       report("complete", 100);
       return saved;
     } catch (error) {
-      await charge?.settle(0, { failed: true });
       if (error instanceof ApiError) throw error;
       console.error("[podcast] translation failed", error);
       throw new ApiError(502, "PODCAST_TRANSLATION_FAILED", "The podcast could not be translated. Please try again.");

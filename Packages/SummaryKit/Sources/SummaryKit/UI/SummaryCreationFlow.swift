@@ -14,10 +14,8 @@ public struct SummaryCreationFlow<Result: View>: View {
     let allowsFilePicking: Bool
     let title: String
     let onCancel: () -> Void
+    let onSubscriptionRequired: (() -> Void)?
     let onCreated: (Summary) -> Void
-    let onTopUp: (() -> Void)?
-    /// Free summaries left today, shown as a badge on the Generate button; nil hides it.
-    let freeSummariesRemaining: Int?
     let result: (Summary) -> Result
 
     @State private var session = GenerationSession()
@@ -45,9 +43,8 @@ public struct SummaryCreationFlow<Result: View>: View {
         allowsFilePicking: Bool = false,
         title: String? = nil,
         onCancel: @escaping () -> Void,
+        onSubscriptionRequired: (() -> Void)? = nil,
         onCreated: @escaping (Summary) -> Void = { _ in },
-        onTopUp: (() -> Void)? = nil,
-        freeSummariesRemaining: Int? = nil,
         @ViewBuilder result: @escaping (Summary) -> Result
     ) {
         self.api = api
@@ -58,9 +55,8 @@ public struct SummaryCreationFlow<Result: View>: View {
         self.allowsFilePicking = allowsFilePicking
         self.title = title ?? String(localized: "New Summary", bundle: .module)
         self.onCancel = onCancel
+        self.onSubscriptionRequired = onSubscriptionRequired
         self.onCreated = onCreated
-        self.onTopUp = onTopUp
-        self.freeSummariesRemaining = freeSummariesRemaining
         self.result = result
         self._draft = State(initialValue: initialText)
     }
@@ -102,12 +98,15 @@ public struct SummaryCreationFlow<Result: View>: View {
             }
         }
         .statusAlert(Text("Couldn't Read File", bundle: .module), message: importError) { importError = nil }
-        .statusAlert(Text("Couldn't Create Summary", bundle: .module), message: session.needsTopUp ? nil : failureMessage) { session.reset() }
-        .alert(Text("Not Enough Points", bundle: .module), isPresented: topUpAlertPresented, presenting: failureMessage) { _ in
-            Button(onTopUp == nil ? String(localized: "Open Chippy", bundle: .module) : String(localized: "Top Up", bundle: .module)) {
+        .statusAlert(Text("Couldn't Create Summary", bundle: .module), message: session.needsSubscription ? nil : failureMessage) { session.reset() }
+        .alert(Text("Flowcy Plus Required", bundle: .module), isPresented: subscriptionAlertPresented, presenting: failureMessage) { _ in
+            Button(onSubscriptionRequired != nil ? String(localized: "Subscribe", bundle: .module) : String(localized: "Open Chippy", bundle: .module)) {
                 session.reset()
-                if let onTopUp { onTopUp() }
-                else if let url = URL(string: "summarychip://top-up") { openURL(url) }
+                if let onSubscriptionRequired {
+                    onSubscriptionRequired()
+                } else if let url = URL(string: "summarychip://subscription") {
+                    openURL(url)
+                }
             }
             Button(String(localized: "Later", bundle: .module), role: .cancel) { session.reset() }
         } message: { message in
@@ -143,8 +142,8 @@ public struct SummaryCreationFlow<Result: View>: View {
         if case .failed(let message) = session.state { message } else { nil }
     }
 
-    private var topUpAlertPresented: Binding<Bool> {
-        Binding(get: { session.needsTopUp && failureMessage != nil }, set: { if !$0 { session.reset() } })
+    private var subscriptionAlertPresented: Binding<Bool> {
+        Binding(get: { session.needsSubscription && failureMessage != nil }, set: { if !$0 { session.reset() } })
     }
 
     private struct OptionsRoute: Hashable {}
@@ -212,17 +211,10 @@ public struct SummaryCreationFlow<Result: View>: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(currentInput == nil)
-                .badge(freeSummariesRemaining ?? 0)
-                .help(freeSummariesBadgeHelp)
                 .accessibilityIdentifier("generate-summary")
             }
             #endif
         }
-    }
-
-    private var freeSummariesBadgeHelp: String {
-        guard let freeSummariesRemaining, freeSummariesRemaining > 0 else { return "" }
-        return freeSummariesRemaining == 1 ? String(localized: "1 free summary left today", bundle: .module) : String(localized: "\(freeSummariesRemaining) free summaries left today", bundle: .module)
     }
 
     private var generationActionTitle: String {
@@ -376,7 +368,7 @@ private extension SummaryCreationFlow {
                     .sensoryFeedback(.selection, trigger: options.keepsSourceText)
                     .accessibilityIdentifier("keep-source-text")
                 } footer: {
-                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Free with your free summaries; after that, formatting uses points, and without points the plain text is kept. Only you can open it.", bundle: .module)
+                    Text("Saves the file's text with the summary, formatted as a document you can read later from the summary's toolbar. Only you can open it.", bundle: .module)
                 }
             }
 

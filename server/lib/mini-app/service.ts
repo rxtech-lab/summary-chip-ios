@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
 import { miniApps, miniAppMembers, miniAppRecords, miniAppRuns, summaries, summaryTags, users, type VersionActor } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { versionStatements } from "@/lib/services/document-versions";
 import { shareUrlFor } from "@/lib/services/serialize";
 import { validMiniApp } from "./validation";
@@ -49,7 +50,8 @@ async function miniAppCover(db: Database, userId: string, id: string, document: 
 export async function createMiniApp(db: Database, userId: string, input: unknown, actor: VersionActor = "owner", options: ServiceDeps & { cover?: boolean } = {}) {
   const document = await validMiniApp(input);
   const id = crypto.randomUUID(); const now = new Date();
-  const { store, ...cover } = options.cover ? await miniAppCover(db, userId, id, document, options) : { store: null, language: "en", theme: DEFAULT_THEME };
+  const useCover = Boolean(options.cover && await hasFlowcyAccess(userId));
+  const { store, ...cover } = useCover ? await miniAppCover(db, userId, id, document, options) : { store: null, language: "en", theme: DEFAULT_THEME };
   try {
     await db.batch([
       db.insert(summaries).values({ id, slug: crypto.randomUUID().replaceAll("-", "").slice(0, 12), ownerId: userId, kind: "mini_app", sourceType: "text", source: "text", title: document.title, summary: document.description || "Interactive Mini App", contentText: document.description, contentExcerpt: document.description, highlights: [], category: "Technology", tags: ["mini-app"], keywords: [], visibility: "private", ttlDays: null, expiresAt: null, ...cover }),

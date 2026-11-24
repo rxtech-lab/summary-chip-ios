@@ -67,7 +67,7 @@ import Testing
         let start = formatter.date(from: query.first { $0.name == "start" }!.value!)!
         let end = formatter.date(from: query.first { $0.name == "end" }!.value!)!
         #expect(end.timeIntervalSince(start) == 23 * 3_600)
-        #expect(requests[0].value(forHTTPHeaderField: "x-storekit-environment") == nil)
+        #expect(requests[0].value(forHTTPHeaderField: "x-storekit-environment") == "xcode")
         #expect(requests[1].value(forHTTPHeaderField: "x-storekit-environment") == "xcode")
         #expect(requests[1].timeoutInterval == 300)
         #expect(requests[2].url?.path == "/api/v1/daily-podcasts/key/audio")

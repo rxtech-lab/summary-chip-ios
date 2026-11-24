@@ -209,7 +209,7 @@ struct AudiobookVideoSheet: View {
                     .disabled(options == nil)
                     .accessibilityIdentifier("audiobook-video-theme")
                 } footer: {
-                    Text("The planned scenes are drawn in this theme and move slowly with the narration. Drawing uses points. It continues on the server if you leave, and every language gets the same scenes.")
+                    Text("The planned scenes are drawn in this theme and move slowly with the narration. It continues on the server if you leave, and every language gets the same scenes.")
                 }
             }
             .formStyle(.grouped)
