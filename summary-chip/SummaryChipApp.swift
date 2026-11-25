@@ -18,10 +18,18 @@ struct SummaryChipApp: App {
 
     init() {
         #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
         let environment: AppEnvironment
-        if let local = Self.resumeTestEnvironment() { environment = local }
-        else { environment = LikesPreviewFixture.isEnabled ? LikesPreviewFixture.environment() : AppEnvironment.live() }
-        if ProcessInfo.processInfo.arguments.contains("--preview-flowcy-subscription") {
+        if let local = Self.resumeTestEnvironment() {
+            environment = local
+        } else if LikesPreviewFixture.isEnabled {
+            environment = LikesPreviewFixture.environment()
+        } else if arguments.contains("--preview-chat-stream") {
+            environment = LikesPreviewFixture.signedInEnvironment()
+        } else {
+            environment = AppEnvironment.live()
+        }
+        if arguments.contains("--preview-flowcy-subscription") {
             environment.subscription.enablePurchasePreview(price: "$12.99")
         }
         #else
