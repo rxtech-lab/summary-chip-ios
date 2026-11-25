@@ -3,7 +3,6 @@ import { backgroundJobs } from "@/lib/db/schema";
 import { recordJobActivity, notifyBackgroundJob } from "./background-jobs";
 import { podcastVideoError } from "./podcast-video-error";
 import { randomUUID } from "node:crypto";
-import type { LanguageModelUsage } from "ai";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { estimateVideoProgress } from "@/lib/ai/podcast-progress";
 import { newPodcastVideoDraft, PodcastVideoNoToolError, podcastVideoDraftFinished, podcastVideoProgressContext, PODCAST_VIDEO_MAX_TURNS,
@@ -16,13 +15,12 @@ import { PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_PHRASES, PODCAST
 import { getPodcastVideoDesigner } from "@/lib/podcast-video/designer";
 import { podcastVideoAssets, podcastVideoImageFile } from "@/lib/podcast-video/images";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
-import type { BillingEnvironment } from "@/lib/subscription/config";
-import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { dailyPodcastEpisode, dayKey, jsonObject, updatePodcastDocument } from "./daily-podcast";
 import { podcastVideoInput, renderKey, storePodcastVideo, translateVideo } from "./podcast-video";
 
 /** One background design: plain data, the input of `workflows/design-podcast-video.ts`. */
 export interface PodcastVideoJob {
+  selectedModelId?: string;
   /** Matches the episode's `videoDesign.id` while this run is the current one. */
   id: string;
   /** The owner, who pays. */
@@ -31,7 +29,6 @@ export interface PodcastVideoJob {
   day: PodcastDay;
   /** A translation that gets the new composition's labels once it is saved. */
   language?: TranslationLanguage;
-  billingEnvironment?: BillingEnvironment;
 }
 
 export type PodcastVideoOutcome =
@@ -53,8 +50,6 @@ interface DesignState {
   input: PodcastVideoInput;
   chips: { id: string; title: string }[];
   draft: PodcastVideoDraft;
-  /** Model cost so far, in USD, charged once when the run ends. */
-  costUsd: number;
   failures: number;
   /** Highest composition progress observed (0–90). */
   progress: number;
@@ -79,8 +74,6 @@ function imageTools(ai: AiProvider, store: ObjectStore, job: PodcastVideoJob, st
   const episodePath = `${dayKey(job.userId, job.day)}/${job.key}`;
   return {
     draw: async (subject, abortSignal) => {
-      // An attempt is billed whether or not the cut-out succeeds; the model drew it either way.
-      state.costUsd += ai.imageUsdPerImage();
       return ai.drawPodcastVideoImage(subject, state.input.style, { abortSignal });
     },
     save: async (path, png) => {
@@ -115,29 +108,23 @@ function designPercent(progress: number) {
 
 /**
  * Starts designing a new composition for a saved episode in the background and returns the episode with
- * its `videoDesign` status. A run already working on it is reused. `checkPoints` refuses to start
- * without a balance; points are charged for the model's tokens when the run ends.
+ * its `videoDesign` status. A run already working on it is reused.
  */
 export async function startPodcastVideoDesign(db: Database, user: string, podcast: DailyPodcast, chips: { id: string; title: string }[],
-  deps: Deps & { billingEnvironment?: BillingEnvironment }, options: { language?: TranslationLanguage; style?: PodcastVideoStyle; checkPoints: boolean }): Promise<DailyPodcast> {
+  deps: Deps, options: { language?: TranslationLanguage; style?: PodcastVideoStyle }): Promise<DailyPodcast> {
   if (isDesigningVideo(podcast)) return podcast;
   const store = deps.store ?? getObjectStore();
   const ai = deps.ai ?? await getAiProvider();
   const model = ai.podcastVideoModelId();
   if (!model) throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Podcast videos are not available right now.");
-  const job: PodcastVideoJob = { id: randomUUID(), userId: user, key: podcast.key, day: podcast.day,
-    language: options.language, billingEnvironment: deps.billingEnvironment };
-  if (options.checkPoints) {
-    // Only checks the balance: the run outlives any hold, so its cost is charged when it ends.
-    const check = await reservePodcastPoints(user, `${podcast.key}:video:${job.id}`, model, deps.billingEnvironment);
-    await check?.settle(0, { check: true });
-  }
+  const job: PodcastVideoJob = { selectedModelId: ai.selectedModelId, id: randomUUID(), userId: user, key: podcast.key, day: podcast.day,
+    language: options.language };
   const draft = newPodcastVideoDraft();
   // Approved storyboard frames are supplied to the designer as ready images it may place with staticFile().
   const supplied = Object.fromEntries(podcast.segments.flatMap(segment => segment.storyboard
     ? [[segment.storyboard.path, { file: segment.storyboard.file, width: segment.storyboard.width, height: segment.storyboard.height, subject: segment.camera ?? "", supplied: true }]] : []));
   if (Object.keys(supplied).length) draft.images = supplied;
-  const state: DesignState = { input: podcastVideoInput(podcast, chips, options.style), chips, draft, costUsd: 0, failures: 0, progress: 0 };
+  const state: DesignState = { input: podcastVideoInput(podcast, chips, options.style), chips, draft, failures: 0, progress: 0 };
   await store.put(statePath(job), jsonObject(state));
   const now = (deps.now?.() ?? new Date()).toISOString();
   const design: PodcastVideoDesign = { id: job.id, startedAt: now, updatedAt: now, percent: designPercent(0), ...(options.language ? { language: options.language } : {}) };
@@ -180,11 +167,10 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
     code: "PODCAST_VIDEO_DRAFT_MISSING", message: "The saved video draft could not be found. Please retry video design.",
   } };
   if (podcastVideoDraftFinished(state.draft)) return state.draft.result ? { status: "accepted" } : { status: "failed", code: "PODCAST_VIDEO_FAILED" };
-  const ai = deps.ai ?? await getAiProvider();
-  const usage: { step: LanguageModelUsage; modelId?: string }[] = [];
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   let evidence: string;
   try {
-    const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS), onUsage: (step, modelId) => usage.push({ step, modelId }),
+    const turn = await ai.podcastVideoTurn(state.input, state.draft, { abortSignal: AbortSignal.timeout(TURN_TIMEOUT_MS),
       images: imageTools(ai, store, job, state), readAsset: async (file) => (await store.get(`${dayKey(job.userId, job.day)}/${job.key}/${file}`)).bytes });
     state.draft = turn.draft;
     state.failures = 0;
@@ -199,11 +185,6 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
       code: state.lastError.code, name: error instanceof Error ? error.name : "UnknownError",
       message: (error instanceof Error ? error.message : String(error)).slice(0, 1000) })}`);
     evidence = `${state.lastError.message} Attempt ${state.failures} of ${MAX_FAILED_TURNS} failed.${state.failures < MAX_FAILED_TURNS ? " Retrying…" : ""}`;
-  }
-  // Priced per model: a declined turn re-runs on the fallback model at its own rates.
-  for (const { step, modelId } of usage) {
-    const pricing = await ai.podcastVideoPricing(modelId);
-    if (pricing) state.costUsd += usageCostUsd(step, pricing);
   }
   if (state.draft.result) state.progress = 90;
   else if (!state.lastError && Object.keys(state.draft.files).length > 0) {
@@ -230,7 +211,7 @@ export async function runPodcastVideoDesignTurn(db: Database, job: PodcastVideoJ
 
 /**
  * Ends a background run: saves an accepted composition in place of the previous one (its renders become
- * stale), charges the run's tokens and clears the status, or records the failure for the app to show.
+ * stale) and clears the status, or records the failure for the app to show.
  * Returns whether a composition was saved and the run continues to translate it for `job.language`.
  */
 export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJob, outcome: PodcastVideoOutcome, deps: Deps = {}): Promise<boolean> {
@@ -259,15 +240,9 @@ export async function finishPodcastVideoDesign(db: Database, job: PodcastVideoJo
     await store.delete(statePath(job));
     return false;
   }
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const model = ai.podcastVideoModelId() ?? "video";
   const result = outcome.status === "accepted" ? state.draft.result : null;
-  // Settling is idempotent, so a retried finish never charges twice. A failed design is free.
-  const charge = await reservePodcastPoints(job.userId, `${job.key}:video:${job.id}:charge`, model, job.billingEnvironment).catch((error) => {
-    console.error("[podcast-video] could not charge the design", { job: job.id, error });
-    return null;
-  });
-  await charge?.settle(result ? Math.max(1, pointsForCost(state.costUsd)) : 0, { videoCostUsd: state.costUsd, turns: state.draft.turns, failed: !result });
   if (!result) {
     const code = outcome.status === "failed" ? outcome.code : "PODCAST_VIDEO_FAILED";
     const error = (outcome.status === "failed" ? outcome.error : undefined) ?? state.lastError
@@ -346,14 +321,11 @@ export async function translatePodcastVideoDesign(db: Database, job: PodcastVide
   };
   const translation = podcast.translations?.[job.language];
   if (!translation) return void await clear();
-  const ai = deps.ai ?? await getAiProvider();
-  const charge = await reservePodcastPoints(job.userId, `${job.key}:video:${job.language}:${job.id}`, ai.podcastModelId(), job.billingEnvironment).catch(() => null);
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   try {
-    const result = await translateVideo(ai, deps.store ?? getObjectStore(), db, job.userId, podcast, job.language, translation, () => {});
-    await charge?.settle(Math.max(1, pointsForCost(result.costUsd)), { translationCostUsd: result.costUsd });
+    await translateVideo(ai, deps.store ?? getObjectStore(), db, job.userId, podcast, job.language, translation, () => {});
     await clear();
   } catch (error) {
-    await charge?.settle(0, { failed: true });
     console.error("[podcast-video] translating the new composition failed", error);
     await clear({ code: "PODCAST_VIDEO_FAILED", message: "The video was designed, but its labels could not be translated. Please try again." });
   }

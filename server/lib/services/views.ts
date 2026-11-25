@@ -8,13 +8,13 @@ import type { Database } from "@/lib/db/client";
 import { editorialScores, pushDevices, summaries, summaryTags, summaryViews, type SummaryRow } from "@/lib/db/schema";
 import { siteNameFor } from "@/lib/extract/platforms";
 import { ApiError, notFound } from "@/lib/http/errors";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { embedQuery } from "./embeddings";
 import { relevance } from "./search";
 import { canViewerRead, findGrantToken, readableByViewer, resolveShareKey } from "./share-access";
 import { publicOgImageUrl, shareUrlFor, toSummaryJson, type SummaryJson } from "./serialize";
 import { isNotSoloPodcast } from "./podcast-stacks";
 import { readSummaryJson } from "./summaries";
-import type { BillingEnvironmentResolver } from "./translations";
 import { getOwnedTrip, listTrips, toTripJson } from "./trips";
 
 /**
@@ -26,7 +26,7 @@ export async function recordView(
   db: Database,
   userId: string,
   slug: string,
-  options: { email?: string | null; authorization?: string | null; accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date; billingEnvironment?: BillingEnvironmentResolver } = {},
+  options: { email?: string | null; authorization?: string | null; accepted?: TranslationLanguage | null; ai?: AiProvider; now?: Date } = {},
 ): Promise<SummaryJson> {
   const now = options.now ?? new Date();
   const resolved = await resolveShareKey(db, slug, { id: userId, email: options.email, authorization: options.authorization }, now);
@@ -38,7 +38,6 @@ export async function recordView(
   // Opened from a shared link: in the reader's language (the owner's in their chosen one).
   const read = (summary: typeof row) => readSummaryJson(db, summary, userId, options.accepted ?? null, {
     ai: options.ai,
-    billingEnvironment: options.billingEnvironment,
     ...(link ? { grantToken: link.token } : {}),
   });
   if (row.ownerId === userId) return read(row);
@@ -154,7 +153,7 @@ export async function searchForChat(
   const limit = Math.min(Math.max(input.limit ?? 8, 1), 20);
   const filters: SQL[] = [];
   const query = input.query?.trim();
-  const vector = query ? await embedQuery(ai ?? await getAiProvider(), query) : null;
+  const vector = query && await hasFlowcyAccess(userId) ? await embedQuery(ai ?? await getAiProvider(), query) : null;
   const match = query ? relevance(query, vector) : null;
   if (match) filters.push(match.where);
   if (input.category) filters.push(eq(summaries.category, input.category));

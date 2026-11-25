@@ -1,4 +1,4 @@
-import type { LanguageModelUsage } from "ai";
+import { accountModelId } from "@/lib/ai/model-preference";
 import { and, eq, sql } from "drizzle-orm";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "@/lib/contracts/api";
@@ -7,10 +7,11 @@ import type { ViewElement, ViewSpec } from "@/lib/contracts/trip-view";
 import type { Database } from "@/lib/db/client";
 import { summaries, trips, tripTranslations, type SummaryRow, type TripRow, type TripTranslationRow } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { getTripTranslator } from "@/lib/trips/translator";
 import { notifyTripTranslated } from "./notifications";
-import { holdTranslation, settleTranslation, type TranslationPayer } from "./translations";
+import type { TranslationAccount } from "./translations";
+import { currentSubscriptionEnvironment, requireFlowcyAccess } from "@/lib/subscription/flowcy";
+import type { SubscriptionEnvironment } from "@/lib/subscription/environment";
 
 /* ------------------------------------------------------------------------------------------------
  * The texts of a trip
@@ -179,7 +180,7 @@ function missingTexts(trip: TripRow, strings: Record<string, string>) {
 }
 
 /**
- * Translates the trip's missing texts on the payer's points and saves the ones that were translated.
+ * Translates the trip's missing texts on the account's points and saves the ones that were translated.
  * Throws the points hold's 402/503; `remaining` counts the texts still missing after a failed part.
  */
 async function translateMissing(
@@ -187,7 +188,7 @@ async function translateMissing(
   summary: Pick<SummaryRow, "id">,
   trip: TripRow,
   language: TranslationLanguage,
-  payer: TranslationPayer,
+  account: TranslationAccount,
   saved: TripTranslationRow | undefined,
   options: { ai?: AiProvider; timeoutMs?: number } = {},
 ): Promise<{ strings: Record<string, string>; remaining: number }> {
@@ -195,14 +196,8 @@ async function translateMissing(
   let strings = saved?.strings ?? {};
   if (missing.length === 0) return { strings, remaining: 0 };
   const ai = options.ai ?? await getAiProvider();
-  const charge = await holdTranslation(ai, payer, `${summary.id}:${language}:trip:${trip.revision}`, { summaryId: summary.id, language, part: "trip", texts: missing.length });
-  const steps: LanguageModelUsage[] = [];
-  let translated: (string | null)[] | null = null;
-  try {
-    translated = await ai.translateStrings(missing, language, { onUsage: (usage) => steps.push(usage), timeoutMs: options.timeoutMs });
-  } finally {
-    await settleTranslation(charge, ai, translated !== null, steps, { part: "trip" });
-  }
+  await requireFlowcyAccess(account.userId, account.environment);
+  const translated = await ai.translateStrings(missing, language, { timeoutMs: options.timeoutMs });
   if (!translated) return { strings, remaining: missing.length };
   // Only the texts the trip still has are kept, so edits don't grow the dictionary forever. Texts
   // whose part failed stay missing, so the next run translates just those.
@@ -235,7 +230,7 @@ export interface TripReading {
 
 /**
  * The trip's document in `language` (null = as written, returned as null). Texts translated before
- * are reused for free. The texts added or changed since are translated now on the payer's points,
+ * are reused. The texts added or changed since are translated for the subscribed account,
  * or, when the owner reads and there are many, by a background run. The texts not translated
  * (yet) show as written.
  */
@@ -244,7 +239,7 @@ export async function readTripDocument(
   summary: Pick<SummaryRow, "id">,
   trip: TripRow,
   language: TranslationLanguage | null,
-  payer: TranslationPayer,
+  account: TranslationAccount,
   options: TripReadOptions = {},
 ): Promise<TripReading> {
   if (!language) return { document: null, translating: false };
@@ -265,11 +260,11 @@ export async function readTripDocument(
   }
   if (isTranslating(saved)) return reading(true);
   if (options.owner && missing.length > INLINE_TRIP_TEXTS) {
-    await startTripTranslation(db, summary.id, language, payer.userId, await payer.environment?.());
+    await startTripTranslation(db, summary.id, language, account.userId, account.environment ?? currentSubscriptionEnvironment(account.userId));
     return reading(true);
   }
   try {
-    strings = (await translateMissing(db, summary, trip, language, payer, saved, { ai: options.ai })).strings;
+    strings = (await translateMissing(db, summary, trip, language, account, saved, { ai: options.ai })).strings;
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
     console.info("[translations] trip not translated; showing the original", error.code);
@@ -288,14 +283,14 @@ export async function savedTripDocument(db: Database, trip: TripRow, language: T
 
 /**
  * The owner chose to read their trip in `language`. A few missing texts are translated before the
- * choice is saved (`502 TRIP_TRANSLATION_FAILED`, or the points hold's 402/503, when they can't be);
+ * choice is saved (`502 TRIP_TRANSLATION_FAILED` when translation fails);
  * more start a background run, and `translating` is true.
  */
 export async function translateTrip(
   db: Database,
   summary: Pick<SummaryRow, "id">,
   language: TranslationLanguage | null,
-  payer: TranslationPayer,
+  account: TranslationAccount,
   ai: AiProvider,
 ): Promise<{ translating: boolean }> {
   if (!language) return { translating: false };
@@ -306,10 +301,10 @@ export async function translateTrip(
   if (missing.length === 0) return { translating: false };
   if (isTranslating(saved)) return { translating: true };
   if (missing.length > INLINE_TRIP_TEXTS) {
-    await startTripTranslation(db, summary.id, language, payer.userId, await payer.environment?.());
+    await startTripTranslation(db, summary.id, language, account.userId, account.environment ?? currentSubscriptionEnvironment(account.userId));
     return { translating: true };
   }
-  const { remaining } = await translateMissing(db, summary, trip, language, payer, saved, { ai });
+  const { remaining } = await translateMissing(db, summary, trip, language, account, saved, { ai });
   if (remaining > 0) throw new ApiError(502, "TRIP_TRANSLATION_FAILED", "The trip could not be translated. Please try again.");
   return { translating: false };
 }
@@ -320,28 +315,33 @@ export async function translateTrip(
 
 /** One background translation: plain data, the input of `workflows/translate-trip.ts`. */
 export interface TripTranslationJob {
+  selectedModelId?: string;
   summaryId: string;
   language: TranslationLanguage;
-  /** The owner, who pays and is notified. */
+  /** The owner who requested the translation. */
   userId: string;
-  billingEnvironment?: BillingEnvironment;
+  billingEnvironment?: SubscriptionEnvironment;
 }
 
 export type TripTranslationOutcome =
   | { status: "done" }
   /** Some parts failed; another pass may finish them. */
   | { status: "partial"; remaining: number }
-  /** Nothing more can be done: no points, no trip, or the model failed every part. */
+  /** The trip is unavailable or the translation failed. */
   | { status: "failed"; code: string };
 
 /** Marks the trip as translating and starts the run; a run that can't start is unmarked again. */
-async function startTripTranslation(db: Database, summaryId: string, language: TranslationLanguage, userId: string, billingEnvironment?: BillingEnvironment): Promise<void> {
+async function startTripTranslation(db: Database, summaryId: string, language: TranslationLanguage, userId: string, billingEnvironment?: SubscriptionEnvironment): Promise<void> {
   const now = new Date();
   // A trip never translated before gets an empty dictionary that isn't up to date with any revision.
   await db.insert(tripTranslations).values({ summaryId, language, strings: {}, revision: -1, translatingSince: now, createdAt: now, updatedAt: now })
     .onConflictDoUpdate({ target: [tripTranslations.summaryId, tripTranslations.language], set: { translatingSince: now } });
   try {
-    await getTripTranslator().start({ summaryId, language, userId, billingEnvironment });
+    await getTripTranslator().start({
+      summaryId, language, userId,
+      billingEnvironment: billingEnvironment === "production" ? undefined : billingEnvironment,
+      selectedModelId: await accountModelId() ?? undefined,
+    });
   } catch (error) {
     await clearTranslating(db, summaryId, language);
     console.error("[translations] background trip translation could not start", error);
@@ -360,8 +360,8 @@ export async function runTripTranslationPass(db: Database, job: TripTranslationJ
     const [trip] = await db.select().from(trips).where(eq(trips.summaryId, job.summaryId)).limit(1);
     if (!trip) return { status: "failed", code: "NOT_FOUND" };
     const saved = await findTripTranslation(db, job.summaryId, job.language);
-    const payer: TranslationPayer = { userId: job.userId, environment: async () => job.billingEnvironment };
-    const { remaining } = await translateMissing(db, { id: job.summaryId }, trip, job.language, payer, saved, { ai: options.ai, timeoutMs: BACKGROUND_PASS_TIMEOUT_MS });
+    const account: TranslationAccount = { userId: job.userId, environment: job.billingEnvironment };
+    const { remaining } = await translateMissing(db, { id: job.summaryId }, trip, job.language, account, saved, { ai: options.ai ?? await getAiProvider(job.selectedModelId ?? null), timeoutMs: BACKGROUND_PASS_TIMEOUT_MS });
     return remaining === 0 ? { status: "done" } : { status: "partial", remaining };
   } catch (error) {
     if (error instanceof ApiError) return { status: "failed", code: error.code };

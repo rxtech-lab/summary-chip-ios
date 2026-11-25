@@ -144,33 +144,39 @@ describe("résumé proposals and focused calls", () => {
     });
     expect(await (await voice(env.tokens.alice)).json()).toEqual(first);
   });
-  it("reserves before execution, charges one completed request and releases failures", async () => {
+  it("saves Traditional Chinese text from the focused chat tool without running a translation proposal", async () => {
     const source = await created();
-    vi.stubEnv("RX_SUBSCRIPTION_ENVIRONMENT", "sandbox");
-    vi.stubEnv("RX_SUBSCRIPTION_URL", "https://subscription.test");
-    vi.stubEnv("RX_SUBSCRIPTION_API_KEY", "rxs_sandbox_example");
-    let insufficient = true;
-    const bodies: { url: string; amount: number; idempotencyKey: string }[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init: RequestInit) => {
-        const payload = JSON.parse(String(init.body));
-        bodies.push({ url, ...payload });
-        if (url.endsWith("/reserve") && insufficient)
-          return Response.json({ error: "insufficient_balance" }, { status: 409 });
-        return Response.json(url.endsWith("/reserve") ? { reservationId: "reservation" } : { status: "closed" });
-      }),
-    );
-    expect((await propose(source, "empty")).status).toBe(402);
+    const context = {
+      messages: [{ role: "user", parts: [{ type: "text", text: "Save a Traditional Chinese edition" }] }],
+      resumeTarget: { familyId: source.familyId, variantId: null, language: "en", revisionToken: source.revisionToken },
+    };
+    const call = (name: string, input: unknown, token = env.tokens.alice) =>
+      live.POST(request({ context, name, input: { argumentsJson: JSON.stringify(input) }, callId: "voice-" + name }, token));
+    const fields = await call("getResume", { translationLanguage: "zh-Hant" });
+    expect(fields.status).toBe(200);
+    const { output } = await fields.json();
+    expect(output).toMatchObject({
+      translationFields: { "/candidateName": "Ming", "/headline": "Engineer" },
+      expectedRevisionToken: null,
+    });
+    const input = {
+      language: "zh-Hant", sourceRevisionToken: output.sourceRevisionToken, expectedRevisionToken: output.expectedRevisionToken,
+      translations: [{ path: "/candidateName", value: "Ming" }, { path: "/headline", value: "工程師" }],
+    };
+    expect((await call("saveResumeTranslation", input, env.tokens.bob)).status).toBe(404);
+    const saved = await call("saveResumeTranslation", input);
+    expect(saved.status).toBe(200);
+    expect((await saved.json()).output).toMatchObject({
+      familyId: source.familyId, language: "zh-Hant", document: { headline: "工程師" },
+    });
+    const changed = await save(source, "Senior engineer");
+    const refreshed = await call("getResume", { translationLanguage: "zh-Hant" });
+    expect((await refreshed.json()).output).toMatchObject({
+      sourceRevisionToken: changed.revisionToken, translationFields: { "/headline": "Senior engineer" },
+      currentTranslations: { "/headline": "工程師" },
+    });
+    expect(await env.handle.db.select().from(resumeProposals)).toEqual([]);
     expect(env.ai.calls.translateStrings).toHaveLength(0);
-    insufficient = false;
-    expect((await propose(source, "paid")).status).toBe(200);
-    expect((await propose(source, "paid")).status).toBe(200);
-    expect(bodies.filter((b) => b.url.endsWith("/settle"))).toHaveLength(1);
-    expect(bodies.at(-1)?.amount).toBeGreaterThan(0);
-    env.ai.translates = false;
-    expect((await propose(source, "failed")).status).toBe(502);
-    expect(bodies.at(-1)?.amount).toBe(0);
   });
   it("queues large translations once and refreshes unchanged strings inline", async () => {
     const bullets = Array.from({ length: 65 }, (_, i) => ({ id: "b" + i, text: "Project milestone " + i }));

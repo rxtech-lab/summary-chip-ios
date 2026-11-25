@@ -9,7 +9,6 @@ import { podcastMusic, type PodcastMusic } from "./podcast-music";
 import { startPodcastVideoDesign } from "./podcast-video-design";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, ne, or, sql, asc } from "drizzle-orm";
-import type { LanguageModelUsage } from "ai";
 import { getAiProvider } from "@/lib/ai/provider";
 import { podcastVoices } from "@/lib/ai/models";
 import { LANGUAGE_NAMES, normalizeDraft } from "@/lib/ai/summary-schema";
@@ -22,7 +21,6 @@ import { summaries, summaryViews, podcastEpisodes, podcastShareLinks } from "@/l
 import type { Category } from "@/lib/contracts/api";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
-import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { coverImages, deleteObjects, getSummaryForViewer, type ServiceDeps } from "./summaries";
 import { selectCoverTheme } from "./cover-colors";
 import { retireTranslatedCovers } from "./translations";
@@ -82,7 +80,7 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
   if (onProgress) state.listeners.add(onProgress);
   const report = (stage: PodcastProgress["stage"], percent: number, completedSegments?: number, totalSegments?: number) => {
     state.latest = { stage, percent, completedSegments, totalSegments };
-    // A disconnected observer must never fail generation or billing.
+    // A disconnected observer must never fail generation.
     for (const listener of state.listeners) { try { listener(state.latest); } catch { state.listeners.delete(listener); } }
   };
   report("preparing", 0);
@@ -117,15 +115,13 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       throw new ApiError(400, "PODCAST_SPEAKERS_UNAVAILABLE", `Up to ${voices.length} speakers are available. Choose fewer speakers.`);
     }
     const key = deps.approvedPlan?.id ?? randomUUID();
-    const charge = await reservePodcastPoints(user, key, ai.podcastModelId(), deps.billingEnvironment);
-    const usage: LanguageModelUsage[] = [];
     const deadline = AbortSignal.timeout(270_000);
     let coverTask: Promise<PodcastCover | null> | null = null;
     try {
       report("script", 5);
       const script = deps.approvedPlan?.script ?? podcastScriptSchema.parse(await ai.writePodcast({ language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, recap: highlights, maxDurationSeconds: targetDurationSeconds, approximateDuration: !input.recap,
         chips: await podcastSources(chips.map(({ chip }) => chip), user, input, store) },
-      { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]), onUsage: (step) => usage.push(step) }));
+      { abortSignal: AbortSignal.any([deadline, AbortSignal.timeout(100_000)]) }));
       if ((input.speakerNames && (script.speakers.length !== input.speakerNames.length || script.speakers.some((speaker, index) => speaker.name !== input.speakerNames![index]))) || new Set(script.speakers.map((s) => s.voice)).size !== script.speakers.length || script.speakers.some((s) => !voices.includes(s.voice)) || script.segments.some((s) => s.speaker >= script.speakers.length || !chips.some(({ chip }) => chip.id === s.chipId)) || (!highlights && chips.some(({ chip }) => !script.segments.some((s) => s.chipId === chip.id)))) {
         throw new Error("Invalid podcast references");
       }
@@ -173,10 +169,6 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       await storeContinuousAudio(store, `${base}/${key}/audio.mp3`, episodeAudioPath(podcast), podcast, voiced.audioParts, music, maxDurationSeconds ? maxDurationSeconds - 4 : undefined);
       report("saving", 95);
       await authorize(db, user, podcast);
-      const pricing = charge ? await ai.podcastPricing() : null;
-      const textCost = pricing ? usage.reduce((sum, step) => sum + usageCostUsd(step, pricing), 0) : 0;
-      const speechCost = segments.reduce((sum, s) => sum + s.caption.length, 0) * ai.speechUsdPerCharacter();
-      const musicCost = (music?.generatedClips ?? 0) * ai.musicUsdPerClip();
       // Publish the playable recording before making a chip visible in the library.
       if (summaryId) podcast.summaryId = summaryId;
       const cover = await coverTask;
@@ -207,14 +199,13 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       } else { await episodeInsert; }
       if (podcast.summaryId) runAfter(() => rerankHeadlines(db, user));
       if (!input.library) await selectDailyPodcast(db, user, input.day, key);
-      await charge?.settle(Math.max(1, pointsForCost(textCost + speechCost + musicCost)), { segments: segments.length, textCostUsd: textCost, speechCostUsd: speechCost, musicCostUsd: musicCost });
       // The motion video is designed after transcription and mixing, so scenes are staged on the spoken
-      // phrases at their real times. It runs in the background and is charged on its own; the recording
+      // phrases at their real times. It runs in the background; the recording
       // is already playable, so a design that can't start leaves the episode without video.
       if (input.includeVideo !== false && ai.podcastVideoModelId()) {
         report("video-design", 97);
         const designing = await startPodcastVideoDesign(db, user, podcast, chips.map(({ chip }) => ({ id: chip.id, title: chip.title })),
-          { ai, store, billingEnvironment: deps.billingEnvironment, now: deps.now }, { style: input.videoStyle, checkPoints: false }).catch((error) => {
+          { ai, store, now: deps.now }, { style: input.videoStyle }).catch((error) => {
           console.error("[podcast] video design could not start, publishing without video", error);
           return null;
         });
@@ -223,7 +214,6 @@ export async function createDailyPodcast(db: Database, user: string, input: z.in
       report("complete", 100);
       return podcast;
     } catch (error) {
-      await charge?.settle(0, { failed: true });
       const cover = await coverTask?.catch(() => null);
       if (cover) await deleteObjects(store, [cover.ogImageKey, cover.artImageKey]);
       if (error instanceof ApiError) throw error;

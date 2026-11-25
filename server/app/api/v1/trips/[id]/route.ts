@@ -4,7 +4,6 @@ import { noStoreJson, readJson } from "@/lib/http/errors";
 import { deleteSummary } from "@/lib/services/summaries";
 import { getTrip, readTripJson, replaceTrip } from "@/lib/services/trips";
 import { acceptedLanguage } from "@/lib/services/translations";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 /** A trip read in another language is translated before the response. */
@@ -21,7 +20,7 @@ export async function GET(request: Request, { params }: Context) {
     const { id } = await params;
     return noStoreJson({
       trip: await readTripJson(db, id, principal.sub, acceptedLanguage(request), {
-        billingEnvironment: () => billingEnvironment(request, principal),
+
       }),
     });
   }, { feature: "trips" });

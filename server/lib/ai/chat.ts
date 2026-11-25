@@ -7,8 +7,7 @@ import { miniChatTools, MINI_CHAT_GUIDE } from "./mini-app";
 import { getOwnedGraph } from "@/lib/services/graphs";
 import { graphChatInstructions, graphChatTools } from "./graph-agent";
 import { getMiniApp } from "@/lib/mini-app/service";
-import { randomUUID } from "node:crypto";
-import { asSchema, generateText, convertToModelMessages, jsonSchema, stepCountIs, streamText, tool, type LanguageModelUsage, type UIMessage } from "ai";
+import { asSchema, generateText, convertToModelMessages, jsonSchema, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
 import { CATEGORIES, MAX_TEXT_LENGTH, httpUrl } from "@/lib/contracts/api";
 import type { TripDocument } from "@/lib/contracts/trip";
@@ -19,9 +18,6 @@ import { extractSource, getSummaryForViewer } from "@/lib/services/summaries";
 import { applyChatOperations, getOwnedTrip } from "@/lib/services/trips";
 import { getObjectStore } from "@/lib/storage/r2";
 import { editorsPicksInputSchema, getRawTextForAgent, listEditorsPicksForChat, getSummaryForChat, getTripForChat, listTripsForChat, rawTextPage, searchForChat } from "@/lib/services/views";
-import { runAfter } from "@/lib/http/after";
-import { reserveChatPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { LOCAL_INLINE_LIMIT, localFileTools, splitLines } from "./local-file";
 import { getAiProvider, type AiProvider } from "./provider";
 import { webSearchTool } from "./models";
@@ -293,7 +289,6 @@ export interface StreamChatOptions {
   tripId?: string;
   graphId?: string;
   miniAppId?: string;
-  billingEnvironment?: BillingEnvironment;
   /** The request's signal: a client that hangs up still pays for the steps already run. */
   abortSignal?: AbortSignal;
 }
@@ -311,7 +306,7 @@ export async function prepareChat(db: Database, userId: string, options: StreamC
   const mini = options.miniAppId ? await getMiniApp(db, options.miniAppId, userId) : undefined;
   const miniEnabled = process.env.MINI_APPS_ENABLED === "true" || process.env.NODE_ENV === "test";
   const tools = {
-    ...resumeChatTools(db, userId, target, options.billingEnvironment),
+    ...resumeChatTools(db, userId, target),
     ...(miniEnabled ? miniChatTools(db, userId) : {}),
     ...chatTools(db, userId, ai, focused),
     ...chatWebTools(db, userId, ai),
@@ -343,8 +338,6 @@ export async function streamChat(
     description: definition.description,
     inputSchema: await asSchema<unknown>(definition.inputSchema).jsonSchema,
   })));
-  const charge = await reserveChatPoints(userId, randomUUID(), ai.chatModelId(), options.billingEnvironment);
-  const billing = charge ? chatBilling(ai, charge) : undefined;
   const result = streamText({
     model: ai.chatModel(),
     instructions,
@@ -360,7 +353,6 @@ export async function streamChat(
           abortSignal: options.abortSignal,
           maxRetries: 1,
         });
-        billing?.add(summary.usage);
         return summary.text;
       }),
     }),
@@ -368,10 +360,6 @@ export async function streamChat(
     stopWhen: stepCountIs(10),
     maxRetries: 1,
     abortSignal: options.abortSignal,
-    onStepFinish: (step) => billing?.add(step.usage),
-    onFinish: () => billing?.finish("finished"),
-    onError: () => billing?.finish("error"),
-    onAbort: () => billing?.finish("aborted"),
   });
   return result.toUIMessageStreamResponse({
     headers: { "cache-control": "no-store" },
@@ -390,35 +378,3 @@ export async function streamChat(
     },
   });
 }
-
-/**
- * Prices a turn at the model's API list price: every step's tokens (tool rounds included) are
- * added up and charged once, however the stream ends.
- */
-function chatBilling(ai: AiProvider, charge: ChatCharge) {
-  const steps: LanguageModelUsage[] = [];
-  let settled: Promise<void> | undefined;
-  const finish = (outcome: "finished" | "error" | "aborted" | "timeout") => {
-    settled ??= settleUsage(charge, ai, steps, { outcome });
-    return settled;
-  };
-  let ended!: () => void;
-  const end = new Promise<void>((resolve) => { ended = resolve; });
-  // Registered while the request is in scope so the function outlives the stream until the charge lands;
-  // a stream that never reports an end is settled when the route's time budget runs out.
-  runAfter(() => new Promise<void>((resolve) => {
-    const deadline = setTimeout(resolve, CHAT_SETTLE_DEADLINE_MS);
-    void end.then(() => { clearTimeout(deadline); resolve(); });
-  }).then(() => finish("timeout")));
-  return {
-    add(usage: LanguageModelUsage) {
-      steps.push(usage);
-    },
-    finish(outcome: "finished" | "error" | "aborted") {
-      void finish(outcome).finally(ended);
-    },
-  };
-}
-
-/** Just under the chat route's `maxDuration` (120 s). */
-const CHAT_SETTLE_DEADLINE_MS = 115_000;

@@ -1,3 +1,4 @@
+import { readModelPreference } from "@/lib/ai/model-preference";
 import { createHash } from "node:crypto";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, or } from "drizzle-orm";
 import type { Database } from "@/lib/db/client";
@@ -5,6 +6,7 @@ import { pushDevices, summaries, summaryViews, tripReminderBriefings as briefing
 import { getAiProvider } from "@/lib/ai/provider";
 import { tripBriefingBodySchema, tripBriefingInput, type TripBriefingInput } from "@/lib/ai/trip-briefing-agent";
 import { apnsConfigured, sendPush } from "@/lib/notifications/apns";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { getTripReminderScheduler, tripReminders, type TripReminder } from "@/lib/trips/reminders";
 import { dayAheadAlertText, type DayAheadLine } from "@/lib/weather/conditions";
 import { addDays, DAY, MINUTE } from "@/lib/weather/schedule";
@@ -29,7 +31,7 @@ async function readableRecipient(db: Database, summary: SummaryRow, userId: stri
   return Boolean(view && await canViewerRead(db, summary, userId, now));
 }
 
-async function briefingBody(db: Database, tripId: string, input: TripBriefingInput, reminder: TripReminder, weather: DayAheadLine[], canGenerate: boolean) {
+async function briefingBody(db: Database, tripId: string, input: TripBriefingInput, reminder: TripReminder, weather: DayAheadLine[], canGenerate: boolean, viewerId: string) {
   const hash = inputHash(input);
   const [cached] = await db.select().from(briefings).where(and(eq(briefings.tripId, tripId), eq(briefings.inputHash, hash)));
   if (cached) return { body: cached.body, generated: false };
@@ -37,12 +39,14 @@ async function briefingBody(db: Database, tripId: string, input: TripBriefingInp
   const weatherText = weather.length ? dayAheadAlertText(weather.slice(0, 2), translationLanguageFor(input.language)).body : "";
   const fallback = [...(weatherText ? `${[...reminder.detail].slice(0, 50).join("")} · ${weatherText}` : reminder.detail)].slice(0, 140).join("");
   let body = fallback;
-  try {
-    const parsed = tripBriefingBodySchema.safeParse(await (await getAiProvider()).briefTripDay(input));
-    if (parsed.success) body = parsed.data;
-    else console.warn("[trip-reminders] invalid agent briefing; using saved itinerary");
-  } catch {
-    console.warn("[trip-reminders] agent briefing failed; using saved itinerary");
+  if (await hasFlowcyAccess(viewerId)) {
+    try {
+      const parsed = tripBriefingBodySchema.safeParse(await (await getAiProvider(await readModelPreference(db, viewerId))).briefTripDay(input));
+      if (parsed.success) body = parsed.data;
+      else console.warn("[trip-reminders] invalid agent briefing; using saved itinerary");
+    } catch {
+      console.warn("[trip-reminders] agent briefing failed; using saved itinerary");
+    }
   }
   await db.insert(briefings).values({ tripId, inputHash: hash, body, expiresAt: new Date(reminder.until) }).onConflictDoNothing();
   const [saved] = await db.select({ body: briefings.body }).from(briefings).where(and(eq(briefings.tripId, tripId), eq(briefings.inputHash, hash)));
@@ -137,7 +141,7 @@ async function sendScheduledReminders(db: Database, tripId: string, runnerId: st
         if (reminder.kind === "day") {
           const weather = await tripBriefingWeather(db, tripId, active, reminder.date, clock.getTime());
           const input = tripBriefingInput(active, reminder.date, current.summary.language, weather);
-          const briefing = await briefingBody(db, tripId, input, reminder, weather, generatedBriefings < BRIEFINGS_PER_STEP);
+          const briefing = await briefingBody(db, tripId, input, reminder, weather, generatedBriefings < BRIEFINGS_PER_STEP, device.ownerId);
           if (!briefing) return saveNextCheck(db, tripId, runnerId, (at ?? new Date()).getTime() + 1000);
           if (briefing.generated) generatedBriefings += 1;
           // Agent generation is asynchronous: do not send a stale plan or forecast after it finishes.

@@ -3,7 +3,6 @@ import { chatRequestSchema, sanitizeChatMessages, streamChat } from "@/lib/ai/ch
 import { requireAppFeature } from "@/lib/http/app-version";
 import { withApiAuth } from "@/lib/http/handler";
 import { readJson } from "@/lib/http/errors";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -20,8 +19,8 @@ export async function POST(request: Request) {
       graphId: body.graphId,
       resumeTarget: body.resumeTarget,
       miniAppId: body.miniAppId,
-      billingEnvironment: await billingEnvironment(request, principal),
+
       abortSignal: request.signal,
     });
-  });
+  }, { requireSubscription: true });
 }

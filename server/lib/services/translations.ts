@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import type { LanguageModelUsage } from "ai";
+import { requireFlowcyAccess } from "@/lib/subscription/flowcy";
+import type { SubscriptionEnvironment } from "@/lib/subscription/environment";
 import { and, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "@/lib/contracts/api";
@@ -8,8 +8,6 @@ import { summaryTranslations, type SummaryRow, type SummaryTranslationRow } from
 import { runAfter } from "@/lib/http/after";
 import type { ObjectStore } from "@/lib/storage/r2";
 import { ApiError } from "@/lib/http/errors";
-import { reserveTranslationPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { isSourceTranslationPending, ORIGINAL_READING, SOURCE_TRANSLATION_PENDING_MS, sourceMarkdownFor, type SummaryReading } from "./serialize";
 
 /* ------------------------------------------------------------------------------------------------
@@ -65,38 +63,14 @@ export function readingLanguage(
   return wanted;
 }
 
-/* ------------------------------------------------------------------------------------------------
- * Billing
- * ---------------------------------------------------------------------------------------------- */
-
-/**
- * Who pays for the translations a read writes: the signed-in reader, else (a visitor on the website
- * or App Clip) the summary's owner. Complete saved translations are shared by every reader and
- * cost nothing to reuse. Missing tag labels (older translations or edited tags) need a new run.
- */
-export interface TranslationPayer {
+/** Public readers can use saved translations or request new ones through the publisher’s access. */
+export interface TranslationAccount {
   userId: string;
-  environment?: BillingEnvironmentResolver;
+  environment?: SubscriptionEnvironment;
 }
 
-/**
- * The reader's billing environment, resolved only when a translation is charged: verifying the
- * app's StoreKit proof is too costly for every read.
- */
-export type BillingEnvironmentResolver = () => Promise<BillingEnvironment | undefined>;
-
-export function translationPayer(row: Pick<SummaryRow, "ownerId">, viewerId: string | null, environment?: BillingEnvironmentResolver): TranslationPayer {
-  return viewerId ? { userId: viewerId, environment } : { userId: row.ownerId };
-}
-
-/** Holds points for one translation run; throws `402 TRANSLATION_POINTS_EXHAUSTED` (or 503) before any model call. */
-export async function holdTranslation(ai: AiProvider, payer: TranslationPayer, run: string, metadata: Record<string, unknown>): Promise<ChatCharge | null> {
-  return reserveTranslationPoints(payer.userId, `${run}:${randomUUID()}`, ai.chatModelId(), metadata, await payer.environment?.());
-}
-
-/** Charges a run's tokens at the model's API price; a run that delivered nothing releases its hold. */
-export async function settleTranslation(charge: ChatCharge | null, ai: AiProvider, delivered: boolean, steps: LanguageModelUsage[], metadata: Record<string, unknown> = {}): Promise<void> {
-  if (charge) await settleUsage(charge, ai, delivered ? steps : [], { ...metadata, outcome: delivered ? "finished" : "failed" });
+export function translationAccount(row: Pick<SummaryRow, "ownerId">, viewerId: string | null): TranslationAccount {
+  return { userId: viewerId ?? row.ownerId };
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -127,11 +101,10 @@ async function translateCard(
   ai: AiProvider,
   row: SummaryRow,
   language: TranslationLanguage,
-  onUsage: (usage: LanguageModelUsage) => void,
   now = new Date(),
   saved?: SummaryTranslationRow,
 ): Promise<SummaryTranslationRow | null> {
-  const output = await ai.translateSummary({ title: row.title, summary: row.summary, highlights: row.highlights, tags: row.tags, headline: row.ogHeadline, from: row.language, to: language }, { onUsage });
+  const output = await ai.translateSummary({ title: row.title, summary: row.summary, highlights: row.highlights, tags: row.tags, headline: row.ogHeadline, from: row.language, to: language });
   if (!output?.title.trim() || !output.summary.trim()) return null;
   const tags = output.tags.map((tag) => clip(tag.replace(/^#/, ""), 80));
   // Chip labels must retain a one-to-one mapping to the original tags, including duplicates.
@@ -168,15 +141,14 @@ async function translateCard(
  * Translates the kept source document after the response, once per language: the translation row
  * is claimed by marking it pending (""), so concurrent readers don't start a second run. A run that
  * was lost (pending past `SOURCE_TRANSLATION_PENDING_MS`) or failed (null) may be claimed again.
- * The payer's points are held before the run; without them the claim is let go and the original
- * shows. Returns the translation as the caller should serialise it (pending when a run was started).
+ * If the account cannot start the translation, the original remains visible.
  */
 async function startSourceTranslation(
   db: Database,
   ai: AiProvider,
   row: SummaryRow,
   translation: SummaryTranslationRow,
-  payer: TranslationPayer,
+  account: TranslationAccount,
   now = new Date(),
 ): Promise<SummaryTranslationRow> {
   const source = row.contentMarkdown;
@@ -196,25 +168,23 @@ async function startSourceTranslation(
   if (claimed.length === 0) return translation;
   const language = translation.language as TranslationLanguage;
   const thisRow = and(eq(summaryTranslations.summaryId, row.id), eq(summaryTranslations.language, language));
-  let charge: ChatCharge | null;
   try {
-    charge = await holdTranslation(ai, payer, `${row.id}:${language}:source`, { summaryId: row.id, language, part: "source" });
+
+    await requireFlowcyAccess(account.userId, account.environment);
   } catch (error) {
-    // Let go of the claim so a later read, by someone with points, may translate it.
+    // Let go of the claim so a later read can translate it.
     await db.update(summaryTranslations).set({ contentMarkdown: null }).where(and(thisRow, eq(summaryTranslations.contentMarkdown, "")));
     if (!(error instanceof ApiError)) throw error;
     console.info("[translations] source document not translated", error.code);
     return { ...translation, contentMarkdown: null };
   }
   runAfter(async () => {
-    const steps: LanguageModelUsage[] = [];
     let markdown: string | null = null;
     try {
-      markdown = await ai.translateDocument(source, language, { onUsage: (usage) => steps.push(usage) });
+      markdown = await ai.translateDocument(source, language);
     } finally {
       // Never leave the row pending: a failed run becomes null and is retried on a later read.
       await db.update(summaryTranslations).set({ contentMarkdown: markdown || null, updatedAt: new Date() }).where(thisRow);
-      await settleTranslation(charge, ai, Boolean(markdown), steps);
     }
   });
   return { ...translation, contentMarkdown: "", updatedAt: now };
@@ -223,22 +193,21 @@ async function startSourceTranslation(
 export interface ReadOptions {
   ai?: AiProvider;
   /**
-   * Fail with `502 TRANSLATION_FAILED`, or the points hold's 402/503, instead of falling back to
+   * Fail with a translation or subscription error instead of falling back to
    * the original text.
    */
   required?: boolean;
 }
 
 /**
- * One summary in `language` (null = as written): its saved translation, else one written now on
- * the payer's points. Starts translating the source document in the background when it has one.
- * A failed or unaffordable translation shows the original unless `required`.
+ * Reuses a saved translation or writes one for a subscribed account. Starts translating the
+ * source document in the background. Falls back to the original unless `required`.
  */
 export async function readSummary(
   db: Database,
   row: SummaryRow,
   language: TranslationLanguage | null,
-  payer: TranslationPayer,
+  account: TranslationAccount,
   options: ReadOptions = {},
 ): Promise<SummaryReading> {
   if (!language || row.kind === "resume") return ORIGINAL_READING;
@@ -246,29 +215,22 @@ export async function readSummary(
   let translation: SummaryTranslationRow | null = await findTranslation(db, row.id, language) ?? null;
   if (!translation || !hasTranslatedTags(row, translation)) {
     const saved = translation;
-    let charge: ChatCharge | null;
     try {
-      charge = await holdTranslation(ai, payer, `${row.id}:${language}`, { summaryId: row.id, language, part: "card" });
+
+    await requireFlowcyAccess(account.userId, account.environment);
     } catch (error) {
       if (options.required || !(error instanceof ApiError)) throw error;
       console.info("[translations] summary not translated; showing the original", error.code);
       return saved ? { translation: saved, pending: false } : ORIGINAL_READING;
     }
-    const steps: LanguageModelUsage[] = [];
-    let delivered = false;
-    try {
-      const card = await translateCard(db, ai, row, language, (usage) => steps.push(usage), new Date(), saved ?? undefined);
-      delivered = card !== null;
-      translation = card ?? (options.required ? null : saved);
-    } finally {
-      await settleTranslation(charge, ai, delivered, steps);
-    }
+    const card = await translateCard(db, ai, row, language, new Date(), saved ?? undefined);
+    translation = card ?? (options.required ? null : saved);
   }
   if (!translation) {
     if (options.required) throw new ApiError(502, "TRANSLATION_FAILED", "The summary could not be translated. Please try again.");
     return ORIGINAL_READING;
   }
-  return { translation: await startSourceTranslation(db, ai, row, translation, payer), pending: false };
+  return { translation: await startSourceTranslation(db, ai, row, translation, account), pending: false };
 }
 
 /** Summaries translated at once in the background for a list page. */
@@ -276,16 +238,14 @@ const LIST_TRANSLATION_CONCURRENCY = 4;
 
 /**
  * A page of summaries for one viewer: each in the language they read it in, from saved
- * translations. Missing ones are translated after the response on the viewer's points (one hold
- * for the page) and marked `pending`, so the list returns at once; the client fetches it again to
- * pick them up. Without points they stay in the original language.
+ * translations. Missing ones are marked `pending` and translated after the response.
  */
 export async function readSummaries(
   db: Database,
   rows: SummaryRow[],
   viewerId: string,
   accepted: TranslationLanguage | null,
-  options: Pick<ReadOptions, "ai"> & { environment?: BillingEnvironmentResolver } = {},
+  options: Pick<ReadOptions, "ai"> = {},
 ): Promise<Map<string, SummaryReading>> {
   const readings = new Map<string, SummaryReading>();
   const wanted = new Map(rows.map((row) => [row.id, readingLanguage(row, viewerId, accepted)]));
@@ -306,9 +266,8 @@ export async function readSummaries(
   }
   if (missing.length === 0) return readings;
   const ai = options.ai ?? await getAiProvider();
-  let charge: ChatCharge | null;
   try {
-    charge = await holdTranslation(ai, { userId: viewerId, environment: options.environment }, "list", { summaryIds: missing.map(({ row }) => row.id), part: "card" });
+    await requireFlowcyAccess(viewerId);
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
     console.info("[translations] list not translated; showing the originals", error.code);
@@ -316,27 +275,15 @@ export async function readSummaries(
     return readings;
   }
   runAfter(async () => {
-    // Only the cards that were saved are charged.
-    const steps: LanguageModelUsage[] = [];
-    let translated = 0;
     let next = 0;
     const worker = async () => {
       while (next < missing.length) {
         const { row, language, saved } = missing[next++];
-        const cardSteps: LanguageModelUsage[] = [];
-        const card = await translateCard(db, ai, row, language, (usage) => cardSteps.push(usage), new Date(), saved)
-          .catch((error) => { console.warn("[translations] list translation failed", error); return null; });
-        if (card) {
-          translated++;
-          steps.push(...cardSteps);
-        }
+        await translateCard(db, ai, row, language, new Date(), saved)
+          .catch(error => console.warn("[translations] list translation failed", error));
       }
     };
-    try {
-      await Promise.all(Array.from({ length: Math.min(LIST_TRANSLATION_CONCURRENCY, missing.length) }, worker));
-    } finally {
-      await settleTranslation(charge, ai, translated > 0, steps, { translated, requested: missing.length });
-    }
+    await Promise.all(Array.from({ length: Math.min(LIST_TRANSLATION_CONCURRENCY, missing.length) }, worker));
   });
   return readings;
 }
@@ -352,17 +299,17 @@ export async function readSourceMarkdown(
   row: SummaryRow,
   viewerId: string | null,
   language: TranslationLanguage | null,
-  options: Pick<ReadOptions, "ai"> & { environment?: BillingEnvironmentResolver } = {},
+  options: Pick<ReadOptions, "ai"> = {},
 ): Promise<{ markdown: string; language: string; translationPending: boolean } | null> {
   const original = sourceMarkdownFor(row, viewerId);
   if (original === null) return null;
   const asWritten = { markdown: original, language: sourceLanguageOf(row), translationPending: false };
   const target = language ?? translationLanguageFor(row.language);
   if (!target || translationLanguageFor(sourceLanguageOf(row)) === target) return asWritten;
-  const payer = translationPayer(row, viewerId, options.environment);
+  const account = translationAccount(row, viewerId);
   const translation = language
-    ? (await readSummary(db, row, language, payer, options)).translation
-    : await readSourceInChipLanguage(db, row, target, payer, options.ai);
+    ? (await readSummary(db, row, language, account, options)).translation
+    : await readSourceInChipLanguage(db, row, target, account, options.ai);
   if (translation?.contentMarkdown) return { markdown: translation.contentMarkdown, language: translation.language, translationPending: false };
   return { ...asWritten, translationPending: translation?.contentMarkdown === "" };
 }
@@ -376,7 +323,7 @@ async function readSourceInChipLanguage(
   db: Database,
   row: SummaryRow,
   language: TranslationLanguage,
-  payer: TranslationPayer,
+  account: TranslationAccount,
   ai?: AiProvider,
   now = new Date(),
 ): Promise<SummaryTranslationRow | null> {
@@ -395,7 +342,7 @@ async function readSourceInChipLanguage(
   }).onConflictDoNothing();
   const translation = await findTranslation(db, row.id, language);
   if (!translation) return null;
-  return startSourceTranslation(db, ai ?? await getAiProvider(), row, translation, payer, now);
+  return startSourceTranslation(db, ai ?? await getAiProvider(), row, translation, account, now);
 }
 
 /** The owner edited the title while reading a translation: the edit belongs to that translation. */

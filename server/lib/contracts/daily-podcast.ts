@@ -96,9 +96,9 @@ export const podcastPlanScriptSchema = podcastScriptSchema.extend({
 });
 export const revisePodcastPlanSchema = z.object({ revision: z.number().int().nonnegative(), script: podcastPlanScriptSchema }).strict();
 export const confirmPodcastPlanSchema = z.object({ revision: z.number().int().nonnegative() }).strict();
-/** `POST /api/v1/daily-podcasts/plans/:id/messages`: a chat request that revises the plan (spends points). */
+/** `POST /api/v1/daily-podcasts/plans/:id/messages`: a chat request that revises the plan. */
 export const refinePodcastPlanSchema = z.object({ revision: z.number().int().nonnegative(), message: z.string().trim().min(1).max(2000) }).strict();
-/** `POST /api/v1/daily-podcasts/plans/:id/frames`: draws storyboard frames for shots that have none (spends points). */
+/** `POST /api/v1/daily-podcasts/plans/:id/frames`: draws storyboard frames for shots that have none. */
 export const drawPodcastPlanFramesSchema = z.object({ revision: z.number().int().nonnegative() }).strict();
 /** One entry in a plan's refinement chat: a chat message, or a plan the agent showed (`show_plan`). */
 export interface PodcastPlanMessage {
@@ -306,7 +306,7 @@ export function podcastLanguageQuery(query: URLSearchParams) {
   const language = query.get("language");
   return language ? podcastLanguageSchema.parse(language) : undefined;
 }
-/** `POST /api/v1/daily-podcasts/:key/translations`: speaks the episode in another language (spends points). */
+/** `POST /api/v1/daily-podcasts/:key/translations`: speaks the episode in another language. */
 export const createPodcastTranslationSchema = z.object({
   day: podcastDaySchema,
   language: podcastLanguageSchema,

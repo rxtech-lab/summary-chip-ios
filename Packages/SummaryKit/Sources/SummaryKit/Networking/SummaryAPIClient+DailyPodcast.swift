@@ -484,7 +484,7 @@ extension SummaryAPIClient {
 
     // MARK: Translations
 
-    /// The episode in another of its languages. Never calls a model or spends points.
+    /// The episode in another of its languages. Never calls a model.
     /// Chooses which recording of a chapter a book plays, and returns the updated book.
     public func selectAudiobookChapterVersion(book: DailyPodcast, chapter: String, version: String) async throws -> DailyPodcast {
         struct Body: Encodable { var day: PodcastDayBounds; var chapter: String; var version: String }
@@ -503,7 +503,7 @@ extension SummaryAPIClient {
         return episode
     }
 
-    /// Speaks the episode in `language` (spends points; an existing translation is free) and returns it in that language.
+    /// Speaks the episode in `language` and returns it in that language.
     public func translatePodcast(_ podcast: DailyPodcast, language: SummaryLanguage, includeVideo: Bool = true,
                                  onProgress: (@MainActor @Sendable (PodcastGenerationProgress) -> Void)? = nil) async throws -> DailyPodcast {
         let day = try podcastDayBounds(podcast)

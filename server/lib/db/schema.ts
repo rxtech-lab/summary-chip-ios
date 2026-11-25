@@ -40,6 +40,7 @@ const now = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
+  aiModelId: text("ai_model_id"),
   email: text("email"),
   name: text("name"),
   /** Pending account deletion iff non-null; see `lib/services/account-deletion.ts`. */
@@ -801,7 +802,7 @@ export const dailyRecapSchedules = sqliteTable("daily_recap_schedules", {
   timeZone: text("time_zone").notNull(),
   language: text("language").notNull(),
   hour: integer("hour").notNull().default(7),
-  billingEnvironment: text("billing_environment").$type<import("@/lib/subscription/config").BillingEnvironment>(),
+  billingEnvironment: text("billing_environment").$type<import("@/lib/subscription/environment").SubscriptionEnvironment>(),
   nextAt: integer("next_at", { mode: "timestamp_ms" }).notNull(),
 }, table => [index("daily_recap_due_idx").on(table.enabled, table.nextAt)]);
 

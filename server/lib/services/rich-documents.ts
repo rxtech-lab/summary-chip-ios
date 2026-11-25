@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
+import { getAiProvider } from "@/lib/ai/provider";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import {
   richDocumentSchema,
@@ -15,6 +16,8 @@ import { richDocuments, summaries, type RichDocumentRow, type SummaryRow, type V
 import { EXCERPT_LIMIT, SOURCE_TEXT_LIMIT } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
+import { getObjectStore } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { blockIdAllocator, documentToMarkdown, markdownToBlocks, plainText } from "@/lib/rich-document/markdown";
 import { selectCoverTheme } from "./cover-colors";
 import { versionStatements, type VersionOptions } from "./document-versions";
@@ -179,14 +182,16 @@ export function documentFromCreateInput(input: CreateRichDocumentInput): RichDoc
  * never expires.
  */
 export async function createRichDocument(db: Database, principal: ApiPrincipal, input: CreateRichDocumentInput, deps?: ServiceDeps & VersionOptions): Promise<RichDocumentJson> {
-  const { ai, store, now } = await resolveDeps(deps);
+  const store = deps?.store ?? getObjectStore();
+  const now = deps?.now ?? (() => new Date());
+  const ai = await hasFlowcyAccess(principal.sub) ? (deps?.ai ?? await getAiProvider()) : null;
   const document = documentFromCreateInput(input);
   const id = crypto.randomUUID();
   const digest = richDocumentDigest(document);
   const text = richDocumentText(document).slice(0, SOURCE_TEXT_LIMIT);
 
-  const language = await ai.detectLanguage(digest) ?? "en";
-  const design = await ai.designCover({ title: digest.title, summary: digest.summary, category: "Other", keywords: digest.keywords, text, language });
+  const language = (ai ? await ai.detectLanguage(digest) : null) ?? "en";
+  const design = ai ? await ai.designCover({ title: digest.title, summary: digest.summary, category: "Other", keywords: digest.keywords, text, language }) : null;
   const normalized = normalizeDraft({
     ...digest,
     category: "Other",
@@ -200,7 +205,7 @@ export async function createRichDocument(db: Database, principal: ApiPrincipal, 
     tags: RICH_DOCUMENT_TAGS,
     theme: await selectCoverTheme(db, principal.sub, normalized.theme),
   };
-  const embedding = embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text });
+  const embedding = ai ? embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text }) : Promise.resolve(null);
 
   const createdAt = now();
   const imageKeys = await coverImages(store, ai, id, draft, null, "illustration", createdAt, "rich_document");
@@ -310,7 +315,7 @@ export function applyRichDocumentOperations(document: RichDocument, operations: 
  * `409 RICH_DOCUMENT_REVISION_CONFLICT`), refreshes the card's derived text and adds a version.
  */
 async function saveRichDocument(db: Database, deps: SaveDeps, summary: SummaryRow, stored: RichDocumentRow, document: RichDocument): Promise<RichDocumentJson> {
-  const { ai, now } = await resolveDeps(deps);
+  const now = deps.now ?? (() => new Date());
   if (JSON.stringify(stored.document) === JSON.stringify(document)) return toRichDocumentJson(summary, stored, summary.ownerId);
   const updatedAt = now();
   const revision = stored.revision + 1;
@@ -337,7 +342,10 @@ async function saveRichDocument(db: Database, deps: SaveDeps, summary: SummaryRo
     throw revisionConflict(current.revision);
   }
   const updated = { ...summary, ...changes };
-  runAfter(() => indexSummary(db, ai, updated));
+  if (await hasFlowcyAccess(summary.ownerId)) {
+    const ai = deps.ai ?? await getAiProvider();
+    runAfter(() => indexSummary(db, ai, updated));
+  }
   return toRichDocumentJson(updated, { ...stored, document, revision, updatedAt }, summary.ownerId);
 }
 

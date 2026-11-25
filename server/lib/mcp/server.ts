@@ -15,6 +15,7 @@ import { createPaperSchema, PAPER_COMPILERS, paperFileSchema, paperOperationSche
 import { createTripSchema, ingestTripSchema, MAX_PLACE_PHOTOS, photoSchema, placePatchSchema, tripDocumentSchema, tripOperationSchema, tripOperationsRequestSchema } from "@/lib/contracts/trip";
 import { SUMMARY_KINDS, SUMMARY_SOURCES, VISIBILITIES } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
+import { requireFlowcyAccess } from "@/lib/subscription/flowcy";
 import { editorsPicksInputSchema, getRawTextForAgent, listEditorsPicksForChat } from "@/lib/services/views";
 import { recordApiKeyUsage } from "@/lib/services/api-keys";
 import type { McpPrincipal } from "./oauth-tokens";
@@ -30,7 +31,6 @@ import { applyPaperEdits, checkPaper, createPaper, getPaper, listPapers, type Pa
 import { finishPaperReviews, listPaperReviews } from "@/lib/services/paper-reviews";
 import { finishPaperReviewsSchema } from "@/lib/contracts/paper-review";
 import { addToTripFromSource, applyTripOperations, createTrip, getTrip, listTrips, selectPlanOption, type TripJson } from "@/lib/services/trips";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 
 export const TOOL_NAMES = {
   addSummary: "add_summary",
@@ -71,7 +71,7 @@ export const INSTRUCTIONS = "Podcast tools: list_podcasts accepts day or summary
   + "list_editors_picks to answer Editor’s Picks by date (today/yesterday or YYYY-MM-DD, device time zone by default; follow nextCursor for all picks), and "
   + "add_summary to save a summary you wrote together with its raw source text. Nothing is re-summarised on add, and adding is free. "
   + "Graphs are node-and-edge documents with JSON properties, images and JSON-rendered views: list_graphs and get_graph read them, create_graph starts one, update_graph adds, changes or removes nodes, edges and saved queries (each call is one version), query_graph runs a read-only Cypher-style query, select_graph_elements highlights or isolates elements in the app, and upload_graph_image stores an image for a node or edge (from create_upload's uploadKey or a public URL). "
-  + "Private résumés: create_resume and list_resumes manage families. get_resume resolves one language and company, edit_resume changes stable field paths, and preview_resume returns authenticated PDF and editable DOCX handles. Only publish a preview when the user asks to share it. "
+  + "Private résumés: create_resume and list_resumes manage families. get_resume resolves one language and company, edit_resume changes stable field paths, and preview_resume returns authenticated PDF and editable DOCX handles. To translate and save an edition yourself, read get_resume with translationLanguage, translate its fields, and call save_resume_translation on the same family. Only publish a preview when the user asks to share it. "
   + "Todo lists: create_todo_list, list_todo_lists, get_todo_list, update_todo_list and delete_todo_list manage lists and per-item deadlines, Markdown descriptions and completion. AI creation and unfinished deadlines notify the owner. Rich documents are block-based pages rendered top to bottom (text in Markdown, images, videos and audio; one or two columns; leading, center or trailing alignment; link children): list_rich_documents and get_rich_document read them (get_rich_document also returns Markdown), create_rich_document starts one from Markdown or blocks, update_rich_document inserts, changes, moves or removes blocks (each call is one version), delete_rich_document removes one, and upload_rich_document_image stores an image for a block. "
   + "Mini Apps are interactive native documents: get_mini_app_catalog describes the schema; validate_mini_app checks a draft; create_mini_app, get_mini_app, list_mini_apps and update_mini_app manage saved apps; regenerate_mini_app_cover draws a new cover; add_mini_app_records fills a table with initial data (or pass records to create_mini_app), list_mini_app_records reads it back, and upload_mini_app_file stores an image or file (from create_upload's uploadKey or a public URL) and returns a file reference to keep in a json field or initialState. Never include credentials in their JSON. "
   + "update_summary edits one of the user's own chips (free). Trips are structured travel diaries (days, places, trains and "
@@ -84,7 +84,7 @@ export const INSTRUCTIONS = "Podcast tools: list_podcasts accepts day or summary
   + "directly to that URL with the returned headers before expiresAt, then get_upload returns a temporary download URL "
   + "or upload_trip_image consumes the uploadKey to make a lasting trip photo. Unattached raw uploads are cleaned up "
   + "after 24 hours. add_to_trip_from_source lets Chippy's trip agent "
-  + "add a web page or text (a booking, a timetable) to a trip, which costs points. Every edit of a chip's text or a trip saves "
+  + "add a web page or text (a booking, a timetable) to a trip. Every edit of a chip's text or a trip saves "
   + "a version: list_versions and get_version read the history, restore_version brings an earlier version back (free). "
   + "Papers are LaTeX projects (a main .tex file plus sections, .bib and style files) the user edits in the app with a live "
   + "PDF preview: list_papers and get_paper read them, create_paper starts one, update_paper edits its files (each call is "
@@ -100,7 +100,7 @@ export const INSTRUCTIONS = "Podcast tools: list_podcasts accepts day or summary
 export interface McpContext {
   db: Database;
   principal: McpPrincipal;
-  billingEnvironment?: BillingEnvironment;
+
   /** The caller's `Accept-Language`: others' chips come back translated into it. */
   accepted: TranslationLanguage | null;
 }
@@ -244,9 +244,9 @@ export function createMcpServer(context: McpContext): McpServer {
   registerResumeTools(server,context,run);
   registerMiniAppTools(server, db, principal.sub, run);
   registerPodcastTools(server, context, run);
-  registerGraphTools(server, { db, principal, billingEnvironment: context.billingEnvironment }, run);
+  registerGraphTools(server, { db, principal }, run);
   registerTodoTools(server, { db, principal }, run);
-  registerRichDocumentTools(server, { db, principal, billingEnvironment: context.billingEnvironment }, run);
+  registerRichDocumentTools(server, { db, principal }, run);
 
   server.registerTool(TOOL_NAMES.getProfile, {
     title: "Chippy Account", description: "Return the Chippy account authenticated by this connection.", inputSchema: {},
@@ -303,7 +303,7 @@ export function createMcpServer(context: McpContext): McpServer {
       visibility: args.visibility,
       allowDuplicate: args.allowDuplicate,
     });
-    const summary = await importSummary(db, principal, input, { free: true });
+    const summary = await importSummary(db, principal, input, {});
     return {
       result: success({ summary: chipPayload(summary) }, `Added "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`),
       summaryAdded: true,
@@ -350,7 +350,7 @@ export function createMcpServer(context: McpContext): McpServer {
     if (existing.kind === "rich_document") return { result: failure("This is a rich document: edit it with update_rich_document.") };
     if (existing.kind === "mini_app") return { result: failure("This is a Mini App: use update_mini_app.") };
     if (existing.kind === "paper") return { result: failure("This is a paper: edit it with update_paper.") };
-    const summary = await patchSummary(db, principal.sub, existing.id, patch, { billingEnvironment: async () => context.billingEnvironment, asWritten: true, actor: "agent" });
+    const summary = await patchSummary(db, principal.sub, existing.id, patch, { asWritten: true, actor: "agent" });
     return { result: success({ summary: chipPayload(summary) }, `Updated "${summary.title}" (${summary.visibility}).\n${summary.shareUrl}`) };
   }));
 
@@ -368,7 +368,7 @@ export function createMcpServer(context: McpContext): McpServer {
     },
     annotations: { title: "Search Summaries", readOnlyHint: true, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.searchSummaries, async () => {
-    const page = await listSummaries(db, principal.sub, listQuery({ ...args, q: args.query, limit: args.limit ?? 10 }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
+    const page = await listSummaries(db, principal.sub, listQuery({ ...args, q: args.query, limit: args.limit ?? 10 }), { accepted: context.accepted });
     return { result: success(listPayload(page)) };
   }));
 
@@ -385,7 +385,7 @@ export function createMcpServer(context: McpContext): McpServer {
     },
     annotations: { title: "List Summaries", readOnlyHint: true, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.listSummaries, async () => {
-    const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? MAX_LIST_RESULTS }), { accepted: context.accepted, billingEnvironment: async () => context.billingEnvironment });
+    const page = await listSummaries(db, principal.sub, listQuery({ ...args, limit: args.limit ?? MAX_LIST_RESULTS }), { accepted: context.accepted });
     return { result: success(listPayload(page)) };
   }));
 
@@ -456,7 +456,7 @@ export function createMcpServer(context: McpContext): McpServer {
     annotations: { title: "Create Trip", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.createTrip, async () => {
     const input = createTripSchema.parse({ document: args.document, visibility: args.visibility });
-    const trip = await createTrip(db, principal, input, { billingEnvironment: context.billingEnvironment });
+    const trip = await createTrip(db, principal, input, {});
     return { result: success({ trip: tripPayload(trip) }, `Created trip "${trip.document.title}" (${trip.visibility}).\n${trip.shareUrl}`) };
   }));
 
@@ -542,7 +542,7 @@ export function createMcpServer(context: McpContext): McpServer {
     inputSchema: { id: itemId, version: versionNumber },
     annotations: { title: "Restore Version", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.restoreVersion, async () => {
-    const restored = await restoreVersion(db, principal.sub, args.id, args.version, { billingEnvironment: async () => context.billingEnvironment });
+    const restored = await restoreVersion(db, principal.sub, args.id, args.version, {});
     const title = restored.trip?.document.title ?? restored.summary?.title ?? "";
     const payload = { version: restored.version, ...(restored.trip ? { trip: tripPayload(restored.trip) } : { summary: restored.summary && chipPayload(restored.summary) }) };
     const text = restored.version
@@ -604,7 +604,7 @@ export function createMcpServer(context: McpContext): McpServer {
     annotations: { title: "Create Paper", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, (args) => run(TOOL_NAMES.createPaper, async () => {
     const input = createPaperSchema.parse(args);
-    const paper = await createPaper(db, principal, input, { billingEnvironment: context.billingEnvironment, actor: "agent", referenceChecks: "now" });
+    const paper = await createPaper(db, principal, input, { actor: "agent", referenceChecks: "now" });
     const warning = referenceWarning(paper);
     const text = [`Created paper "${paper.title}" (${paper.visibility}).\n${paper.shareUrl}`, warning].filter(Boolean).join("\n\n");
     return { result: success({ paper: paperPayload(paper, [paper.mainFile]), ...(warning ? { warning } : {}) }, text) };
@@ -798,7 +798,7 @@ export function createMcpServer(context: McpContext): McpServer {
     title: "Add to Trip from Source",
     description: "Have Chippy's trip agent read a web page (url) or text (a booking confirmation, a timetable, a hotel "
       + "page, notes) and add what it contributes to a trip: transports with train or flight details, hotels, places, "
-      + "expenses, notes. Optional instructions steer it (\"use the 10:15 ferry\"). Costs points; takes up to about 3 minutes.",
+      + "expenses, notes. Optional instructions steer it (\"use the 10:15 ferry\"). Takes up to about 3 minutes.",
     inputSchema: {
       tripId: z.string().trim().min(1).max(100).describe("The trip's id."),
       url: z.string().optional().describe("http(s) URL of the page to read."),
@@ -807,12 +807,13 @@ export function createMcpServer(context: McpContext): McpServer {
     },
     annotations: { title: "Add to Trip from Source", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   }, (args) => run(TOOL_NAMES.addToTripFromSource, async () => {
+    await requireFlowcyAccess(principal.sub);
     if (!args.url === !args.text) throw new ApiError(400, "VALIDATION_ERROR", "Pass either url or text.");
     const input = ingestTripSchema.parse({
       source: args.url ? { type: "url", url: args.url } : { type: "text", text: args.text },
       instructions: args.instructions || undefined,
     });
-    const run = await addToTripFromSource(db, principal.sub, args.tripId, input, { billingEnvironment: context.billingEnvironment });
+    const run = await addToTripFromSource(db, principal.sub, args.tripId, input, {});
     return {
       result: success(
         { changeSummary: run.changeSummary, operationsApplied: run.applied, trip: tripPayload(run.trip) },

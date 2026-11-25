@@ -1,5 +1,6 @@
 import Foundation
 import AgentMessageListUI
+import LocalAgentKit
 import Observation
 import SummaryKit
 
@@ -110,8 +111,6 @@ final class ChatModel {
     @ObservationIgnored var onGraphSelection: ((GraphSelection?) -> Void)?
     private(set) var entries: [ChatEntry] = []
     private(set) var isStreaming = false
-    /// The last turn was refused because the points balance is empty.
-    var needsTopUp = false
     var draft = ""
     let files: ChatAttachmentDraft
     var graphElements: [GraphElementRef] = []
@@ -136,6 +135,7 @@ final class ChatModel {
     }
 
     private var task: Task<Void, Never>?
+    private var activeTurnID: String?
 
     init(client: ChatStreamClient, store: ChatTranscriptStore, summaryID: String? = nil, trip: TripChat? = nil, miniAppID: String? = nil, graph: GraphChat? = nil, resumeTarget: ResumeTarget? = nil) {
         self.client = client
@@ -207,14 +207,17 @@ final class ChatModel {
         let assistantID = UUID().uuidString
         entries.append(ChatEntry(id: assistantID, role: .assistant, text: "", isStreaming: true))
         isStreaming = true
+        activeTurnID = assistantID
         persist()
         let captured = resumeTarget
-        task = Task { await stream(request, into: assistantID, target: captured) }
+        let selection = ChatAgentSelection()
+        task = Task { await stream(request, into: assistantID, target: captured, selection: selection) }
     }
 
     func stop() {
         task?.cancel()
         task = nil
+        activeTurnID = nil
         finish(nil)
     }
 
@@ -291,7 +294,7 @@ final class ChatModel {
         store.remove(key: storeKey)
     }
 
-    private func stream(_ messages: [ChatUIMessage], into id: String, target: ResumeTarget?) async {
+    private func stream(_ messages: [ChatUIMessage], into id: String, target: ResumeTarget?, selection: ChatAgentSelection) async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--preview-chat-stream") {
             await previewStream(into: id)
@@ -300,7 +303,23 @@ final class ChatModel {
         #endif
         do {
             let localContent = await Self.localContent(summaryID: summaryID)
-            for try await event in client.stream(messages: messages, summaryID: summaryID, localContent: localContent, tripID: trip?.id, miniAppID: miniAppID, graphID: graph?.id, resumeTarget: target) {
+            try Task.checkCancellation()
+            let body = ChatRequestBody(messages: messages, summaryId: summaryID, localContent: localContent, tripId: trip?.id,
+                                       miniAppId: miniAppID, graphId: graph?.id, resumeTarget: target)
+            #if os(macOS)
+            if let agent = selection.localAgent {
+                try await LocalChatTurn.run(agent: agent, model: selection.localModelID, body: body, api: client.api) { event in
+                    self.apply(event, to: id)
+                } documentChanged: {
+                    self.onTripUpdated?()
+                    self.onGraphUpdated?()
+                }
+                finish(id)
+                return
+            }
+            #endif
+            for try await event in client.stream(body) {
+                try Task.checkCancellation()
                 apply(event, to: id)
             }
             finish(id)
@@ -309,8 +328,8 @@ final class ChatModel {
         } catch let error as URLError where error.code == .cancelled {
             finish(id)
         } catch {
+            guard activeTurnID == id, !Task.isCancelled else { return }
             update(id) { $0.errorText = error.localizedDescription }
-            needsTopUp = (error as? SummaryAPIError)?.needsTopUp == true
             finish(id)
         }
     }
@@ -405,8 +424,8 @@ final class ChatModel {
     private func applyToolOutput(_ output: JSONValue, callID: String, to id: String) {
         let editedResume = output["document"] != nil ? try? output.decode(ResolvedResume.self) : nil
         if let editedResume, let target = resumeTarget, editedResume.familyId == target.familyId,
-           editedResume.language == target.language, editedResume.variantId == target.variantId {
-            resumeTarget = editedResume.target
+           editedResume.variantId == target.variantId {
+            if editedResume.language == target.language { resumeTarget = editedResume.target }
             onResumeUpdated?(editedResume)
         }
         update(id) { entry in
@@ -440,6 +459,8 @@ final class ChatModel {
     }
 
     private func finish(_ id: String?) {
+        if let id, activeTurnID != id { return }
+        if id != nil { activeTurnID = nil; task = nil }
         isStreaming = false
         for index in entries.indices where entries[index].isStreaming {
             entries[index].isStreaming = false

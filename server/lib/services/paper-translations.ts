@@ -1,4 +1,3 @@
-import type { LanguageModelUsage } from "ai";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { TRANSLATION_LANGUAGES, type TranslationLanguage } from "@/lib/contracts/api";
@@ -8,7 +7,8 @@ import { papers, paperTranslations, summaries, type PaperRow, type SummaryRow } 
 import { ApiError } from "@/lib/http/errors";
 import { mapPaperTexts, paperTexts } from "@/lib/latex/paper-texts";
 import { getOwnedPaper } from "./papers";
-import { holdTranslation, settleTranslation, translationLanguageFor, type TranslationPayer } from "./translations";
+import { translationLanguageFor, type TranslationAccount } from "./translations";
+import { requireFlowcyAccess } from "@/lib/subscription/flowcy";
 
 const STALE_MS = 10 * 60_000;
 
@@ -60,18 +60,18 @@ export async function listPaperTranslations(db: Database, summary: SummaryRow, p
 /** Translate only new/changed prose, keeping every LaTeX token and all assets in the original. */
 export async function translatePaper(
   db: Database, id: string, ownerId: string, requested: TranslationLanguage | null,
-  payer: TranslationPayer, options: { ai?: AiProvider } = {},
+  account: TranslationAccount, options: { ai?: AiProvider } = {},
 ): Promise<void> {
   const { summary, paper } = await getOwnedPaper(db, id, ownerId);
   const language = targetLanguage(summary, ownerId, requested);
-  if (language) await translateMissing(db, summary, paper, language, payer, options.ai);
+  if (language) await translateMissing(db, summary, paper, language, account, options.ai);
   // A translation written while the source changed must not become the selected reading.
   const [current] = await db.select().from(papers).where(eq(papers.summaryId, id)).limit(1);
   if (current?.revision !== paper.revision) throw new ApiError(409, "PAPER_TRANSLATION_OUTDATED", "The paper changed while translating. Update the translation and try again.");
   await db.update(summaries).set({ displayLanguage: language }).where(eq(summaries.id, id));
 }
 
-async function translateMissing(db: Database, summary: SummaryRow, paper: PaperRow, language: TranslationLanguage, payer: TranslationPayer, provider?: AiProvider) {
+async function translateMissing(db: Database, summary: SummaryRow, paper: PaperRow, language: TranslationLanguage, account: TranslationAccount, provider?: AiProvider) {
   const texts = paperTexts(paperDocument(summary, paper));
   const saved = await savedTranslation(db, summary.id, language);
   const strings = Object.fromEntries(Object.entries(saved?.strings ?? {}).filter(([text]) => texts.includes(text)));
@@ -88,21 +88,14 @@ async function translateMissing(db: Database, summary: SummaryRow, paper: PaperR
     .where(and(where, or(isNull(paperTranslations.translatingSince), lt(paperTranslations.translatingSince, new Date(now.getTime() - STALE_MS)))))
     .returning({ language: paperTranslations.language });
   if (!claimed.length) throw new ApiError(409, "PAPER_TRANSLATING", "This paper is already being translated into this language. Try again shortly.");
-  const steps: LanguageModelUsage[] = [];
-  let delivered = false;
   try {
     const ai = provider ?? await getAiProvider();
-    const charge = await holdTranslation(ai, payer, `${summary.id}:${language}:paper:${paper.revision}`, { summaryId: summary.id, language, part: "paper", texts: missing.length });
-    try {
-      const output = await ai.translateStrings(missing, language, { timeoutMs: 240_000, onUsage: (usage) => steps.push(usage) });
-      if (output?.length === missing.length) output.forEach((text, index) => { if (text?.trim()) strings[missing[index]] = text.trim(); });
-      delivered = missing.some((text) => Object.hasOwn(strings, text));
-      const complete = texts.every((text) => Object.hasOwn(strings, text));
-      await db.update(paperTranslations).set({ strings, revision: complete ? paper.revision : -1, updatedAt: new Date() }).where(and(where, eq(paperTranslations.translatingSince, now)));
-      if (!complete) throw new ApiError(502, "PAPER_TRANSLATION_FAILED", "The paper could not be fully translated. Try again to finish the missing text.");
-    } finally {
-      await settleTranslation(charge, ai, delivered, steps, { part: "paper" });
-    }
+    await requireFlowcyAccess(account.userId, account.environment);
+    const output = await ai.translateStrings(missing, language, { timeoutMs: 240_000 });
+    if (output?.length === missing.length) output.forEach((text, index) => { if (text?.trim()) strings[missing[index]] = text.trim(); });
+    const complete = texts.every((text) => Object.hasOwn(strings, text));
+    await db.update(paperTranslations).set({ strings, revision: complete ? paper.revision : -1, updatedAt: new Date() }).where(and(where, eq(paperTranslations.translatingSince, now)));
+    if (!complete) throw new ApiError(502, "PAPER_TRANSLATION_FAILED", "The paper could not be fully translated. Try again to finish the missing text.");
   } finally {
     await db.update(paperTranslations).set({ translatingSince: null }).where(and(where, eq(paperTranslations.translatingSince, now)));
   }

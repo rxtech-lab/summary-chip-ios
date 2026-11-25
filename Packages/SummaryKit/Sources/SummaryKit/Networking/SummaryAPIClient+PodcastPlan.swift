@@ -198,7 +198,7 @@ extension SummaryAPIClient {
         let response: PlanEnvelope = try await send(request)
         return response.plan
     }
-    /// Revises the plan from one chat message (spends points).
+    /// Revises the plan from one chat message.
     public func refinePodcastPlan(_ plan: PodcastPlan, message: String) async throws -> PodcastPlan {
         struct Body: Encodable { var revision: Int; var message: String }
         var request = try json("/api/v1/daily-podcasts/plans/\(plan.id.urlPathEscaped)/messages", method: "POST",
@@ -207,7 +207,7 @@ extension SummaryAPIClient {
         let response: PlanEnvelope = try await send(request)
         return response.plan
     }
-    /// Draws the storyboard frames the plan's current revision is missing (spends points).
+    /// Draws the storyboard frames the plan's current revision is missing.
     public func drawPodcastPlanFrames(_ plan: PodcastPlan) async throws -> PodcastPlan {
         struct Body: Encodable { var revision: Int }
         var request = try json("/api/v1/daily-podcasts/plans/\(plan.id.urlPathEscaped)/frames", method: "POST", body: Body(revision: plan.revision))

@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
+import { getAiProvider } from "@/lib/ai/provider";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import type { createPaperSchema, PaperDocument, PaperOperation, PaperReference, putPaperSchema } from "@/lib/contracts/paper";
 import type { Database } from "@/lib/db/client";
@@ -9,7 +10,8 @@ import { EXCERPT_LIMIT, SOURCE_TEXT_LIMIT } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
 import { getLatexCompiler, LatexCompilerError, type LatexIssue, type LatexResult } from "@/lib/latex/compiler";
-import type { ObjectStore } from "@/lib/storage/r2";
+import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { selectCoverTheme } from "./cover-colors";
 import { paperContent, versionStatements, type VersionContentByKind, type VersionOptions } from "./document-versions";
 import { embedSummary, indexSummary } from "./embeddings";
@@ -211,7 +213,9 @@ export async function getPaper(db: Database, id: string, viewerId: string, optio
  * Papers don't count against the summary allowance, and their link never expires.
  */
 export async function createPaper(db: Database, principal: ApiPrincipal, input: CreatePaperInput, deps: ServiceDeps & VersionOptions & ReferenceCheckOptions = {}): Promise<PaperJson> {
-  const { ai, store, now } = await resolveDeps(deps);
+  const store = deps.store ?? getObjectStore();
+  const now = deps.now ?? (() => new Date());
+  const ai = await hasFlowcyAccess(principal.sub) ? (deps.ai ?? await getAiProvider()) : null;
   const id = crypto.randomUUID();
   const fallbackTitle = input.title ?? "Untitled Paper";
   const project = input.files
@@ -226,8 +230,8 @@ export async function createPaper(db: Database, principal: ApiPrincipal, input: 
   const digest = paperDigest(document);
   const text = paperText(document).slice(0, SOURCE_TEXT_LIMIT);
 
-  const language = await ai.detectLanguage(digest) ?? "en";
-  const design = await ai.designCover({ title: digest.title, summary: digest.summary, category: "Research", keywords: digest.keywords, text, language });
+  const language = (ai ? await ai.detectLanguage(digest) : null) ?? "en";
+  const design = ai ? await ai.designCover({ title: digest.title, summary: digest.summary, category: "Research", keywords: digest.keywords, text, language }) : null;
   const normalized = normalizeDraft({
     ...digest,
     category: "Research",
@@ -243,7 +247,7 @@ export async function createPaper(db: Database, principal: ApiPrincipal, input: 
     tags: PAPER_TAGS,
     theme: await selectCoverTheme(db, principal.sub, normalized.theme),
   };
-  const embedding = embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text });
+  const embedding = ai ? embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text }) : Promise.resolve(null);
 
   const createdAt = now();
   const imageKeys = await coverImages(store, ai, id, draft, null, "illustration", createdAt, "paper");
@@ -298,7 +302,7 @@ export async function createPaper(db: Database, principal: ApiPrincipal, input: 
   ], paperContent(document), { actor: deps.actor });
   // Debounced: an agent usually fills a paper in with edits right after creating it.
   runAfter(() => startPaperNotification(id).catch(() => console.warn("[papers] notification not started")));
-  await checkReferences(db, id, document, { ai, now }, { referenceQuietMs: 0, ...deps });
+  if (ai) await checkReferences(db, id, document, { ai, now }, { referenceQuietMs: 0, ...deps });
   return paperJson(db, row, paperRow, principal.sub);
 }
 
@@ -340,7 +344,8 @@ async function savePaper(
   document: PaperDocument,
   options: { version: boolean },
 ): Promise<PaperJson> {
-  const { ai, now, store } = await resolveDeps(deps);
+  const store = deps.store ?? getObjectStore();
+  const now = deps.now ?? (() => new Date());
   document = await preparePaperAssets(db, store, summary.ownerId, summary.id, document, paper.files);
   const updatedAt = now();
   const revision = paper.revision + 1;
@@ -380,8 +385,11 @@ async function savePaper(
   }
   if (notify) runAfter(() => startPaperNotification(summary.id).catch(() => console.warn("[papers] notification not started")));
   const updated = { ...summary, ...changes };
-  runAfter(() => indexSummary(db, ai, updated));
-  await checkReferences(db, summary.id, document, { ai, now }, deps);
+  if (await hasFlowcyAccess(summary.ownerId)) {
+    const ai = deps.ai ?? await getAiProvider();
+    runAfter(() => indexSummary(db, ai, updated));
+    await checkReferences(db, summary.id, document, { ai, now }, deps);
+  }
   return paperJson(db, updated, { ...paper, ...saved }, summary.ownerId);
 }
 

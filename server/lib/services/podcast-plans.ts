@@ -9,7 +9,6 @@ import type { Database } from "@/lib/db/client";
 import { podcastPlans } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, ownerKeyPrefix, type ObjectStore } from "@/lib/storage/r2";
-import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { createDailyPodcast, dailyPodcastChips } from "./daily-podcast";
 import { appendPlanTurn, planChatHistory } from "./plan-transcript";
 import { getSummaryForViewer, type ServiceDeps } from "./summaries";
@@ -96,22 +95,16 @@ export async function createPodcastPlan(db: Database, user: string, input: Podca
   const voices = podcastVoices(model);
   if (input.speakerNames && input.speakerNames.length > voices.length) throw new ApiError(422, "PODCAST_SPEAKERS_UNAVAILABLE", "Choose fewer speakers.");
   const id = randomUUID();
-  const charge = await reservePodcastPoints(user, `plan:${id}`, ai.podcastModelId(), deps.billingEnvironment);
-  let cost = 0;
-  try {
-    const pricing = charge ? await ai.podcastPricing() : null;
-    const script = podcastPlanScriptSchema.parse(await ai.writePodcast({
-      language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, storyboard: true, videoStyle: input.videoStyle,
-      recap: input.recap || (input.sourceMode !== "fullText" && (!input.library || input.durationSeconds !== undefined)),
-      maxDurationSeconds: input.recap ? Math.min(179, input.durationSeconds ?? 179) : input.durationSeconds ?? 360, approximateDuration: !input.recap,
-      chips: await podcastSources(chips, user, input, deps.store ?? getObjectStore()),
-    }, { abortSignal: AbortSignal.timeout(100_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } }));
-    validatePlan(script, input, chips.map(chip => chip.id), voices);
-    const now = (deps.now?.() ?? new Date()).getTime();
-    await db.insert(podcastPlans).values({ id, ownerId: user, input: { ...input, regenerate: true }, script, createdAt: now, updatedAt: now });
-    await charge?.settle(Math.max(1, pointsForCost(cost)), { plan: true, textCostUsd: cost });
-    return readPodcastPlan(db, user, id, { ...deps, ai });
-  } catch (error) { await charge?.settle(0, { failed: true }); throw error; }
+  const script = podcastPlanScriptSchema.parse(await ai.writePodcast({
+    language: LANGUAGE_NAMES[input.language], voices, speakerNames: input.speakerNames, storyboard: true, videoStyle: input.videoStyle,
+    recap: input.recap || (input.sourceMode !== "fullText" && (!input.library || input.durationSeconds !== undefined)),
+    maxDurationSeconds: input.recap ? Math.min(179, input.durationSeconds ?? 179) : input.durationSeconds ?? 360, approximateDuration: !input.recap,
+    chips: await podcastSources(chips, user, input, deps.store ?? getObjectStore()),
+  }, { abortSignal: AbortSignal.timeout(100_000) }));
+  validatePlan(script, input, chips.map(chip => chip.id), voices);
+  const now = (deps.now?.() ?? new Date()).getTime();
+  await db.insert(podcastPlans).values({ id, ownerId: user, input: { ...input, regenerate: true }, script, createdAt: now, updatedAt: now });
+  return readPodcastPlan(db, user, id, { ...deps, ai });
 }
 
 /** Saves a reviewed script (edited lines). Shots whose direction changed lose their frame until it is redrawn. */
@@ -135,15 +128,12 @@ export async function refinePodcastPlanChat(db: Database, user: string, id: stri
   if (plan.confirmed || plan.revision !== revision) throw changed();
   const chips = await planSources(db, user, plan.input);
   const ai = deps.ai ?? await getAiProvider();
-  const charge = await reservePodcastPoints(user, `plan:${id}:chat:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
-  let cost = 0;
   try {
-    const pricing = charge ? await ai.podcastPricing() : null;
     const refined = await ai.refinePodcastPlan({
       language: LANGUAGE_NAMES[plan.input.language], videoStyle: plan.input.videoStyle, script: plan.script, request: message,
       chips: await podcastSources(chips, user, plan.input, deps.store ?? getObjectStore()),
       history: planChatHistory(plan.messages),
-    }, { abortSignal: AbortSignal.timeout(120_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
+    }, { abortSignal: AbortSignal.timeout(120_000) });
     const script = refined.script ? podcastPlanScriptSchema.parse(refined.script) : null;
     if (script) validatePlan(script, plan.input, chips.map(chip => chip.id), plan.script.speakers.map(speaker => speaker.voice));
     const now = (deps.now?.() ?? new Date()).toISOString();
@@ -155,10 +145,8 @@ export async function refinePodcastPlanChat(db: Database, user: string, id: stri
       eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user), eq(podcastPlans.revision, revision), eq(podcastPlans.confirmed, false),
     )).returning();
     if (!updated) throw changed();
-    await charge?.settle(Math.max(1, pointsForCost(cost)), { plan: true, chat: true, textCostUsd: cost });
     return publicPodcastPlan(updated, { store: deps.store, storyboard: !!ai.storyboardImageModelId() });
   } catch (error) {
-    await charge?.settle(0, { failed: true });
     if (error instanceof ApiError) throw error;
     console.error("[podcast-plan] refinement failed", error);
     throw new ApiError(502, "PODCAST_PLAN_REFINE_FAILED", "The plan could not be revised. Please try again.");
@@ -181,40 +169,30 @@ export async function drawPodcastPlanFrames(db: Database, user: string, id: stri
     if (!plan.frames[hash] && !missing.has(hash)) missing.set(hash, segment);
   }
   if (!missing.size) return publicPodcastPlan(plan, { store, storyboard: true });
-  const charge = await reservePodcastPoints(user, `plan:${id}:frames:${randomUUID()}`, model, deps.billingEnvironment);
   const drawn: Record<string, PodcastPlanFrame> = {};
-  let attempts = 0;
-  try {
-    const deadline = AbortSignal.timeout(240_000);
-    const queue = [...missing];
-    await Promise.all(Array.from({ length: Math.min(FRAME_CONCURRENCY, queue.length) }, async () => {
-      for (let next = queue.shift(); next && !deadline.aborted; next = queue.shift()) {
-        const [hash, segment] = next;
-        attempts += 1;
-        try {
-          const frame = await ai.drawStoryboardFrame({ camera: segment.camera, caption: segment.caption, chipTitle: titles.get(segment.chipId) ?? "",
-            style: plan.input.videoStyle }, { abortSignal: deadline });
-          const key = frameKey(user, id, hash);
-          await store.put(key, { bytes: frame.png, contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
-          drawn[hash] = { key, width: frame.width, height: frame.height };
-        } catch (error) {
-          // One shot failing leaves it without a frame; the user can draw the missing ones again.
-          console.warn("[podcast-plan] storyboard frame failed", { plan: id, message: (error instanceof Error ? error.message : String(error)).slice(0, 300) });
-        }
+  const deadline = AbortSignal.timeout(240_000);
+  const queue = [...missing];
+  await Promise.all(Array.from({ length: Math.min(FRAME_CONCURRENCY, queue.length) }, async () => {
+    for (let next = queue.shift(); next && !deadline.aborted; next = queue.shift()) {
+      const [hash, segment] = next;
+      try {
+        const frame = await ai.drawStoryboardFrame({ camera: segment.camera, caption: segment.caption, chipTitle: titles.get(segment.chipId) ?? "",
+          style: plan.input.videoStyle }, { abortSignal: deadline });
+        const key = frameKey(user, id, hash);
+        await store.put(key, { bytes: frame.png, contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
+        drawn[hash] = { key, width: frame.width, height: frame.height };
+      } catch (error) {
+        // One shot failing leaves it without a frame; the user can draw the missing ones again.
+        console.warn("[podcast-plan] storyboard frame failed", { plan: id, message: (error instanceof Error ? error.message : String(error)).slice(0, 300) });
       }
-    }));
-    // Content-keyed frames merge safely with a concurrent revision; pruning drops any it no longer uses.
-    const latest = await getPodcastPlan(db, user, id);
-    const frames = await pruneFrames(store, { script: latest.script, frames: { ...latest.frames, ...drawn }, input: latest.input });
-    const [updated] = await db.update(podcastPlans).set({ frames, updatedAt: (deps.now?.() ?? new Date()).getTime() }).where(and(eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user))).returning();
-    const cost = attempts * ai.storyboardImageUsdPerImage();
-    await charge?.settle(Object.keys(drawn).length ? Math.max(1, pointsForCost(cost)) : 0, { plan: true, frames: Object.keys(drawn).length, imageCostUsd: cost });
-    if (!Object.keys(drawn).length) throw new ApiError(502, "PODCAST_STORYBOARD_FAILED", "The storyboard frames could not be drawn. Please try again.");
-    return publicPodcastPlan(updated, { store, storyboard: true });
-  } catch (error) {
-    if (!(error instanceof ApiError && error.code === "PODCAST_STORYBOARD_FAILED")) await charge?.settle(0, { failed: true });
-    throw error;
-  }
+    }
+  }));
+  // Content-keyed frames merge safely with a concurrent revision; pruning drops any it no longer uses.
+  const latest = await getPodcastPlan(db, user, id);
+  const frames = await pruneFrames(store, { script: latest.script, frames: { ...latest.frames, ...drawn }, input: latest.input });
+  const [updated] = await db.update(podcastPlans).set({ frames, updatedAt: (deps.now?.() ?? new Date()).getTime() }).where(and(eq(podcastPlans.id, id), eq(podcastPlans.ownerId, user))).returning();
+  if (!Object.keys(drawn).length) throw new ApiError(502, "PODCAST_STORYBOARD_FAILED", "The storyboard frames could not be drawn. Please try again.");
+  return publicPodcastPlan(updated, { store, storyboard: true });
 }
 
 /** The owner's unconfirmed plans, most recently changed first, as the library lists them. */
@@ -256,7 +234,7 @@ export async function confirmPodcastPlan(db: Database, user: string, id: string,
       if (!plan.confirmed || plan.revision !== revision) throw changed();
     } else { plan = confirmed; }
   }
-  // Fence concurrent confirmations across server instances before any media or billing calls.
+  // Fence concurrent confirmations across server instances before generating media.
   const now = Date.now();
   const lease = now + 330_000;
   const claimed = await db.update(podcastPlans).set({ generatingUntil: lease }).where(and(

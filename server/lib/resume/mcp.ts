@@ -8,6 +8,7 @@ import {
   resumeIdSchema,
   resumeTargetSchema,
   restoreResumeSchema,
+  saveResumeTranslationSchema,
   previewResumeRestoreSchema,
 } from "@/lib/contracts/resume";
 import {
@@ -20,6 +21,7 @@ import {
   listResumeHistory,
   previewResumeRestore,
   restoreResume,
+  saveResumeTranslation,
 } from "@/lib/services/resumes";
 import {
   avatarUploadSchema,
@@ -33,14 +35,16 @@ import {
 } from "@/lib/services/resume-outputs";
 import { RESUME_TEMPLATES } from "@/lib/resume/render";
 import { deleteShareLink } from "@/lib/services/share-links";
+import { requireFlowcyAccess } from "@/lib/subscription/flowcy";
 import { getResumeProposal, createResumeProposal, applyResumeProposal } from "./proposals";
 import { proposalSchema, applyProposalSchema } from "./proposal-contract";
+import { readResumeForAgent, translationLanguage } from "./agent-translation";
 import type { McpContext } from "@/lib/mcp/server";
 import { securitySchemes } from "@/lib/mcp/oauth-config";
 
 type Run = (name: string, action: () => Promise<{ result: CallToolResult }>) => Promise<CallToolResult>;
 export function registerResumeTools(server: McpServer, context: McpContext, run: Run) {
-  const { db, principal, billingEnvironment } = context,
+  const { db, principal } = context,
     owner = principal.sub;
   const target = { familyId: resumeIdSchema };
   function register<S extends z.ZodRawShape>(
@@ -83,10 +87,10 @@ export function registerResumeTools(server: McpServer, context: McpContext, run:
   }));
   register(
     "get_resume",
-    "Resolve the base or a company résumé, optionally at a historical token.",
-    resumeTargetSchema.extend(target),
+    "Read the base or a company résumé, optionally at a historical token. To translate it yourself, set language to the source language and translationLanguage to the destination. This returns translationFields with their source wording and both revision tokens for save_resume_translation.",
+    resumeTargetSchema.extend({ ...target, translationLanguage }),
     true,
-    ({ familyId, ...input }) => getResume(db, owner, familyId, input),
+    ({ familyId, translationLanguage, ...input }) => readResumeForAgent(db, owner, familyId, input, translationLanguage),
   );
   register(
     "edit_resume",
@@ -94,6 +98,13 @@ export function registerResumeTools(server: McpServer, context: McpContext, run:
     editResumeSchema.extend(target),
     false,
     ({ familyId, ...input }) => editResume(db, owner, familyId, input),
+  );
+  register(
+    "save_resume_translation",
+    "Save your own translated wording as a language edition of the same résumé. Read get_resume with translationLanguage, translate its translationFields, and send {path,value} pairs plus both returned tokens. Supply every field to create an edition (expectedRevisionToken null), or only the fields to update an existing edition. Keep the returned paths, including any /base prefix, and use one idempotencyKey per edit.",
+    saveResumeTranslationSchema.extend(target),
+    false,
+    ({ familyId, ...input }) => saveResumeTranslation(db, owner, familyId, input),
   );
   register(
     "preview_resume_company",
@@ -137,10 +148,13 @@ export function registerResumeTools(server: McpServer, context: McpContext, run:
   for (const kind of ["review", "tailor", "translate"] as const) {
     register(
       kind + "_resume",
-      "Generate a points-billed " + kind + " proposal. Translation refresh reuses unchanged wording.",
+      "Generate a Flowcy Plus AI " + kind + " proposal." + (kind === "translate" ? " Translation refresh reuses unchanged wording. To translate the résumé yourself or save wording you already have, use save_resume_translation." : ""),
       z.object({ ...proposalSchema.shape, ...target }).omit({ kind: true }),
       false,
-      ({ familyId, ...input }) => createResumeProposal(db, owner, familyId, { ...input, kind }, billingEnvironment),
+      async ({ familyId, ...input }) => {
+        await requireFlowcyAccess(owner);
+        return createResumeProposal(db, owner, familyId, { ...input, kind });
+      },
     );
   }
   register(

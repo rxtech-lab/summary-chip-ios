@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
+import { getAiProvider } from "@/lib/ai/provider";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
 import {
   graphDocumentSchema,
@@ -20,6 +21,8 @@ import { EXCERPT_LIMIT, SOURCE_TEXT_LIMIT } from "@/lib/extract";
 import { GraphQuerySyntaxError, runGraphQuery, type GraphQueryResult } from "@/lib/graph/query";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
+import { getObjectStore } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { selectCoverTheme } from "./cover-colors";
 import { versionStatements, type VersionOptions } from "./document-versions";
 import { embedSummary, indexSummary } from "./embeddings";
@@ -210,14 +213,16 @@ export async function listGraphs(db: Database, ownerId: string): Promise<{ graph
  * don't count against the summary allowance and their link never expires.
  */
 export async function createGraph(db: Database, principal: ApiPrincipal, input: CreateGraphInput, deps?: ServiceDeps & VersionOptions): Promise<GraphJson> {
-  const { ai, store, now } = await resolveDeps(deps);
+  const store = deps?.store ?? getObjectStore();
+  const now = deps?.now ?? (() => new Date());
+  const ai = await hasFlowcyAccess(principal.sub) ? (deps?.ai ?? await getAiProvider()) : null;
   const document = input.document;
   const id = crypto.randomUUID();
   const digest = graphDigest(document);
   const text = graphText(document).slice(0, SOURCE_TEXT_LIMIT);
 
-  const language = await ai.detectLanguage(digest) ?? "en";
-  const design = await ai.designCover({ title: digest.title, summary: digest.summary, category: "Research", keywords: digest.keywords, text, language });
+  const language = (ai ? await ai.detectLanguage(digest) : null) ?? "en";
+  const design = ai ? await ai.designCover({ title: digest.title, summary: digest.summary, category: "Research", keywords: digest.keywords, text, language }) : null;
   const normalized = normalizeDraft({
     ...digest,
     category: "Research",
@@ -231,7 +236,7 @@ export async function createGraph(db: Database, principal: ApiPrincipal, input: 
     tags: GRAPH_TAGS,
     theme: await selectCoverTheme(db, principal.sub, normalized.theme),
   };
-  const embedding = embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text });
+  const embedding = ai ? embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text }) : Promise.resolve(null);
 
   const createdAt = now();
   const imageKeys = await coverImages(store, ai, id, draft, null, "illustration", createdAt, "graph");
@@ -353,7 +358,7 @@ export function applyGraphOperations(document: GraphDocument, operations: GraphO
  * `409 GRAPH_REVISION_CONFLICT`), refreshes the card's derived text and adds a version.
  */
 async function saveGraph(db: Database, deps: SaveDeps, summary: SummaryRow, graph: GraphRow, document: GraphDocument): Promise<GraphJson> {
-  const { ai, now } = await resolveDeps(deps);
+  const now = deps.now ?? (() => new Date());
   if (JSON.stringify(graph.document) === JSON.stringify(document)) return toGraphJson(summary, graph, summary.ownerId);
   const updatedAt = now();
   const revision = graph.revision + 1;
@@ -380,7 +385,10 @@ async function saveGraph(db: Database, deps: SaveDeps, summary: SummaryRow, grap
     throw revisionConflict(current.revision);
   }
   const updated = { ...summary, ...changes };
-  runAfter(() => indexSummary(db, ai, updated));
+  if (await hasFlowcyAccess(summary.ownerId)) {
+    const ai = deps.ai ?? await getAiProvider();
+    runAfter(() => indexSummary(db, ai, updated));
+  }
   return toGraphJson(updated, { ...graph, document, revision, updatedAt }, summary.ownerId);
 }
 

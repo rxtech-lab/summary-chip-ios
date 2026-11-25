@@ -132,7 +132,7 @@ struct TripTourView: View {
             Button("Regenerate") { Task { await player.start(regenerate: true) } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("The narration is written again from the trip as it is now. This uses points.")
+            Text("The narration is written again from the trip as it is now.")
         }
         .sensoryFeedback(.selection, trigger: player.sceneChanges)
         .sensoryFeedback(.impact(weight: .light), trigger: isMinimized)

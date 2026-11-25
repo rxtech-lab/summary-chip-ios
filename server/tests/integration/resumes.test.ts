@@ -15,9 +15,11 @@ import {
   previewResumeRestore,
   previewResumeVariant,
   restoreResume,
+  saveResumeTranslation,
   type ResolvedResume,
 } from "@/lib/services/resumes";
 import { resumeAssets, resumeRevisions, summaries } from "@/lib/db/schema";
+import { readResumeForAgent } from "@/lib/resume/agent-translation";
 import { setupTestEnv, type TestEnv } from "../helpers/setup";
 
 const fixture = JSON.parse(readFileSync("../Packages/SummaryKit/Tests/SummaryKitTests/Fixtures/resume.json", "utf8"));
@@ -204,6 +206,82 @@ describe("private structured résumés", () => {
     expect((await getResume(db, owner, b.familyId, { revisionToken: b.revisionToken })).document.avatarAssetId).toBe(
       av,
     );
+  });
+  it("rejects invalid direct translations atomically, including writes based on stale English text", async () => {
+    const db = env.handle.db;
+    const source = await createResume(db, owner, {
+      title: "CV", language: "en", idempotencyKey: randomUUID(),
+      document: { version: 1, candidateName: "Ming", headline: "Designer", links: [], sections: [] },
+    });
+    const save = (translations: { path: string; value: string }[]) => saveResumeTranslation(db, owner, source.familyId, {
+      sourceLanguage: "en", language: "zh-Hans", sourceRevisionToken: source.revisionToken,
+      expectedRevisionToken: null, idempotencyKey: randomUUID(), translations,
+    });
+    const name = { path: "/candidateName", value: "Ming" }, headline = { path: "/headline", value: "设计师" };
+    for (const invalid of [
+      [name], [name, headline, headline], [name, { ...headline, value: "  " }],
+      [name, headline, { path: "/contact/email", value: "ming@example.com" }],
+      [name, headline, { path: "/sections/unknown/title", value: "经历" }],
+    ]) {
+      await expect(save(invalid)).rejects.toThrow();
+      expect((await get(source)).languages).toEqual(["en"]);
+    }
+    await edit(source, [{ op: "set", path: "/headline", value: "Product designer" }]);
+    await expect(save([name, headline])).rejects.toMatchObject({ code: "RESUME_REVISION_CONFLICT" });
+    expect((await get(source)).languages).toEqual(["en"]);
+  });
+  it("creates the base language and company translation together while keeping their wording distinct", async () => {
+    const db = env.handle.db;
+    const base = await createResume(db, owner, {
+      title: "CV", language: "en", idempotencyKey: randomUUID(),
+      document: { version: 1, candidateName: "Ming", headline: "Engineer", links: [], sections: [] },
+    });
+    const company = await edit(await variant(base, "Acme"), [
+      { op: "set", path: "/headline", value: "Robotics engineer" },
+      { op: "set", path: "/candidateName", value: "Ming Chen" },
+    ]);
+    const chinese = await saveResumeTranslation(db, owner, base.familyId, {
+      variantId: company.variantId, sourceLanguage: "en", language: "zh-Hans", sourceRevisionToken: company.revisionToken,
+      expectedRevisionToken: null, idempotencyKey: randomUUID(), translations: [
+        { path: "/base/candidateName", value: "Ming" }, { path: "/base/headline", value: "工程师" },
+        { path: "/headline", value: "机器人工程师" }, { path: "/candidateName", value: "陈明" },
+      ],
+    });
+    expect(chinese).toMatchObject({
+      familyId: base.familyId, variantId: company.variantId, missingTranslationPaths: [],
+      document: { headline: "机器人工程师" },
+    });
+    const chineseBase = await getResume(db, owner, base.familyId, { language: "zh-Hans" });
+    expect(chineseBase.document.headline).toBe("工程师");
+    expect(chineseBase.translationBaselines["/headline"]).toMatchObject({
+      sourceRevisionToken: base.revisionToken, sourceValue: "Engineer", acceptedValue: "工程师",
+    });
+    expect((await get(company)).document.headline).toBe("Robotics engineer");
+
+    const revised = await edit(chinese, [
+      { op: "set", path: "/headline", value: "机器人研发工程师" }, { op: "reset", path: "/candidateName" },
+    ]);
+    const fields = await readResumeForAgent(db, owner, base.familyId, {
+      variantId: company.variantId, language: "zh-Hans",
+    }, "fr");
+    expect(fields).toMatchObject({
+      translationFields: { "/base/candidateName": "Ming", "/base/headline": "工程师", "/headline": "机器人研发工程师" },
+    });
+    expect(fields).not.toHaveProperty(["translationFields", "/candidateName"]);
+    const french = await saveResumeTranslation(db, owner, base.familyId, {
+      variantId: company.variantId, sourceLanguage: "zh-Hans", language: "fr", sourceRevisionToken: revised.revisionToken,
+      expectedRevisionToken: null, idempotencyKey: randomUUID(), translations: [
+        { path: "/base/candidateName", value: "Ming" }, { path: "/base/headline", value: "Ingénieur" },
+        { path: "/headline", value: "Ingénieur en robotique" },
+      ],
+    });
+    expect(french).toMatchObject({
+      document: { candidateName: "Ming", headline: "Ingénieur en robotique" },
+      missingTranslationPaths: [],
+      translationBaselines: { "/headline": { sourceValue: "机器人研发工程师", sourceRevisionToken: revised.revisionToken } },
+    });
+    await edit(await get(revised), [{ op: "set", path: "/headline", value: "高级机器人工程师" }]);
+    expect((await get(french)).missingTranslationPaths).toContain("/headline");
   });
   it("imports only selected differences and resets inherited values", async () => {
     const db = env.handle.db;

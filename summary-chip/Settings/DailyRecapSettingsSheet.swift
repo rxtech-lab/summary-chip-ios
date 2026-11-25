@@ -2,7 +2,7 @@ import SwiftUI
 import SummaryKit
 
 struct DailyRecapSettingsSheet: View {
-    let api: SummaryAPIClient
+    let environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
     @State private var enabled = false
     @State private var language: SummaryLanguage = .en
@@ -13,15 +13,26 @@ struct DailyRecapSettingsSheet: View {
     @State private var saving = false
     @State private var error: String?
     @State private var saved = false
+    @State private var showsSubscription = false
+
+    private var api: SummaryAPIClient { environment.api }
+    private var isSubscribed: Bool { environment.subscription.isActive }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     Toggle("Automatic Daily Recap", isOn: $enabled)
+                        .disabled(!isSubscribed && !enabled)
                         .accessibilityIdentifier("daily-recap-enabled")
+                    if !isSubscribed {
+                        Button("Subscribe to Flowcy Plus") { showsSubscription = true }
+                            .accessibilityIdentifier("daily-recap-subscribe")
+                    }
                 } footer: {
-                    Text("Off by default. When enabled, automatic recap generation consumes your credits. Turn this off and save to stop future automatic recaps.")
+                    Text(isSubscribed
+                         ? "Turn on Daily Recap to make a video on days with eligible chips."
+                         : "Flowcy Plus is required to enable automatic AI daily recaps.")
                 }
                 Section {
                     Picker("Language", selection: $language) {
@@ -87,6 +98,9 @@ struct DailyRecapSettingsSheet: View {
             .alert("Daily Recap", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
+            .sheet(isPresented: $showsSubscription) {
+                FlowcySubscriptionView(environment: environment, isSheet: true)
+            }
             .task { await load() }
         }
         #if os(macOS)
@@ -126,6 +140,8 @@ struct DailyRecapSettingsSheet: View {
             saved = true
             try? await Task.sleep(for: .milliseconds(900))
             dismiss()
+        } catch let apiError as SummaryAPIError where apiError.needsSubscription {
+            showsSubscription = true
         } catch { self.error = error.localizedDescription }
     }
 }

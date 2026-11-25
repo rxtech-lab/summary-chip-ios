@@ -6,8 +6,6 @@ import type { Database } from "@/lib/db/client";
 import { backgroundJobs } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { getObjectStore, type ObjectStore } from "@/lib/storage/r2";
-import type { BillingEnvironment } from "@/lib/subscription/config";
-import { pointsForCost, reservePodcastPoints } from "@/lib/subscription/chat-billing";
 import { getAudiobookStarter } from "./audiobook-starter";
 import { sceneFile, sceneHash } from "./audiobooks";
 import { recordJobActivity } from "./background-jobs";
@@ -22,16 +20,15 @@ export interface AudiobookVideoJob {
   key: string;
   day: PodcastDay;
   theme: AudiobookVideoTheme;
-  billingEnvironment?: BillingEnvironment;
 }
-interface Deps { ai?: AiProvider; store?: ObjectStore; now?: () => Date; billingEnvironment?: BillingEnvironment }
+interface Deps { ai?: AiProvider; store?: ObjectStore; now?: () => Date }
 
 const IMAGE_BATCH = 6;
 const STALE_MS = 20 * 60_000;
 
 function episodePath(job: Pick<AudiobookVideoJob, "userId" | "day" | "key">) { return `${dayKey(job.userId, job.day)}/${job.key}`; }
 function statePath(job: AudiobookVideoJob) { return `${episodePath(job)}/video-design/${job.id}.json`; }
-interface DrawState { costUsd: number; drawn: number; failed: string[] }
+interface DrawState { drawn: number; failed: string[] }
 
 /** The scenes in order with the object each is stored as, under the job's theme. */
 function scenesOf(podcast: DailyPodcast, theme: AudiobookVideoTheme) {
@@ -52,12 +49,9 @@ export async function startAudiobookVideo(db: Database, user: string, podcast: D
   if (!model || !podcast.audiobook) throw new ApiError(503, "PODCAST_VIDEO_UNAVAILABLE", "Audiobook videos are not available right now.");
   if (!podcast.audiobook.scenes.length) throw new ApiError(422, "AUDIOBOOK_NO_SCENES", "This audiobook was planned without scenes. Make a new version with video.");
   const theme = options.theme ?? podcast.audiobook.videoTheme;
-  const job: AudiobookVideoJob = { id: randomUUID(), userId: user, key: podcast.key, day: podcast.day, theme, billingEnvironment: deps.billingEnvironment };
+  const job: AudiobookVideoJob = { id: randomUUID(), userId: user, key: podcast.key, day: podcast.day, theme };
   const store = deps.store ?? getObjectStore();
-  const check = await reservePodcastPoints(user, `${podcast.key}:video:${job.id}`, model, deps.billingEnvironment,
-    Math.max(1, pointsForCost(podcast.audiobook.scenes.length * ai.imageUsdPerImage())));
-  await check?.settle(0, { check: true });
-  await store.put(statePath(job), jsonObject({ costUsd: 0, drawn: 0, failed: [] } satisfies DrawState));
+  await store.put(statePath(job), jsonObject({ drawn: 0, failed: [] } satisfies DrawState));
   const now = (deps.now?.() ?? new Date()).toISOString();
   const started: PodcastVideoDesign = { id: job.id, startedAt: now, updatedAt: now, percent: 5 };
   await updatePodcastDocument(db, user, podcast.key, (latest) => { latest.videoDesign = started; if (latest.audiobook) latest.audiobook.videoTheme = theme; });
@@ -86,7 +80,6 @@ export async function drawAudiobookVideoScenes(db: Database, job: AudiobookVideo
   const present = await Promise.all(scenes.map(async scene => !!await store.head(`${episodePath(job)}/${sceneFile(scene.hash)}`)));
   const missing = scenes.filter((scene, index) => !present[index] && state.failed.filter(hash => hash === scene.hash).length < 2);
   await Promise.all(missing.slice(0, IMAGE_BATCH).map(async (scene) => {
-    state.costUsd += ai.imageUsdPerImage();
     try {
       const image = await ai.drawAudiobookScene({ prompt: scene.prompt, theme: job.theme, visualGuide: details.visualGuide }, { abortSignal: AbortSignal.timeout(200_000) });
       await store.put(`${episodePath(job)}/${sceneFile(scene.hash)}`, { bytes: image.png, contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
@@ -118,7 +111,7 @@ async function sourceFrom(store: ObjectStore, job: AudiobookVideoJob, podcast: D
   return { id: job.id, model, createdAt: new Date().toISOString(), fps: 24, width: 1920, height: 1080, chips: [], files: {}, imageSequence: { scenes } };
 }
 
-/** Saves the composition in place of the previous one, gives each translation its copy, charges, and queues the renders. */
+/** Saves the composition in place of the previous one, gives each translation its copy, and queues the renders. */
 export async function finishAudiobookVideo(db: Database, job: AudiobookVideoJob, failed: boolean, deps: Deps = {}) {
   const store = deps.store ?? getObjectStore();
   const ai = deps.ai ?? await getAiProvider();
@@ -128,12 +121,8 @@ export async function finishAudiobookVideo(db: Database, job: AudiobookVideoJob,
     await recordJobActivity(db, job.userId, job.id, "replaced", "This video was replaced or its audiobook was removed.", { status: "failed" });
     return;
   }
-  const state = JSON.parse(new TextDecoder().decode((await store.get(statePath(job)).catch(() => ({ bytes: new TextEncoder().encode('{"costUsd":0}') }))).bytes)) as DrawState;
   const model = ai.imageModelId() ?? "image";
   const source = failed ? null : await sourceFrom(store, job, podcast, model);
-  const hold = await reservePodcastPoints(job.userId, `${job.key}:video:${job.id}:charge`, model, job.billingEnvironment).catch(() => null);
-  // A chapter converted from an older recording reuses its scenes, which costs nothing.
-  await hold?.settle(source && state.costUsd > 0 ? Math.max(1, pointsForCost(state.costUsd)) : 0, { imageCostUsd: state.costUsd, failed: !source });
   if (!source) {
     const error = { code: "PODCAST_VIDEO_FAILED", message: "The scenes couldn't be illustrated. Open the audiobook to retry." };
     await recordJobActivity(db, job.userId, job.id, "failed", error.message, { status: "failed", error });

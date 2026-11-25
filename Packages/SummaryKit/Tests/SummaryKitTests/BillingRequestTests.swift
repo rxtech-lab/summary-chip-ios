@@ -3,16 +3,30 @@ import Testing
 @testable import SummaryKit
 
 @Suite(.serialized) struct BillingRequestTests {
-    @Test func xcodeUsesTheSameEnvironmentForStorefrontAndGeneration() async throws {
+    @Test func flowcyUsagePercentagesRespectTheAccountLimit() throws {
+        let fixture = """
+        {"unit":"micro_usd","meters":[
+          {"key":"agent_cost_5h","used":1250000,"limit":5000000},
+          {"key":"agent_cost_7d","used":0,"limit":1000000},
+          {"key":"agent_cost_30d","used":1500000,"limit":1000000},
+          {"key":"agent_cost_5h","used":0,"limit":0},
+          {"key":"agent_cost_7d","used":1250000,"limit":null}
+        ]}
+        """
+        let usage = try SummaryJSON.decoder().decode(FlowcyModelUsage.self, from: Data(fixture.utf8))
+        #expect(usage.meters.map(\.fractionUsed) == [0.25, 0, 1.5, nil, nil])
+    }
+
+    @Test func xcodeUsesTheSameEnvironmentForAccessAndGeneration() async throws {
         BillingRequestProtocol.requests.clear()
         let api = client(proof: .xcode)
-        let connection = try await api.billingConnection()
-        #expect(connection.publishableKey == "rxs_pk_xcode_test")
+        let membership = try await api.flowcySubscription()
+        #expect(membership.productId == FlowcySubscription.appleProductID)
         do {
             _ = try await api.createSummary(.init(source: .text("A summary to meter.", title: nil), options: .init()))
-            Issue.record("Expected the fixture's usage refusal")
+            Issue.record("Expected the fixture's membership refusal")
         } catch let error as SummaryAPIError {
-            #expect(error.needsTopUp)
+            #expect(error.needsSubscription)
         }
         let requests = BillingRequestProtocol.requests.values
         #expect(requests.count == 2)
@@ -23,27 +37,27 @@ import Testing
         }
     }
 
-    @Test func appleProofAndOrdinaryReadsKeepTheirExistingRouting() async throws {
+    @Test func appleProofAppliesToAccessAndLibraryReads() async throws {
         BillingRequestProtocol.requests.clear()
         let api = client(proof: .appleSigned("signed-app-transaction"))
-        _ = try await api.billingConnection()
+        _ = try await api.flowcySubscription()
         _ = try await api.listSummaries()
         let requests = BillingRequestProtocol.requests.values
         #expect(requests.count == 2)
         #expect(requests[0].value(forHTTPHeaderField: "x-storekit-app-transaction") == "signed-app-transaction")
         #expect(requests[0].value(forHTTPHeaderField: "x-storekit-environment") == nil)
-        #expect(requests[1].value(forHTTPHeaderField: "x-storekit-app-transaction") == nil)
+        #expect(requests[1].value(forHTTPHeaderField: "x-storekit-app-transaction") == "signed-app-transaction")
         #expect(requests[1].value(forHTTPHeaderField: "x-storekit-environment") == nil)
     }
 
-    @Test func chatSpendsPointsFromTheSameEnvironmentAndAsksForATopUp() async throws {
+    @Test func chatReportsThatTheSubscriptionIsRequired() async throws {
         BillingRequestProtocol.requests.clear()
         let chat = ChatStreamClient(api: client(proof: .appleSigned("signed-app-transaction")))
         do {
             for try await _ in chat.stream(messages: [ChatUIMessage(role: .user, text: "hello")]) {}
-            Issue.record("Expected the fixture's empty balance")
+            Issue.record("Expected the fixture's membership refusal")
         } catch let error as SummaryAPIError {
-            #expect(error.needsTopUp)
+            #expect(error.needsSubscription)
         }
         let requests = BillingRequestProtocol.requests.values
         #expect(requests.count == 1)
@@ -79,20 +93,20 @@ private final class BillingRequestProtocol: URLProtocol, @unchecked Sendable {
         Self.requests.append(request)
         let status: Int
         let json: String
-        if request.url?.lastPathComponent == "billing" {
+        if request.url?.lastPathComponent == "subscription" {
             status = 200
             json = """
-            {"serverURL":"https://subscription.test","publishableKey":"rxs_pk_xcode_test","usageItem":"daily_summary_generation","balanceUnit":"points"}
+            {"active":false,"provider":null,"productId":"com.rxlab.chippy.flowcy.plus.monthly"}
             """
         } else if request.url?.path == "/api/v1/chat" {
             status = 402
             json = """
-            {"error":{"code":"CHAT_POINTS_EXHAUSTED","message":"Top up to keep chatting."}}
+            {"error":{"code":"FLOWCY_SUBSCRIPTION_REQUIRED","message":"Flowcy Plus is required."}}
             """
         } else if request.httpMethod == "POST" {
             status = 402
             json = """
-            {"error":{"code":"SUMMARY_ALLOWANCE_EXHAUSTED","message":"Top up to continue."}}
+            {"error":{"code":"FLOWCY_SUBSCRIPTION_REQUIRED","message":"Flowcy Plus is required."}}
             """
         } else {
             status = 200

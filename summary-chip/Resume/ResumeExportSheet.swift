@@ -15,6 +15,7 @@ struct ResumeExportSheet: View {
     let api: SummaryAPIClient
     let initial: ResolvedResume
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var path: [Step] = []
     @State private var edition: ResolvedResume
     @State private var history: [ResumeRevision] = []
@@ -122,6 +123,11 @@ struct ResumeExportSheet: View {
 
     // MARK: Step 2 – template
 
+    private var templateColumns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize { return [GridItem(.flexible(), alignment: .top)] }
+        return [GridItem(.adaptive(minimum: 136), spacing: 12, alignment: .top)]
+    }
+
     private var templatePage: some View {
         Form {
             Section {
@@ -130,7 +136,7 @@ struct ResumeExportSheet: View {
                     .listRowInsets(EdgeInsets())
             }
             Section("Template") {
-                HStack(spacing: 14) {
+                LazyVGrid(columns: templateColumns, spacing: 12) {
                     ForEach(ResumePresentation.Template.allCases, id: \.self) { template in
                         ResumeTemplateCard(template: template, selected: presentation.template == template) {
                             withAnimation(.snappy) { presentation.template = template }
@@ -240,12 +246,16 @@ extension ResumePresentation.Template {
         switch self {
         case .compact: String(localized: "Compact")
         case .profile: String(localized: "Profile")
+        case .editorial: String(localized: "Editorial")
+        case .modern: String(localized: "Modern")
         }
     }
     var blurb: LocalizedStringKey {
         switch self {
         case .compact: "Dense single column, ideal for applicant tracking systems."
         case .profile: "Sidebar layout with an optional photo."
+        case .editorial: "Centered serif header with plum accents."
+        case .modern: "Bold navy header with teal section headings."
         }
     }
 }
@@ -344,12 +354,13 @@ private struct ResumeTemplateCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 thumbnail
-                    .frame(height: 150)
+                    .frame(width: 94, height: 134)
+                    .padding(8)
+                    .background(.white, in: .rect(cornerRadius: 4))
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.08)))
+                    .shadow(color: .black.opacity(0.08), radius: 5, y: 3)
                     .frame(maxWidth: .infinity)
-                    .padding(12)
-                    .background(.white, in: .rect(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.black.opacity(0.08)))
-                    .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
+                    .accessibilityHidden(true)
                 HStack {
                     Text(template.title).font(.headline)
                     Spacer()
@@ -357,7 +368,10 @@ private struct ResumeTemplateCard: View {
                         .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
                         .font(.title3)
                 }
-                Text(template.blurb).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(template.blurb)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
             .background(selected ? AnyShapeStyle(.tint.opacity(0.08)) : AnyShapeStyle(.fill.quaternary), in: .rect(cornerRadius: 14))
@@ -366,6 +380,7 @@ private struct ResumeTemplateCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(template.title)
+        .accessibilityHint(Text(template.blurb))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -391,7 +406,7 @@ private struct ResumeTemplateCard: View {
                     Spacer(minLength: 0)
                 }
                 .padding(6)
-                .frame(width: 52)
+                .frame(width: 32)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .background(Color.accentColor.opacity(0.1), in: .rect(cornerRadius: 4))
                 VStack(alignment: .leading, spacing: 5) {
@@ -404,6 +419,10 @@ private struct ResumeTemplateCard: View {
                     Spacer(minLength: 0)
                 }
             }
+        case .editorial:
+            Image(.resumeTemplateEditorial).resizable().scaledToFit()
+        case .modern:
+            Image(.resumeTemplateModern).resizable().scaledToFit()
         }
     }
 

@@ -1,19 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
-import type { LanguageModelUsage } from "ai";
 import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import { LANGUAGE_NAMES } from "@/lib/ai/summary-schema";
-import { audiobookVoices, voiceUsdPerCharacter } from "@/lib/ai/voices";
+import { audiobookVoices } from "@/lib/ai/voices";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import { audiobookPlanSchema, MAX_AUDIOBOOK_SCENES, type AudiobookCreationInput, type AudiobookJob, type AudiobookJobStage, type AudiobookPlanDocument } from "@/lib/contracts/audiobook";
-import type { DailyPodcast, PodcastDay, PodcastPlanFrame, PodcastTranslation } from "@/lib/contracts/daily-podcast";
+import type { PodcastDay, PodcastPlanFrame, PodcastTranslation } from "@/lib/contracts/daily-podcast";
 import type { Database } from "@/lib/db/client";
 import { audiobookJobs, audiobookPlans, podcastEpisodes, summaries, uploads, type SummaryRow } from "@/lib/db/schema";
 import { ApiError } from "@/lib/http/errors";
 import { runAfter } from "@/lib/http/after";
 import { getObjectStore, ownerKeyPrefix, type ObjectStore } from "@/lib/storage/r2";
-import type { BillingEnvironment } from "@/lib/subscription/config";
-import { pointsForCost, reservePodcastPoints, usageCostUsd } from "@/lib/subscription/chat-billing";
 import { assembleChapters, bookChapterId, chapterEpisodeKey, commitBook, mergeLegacyAudiobooks, saveChapterEpisode, type ChapterState } from "./audiobook-book";
 import { audiobookPassages, splitPassages, narrationRatio, narrationSeconds, normalizeAudiobookPlan, passagesForPlanning, type StoredPassage } from "./audiobook-source";
 import { getAudiobookStarter } from "./audiobook-starter";
@@ -38,8 +35,6 @@ const STALE_MS = 20 * 60_000;
 const VOICE_CONCURRENCY = 4;
 const VOICE_STEP_MS = 200_000;
 const MUSIC_BATCH = 4;
-/** Text models run about this many USD per spoken character, for the estimate shown before confirming. */
-const WRITING_USD_PER_CHARACTER = 0.000002;
 
 const changed = () => new ApiError(409, "AUDIOBOOK_PLAN_CHANGED", "The plan changed. Reload it before continuing.");
 
@@ -72,15 +67,13 @@ function validatePlan(plan: AudiobookPlanDocument, passageCount: number, input: 
   if (invalid) throw new ApiError(422, "AUDIOBOOK_PLAN_INVALID", "The plan needs distinct available voices, its own music cues and chapters within the source.");
 }
 
-/** About what the book will cost and how long it will run, shown before anything is spent. */
-export function audiobookEstimate(plan: AudiobookPlanDocument, row: Pick<Plan, "sourceCharacters" | "sourceSeconds" | "input">, ai: Pick<AiProvider, "imageUsdPerImage" | "musicUsdPerClip" | "speechUsdPerCharacter">) {
+/** Estimated running time and spoken characters. */
+export function audiobookEstimate(row: Pick<Plan, "sourceCharacters" | "sourceSeconds" | "input">) {
   const { sourceSeconds } = row;
   const ratio = narrationRatio(sourceSeconds, row.input.targetSeconds);
   const characters = Math.round(row.sourceCharacters * ratio);
-  const perCharacter = plan.speakers.reduce((sum, speaker) => sum + (voiceUsdPerCharacter(speaker.voice) ?? ai.speechUsdPerCharacter()), 0) / plan.speakers.length;
-  const scenes = row.input.includeVideo ? plan.chapters.reduce((sum, chapter) => sum + chapter.scenes.length, 0) : 0;
-  const usd = characters * (perCharacter + WRITING_USD_PER_CHARACTER) + plan.musicCues.length * ai.musicUsdPerClip() + scenes * ai.imageUsdPerImage();
-  return { seconds: Math.round(sourceSeconds * ratio), characters, points: Math.max(1, pointsForCost(usd)) };
+  // Older clients require the points field when decoding a plan.
+  return { seconds: Math.round(sourceSeconds * ratio), characters, points: 0 };
 }
 
 function planFrames(plan: Plan) {
@@ -98,7 +91,7 @@ export async function publicAudiobookPlan(plan: Plan, deps: ServiceDeps & { db?:
     frame ? (await store.signedGet(frame.key, { inline: true, expiresInSeconds: 3600 }).catch(() => null))?.url ?? null : null))));
   return { id: plan.id, revision: plan.revision, confirmed: plan.confirmed, plan: plan.plan, messages: plan.messages, frames,
     language: plan.input.language, includeVideo: plan.input.includeVideo, library: true, day: plan.input.day, passageCount: plan.passageCount,
-    canDrawFrames: plan.input.includeVideo && !!ai.imageModelId(), estimate: audiobookEstimate(plan.plan, plan, ai) };
+    canDrawFrames: plan.input.includeVideo && !!ai.imageModelId(), estimate: audiobookEstimate(plan) };
 }
 
 export async function getAudiobookPlan(db: Database, user: string, id: string) {
@@ -147,16 +140,13 @@ export async function createAudiobookPlan(db: Database, user: string, input: Aud
   const videoTheme = input.videoTheme ?? "cinematic";
   const includeVideo = input.includeVideo && !!ai.imageModelId();
   // Scenes are planned even for audio-only books: they cost no images until drawn, and let a video be made later.
-  const charge = await reservePodcastPoints(user, `audiobook-plan:${id}`, ai.podcastModelId(), deps.billingEnvironment);
-  let cost = 0;
   try {
-    const pricing = charge ? await ai.podcastPricing() : null;
     const drafted = await ai.writeAudiobookPlan({
       language: LANGUAGE_NAMES[input.language], title: chips[0]?.title ?? input.pdfSources?.[0]?.filename ?? "Audiobook", includeVideo: true, videoTheme,
       voices: voices.map(({ id, name, gender, description }) => ({ id, name, gender, description })),
       speakers: input.speakers, targetSeconds: sourceSeconds * ratio, sourceSeconds,
       passages: passagesForPlanning(passages), totalPassages: passages.length,
-    }, { abortSignal: AbortSignal.timeout(200_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
+    }, { abortSignal: AbortSignal.timeout(200_000) });
     const speakers = input.speakers ? input.speakers.map((speaker, index) => ({ ...speaker, role: drafted.speakers[index]?.role ?? "" })) : drafted.speakers;
     const plan = normalizeAudiobookPlan(audiobookPlanSchema.parse({ ...drafted, speakers, videoTheme }), passages, ratio);
     validatePlan(plan, passages.length, input);
@@ -167,12 +157,10 @@ export async function createAudiobookPlan(db: Database, user: string, input: Aud
     for (const source of input.pdfSources ?? []) {
       await db.update(uploads).set({ attachedAt: new Date(now) }).where(eq(uploads.key, source.uploadKey));
     }
-    await charge?.settle(Math.max(1, pointsForCost(cost)), { plan: true, textCostUsd: cost });
     if (input.planMode) return { plan: await publicAudiobookPlan(row, { ...deps, ai, store }), job: null };
     const job = await confirmAudiobookPlan(db, user, id, 0, { ...deps, ai, store });
     return { plan: await readAudiobookPlan(db, user, id, { ...deps, ai, store }), job };
   } catch (error) {
-    await charge?.settle(0, { failed: true });
     if (error instanceof ApiError) throw error;
     console.error("[audiobook] planning failed", error);
     throw new ApiError(502, "AUDIOBOOK_PLAN_FAILED", "The audiobook couldn't be planned. Please try again.");
@@ -212,14 +200,11 @@ export async function refineAudiobookPlanChat(db: Database, user: string, id: st
   const ai = deps.ai ?? await getAiProvider();
   const store = deps.store ?? getObjectStore();
   const passages = await readPassages(store, user, id);
-  const charge = await reservePodcastPoints(user, `audiobook-plan:${id}:chat:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment);
-  let cost = 0;
   try {
-    const pricing = charge ? await ai.podcastPricing() : null;
     const refined = await ai.refineAudiobookPlan({ language: LANGUAGE_NAMES[plan.input.language], voices: audiobookVoices().map(({ id, name, gender, description }) => ({ id, name, gender, description })),
       plan: plan.plan, passages: passagesForPlanning(passages).map(passage => ({ ...passage, text: passage.text.slice(0, 300) })), totalPassages: passages.length,
       history: planChatHistory(plan.messages), request: message,
-    }, { abortSignal: AbortSignal.timeout(200_000), onUsage: usage => { if (pricing) cost += usageCostUsd(usage, pricing); } });
+    }, { abortSignal: AbortSignal.timeout(200_000) });
     const ratio = narrationRatio(passages.reduce((sum, passage) => sum + narrationSeconds(passage.text), 0), plan.input.targetSeconds);
     const next = refined.plan ? normalizeAudiobookPlan(audiobookPlanSchema.parse(refined.plan), passages, ratio) : null;
     if (next) validatePlan(next, passages.length, { ...plan.input, speakers: undefined });
@@ -229,10 +214,8 @@ export async function refineAudiobookPlanChat(db: Database, user: string, id: st
     const [updated] = await db.update(audiobookPlans).set({ ...changes, messages, updatedAt: Date.parse(now) }).where(and(
       eq(audiobookPlans.id, id), eq(audiobookPlans.ownerId, user), eq(audiobookPlans.revision, revision), eq(audiobookPlans.confirmed, false))).returning();
     if (!updated) throw changed();
-    await charge?.settle(Math.max(1, pointsForCost(cost)), { plan: true, chat: true, textCostUsd: cost });
     return publicAudiobookPlan(updated, { ...deps, ai, store });
   } catch (error) {
-    await charge?.settle(0, { failed: true });
     if (error instanceof ApiError) throw error;
     console.error("[audiobook] refinement failed", error);
     throw new ApiError(502, "AUDIOBOOK_PLAN_REFINE_FAILED", "The plan couldn't be revised. Please try again.");
@@ -253,37 +236,27 @@ export async function drawAudiobookPlanFrames(db: Database, user: string, id: st
     if (!plan.frames[hash]) missing.set(hash, scene.prompt);
   }
   if (!missing.size) return publicAudiobookPlan(plan, { ...deps, ai, store });
-  const charge = await reservePodcastPoints(user, `audiobook-plan:${id}:frames:${randomUUID()}`, model, deps.billingEnvironment);
   const drawn: Record<string, PodcastPlanFrame> = {};
-  let attempts = 0;
-  try {
-    const deadline = AbortSignal.timeout(240_000);
-    const queue = [...missing];
-    await Promise.all(Array.from({ length: Math.min(FRAME_CONCURRENCY, queue.length) }, async () => {
-      for (let next = queue.shift(); next && !deadline.aborted; next = queue.shift()) {
-        const [hash, prompt] = next;
-        attempts += 1;
-        try {
-          const image = await ai.drawAudiobookScene({ prompt, theme: plan.plan.videoTheme, visualGuide: plan.plan.visualGuide }, { abortSignal: deadline });
-          const key = frameKey(user, id, hash);
-          await store.put(key, { bytes: image.png, contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
-          drawn[hash] = { key, width: image.width, height: image.height };
-        } catch (error) {
-          console.warn("[audiobook] scene failed", { plan: id, message: (error instanceof Error ? error.message : String(error)).slice(0, 300) });
-        }
+  const deadline = AbortSignal.timeout(240_000);
+  const queue = [...missing];
+  await Promise.all(Array.from({ length: Math.min(FRAME_CONCURRENCY, queue.length) }, async () => {
+    for (let next = queue.shift(); next && !deadline.aborted; next = queue.shift()) {
+      const [hash, prompt] = next;
+      try {
+        const image = await ai.drawAudiobookScene({ prompt, theme: plan.plan.videoTheme, visualGuide: plan.plan.visualGuide }, { abortSignal: deadline });
+        const key = frameKey(user, id, hash);
+        await store.put(key, { bytes: image.png, contentType: "image/png", cacheControl: "private, max-age=31536000, immutable" });
+        drawn[hash] = { key, width: image.width, height: image.height };
+      } catch (error) {
+        console.warn("[audiobook] scene failed", { plan: id, message: (error instanceof Error ? error.message : String(error)).slice(0, 300) });
       }
-    }));
-    const latest = await getAudiobookPlan(db, user, id);
-    const frames = await pruneFrames(store, latest.plan, { ...latest.frames, ...drawn });
-    const [updated] = await db.update(audiobookPlans).set({ frames, updatedAt: (deps.now?.() ?? new Date()).getTime() }).where(and(eq(audiobookPlans.id, id), eq(audiobookPlans.ownerId, user))).returning();
-    const cost = attempts * ai.imageUsdPerImage();
-    await charge?.settle(Object.keys(drawn).length ? Math.max(1, pointsForCost(cost)) : 0, { plan: true, frames: Object.keys(drawn).length, imageCostUsd: cost });
-    if (!Object.keys(drawn).length) throw new ApiError(502, "AUDIOBOOK_SCENES_FAILED", "The scene images couldn't be drawn. Please try again.");
-    return publicAudiobookPlan(updated, { ...deps, ai, store });
-  } catch (error) {
-    if (!(error instanceof ApiError && error.code === "AUDIOBOOK_SCENES_FAILED")) await charge?.settle(0, { failed: true });
-    throw error;
-  }
+    }
+  }));
+  const latest = await getAudiobookPlan(db, user, id);
+  const frames = await pruneFrames(store, latest.plan, { ...latest.frames, ...drawn });
+  const [updated] = await db.update(audiobookPlans).set({ frames, updatedAt: (deps.now?.() ?? new Date()).getTime() }).where(and(eq(audiobookPlans.id, id), eq(audiobookPlans.ownerId, user))).returning();
+  if (!Object.keys(drawn).length) throw new ApiError(502, "AUDIOBOOK_SCENES_FAILED", "The scene images couldn't be drawn. Please try again.");
+  return publicAudiobookPlan(updated, { ...deps, ai, store });
 }
 
 /**
@@ -325,6 +298,7 @@ async function removePlanObjects(store: ObjectStore, plan: Pick<Plan, "ownerId" 
 
 /** Plain data: the input of `workflows/generate-audiobook.ts`. */
 export interface AudiobookJobInput {
+  selectedModelId?: string;
   id: string;
   userId: string;
   kind: "generate" | "translate";
@@ -334,7 +308,6 @@ export interface AudiobookJobInput {
   language: TranslationLanguage;
   planId: string | null;
   includeVideo: boolean;
-  billingEnvironment?: BillingEnvironment;
 }
 type JobDocument = typeof audiobookJobs.$inferSelect["document"];
 
@@ -409,7 +382,7 @@ async function activeTranslation(db: Database, user: string, key: string, langua
   return job ?? null;
 }
 /**
- * Freezes the reviewed plan and starts the workflow. The balance must cover the estimate; the actual cost is charged when
+ * Freezes the reviewed plan and starts the workflow.
  * the book is saved, and a failed run is free. Retrying a failed job resumes it, reusing every chapter already voiced.
  */
 export async function confirmAudiobookPlan(db: Database, user: string, id: string, revision: number, deps: ServiceDeps = {}, chapters?: number[]) {
@@ -439,18 +412,15 @@ export async function confirmAudiobookPlan(db: Database, user: string, id: strin
   if (existing) return existing;
   const ai = deps.ai ?? await getAiProvider();
   await loadSources(db, user, plan.input);
-  const estimate = audiobookEstimate(plan.plan, plan, ai);
-  const check = await reservePodcastPoints(user, `audiobook:${id}:check:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment, estimate.points);
-  await check?.settle(0, { check: true });
   if (!plan.confirmed) {
     const [confirmed] = await db.update(audiobookPlans).set({ confirmed: true }).where(and(eq(audiobookPlans.id, id), eq(audiobookPlans.ownerId, user), eq(audiobookPlans.revision, revision))).returning();
     if (!confirmed) throw changed();
   }
-  return startJob(db, { userId: user, kind: "generate", key: id, day: plan.input.day, language: plan.input.language, planId: id,
-    includeVideo: plan.input.includeVideo, billingEnvironment: deps.billingEnvironment }, plan.plan.title, plan.plan.chapters.length, plan.input.summaryId ?? null, deps, { episodeKey: bookId, selection: plan.input.selection });
+  return startJob(db, { selectedModelId: ai.selectedModelId, userId: user, kind: "generate", key: id, day: plan.input.day, language: plan.input.language, planId: id,
+    includeVideo: plan.input.includeVideo }, plan.plan.title, plan.plan.chapters.length, plan.input.summaryId ?? null, deps, { episodeKey: bookId, selection: plan.input.selection });
 }
 
-/** Chooses which recording of a chapter the book plays. Only the index changes, so no chapter is touched and nothing is charged. */
+/** Chooses which recording of a chapter the book plays. The book updates its chapter index. */
 export async function selectAudiobookChapterVersion(db: Database, user: string, day: PodcastDay, key: string, input: { chapter: string; version: string }, deps: ServiceDeps = {}) {
   const podcast = await dailyPodcastEpisode(db, user, day, key);
   if (!podcast.audiobook?.takes?.some(item => item.id === input.version && item.chapterId === input.chapter)) throw new ApiError(404, "NOT_FOUND", "Chapter version not found.");
@@ -467,12 +437,7 @@ export async function startAudiobookTranslation(db: Database, user: string, day:
   const existing = await activeTranslation(db, user, key, input.language);
   if (existing) return existing;
   const ai = deps.ai ?? await getAiProvider();
-  const characters = podcast.segments.reduce((sum, segment) => sum + segment.caption.length, 0);
-  const usd = podcast.segments.reduce((sum, segment) => sum + segment.caption.length * (voiceUsdPerCharacter(podcast.speakers[segment.speaker]?.voice ?? "") ?? ai.speechUsdPerCharacter()), 0) + characters * WRITING_USD_PER_CHARACTER;
-  const check = await reservePodcastPoints(user, `audiobook:${key}:translate:${input.language}:check:${randomUUID()}`, ai.podcastModelId(), deps.billingEnvironment, Math.max(1, pointsForCost(usd)));
-  await check?.settle(0, { check: true });
-  return startJob(db, { userId: user, kind: "translate", key, day, language: input.language, planId: null, includeVideo: input.includeVideo !== false && !!podcast.video,
-    billingEnvironment: deps.billingEnvironment }, podcast.title, podcast.chapters?.length ?? 1, podcast.summaryId ?? null, deps);
+  return startJob(db, { selectedModelId: ai.selectedModelId, userId: user, kind: "translate", key, day, language: input.language, planId: null, includeVideo: input.includeVideo !== false && !!podcast.video, }, podcast.title, podcast.chapters?.length ?? 1, podcast.summaryId ?? null, deps);
 }
 
 // MARK: Workflow steps. Each is resumable: state lives in storage and finished work is skipped.
@@ -506,7 +471,7 @@ async function jobSource(db: Database, job: AudiobookJobInput) {
 /** Composes the next few missing cues. Returns the chapter count once the soundtrack is ready. */
 export async function runAudiobookMusic(db: Database, job: AudiobookJobInput, deps: StepDeps = {}): Promise<{ done: boolean; chapters: number }> {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const { plan, musicCues, chapterCount } = await jobSource(db, job);
   // First, and before chapters run side by side: recordings of this plan from before chapters had episodes join its book.
   if (plan) await mergeLegacyAudiobooks(db, job.userId, { ...deps, ai, store }, plan.input.bookId ?? plan.id);
@@ -547,11 +512,8 @@ export async function runAudiobookMusic(db: Database, job: AudiobookJobInput, de
 export async function runAudiobookChapterScript(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps = {}) {
   const store = deps.store ?? getObjectStore();
   if (await store.head(chapterKey(job, chapter))) return;
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   await patchJob(db, job, (document) => { document.stage = "writing"; });
-  const pricing = await ai.podcastPricing().catch(() => null);
-  let costUsd = 0;
-  const onUsage = (usage: LanguageModelUsage) => { if (pricing) costUsd += usageCostUsd(usage, pricing); };
   const abortSignal = AbortSignal.timeout(270_000);
   let state: ChapterState;
   if (job.kind === "generate") {
@@ -564,18 +526,18 @@ export async function runAudiobookChapterScript(db: Database, job: AudiobookJobI
     const turns = await ai.writeAudiobookChapter({ language: LANGUAGE_NAMES[plan.input.language], bookTitle: plan.plan.title, chapterIndex: chapter, chapterCount: plan.plan.chapters.length,
       chapter: item, previousSynopsis: plan.plan.chapters[chapter - 1]?.synopsis, nextTitle: plan.plan.chapters[chapter + 1]?.title,
       speakers: plan.plan.speakers.map((speaker, index) => ({ index, name: speaker.name, role: speaker.role })), music: plan.plan.musicCues.map(({ id, title }) => ({ id, title })),
-      passages: source.map(passage => passage.text), targetCharacters: Math.max(300, Math.round(sourceCharacters * ratio)), sourceCharacters }, { abortSignal, onUsage });
+      passages: source.map(passage => passage.text), targetCharacters: Math.max(300, Math.round(sourceCharacters * ratio)), sourceCharacters }, { abortSignal });
     const chipId = majorityChip(source);
     const chip = chipId.startsWith("upload:") ? null : await getSummaryForViewer(db, chipId, job.userId);
-    state = { title: item.title, synopsis: item.synopsis, costUsd, turns: assignStretches(turns, item.music, item.scenes.length).map(turn => ({ ...turn, chipId, imagePath: chip ? chipArtPath(chip as SummaryRow) : "", icon: "📖" })) };
+    state = { title: item.title, synopsis: item.synopsis, turns: assignStretches(turns, item.music, item.scenes.length).map(turn => ({ ...turn, chipId, imagePath: chip ? chipArtPath(chip as SummaryRow) : "", icon: "📖" })) };
   } else {
     const podcast = await dailyPodcastEpisode(db, job.userId, job.day, job.key);
     const bounds = podcast.chapters?.[chapter] ?? { title: podcast.title, startSegment: 0, endSegment: podcast.segments.length, synopsis: undefined };
     const segments = podcast.segments.slice(bounds.startSegment, bounds.endSegment);
     const translated = await ai.translatePodcast({ language: LANGUAGE_NAMES[job.language], title: bounds.title, chips: [],
-      segments: segments.map(segment => ({ speaker: podcast.speakers[segment.speaker]?.name ?? "", caption: segment.caption })) }, { abortSignal, onUsage });
+      segments: segments.map(segment => ({ speaker: podcast.speakers[segment.speaker]?.name ?? "", caption: segment.caption })) }, { abortSignal });
     if (translated.captions.length !== segments.length) throw new Error("Translated chapter doesn't match the original turns");
-    state = { title: translated.title, costUsd, turns: segments.map((segment, index) => ({ speaker: segment.speaker, chipId: segment.chipId, caption: translated.captions[index],
+    state = { title: translated.title, turns: segments.map((segment, index) => ({ speaker: segment.speaker, chipId: segment.chipId, caption: translated.captions[index],
       music: segment.music ?? "", scene: 0, imagePath: segment.imagePath, icon: segment.icon })) };
   }
   await store.put(chapterKey(job, chapter), jsonObject(state));
@@ -616,7 +578,7 @@ export function assignStretches<T extends { caption: string; music: string; scen
  */
 export async function runAudiobookChapterVoices(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps = {}): Promise<boolean> {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const state = await readJson<ChapterState>(store, chapterKey(job, chapter));
   const speakers = job.kind === "generate"
     ? (await getAudiobookPlan(db, job.userId, job.planId!)).plan.speakers
@@ -652,7 +614,7 @@ async function captionsFor(ai: AiProvider, caption: string, audio: Uint8Array, a
 /** Mixes a voiced chapter with its stretches of music and frees its separate turns. */
 export async function runAudiobookChapterMix(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps = {}) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const state = await readJson<ChapterState>(store, chapterKey(job, chapter));
   if (state.mixed) {
     if (job.kind === "generate") await publishChapter(db, job, chapter, deps);
@@ -683,10 +645,6 @@ async function mixedChapters(store: ObjectStore, job: AudiobookJobInput, states:
   return Promise.all(states.map(async (_, chapter) => (await store.get(mixedKey(job, chapter))).bytes));
 }
 
-function speechCost(ai: AiProvider, speakers: DailyPodcast["speakers"], turns: ChapterState["turns"]) {
-  return turns.reduce((sum, turn) => sum + turn.caption.length * (voiceUsdPerCharacter(speakers[turn.speaker]?.voice ?? "") ?? ai.speechUsdPerCharacter()), 0);
-}
-
 async function loadChapterStates(store: ObjectStore, job: AudiobookJobInput, chapters: number) {
   return Promise.all(Array.from({ length: chapters }, (_, chapter) => readJson<ChapterState>(store, chapterKey(job, chapter))));
 }
@@ -696,7 +654,7 @@ async function cleanJob(store: ObjectStore, job: AudiobookJobInput, chapters: nu
     ...Array.from({ length: chapters }, (_, chapter) => [store.delete(mixedKey(job, chapter)).catch(() => undefined), store.delete(chapterKey(job, chapter)).catch(() => undefined)]).flat()]);
 }
 
-/** Saves the finished book or translation, charges for it and queues its video. Safe to run again after a crash. */
+/** Saves the finished book or translation, and queues its video. Safe to run again after a crash. */
 export async function finishAudiobook(db: Database, job: AudiobookJobInput, deps: StepDeps = {}) {
   await patchJob(db, job, (document) => { document.stage = "saving"; document.percent = Math.max(document.percent, 92); });
   if (job.kind === "translate") await finishTranslation(db, job, deps);
@@ -706,12 +664,12 @@ export async function finishAudiobook(db: Database, job: AudiobookJobInput, deps
 
 /**
  * Saves a finished chapter as its own episode, adds it to the plan's one book (a new chapter joins, a repeated one gains a
- * version), charges for it and starts its video. Listeners get each chapter as soon as it's ready, and a later failure
+ * version) and starts its video. Listeners get each chapter as soon as it's ready, and a later failure
  * loses nothing already made. Safe to run again.
  */
 async function publishChapter(db: Database, job: AudiobookJobInput, chapter: number, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const plan = await getAudiobookPlan(db, job.userId, job.planId!);
   const bookId = plan.input.bookId ?? plan.id;
   const key = chapterEpisodeKey(plan.id, chapter);
@@ -749,10 +707,6 @@ async function publishChapter(db: Database, job: AudiobookJobInput, chapter: num
     }
   }
   runAfter(() => rerankHeadlines(db, job.userId));
-  // Settling is idempotent, so a retried step never charges twice.
-  const hold = await reservePodcastPoints(job.userId, `audiobook:${job.id}:chapter:${chapter}:charge`, ai.podcastModelId(), job.billingEnvironment);
-  const speechUsd = speechCost(ai, speakers, state.turns);
-  await hold?.settle(Math.max(1, pointsForCost(state.costUsd + speechUsd)), { audiobook: job.kind, chapter, textCostUsd: state.costUsd, speechCostUsd: speechUsd });
   if (job.includeVideo && ai.imageModelId()) {
     // Approved scene images move next to the recording, so its video reuses them instead of drawing them again.
     const details = episode.audiobook!;
@@ -760,23 +714,16 @@ async function publishChapter(db: Database, job: AudiobookJobInput, chapter: num
     const [root] = bookId === plan.id ? [plan] : await db.select().from(audiobookPlans).where(and(eq(audiobookPlans.id, bookId), eq(audiobookPlans.ownerId, job.userId)));
     if (root) await copyApprovedScenes(store, job, key, root, wanted);
     const { startAudiobookVideo } = await import("./audiobook-video");
-    await startAudiobookVideo(db, job.userId, episode, { ai, store, billingEnvironment: job.billingEnvironment, now: deps.now }, {}).catch((error) => {
+    await startAudiobookVideo(db, job.userId, episode, { ai, store, now: deps.now }, {}).catch((error) => {
       console.error("[audiobook] video could not start; the chapter is saved without one", error);
     });
   }
 }
 
-/** Every chapter was published as it finished; what's left is the soundtrack's bill and tidying up. */
+/** Removes temporary generation assets after the chapters are published. */
 async function finishOriginal(db: Database, job: AudiobookJobInput, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
   const plan = await getAudiobookPlan(db, job.userId, job.planId!);
-  const music = await readOptional<MusicState>(store, `${jobBase(job)}/music.json`);
-  const musicUsd = (music?.generated ?? 0) * ai.musicUsdPerClip();
-  if (musicUsd > 0) {
-    const hold = await reservePodcastPoints(job.userId, `audiobook:${job.id}:charge`, ai.podcastModelId(), job.billingEnvironment);
-    await hold?.settle(Math.max(1, pointsForCost(musicUsd)), { audiobook: job.kind, musicCostUsd: musicUsd });
-  }
   await cleanJob(store, job, plan.plan.chapters.length);
   await removePlanObjects(store, plan);
   await db.update(audiobookPlans).set({ frames: {} }).where(eq(audiobookPlans.id, plan.id));
@@ -792,19 +739,9 @@ async function copyApprovedScenes(store: ObjectStore, job: AudiobookJobInput, ke
   }));
 }
 
-async function charge(db: Database, job: AudiobookJobInput, ai: AiProvider, states: ChapterState[], speechUsd: number, deps: StepDeps) {
-  const store = deps.store ?? getObjectStore();
-  const music = await readOptional<MusicState>(store, `${jobBase(job)}/music.json`);
-  const textUsd = states.reduce((sum, state) => sum + state.costUsd, 0);
-  const musicUsd = (music?.generated ?? 0) * ai.musicUsdPerClip();
-  // Settling is idempotent, so a retried step never charges twice.
-  const hold = await reservePodcastPoints(job.userId, `audiobook:${job.id}:charge`, ai.podcastModelId(), job.billingEnvironment);
-  await hold?.settle(Math.max(1, pointsForCost(textUsd + speechUsd + musicUsd)), { audiobook: job.kind, chapters: states.length, textCostUsd: textUsd, speechCostUsd: speechUsd, musicCostUsd: musicUsd });
-}
-
 async function finishTranslation(db: Database, job: AudiobookJobInput, deps: StepDeps) {
   const store = deps.store ?? getObjectStore();
-  const ai = deps.ai ?? await getAiProvider();
+  const ai = deps.ai ?? await getAiProvider(job.selectedModelId ?? null);
   const podcast = await dailyPodcastEpisode(db, job.userId, job.day, job.key);
   if (podcast.translations?.[job.language]) return;
   const states = await loadChapterStates(store, job, podcast.chapters?.length ?? 1);
@@ -815,7 +752,6 @@ async function finishTranslation(db: Database, job: AudiobookJobInput, deps: Ste
   const translation: PodcastTranslation = { language: job.language, title: heading?.title ?? podcast.title, createdAt: (deps.now?.() ?? new Date()).toISOString(), speakers: podcast.speakers,
     segments, chapters, durationSeconds, music: podcast.music, audioPath: episodeAudioPath(podcast, job.language) };
   await updatePodcastDocument(db, job.userId, job.key, (latest) => { latest.translations = { ...latest.translations, [job.language]: translation }; });
-  await charge(db, job, ai, states, speechCost(ai, podcast.speakers, states.flatMap(state => state.turns)), deps);
   await cleanJob(store, job, states.length);
   if (job.includeVideo && podcast.video) {
     const { cloneAudiobookVideo } = await import("./audiobook-video");

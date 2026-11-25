@@ -89,7 +89,7 @@ struct AudiobookPlanSheet: View {
                 Button("Use This Plan", action: confirmGeneration)
                 Button("Keep Reviewing", role: .cancel) {}
             } message: {
-                Text("About \(plan.estimate.points) points, charged as each chapter is finished. It's made on the server and you can leave while it works.")
+                Text("Chippy makes the audiobook on the server, so you can leave while it works.")
             }
 #endif
             .alert("Couldn't Update Plan", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
@@ -213,7 +213,7 @@ struct AudiobookPlanSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(plan.plan.title).font(.title3.weight(.bold))
                 Text(plan.plan.summary).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text("About \(Duration.seconds(plan.estimate.seconds).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))) · about \(plan.estimate.points) points")
+                Text("About \(Duration.seconds(plan.estimate.seconds).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated)))")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Divider()
@@ -497,7 +497,7 @@ private struct AudiobookChapterSheet: View {
                             } label: { Label("Add Scene", systemImage: "plus") }
                         }
                     } header: { Text("Scenes") } footer: {
-                        Text("These pictures are the video. Saving redraws only the scenes you changed, and drawing uses points.")
+                        Text("These pictures are the video. Saving redraws only the scenes you changed.")
                     }
                 }
             }

@@ -11,5 +11,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const { imageStyle } = await readJson(request, (body) => regenerateImageSchema.parse(body));
     return noStoreJson(await regenerateImage(db, principal.sub, id, imageStyle));
-  });
+  }, { requireSubscription: true });
 }

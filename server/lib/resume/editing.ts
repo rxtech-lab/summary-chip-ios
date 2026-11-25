@@ -222,13 +222,16 @@ export function resolveOverlay(base: ResumeDocument, overlay: Overlay, language:
       reviewPaths.push(rule.edit.path);
   }
   const missingTranslationPaths = Object.entries(overlay.authored)
-    .filter(
-      ([p, a]) =>
-        a.language !== language &&
-        !overlay.inherited?.[language]?.[p] &&
-        valueAt(document, p) !== undefined &&
-        (!Object.hasOwn(overlay.words[language] ?? {}, p) || overlay.baselines[language]?.[p]?.sourceValue !== a.value),
-    )
+    .filter(([p, a]) => {
+      if (a.language === language || overlay.inherited?.[language]?.[p] || valueAt(document, p) === undefined)
+        return false;
+      const baseline = overlay.baselines[language]?.[p];
+      const source = baseline?.sourceLanguage;
+      if (source && overlay.inherited?.[source]?.[p]) return true;
+      const words = source && overlay.words[source];
+      const currentSource = words && Object.hasOwn(words, p) ? words[p] : a.value;
+      return !Object.hasOwn(overlay.words[language] ?? {}, p) || baseline?.sourceValue !== currentSource;
+    })
     .map(([p]) => p);
   return {
     document,

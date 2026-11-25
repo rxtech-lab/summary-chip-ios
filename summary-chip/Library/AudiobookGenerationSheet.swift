@@ -142,7 +142,7 @@ struct AudiobookGenerationSheet: View {
     }
 
     private var note: some View {
-        Text("Generation uses points as each chapter is finished, about what the plan estimates. The book is made on the server, so you can leave while it works. Each version is kept until you remove it.")
+        Text("The book is made on the server, so you can leave while it works. Each version is kept until you remove it.")
     }
 
     private func sheetRow(_ title: LocalizedStringKey, systemImage: String, value: String, id: String, action: @escaping () -> Void) -> some View {
@@ -215,7 +215,7 @@ struct AudiobookGenerationSheet: View {
             #if os(macOS)
             Toggle(isOn: planModeBinding) {
                 Text("Plan Mode")
-                Text("Review chapters, speakers, music and scenes after clicking Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points.")
+                Text("Review chapters, speakers, music and scenes after clicking Generate, and chat to change them. Nothing is recorded until you confirm.")
             }
             .toggleStyle(.checkbox)
             .accessibilityIdentifier("audiobook-plan-mode")
@@ -237,7 +237,7 @@ struct AudiobookGenerationSheet: View {
         } header: { Text("Review") } footer: {
             VStack(alignment: .leading, spacing: 8) {
                 #if !os(macOS)
-                Text("Review chapters, speakers, music and scenes after tapping Generate, and chat to change them. Nothing is recorded until you confirm. Planning uses points.")
+                Text("Review chapters, speakers, music and scenes after tapping Generate, and chat to change them. Nothing is recorded until you confirm.")
                 #endif
                 note
             }

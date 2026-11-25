@@ -1,3 +1,4 @@
+import { getAiProvider } from "@/lib/ai/provider";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, isNull, lte } from "drizzle-orm";
 import { z } from "zod";
@@ -5,7 +6,8 @@ import type { Database } from "@/lib/db/client";
 import { dailyRecapRuns as runs, dailyRecapSchedules as schedules, podcastEpisodes, users } from "@/lib/db/schema";
 import { TRANSLATION_LANGUAGES } from "@/lib/contracts/api";
 import type { PodcastDay } from "@/lib/contracts/daily-podcast";
-import type { BillingEnvironment } from "@/lib/subscription/config";
+import type { SubscriptionEnvironment } from "@/lib/subscription/environment";
+import { flowcyAccess } from "@/lib/subscription/flowcy";
 import type { ServiceDeps } from "./summaries";
 import { addDays, isTimeZone, localParts, zonedTime } from "@/lib/weather/schedule";
 import { createDailyPodcast, dailyPodcastChips } from "./daily-podcast";
@@ -43,13 +45,13 @@ export async function dailyRecapSettings(db: Database, ownerId: string) {
     hour: settings?.hour ?? 7, nextAt: settings?.enabled ? settings.nextAt.toISOString() : null,
     lastRun: last ? { date: last.date, status, episodeKey: last.episodeKey, error: interrupted ? "The run was interrupted. Open the day’s podcast to retry manually." : last.error } : null };
 }
-export async function saveDailyRecapSettings(db: Database, ownerId: string, input: z.infer<typeof dailyRecapSettingsSchema>, environment?: BillingEnvironment, now = new Date()) {
+export async function saveDailyRecapSettings(db: Database, ownerId: string, input: z.infer<typeof dailyRecapSettingsSchema>, environment?: SubscriptionEnvironment, now = new Date()) {
   const values = { ...input, billingEnvironment: environment ?? null, nextAt: nextRecapAt(now, input.timeZone, input.hour) };
   await db.insert(schedules).values({ ownerId, ...values }).onConflictDoUpdate({ target: schedules.ownerId, set: values });
   return dailyRecapSettings(db, ownerId);
 }
 
-export interface DailyRecapJob { id: string; ownerId: string; day: PodcastDay; language: typeof TRANSLATION_LANGUAGES[number]; billingEnvironment?: BillingEnvironment }
+export interface DailyRecapJob { id: string; ownerId: string; day: PodcastDay; language: typeof TRANSLATION_LANGUAGES[number]; billingEnvironment?: SubscriptionEnvironment }
 export interface DailyRecapStarter { start(job: DailyRecapJob): Promise<void> }
 let override: DailyRecapStarter | undefined;
 export function setDailyRecapStarterForTests(value?: DailyRecapStarter) { override = value; }
@@ -60,7 +62,7 @@ function starter(): DailyRecapStarter {
   } };
 }
 
-/** Claim once before dispatch: ambiguous starts and provider failures never spend again automatically. */
+/** Claim once before dispatch so an ambiguous start cannot generate a second episode. */
 export async function dispatchDailyRecaps(db: Database, now = new Date()) {
   const due = await db.select({ schedule: schedules }).from(schedules).innerJoin(users, eq(users.id, schedules.ownerId))
     .where(and(eq(schedules.enabled, true), lte(schedules.nextAt, now), isNull(users.deletionScheduledAt)))
@@ -85,22 +87,23 @@ export async function dispatchDailyRecaps(db: Database, now = new Date()) {
   return { started };
 }
 
-/** Non-retrying generation: a crash must not duplicate AI charges. */
+/** Non-retrying generation, so a crash cannot duplicate an episode. */
 export async function runDailyRecap(db: Database, job: DailyRecapJob, deps: ServiceDeps = {}) {
   const claimed = await db.update(runs).set({ status: "generating" }).where(and(eq(runs.id, job.id), eq(runs.ownerId, job.ownerId), eq(runs.status, "queued")));
   if (!claimed.rowsAffected) return;
   try {
     const [schedule] = await db.select().from(schedules).innerJoin(users, eq(users.id, schedules.ownerId))
       .where(and(eq(schedules.ownerId, job.ownerId), eq(schedules.enabled, true), isNull(users.deletionScheduledAt)));
-    if (!schedule || !(await dailyPodcastChips(db, job.ownerId, job.day)).length) {
+    if (!schedule || !(await dailyPodcastChips(db, job.ownerId, job.day)).length ||
+        !(await flowcyAccess(job.ownerId, job.billingEnvironment)).active) {
       await db.update(runs).set({ status: "skipped" }).where(eq(runs.id, job.id));
       return;
     }
     const podcast = await createDailyPodcast(db, job.ownerId, { day: job.day, language: job.language, regenerate: true, library: false, includeVideo: true, recap: true },
-      { ...deps, billingEnvironment: job.billingEnvironment });
+      { ...deps, ai: deps.ai ?? await getAiProvider(schedule.users.aiModelId) });
     await db.update(runs).set({ status: podcast.videoDesign || podcast.video ? "rendering" : "failed", episodeKey: podcast.key,
       error: podcast.videoDesign || podcast.video ? null : "Audio is saved, but video design could not start. Open the episode to retry." }).where(eq(runs.id, job.id));
   } catch {
-    await db.update(runs).set({ status: "failed", error: "Recap generation failed. Check your points balance and open the day's podcast to retry manually." }).where(eq(runs.id, job.id));
+    await db.update(runs).set({ status: "failed", error: "Recap generation failed. Open the day's podcast to retry manually." }).where(eq(runs.id, job.id));
   }
 }

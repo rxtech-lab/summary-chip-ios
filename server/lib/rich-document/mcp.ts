@@ -16,7 +16,6 @@ import type { McpPrincipal } from "@/lib/mcp/oauth-tokens";
 import { createRichDocument, editRichDocument, getOwnedRichDocument, getRichDocument, listRichDocuments, type RichDocumentJson } from "@/lib/services/rich-documents";
 import { deleteSummary } from "@/lib/services/summaries";
 import { storeDocumentImage } from "@/lib/services/trip-images";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { documentToMarkdown } from "./markdown";
 
 /** What agents read back: the document, and the same content as Markdown. */
@@ -38,7 +37,7 @@ export const RICH_DOCUMENT_GUIDE = "A rich document is { title, description?, bl
 type Run = (name: string, action: () => Promise<{ result: CallToolResult }>) => Promise<CallToolResult>;
 
 /** Rich documents over MCP: an agent creates, reads, edits and deletes block-based documents. */
-export function registerRichDocumentTools(server: McpServer, context: { db: Database; principal: McpPrincipal; billingEnvironment?: BillingEnvironment }, run: Run) {
+export function registerRichDocumentTools(server: McpServer, context: { db: Database; principal: McpPrincipal }, run: Run) {
   const { db, principal } = context;
   const result = (body: Record<string, unknown>, text?: string): { result: CallToolResult } => ({
     result: { content: [...(text ? [{ type: "text" as const, text }] : []), { type: "text", text: JSON.stringify(body) }], structuredContent: body },
@@ -84,7 +83,7 @@ export function registerRichDocumentTools(server: McpServer, context: { db: Data
       description: args.description,
       visibility: args.visibility,
     });
-    const created = await createRichDocument(db, principal, input, { billingEnvironment: context.billingEnvironment, actor: "agent" });
+    const created = await createRichDocument(db, principal, input, { actor: "agent" });
     return result({ richDocument: payload(created) }, `Created "${created.document.title}" with ${created.document.blocks.length} blocks (${created.visibility}).\n${created.shareUrl}`);
   }));
 

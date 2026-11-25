@@ -28,7 +28,7 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
     private var realtime: [String: SDKRealtimeSession] = [:]
     private var agents: [String: SDKAgentSession] = [:]
     private var setup: Task<Void, Never>?
-    private var cancelledAgentIDs = Set<String>()
+    private var startingAgents = Set<String>()
     private var invalidated = false
     init(connection: NSXPCConnection) {
         self.connection = connection
@@ -66,9 +66,18 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
             reply("The agent request couldn't be read.")
             return
         }
+        if let model = launch.model, !LocalAgentCommand.isValidModel(model) {
+            reply("Choose a model listed by \(launch.kind.displayName).")
+            return
+        }
+        guard queue.sync(execute: { !invalidated && agents[id] == nil && startingAgents.insert(id).inserted }) else {
+            reply("The agent session is unavailable.")
+            return
+        }
         Task.detached { [self] in
             let environment = await UserEnvironment.shared.values()
             guard let executable = UserEnvironment.find(launch.kind.executableName, in: environment) else {
+                queue.sync { _ = startingAgents.remove(id) }
                 reply("\(launch.kind.displayName) isn't installed.")
                 return
             }
@@ -78,12 +87,12 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
                 self?.client?.processLine(id: id, line: line)
             }
             let accepted = queue.sync {
-                guard !invalidated, !cancelledAgentIDs.contains(id) else { return false }
+                guard startingAgents.remove(id) != nil, !invalidated else { return false }
                 agents[id] = session
                 return true
             }
             if accepted { reply(nil) }
-            else { await session.close(); reply("Voice session cancelled.") }
+            else { await session.close(); reply("Agent session cancelled.") }
         }
     }
 
@@ -183,7 +192,7 @@ final class RunnerService: NSObject, LocalAgentRunnerProtocol, @unchecked Sendab
     func terminate(id: String) {
         // Gone from the list at once: whatever's asked next shouldn't have to wait for it to exit.
         queue.async { [self] in
-            cancelledAgentIDs.insert(id)
+            startingAgents.remove(id)
             processes.removeValue(forKey: id)?.terminate()
             if let session = realtime.removeValue(forKey: id) { Task { await session.close() } }
             if let agent = agents.removeValue(forKey: id) { Task { await agent.close() } }

@@ -212,9 +212,9 @@ Food, Opinion, Research, Other`.
 | `GET /api/v1/trips/:id` | – | `{trip: Trip}` (owner, or anyone signed in while public) |
 | `PUT /api/v1/trips/:id` | `{document, revision}` | `{trip: Trip}` — `409 TRIP_REVISION_CONFLICT` (`details.revision`) when the trip changed since `revision` |
 | `POST /api/v1/trips/:id/operations` | `{operations: TripOperation[], revision?}` | `{trip: Trip}` — applied in order, atomically; `422 TRIP_INVALID` (`details.issues`) when the result is invalid; `409` as above when `revision` is given |
-| `POST /api/v1/trips/:id/ingest` | `{source: <Create body source>, instructions?}` | `202 {status:"queued"}` — points held first (`402 TRIP_POINTS_EXHAUSTED`); the trip agent runs after the response, then a "Trip updated" push |
+| `POST /api/v1/trips/:id/ingest` | `{source: <Create body source>, instructions?}` | `202 {status:"queued"}` — the trip agent runs after the response, then a "Trip updated" push |
 | `DELETE /api/v1/trips/:id` | – | `204` (same as deleting the summary) |
-| `POST /api/v1/trips/:id/tour` | `{regenerate?: boolean}` | `{tour: TripTour}` — the trip as narrated scenes for play mode, cached in R2 per version; the first write charges points (`402 TOUR_POINTS_EXHAUSTED`); see [tours.md](tours.md) |
+| `POST /api/v1/trips/:id/tour` | `{regenerate?: boolean}` | `{tour: TripTour}` — the trip as narrated scenes for play mode, cached in R2 per version; see [tours.md](tours.md) |
 | `GET /api/v1/trips/:id/tour/:key/scenes/:index/audio` | – | `audio/mpeg` — a scene's narration, read aloud once and stored in R2 |
 | `GET /api/v1/facets` | – | `{categories:[{name,count}], tags:[{name,count}]}` |
 | `GET /api/v1/facets?kind=category\|tag&q=&cursor=&limit=` | – | `{items:[{name,count}], nextCursor}` (one facet list, searched + paged) |
@@ -290,7 +290,7 @@ Title, summary, highlights, cover headline and tag chip labels are translated to
 per language (`summary_translations`). `displayCategory` uses a fixed category translation;
 `displayTags` keeps the canonical tags' order, including duplicate translated labels. Canonical
 `category`, `tags` and `keywords` stay as written for filtering and editing. Older saved translations
-receive missing tag labels on their next read using the same points billing, preserving edited
+receive missing tag labels on their next read for accounts with Flowcy Plus, preserving edited
 titles, covers and translated sources. Tag edits invalidate those labels; unchanged tags do not.
 `GET /summaries/:id`,
 `POST /views` and the public API translate on the spot when needed; `GET /summaries` (the library)
@@ -516,7 +516,8 @@ AI_MODEL=openai/gpt-5-mini            # default text model (AI Gateway id)
 LATEX_COMPILE_URL=https://latex.ytotech.com  # latex-on-http for papers (self-host for production)
 LATEX_COMPILER=                       # latex-on-http (default) | mock
 AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image  # optional, enables "illustration" style
-AI_GATEWAY_API_KEY=                   # optional on Vercel (OIDC)
+FLOWCY_BASE_URL=https://www.flowcy.dev
+FLOWCY_SERVICE_TOKEN=                 # local service credential. Vercel supplies OIDC.
 AI_PODCAST_MODEL=anthropic/claude-haiku-5.5 # dedicated podcast script and translation model
 AI_TOUR_MODEL=                        # trip tour narrator (default AI_MODEL); a fast model suits it
 AI_SPEECH_MODEL=microsoft/mai-voice-2.1-flash  # reads tours aloud (required for voice; unset = subtitles only)

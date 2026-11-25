@@ -22,6 +22,16 @@ async function stage(filename: string, mimeType: string, bytes: Uint8Array) {
 }
 
 describe("chat attachments", () => {
+  it("downloads the owner's encrypted attachment for a local turn and rejects another account", async () => {
+    const file = await stage("notes.md", "text/plain", new TextEncoder().encode("private notes"));
+    const path = "/api/v1/chat/uploads?key=" + encodeURIComponent(file.uploadKey);
+    const read = (token: string) => uploads.GET(apiRequest("GET", path, { token }));
+    const response = await read(env.tokens.alice);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(await response.text()).toBe("private notes");
+    expect((await read(env.tokens.bob)).status).toBe(403);
+  });
+
   it("resolves file-only turns to complete text and model file inputs using the stored filename", async () => {
     const contents = "# Notes\n" + "original ".repeat(1_200);
     const markdown = await stage("notes.md", "text/plain", new TextEncoder().encode(contents));

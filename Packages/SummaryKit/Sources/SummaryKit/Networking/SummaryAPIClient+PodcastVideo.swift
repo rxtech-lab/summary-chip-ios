@@ -62,11 +62,6 @@ private struct PodcastCloudRender: Decodable {
 private struct PodcastVideoDownload: Decodable { var videoId: String; var downloadUrl: URL }
 
 extension SummaryAPIClient {
-    static func isPodcastVideoPath(_ path: String?) -> Bool {
-        guard let path else { return false }
-        return path.hasPrefix("/api/v1/daily-podcasts/") && path.hasSuffix("/video")
-    }
-
     /// The day the episode was recorded for, independent of the viewer's current time zone.
     func podcastDayBounds(_ podcast: DailyPodcast) throws -> PodcastDayBounds {
         let day = try videoDay(podcast)
@@ -92,7 +87,7 @@ extension SummaryAPIClient {
         "/api/v1/daily-podcasts/\(podcast.key.urlPathEscaped)/video\(suffix)"
     }
 
-    /// The composition to render. Never calls a model or spends points.
+    /// The composition to render. Never calls a model.
     public func podcastVideoSource(_ podcast: DailyPodcast) async throws -> PodcastVideoSource {
         let envelope: PodcastVideoEnvelope = try await send(request(videoPath(podcast), query: try videoQuery(podcast)))
         return envelope.video
@@ -202,7 +197,7 @@ extension SummaryAPIClient {
         return state
     }
 
-    /// Starts designing a new composition on the server (spends points when it finishes). Returns at once
+    /// Starts designing a new composition on the server. Returns at once
     /// with the episode's `videoDesign`; the design continues while the app is in the background.
     /// `style` picks the art direction; `nil` leaves the server's default (news).
     public func composePodcastVideo(_ podcast: DailyPodcast, style: PodcastVideoStyle? = nil) async throws -> DailyPodcast {

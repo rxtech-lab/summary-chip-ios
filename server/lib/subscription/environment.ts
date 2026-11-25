@@ -2,58 +2,43 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Environment, SignedDataVerifier, VerificationException, VerificationStatus } from "@apple/app-store-server-library";
 import { ApiError } from "@/lib/http/errors";
-import { subscriptionConfig, type BillingEnvironment } from "./config";
-import type { ApiPrincipal } from "@/lib/auth/bearer";
+import { isDeployed } from "./flowcy";
 
 const verifiers = new Map<string, SignedDataVerifier>();
+export type SubscriptionEnvironment = "production" | "sandbox" | "xcode";
 
-/** Apple proves sandbox/production; server-authorized testers may use isolated Xcode funds. */
-export async function billingEnvironment(request: Request, principal: Pick<ApiPrincipal, "sub">): Promise<BillingEnvironment | undefined> {
-  const explicitlyXcode = process.env.RX_SUBSCRIPTION_ENVIRONMENT?.trim() === "xcode";
-  if (request.headers.get("x-storekit-environment") === "xcode" || explicitlyXcode) {
-    const deployed = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "development");
-    const testers = new Set((process.env.RX_SUBSCRIPTION_XCODE_USER_IDS ?? "").split(",").map(value => value.trim()).filter(Boolean));
-    if (deployed && !testers.has(principal.sub)) {
-      throw new ApiError(403, "XCODE_BILLING_NOT_ALLOWED", "Xcode billing is not enabled for this test account.");
-    }
-    if (!subscriptionConfig("xcode")) throw new ApiError(503, "SUBSCRIPTION_NOT_CONFIGURED", "Xcode billing is not configured.");
+/** Sandbox access requires Apple-signed app provenance. Xcode uses local data only. */
+export async function subscriptionEnvironment(request: Request): Promise<SubscriptionEnvironment> {
+  if (!isDeployed() && process.env.FLOWCY_SUBSCRIPTION_XCODE_API_KEY && request.headers.get("x-storekit-environment") === "xcode") {
     return "xcode";
   }
-  if (!process.env.RX_SUBSCRIPTION_SANDBOX_API_KEY && !process.env.RX_SUBSCRIPTION_PRODUCTION_API_KEY) return undefined;
   const proof = request.headers.get("x-storekit-app-transaction");
   if (!proof) return "production";
   if (proof.length > 16_384 || proof.split(".").length !== 3) throw invalidProof();
-  const bundleId = process.env.APPLE_BUNDLE_ID?.trim() || "com.rxlab.summary-chip";
-  const parsedAppId = Number(process.env.APP_STORE_ID);
-  const appId = Number.isSafeInteger(parsedAppId) && parsedAppId > 0 ? parsedAppId : undefined;
-  // Apple only requires the app ID to verify production proofs. Without it, still detect sandbox and otherwise
-  // fall back to production — the same default as a request without proof — so usage is never blocked.
-  const environments = appId
-    ? [[Environment.SANDBOX, "sandbox"], [Environment.PRODUCTION, "production"]] as const
-    : [[Environment.SANDBOX, "sandbox"]] as const;
+  const bundleId = "com.rxlab.summary-chip";
+  // Accept signed production proofs from earlier app builds during rollout.
   for (const expectedBundle of [bundleId, `${bundleId}.Clip`]) {
-    for (const [apple, billing] of environments) {
+    for (const apple of [Environment.SANDBOX, Environment.PRODUCTION]) {
       try {
-        const key = `${expectedBundle}:${apple}:${appId ?? "none"}`;
+        const key = `${expectedBundle}:${apple}`;
         let verifier = verifiers.get(key);
         if (!verifier) {
           const root = readFileSync(path.join(process.cwd(), "lib/subscription/certificates/AppleRootCA-G3.cer"));
-          verifier = new SignedDataVerifier([root], true, apple, expectedBundle, appId);
+          verifier = new SignedDataVerifier([root], true, apple, expectedBundle, 6818102153);
           verifiers.set(key, verifier);
         }
         await verifier.verifyAndDecodeAppTransaction(proof);
-        return billing;
+        return apple === Environment.SANDBOX ? "sandbox" : "production";
       } catch (error) {
         if (!(error instanceof VerificationException)) throw error;
-        if (error.status === VerificationStatus.RETRYABLE_VERIFICATION_FAILURE) throw new ApiError(503, "BILLING_VERIFICATION_UNAVAILABLE", "Apple verification is unavailable. Please try again.");
+        if (error.status === VerificationStatus.RETRYABLE_VERIFICATION_FAILURE) throw new ApiError(503, "APPLE_VERIFICATION_UNAVAILABLE", "Apple verification is unavailable. Please try again.");
         if (error.status !== VerificationStatus.INVALID_ENVIRONMENT && error.status !== VerificationStatus.INVALID_APP_IDENTIFIER) throw invalidProof();
       }
     }
   }
-  if (!appId) return "production";
   throw invalidProof();
 }
 
 function invalidProof() {
-  return new ApiError(403, "INVALID_BILLING_ENVIRONMENT", "The app's billing environment could not be verified.");
+  return new ApiError(403, "INVALID_STOREKIT_ENVIRONMENT", "The App Store environment could not be verified.");
 }

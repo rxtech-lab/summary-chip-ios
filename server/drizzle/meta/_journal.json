@@ -393,6 +393,13 @@
       "when": 1795457648264,
       "tag": "0055_resume_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1795521600000,
+      "tag": "0056_flowcy_model",
+      "breakpoints": true
     }
   ]
 }

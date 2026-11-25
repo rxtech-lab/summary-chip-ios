@@ -55,7 +55,7 @@ public final class GenerationSession {
 
     public private(set) var state: State = .idle
     public private(set) var stages: [GenerationStage] = []
-    public private(set) var needsTopUp = false
+    public private(set) var needsSubscription = false
     /// Set when neither the server nor the device could read the link; the UI offers Safari + the share extension.
     public var unreadablePage: UnreadablePageError?
     private var task: Task<Void, Never>?
@@ -80,7 +80,7 @@ public final class GenerationSession {
         onFinish: (@MainActor (Summary) -> Void)? = nil
     ) {
         task?.cancel()
-        needsTopUp = false
+        needsSubscription = false
         unreadablePage = nil
         let isPDF: Bool = if case .pdf = input { true } else { false }
         stages = isPDF ? GenerationStage.allCases : GenerationStage.allCases.filter { $0 != .uploading }
@@ -108,7 +108,7 @@ public final class GenerationSession {
             } catch {
                 guard !Task.isCancelled else { return }
                 self.state = .failed(error.localizedDescription)
-                self.needsTopUp = (error as? SummaryAPIError)?.needsTopUp == true
+                self.needsSubscription = (error as? SummaryAPIError)?.needsSubscription == true
             }
         }
     }
@@ -117,7 +117,7 @@ public final class GenerationSession {
         task?.cancel()
         task = nil
         state = .idle
-        needsTopUp = false
+        needsSubscription = false
         unreadablePage = nil
     }
 

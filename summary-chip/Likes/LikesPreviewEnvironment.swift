@@ -17,20 +17,24 @@ enum LikesPreviewFixture {
         let defaults = UserDefaults.standard
         defaults.set(true, forKey: SummaryOnboardingStore.welcomeKey)
         defaults.set(EducationPage.features.map(\.id), forKey: SummaryOnboardingStore.readIDsKey)
+        let environment = signedInEnvironment()
+        environment.library.offline.clear()
+        // Every run starts from the empty chat, not the previous run's transcript.
+        environment.chatStore.remove(key: ChatTranscriptStore.libraryKey)
+        return environment
+    }
+
+    static func signedInEnvironment() -> AppEnvironment {
         let token = SharedTokenBundle(accessToken: "preview-token", refreshToken: nil, idToken: nil,
                                       expiresAt: .now.addingTimeInterval(86_400), subject: "preview-user")
         let session = URLSessionConfiguration.ephemeral
         session.protocolClasses = [LikesPreviewProtocol.self]
-        let environment = AppEnvironment.live(
+        return AppEnvironment.live(
             configuration: .live(),
             vault: InMemoryTokenVault(token),
             session: URLSession(configuration: session),
             authenticationState: .signedIn
         )
-        environment.library.offline.clear()
-        // Every run starts from the empty chat, not the previous run's transcript.
-        environment.chatStore.remove(key: ChatTranscriptStore.libraryKey)
-        return environment
     }
 
     /// The paper's first page, standing in for the server's LaTeX compile.

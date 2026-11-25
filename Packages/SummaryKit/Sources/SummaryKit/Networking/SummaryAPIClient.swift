@@ -75,6 +75,7 @@ public final class SummaryAPIClient: Sendable {
     }
 
     private static func liveBillingProof() async -> StoreKitBillingProof? {
+        #if os(iOS)
         guard let proof = try? await AppTransaction.shared,
               case .verified(let transaction) = proof else { return nil }
         if transaction.environment == .xcode {
@@ -84,7 +85,10 @@ public final class SummaryAPIClient: Sendable {
             return nil
             #endif
         }
-        return .appleSigned(proof.jwsRepresentation)
+        return transaction.environment == .sandbox ? .appleSigned(proof.jwsRepresentation) : nil
+        #else
+        return nil
+        #endif
     }
 
     // MARK: Summaries
@@ -193,8 +197,18 @@ public final class SummaryAPIClient: Sendable {
         _ = try await sendRaw(json("/api/v1/devices", method: "DELETE", body: Installation(installationId: installationId)))
     }
 
-    public func billingConnection() async throws -> BillingConnection {
-        try await send(get("/api/v1/billing"))
+    public func flowcySubscription() async throws -> FlowcySubscription {
+        try await send(get("/api/v1/subscription"))
+    }
+
+    public func flowcyAppleAccountToken() async throws -> UUID {
+        struct Token: Decodable { let appAccountToken: UUID }
+        let response: Token = try await send(json("/api/v1/subscription/apple/account-token", method: "POST", body: [String: String]()))
+        return response.appAccountToken
+    }
+
+    public func submitFlowcyAppleTransaction(_ jws: String) async throws {
+        _ = try await sendRaw(json("/api/v1/subscription/apple/transactions", method: "POST", body: ["signedTransaction": jws]))
     }
 
     public func accountDeletionState() async throws -> AccountDeletionState {
@@ -421,16 +435,13 @@ public final class SummaryAPIClient: Sendable {
         return data
     }
 
-    /// Tells the server which StoreKit environment's points to use, on the requests that spend or show them.
+    /// Identifies an isolated StoreKit test environment when the app has signed provenance.
     func applyBillingProof(to request: inout URLRequest) async {
-        let path = request.url?.path
-        guard path == "/api/v1/billing" ||
-            (request.httpMethod == "POST" && (path == "/api/v1/summaries" || path == "/api/v1/summaries/import" || path == "/api/v1/chat" || path == "/api/v1/daily-podcasts" || (path?.hasPrefix("/api/v1/daily-podcasts/") == true && path?.hasSuffix("/summary") == true)
-                || Self.isTripIngestPath(path) || Self.isTripTourPath(path) || Self.isPodcastVideoPath(path))),
-            let proof = await billingProofProvider() else { return }
+        guard let url = request.url, url.path.hasPrefix("/api/v1/"),
+              url.scheme == baseURL.scheme, url.host == baseURL.host, url.port == baseURL.port,
+              let proof = await billingProofProvider() else { return }
         switch proof {
         case .xcode:
-            // Xcode signs locally; the server authorizes the authenticated test account.
             request.setValue("xcode", forHTTPHeaderField: "x-storekit-environment")
         case .appleSigned(let signature):
             request.setValue(signature, forHTTPHeaderField: "x-storekit-app-transaction")
@@ -492,6 +503,9 @@ public final class SummaryAPIClient: Sendable {
         guard !(200..<300).contains(response.statusCode) else { return }
         if let envelope = try? SummaryJSON.decoder().decode(APIErrorEnvelope.self, from: data) {
             let error = SummaryAPIError.server(status: response.statusCode, body: envelope.error)
+            if response.statusCode == 402 && envelope.error.code == "FLOWCY_SUBSCRIPTION_REQUIRED" {
+                NotificationCenter.default.post(name: FlowcySubscription.accessRequired, object: nil)
+            }
             AppUpdateCenter.report(error)
             throw error
         }

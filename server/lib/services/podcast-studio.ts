@@ -12,8 +12,6 @@ import { podcastVideoAssets } from "@/lib/podcast-video/images";
 import { getSummaryForViewer } from "./summaries";
 import { getObjectStore } from "@/lib/storage/r2";
 import { getAiProvider } from "@/lib/ai/provider";
-import { pointsForCost, reservePodcastPoints } from "@/lib/subscription/chat-billing";
-import type { BillingEnvironment } from "@/lib/subscription/config";
 import { podcastCheckFrames, podcastVideoData } from "@/lib/ai/podcast-video-agent";
 import { previewPodcastFrames } from "@/lib/podcast-video/frame-preview";
 import { MAX_PODCAST_VIDEO_FILES, MAX_PODCAST_VIDEO_FILE_CHARS, PODCAST_VIDEO_ENTRY, PODCAST_VIDEO_FILE_PATTERN, PODCAST_VIDEO_FPS, PODCAST_VIDEO_HEIGHT, PODCAST_VIDEO_WIDTH, PODCAST_VIDEO_SCAFFOLD, PODCAST_VIDEO_PHRASES, podcastPhraseWindows, validatePodcastVideo } from "@/lib/podcast-video/scaffold";
@@ -114,22 +112,17 @@ export async function submitPodcastDraft(db: Database, user: string, ref: Episod
 }
 
 /** Standalone private assets; these never silently change a voiced episode's timing or soundtrack. */
-export async function generatePodcastAsset(db: Database, user: string, ref: EpisodeRef, input: { type: "speech"; text: string; voice: string } | { type: "music"; prompt: string }, environment?: BillingEnvironment) {
+export async function generatePodcastAsset(db: Database, user: string, ref: EpisodeRef, input: { type: "speech"; text: string; voice: string } | { type: "music"; prompt: string }) {
   await dailyPodcastEpisode(db, user, ref.day, ref.key);
   const ai = await getAiProvider();
   const model = input.type === "speech" ? ai.speechModelId() : ai.musicModelId();
   if (!model) throw new ApiError(503, "PODCAST_ASSET_UNAVAILABLE", `${input.type} generation is not configured.`);
   const id = randomUUID();
-  const charge = await reservePodcastPoints(user, `${ref.key}:asset:${id}`, model, environment);
-  try {
-    const options = { abortSignal: AbortSignal.timeout(200_000) };
-    const audio = input.type === "speech" ? await ai.speak(input.text, input.voice, options) : { bytes: await ai.composeMusic(input.prompt, options), mediaType: "audio/mpeg" };
-    const path = `${dayKey(user, ref.day)}/${ref.key}/assets/${id}.mp3`;
-    const store = getObjectStore();
-    await store.put(path, { bytes: audio.bytes, contentType: audio.mediaType, cacheControl: "private, no-store" });
-    const signed = await store.signedGet(path, { filename: `${input.type}.mp3` });
-    const cost = input.type === "speech" ? input.text.length * ai.speechUsdPerCharacter() : ai.musicUsdPerClip();
-    await charge?.settle(Math.max(1, pointsForCost(cost)), { assetType: input.type, costUsd: cost });
-    return { assetId: id, downloadUrl: signed.url, expiresAt: signed.expiresAt.toISOString(), mimeType: audio.mediaType, byteSize: audio.bytes.length };
-  } catch (error) { await charge?.settle(0, { failed: true }); throw error; }
+  const options = { abortSignal: AbortSignal.timeout(200_000) };
+  const audio = input.type === "speech" ? await ai.speak(input.text, input.voice, options) : { bytes: await ai.composeMusic(input.prompt, options), mediaType: "audio/mpeg" };
+  const path = `${dayKey(user, ref.day)}/${ref.key}/assets/${id}.mp3`;
+  const store = getObjectStore();
+  await store.put(path, { bytes: audio.bytes, contentType: audio.mediaType, cacheControl: "private, no-store" });
+  const signed = await store.signedGet(path, { filename: `${input.type}.mp3` });
+  return { assetId: id, downloadUrl: signed.url, expiresAt: signed.expiresAt.toISOString(), mimeType: audio.mediaType, byteSize: audio.bytes.length };
 }

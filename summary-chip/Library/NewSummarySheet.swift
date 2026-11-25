@@ -8,7 +8,6 @@ struct NewSummarySheet: View {
     var initialText = ""
     var initialFile: DroppedSummaryFile?
     @Environment(\.dismiss) private var dismiss
-    @State private var showsTopUp = false
 
     var body: some View {
         SummaryCreationFlow(
@@ -17,18 +16,15 @@ struct NewSummarySheet: View {
             initialFile: initialFile,
             allowsFilePicking: true,
             onCancel: { dismiss() },
+            onSubscriptionRequired: {
+                dismiss()
+                environment.presentSubscriptionSheet()
+            },
             onCreated: { summary in
                 environment.library.insert(summary)
-                Task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
-            },
-            onTopUp: { showsTopUp = true },
-            freeSummariesRemaining: environment.credits.allowance?.remaining
+            }
         ) { summary in
             NewSummaryResult(environment: environment, summary: summary) { dismiss() }
-        }
-        .task { await environment.credits.refresh(api: environment.api, broker: environment.tokenBroker) }
-        .sheet(isPresented: $showsTopUp) {
-            SummaryCreditsSheet(environment: environment, opensTopUps: true)
         }
     }
 }

@@ -119,6 +119,9 @@
         }
       }
     },
+    "Flowcy Plus Required" : {
+
+    },
     "Instructions (optional)" : {
       "localizations" : {
         "zh-Hans" : {
@@ -168,6 +171,7 @@
       }
     },
     "Not Enough Points" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -214,6 +218,9 @@
           }
         }
       }
+    },
+    "Open Chippy to subscribe to Flowcy Plus or check your access." : {
+
     },
     "Open in Chippy" : {
       "localizations" : {
@@ -327,7 +334,11 @@
         }
       }
     },
+    "The agent reads %@ and adds what's useful: trains, flights, hotels, costs." : {
+
+    },
     "The agent reads %@ and adds what's useful: trains, flights, hotels, costs. Uses points." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -408,6 +419,7 @@
       }
     },
     "Updating a trip from what you share uses points. Top up in Chippy to continue." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {

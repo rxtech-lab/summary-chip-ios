@@ -185,14 +185,14 @@ Claude Desktop's config file only starts stdio servers, so it reaches the HTTP e
 | `get_raw_text` | A chip's original source text, 30,000 characters per call; continue with `nextOffset`. Own chips and others' chips the user opened. | `getRawTextForAgent` |
 | `list_trips` | The user's trips, ongoing and upcoming first, then past ones. | `listTrips` (as `GET /api/v1/trips`) |
 | `get_trip` | A trip's full TripDocument and its revision. | `getTrip` |
-| `create_trip` | Saves a new trip from a complete TripDocument. Free (no summary allowance or points). | `createTrip` (as `POST /api/v1/trips`) |
+| `create_trip` | Saves a new trip from a complete TripDocument. | `createTrip` (as `POST /api/v1/trips`) |
 | `update_trip` | Applies operations (upsert/delete records by id, `set_meta`, `add_source`) in order, as one change. Free. | `applyTripOperations` (as `POST /api/v1/trips/:id/operations`) |
 | `choose_plan_option` | Records which option of a plan (route 1 / route 2…) the user follows; saved per user, the document doesn't change. Free. | `selectPlanOption` (as `PUT /api/v1/trips/:id/plan-selections`) |
 | `update_place` | Changes some of a place's details (description, photos, hours, prices, website, phone…) and appends photos, without resending the place. Free. | `applyTripOperations` with an `update_place` operation |
 | `create_upload` | Prepares a presigned S3-compatible PUT URL for an image or file (up to 25 MB). Free. | `createUpload` |
 | `get_upload` | Checks a completed upload belongs to the caller and returns a temporary download URL. Free. | `getUpload` |
 | `upload_trip_image` | Stores a photo (copied from a URL, base64, or an owned upload) for a trip and returns its lasting https URL. Free. | `uploadTripImage` |
-| `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. Costs points. | `addToTripFromSource` |
+| `add_to_trip_from_source` | Chippy's trip agent reads a URL or text and adds what it contributes to a trip. | `addToTripFromSource` |
 | `list_papers` | The user's LaTeX papers, most recently edited first. | `listPapers` (as `GET /api/v1/papers`) |
 | `get_paper` | A paper's working copy: title, main file, compiler, revision, version, files (`paths` limits which contents come back) and `references` with their fact-checks. | `getPaper` |
 | `create_paper` | A new LaTeX paper from files, or a template (`article`, `report`, `blank`). Free. | `createPaper` (as `POST /api/v1/papers`) |
@@ -222,8 +222,7 @@ to get the next page. Each item has `id`, `title`, `summary`, `keyPoints`, `cate
 (≤ 12), `keywords` (≤ 10), `category`, `language`, `sourceUrl`, `sourceTitle`, `siteName`, `visibility`,
 `ttlDays` (`1`, `3`, `7`, `30`, `90`, `365` or `"never"`) and `allowDuplicate`. The arguments are checked
 with the import API's own schema, so the limits under [Import body](ARCHITECTURE.md#import-body) apply.
-Added chips always get an illustrated cover. They are free: unlike the import API, they don't use the summary
-allowance or points. The account's devices with notifications on are alerted, the same as for the import API.
+Added chips get an illustrated cover. Chippy notifies the account's devices when summary notifications are enabled.
 
 A chip that is already in the library (`409 DUPLICATE_SUMMARY`) comes back as a tool error. The message
 names the existing chip and its link, and suggests `allowDuplicate: true`. Other API errors come back as
@@ -315,8 +314,7 @@ A trip's cover is designed once, by `create_trip`. Edits (`update_trip`, `update
   and returned as `{image: {url, width, height, byteSize}}`. The URL is on `R2_PUBLIC_BASE_URL` when set, else
   `/api/public/trip-images/:file` (the unguessable file name is the capability, like OG image keys). Put it in a place's
   `photos` or an `Image` / `Gallery` view. Only the trip's owner may upload.
-- `add_to_trip_from_source` takes `tripId`, exactly one of `url` or `text`, and optional `instructions`. It holds points
-  first (`TRIP_POINTS_EXHAUSTED` when the balance is empty), runs the trip agent synchronously (within the route's 300 s),
+- `add_to_trip_from_source` takes `tripId`, exactly one of `url` or `text`, and optional `instructions`. It runs the trip agent within the route's 300 s budget
   and returns `{changeSummary, operationsApplied, trip}`. Invalid operations the agent proposes are dropped.
 
 ## Implementation
@@ -410,14 +408,14 @@ opens, when it becomes active, on pull-to-refresh and through the Refresh button
 
 ### Podcast audio and Remotion authoring
 
-Podcast tools use the same authenticated account and points billing as the app.
+Podcast tools require the same Flowcy Plus access as the app.
 Apply migration `0039_podcast_drafts` before deploying these tools.
 
 | Tool | Arguments / result |
 |---|---|
 | `list_podcasts` | `summaryId` for a library podcast's versions, or `day: {start, end}` for daily versions; returns keys, days, default flags and available languages |
 | `get_podcast` | `day`, `key`, optional `language`; reads one existing version without generating |
-| `create_podcast_version` | `day`, `key`; copies the recording, captions, translations and saved composition into a new episode key under the same chip/history; no AI points |
+| `create_podcast_version` | `day`, `key`; copies the recording, captions, translations and saved composition into a new episode key under the same chip/history |
 | `translate_podcast` | `day`, `key`, `language`, optional `includeVideo` (default true); adds a language to the same key and reuses its composition |
 | `create_podcast` | The existing daily podcast creation contract: `day`, `language`, optional `chipIds`, `library`, `regenerate`, `includeVideo`, `summaryId`; returns `episode` |
 | `get_podcast_project` | `day`, `key`; initializes/reads the draft, returning `revision`, generated `files`, read-only `scaffold`, `entry`, `speakers` with voice IDs and timed episode `input` |
@@ -478,9 +476,7 @@ Speech and music tools generate **standalone assets**, returning `assetId`,
 `downloadUrl`, `expiresAt`, `mimeType` and `byteSize`. Download before expiry; do not
 put expiring URLs into Remotion source. These assets do not replace the episode's
 narration, timings or soundtrack. `create_podcast` generates and synchronizes the
-playable episode's speech, captions and configured theme music. Generation uses
-points and may take several minutes; do not blindly retry a timed-out paid call.
-File editing, previewing and submitting an agent-written composition use no AI points.
+playable episode's speech, captions and configured theme music. Generation may take several minutes. Check whether it completed before retrying a timed-out request.
 
 #### Cloud podcast MP4 tools
 
@@ -502,12 +498,13 @@ A family has one private library item. A target contains `familyId`, `language` 
 | `list_resumes`, `get_resume` | List takes no arguments. Get takes the target and optionally a historical `revisionToken`. The response includes the document, company and language choices, provenance, recovery paths, and missing translations. |
 | `create_resume` | `{title, language, document, idempotencyKey}`. Document version 1 contains candidateName, links and sections. Optional fields include headline, contact and avatarAssetId. Sections contain entries, entries contain bullets. Every section, entry, link and bullet has a stable ID. Dates accept YYYY, YYYY-MM and YYYY-MM-DD. |
 | `edit_resume` | Target plus `expectedRevisionToken`, `idempotencyKey`, and `operations`. Set a field with `{op:"set",path:"/sections/work/entries/job1/bullets/b1/text",value:"Led onboarding"}`. Insert supplies a parent list path, typed value and optional anchor ID. Move supplies the item path and `after` (null means first). Remove hides a company item. Reset restores inheritance. Keep or discard resolves a recoverable subtree. |
+| `save_resume_translation` | Save agent-authored wording as an edition of the same résumé. First call `get_resume` with the source target and `translationLanguage` (e.g. `zh-Hans`). It returns `translationFields` mapping each writable path to its source text, plus any existing `currentTranslations`. Pass the returned `familyId`, `variantId`, `sourceLanguage`, destination `language`, `sourceRevisionToken`, and `expectedRevisionToken`. Supply a new `idempotencyKey` and a `translations` array such as `[{"path":"/headline","value":"软件工程师"}]`. A new edition requires every returned field and a null target token. An existing edition accepts individual field updates. Keep any `/base` prefix from a company translation. The tool returns the saved edition and its revision token. |
 | `preview_resume_company`, `create_resume_company` | Preview accepts familyId, language and sourceRevisionToken. Creation takes the current base token, idempotency key, company and optional targetRole/jobDescription. To start from another revision, pass sourceRevisionToken and acceptedPaths from the comparison. An empty selection inherits the current base. |
-| `review_resume`, `tailor_resume`, `translate_resume` | Target, expectedRevisionToken and idempotencyKey. Tailor requires a company. Translate adds targetLanguage. Each returns a proposal ID and status. Findings identify fields, rationale, current and proposed wording, and conflicts. Large translations can return a queued job. These operations require points. |
+| `review_resume`, `tailor_resume`, `translate_resume` | Target, expectedRevisionToken and idempotencyKey. Tailor requires a company. Translate adds targetLanguage. Each returns a proposal ID and status. Findings identify fields, rationale, current and proposed wording, and conflicts. Large translations can return a queued job. |
 | `get_resume_job`, `apply_resume_proposal` | Read by familyId and proposalId. Apply adds expectedRevisionToken (the reviewed source), idempotencyKey and acceptedPaths. Optional keepPaths records the decision to retain hand-edited wording on conflicting fields. The server checks the reviewed target revision as well. |
 | `list_resume_revisions`, `compare_resume_revision`, `restore_resume_revision` | List by target. Compare adds the historical revisionToken. Restore adds the current expectedRevisionToken and idempotencyKey. Review affected companies before restoring the base. |
 | `start_resume_avatar_upload`, `finish_resume_avatar_upload` | Start by familyId, filename, mimeType and byteSize. PUT to the presigned private S3 URL, then finish with familyId and uploadId (the staging key). Attach the resulting opaque ID using edit_resume. |
-| `list_resume_templates`, `preview_resume`, `export_resume` | List takes no arguments. Preview takes the target, saved revisionToken and presentation with template (compact-v1 or profile-v1), paperSize (A4 or Letter), and showAvatar. Export also takes format (pdf or docx). Fetch the returned relative handle at the same server with authorized owner credentials. The preview and PDF export use identical bytes. |
+| `list_resume_templates`, `preview_resume`, `export_resume` | List takes no arguments. Preview takes the target, saved revisionToken and presentation with template (compact-v1, profile-v1, editorial-v1, or modern-v1), paperSize (A4 or Letter), and showAvatar. Export also takes format (pdf or docx). Fetch the returned relative handle at the same server with authorized owner credentials. The preview and PDF export use identical bytes. |
 | `publish_resume`, `list_resume_links`, `revoke_resume_link` | Publish takes familyId, previewId, idempotencyKey, access (anyone or invited), ttlDays, optional label and emails. Invited access requires an email and Chippy sign-in. For a replacement, include linkId and expectedPreviewId. If the preview identifies untranslated paths, publishing requires acceptedWordingPaths matching every displayed exception. List by familyId, revoke by familyId and linkId. Recipients can download the published PDF. DOCX is owner-only. |
 
-The same owner operations live under `/api/v1/resumes`. Text and voice requests can carry `resumeTarget: {familyId, variantId, language, revisionToken}` captured when the call starts.
+Native résumé endpoints live under `/api/v1/resumes`. Text and voice requests can carry `resumeTarget: {familyId, variantId, language, revisionToken}` captured when the call starts. Focused chat agents can call `getResume` with `translationLanguage` and `saveResumeTranslation` to write their own translations.

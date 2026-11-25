@@ -5,8 +5,7 @@ import { withApiAuth } from "@/lib/http/handler";
 import { listPaperTranslations, translatePaper } from "@/lib/services/paper-translations";
 import { findPaperForViewer, getPaper } from "@/lib/services/papers";
 import { ApiError } from "@/lib/http/errors";
-import { translationPayer } from "@/lib/services/translations";
-import { billingEnvironment } from "@/lib/subscription/environment";
+import { translationAccount } from "@/lib/services/translations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,7 +24,7 @@ export async function POST(request: Request, { params }: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { id } = await params;
     const input = await readJson(request, (body) => z.object({ language: z.enum(TRANSLATION_LANGUAGES).nullable().default(null) }).parse(body));
-    const payer = translationPayer({ ownerId: principal.sub }, principal.sub, () => billingEnvironment(request, principal));
+    const payer = translationAccount({ ownerId: principal.sub }, principal.sub);
     await translatePaper(db, id, principal.sub, input.language, payer);
     return noStoreJson({ paper: await getPaper(db, id, principal.sub, {}) });
   }, { feature: "papers" });

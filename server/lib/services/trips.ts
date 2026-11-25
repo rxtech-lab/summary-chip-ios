@@ -1,8 +1,7 @@
-import type { LanguageModelUsage } from "ai";
 import { and, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { ApiPrincipal } from "@/lib/auth/bearer";
-import type { AiProvider } from "@/lib/ai/provider";
+import { getAiProvider, type AiProvider } from "@/lib/ai/provider";
 import type { TranslationLanguage } from "@/lib/contracts/api";
 import { parseOperations, sourceImages } from "@/lib/ai/trip-agent";
 import { normalizeDraft, type SummaryDraft } from "@/lib/ai/summary-schema";
@@ -22,7 +21,8 @@ import { summaries, tripPlanSelections, trips, type SummaryRow, type TripRow, ty
 import { EXCERPT_LIMIT, SOURCE_TEXT_LIMIT } from "@/lib/extract";
 import { runAfter } from "@/lib/http/after";
 import { ApiError } from "@/lib/http/errors";
-import { reserveTripAgentPoints, settleUsage, type ChatCharge } from "@/lib/subscription/chat-billing";
+import { getObjectStore } from "@/lib/storage/r2";
+import { hasFlowcyAccess } from "@/lib/subscription/flowcy";
 import { selectCoverTheme } from "./cover-colors";
 import { embedSummary, indexSummary } from "./embeddings";
 import { syncTripFlights } from "./flights";
@@ -35,7 +35,7 @@ import { coverImages, extractSource, findLikedAt, findSummaryById, getOwnedSumma
 import { canViewerRead } from "./share-access";
 import { applyOperations, tripDayCount, tripDigest, tripText, type PlanSelections } from "./trip-document";
 import { listTripTranslations, readTripDocument, savedTripDocument, type TripTranslationStatus } from "./trip-translations";
-import { readingLanguage, translationPayer, type BillingEnvironmentResolver } from "./translations";
+import { readingLanguage, translationAccount } from "./translations";
 
 export type CreateTripInput = z.infer<typeof createTripSchema>;
 export type PutTripInput = z.infer<typeof putTripSchema>;
@@ -229,13 +229,13 @@ export async function readTripJson(
   id: string,
   viewerId: string,
   accepted: TranslationLanguage | null,
-  options: { ai?: AiProvider; billingEnvironment?: BillingEnvironmentResolver } = {},
+  options: { ai?: AiProvider } = {},
 ): Promise<TripJson> {
   const found = await findTripForViewer(db, id, viewerId);
   if (!found) throw tripNotFound();
   const language = readingLanguage(found.summary, viewerId, accepted);
   const [reading, likedAt, planSelections] = await Promise.all([
-    readTripDocument(db, found.summary, found.trip, language, translationPayer(found.summary, viewerId, options.billingEnvironment), {
+    readTripDocument(db, found.summary, found.trip, language, translationAccount(found.summary, viewerId), {
       ai: options.ai,
       owner: found.summary.ownerId === viewerId,
     }),
@@ -300,14 +300,16 @@ export async function getOwnedTrip(db: Database, id: string, ownerId: string): P
  * row at revision 0. Trips don't count against the summary allowance, and their link never expires.
  */
 export async function createTrip(db: Database, principal: ApiPrincipal, input: CreateTripInput, deps?: ServiceDeps): Promise<TripJson> {
-  const { ai, store, now } = await resolveDeps(deps);
+  const store = deps?.store ?? getObjectStore();
+  const now = deps?.now ?? (() => new Date());
+  const ai = await hasFlowcyAccess(principal.sub) ? (deps?.ai ?? await getAiProvider()) : null;
   const document = input.document;
   const id = crypto.randomUUID();
   const digest = tripDigest(document);
   const text = tripText(document).slice(0, SOURCE_TEXT_LIMIT);
 
-  const language = await ai.detectLanguage(digest) ?? "en";
-  const design = await ai.designCover({ title: digest.title, summary: digest.summary, category: "Travel", keywords: digest.keywords, text, language });
+  const language = (ai ? await ai.detectLanguage(digest) : null) ?? "en";
+  const design = ai ? await ai.designCover({ title: digest.title, summary: digest.summary, category: "Travel", keywords: digest.keywords, text, language }) : null;
   const normalized = normalizeDraft({
     ...digest,
     category: "Travel",
@@ -321,7 +323,7 @@ export async function createTrip(db: Database, principal: ApiPrincipal, input: C
     tags: TRIP_TAGS,
     theme: await selectCoverTheme(db, principal.sub, normalized.theme),
   };
-  const embedding = embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text });
+  const embedding = ai ? embedSummary(ai, { ...draft, siteName: null, sourceTitle: null, contentText: text }) : Promise.resolve(null);
 
   const createdAt = now();
   const imageKeys = await coverImages(store, ai, id, draft, null, "illustration", createdAt, "trip");
@@ -405,7 +407,7 @@ export async function saveDocument(
   trip: TripRow,
   document: TripDocument,
 ): Promise<TripJson> {
-  const { ai, now } = await resolveDeps(deps);
+  const now = deps.now ?? (() => new Date());
   if (JSON.stringify(trip.document) === JSON.stringify(document)) return toTripJson(summary, trip, summary.ownerId);
   const updatedAt = now();
   const revision = trip.revision + 1;
@@ -438,7 +440,10 @@ export async function saveDocument(
   const batchId = queued.rows[0]?.id;
   if (typeof batchId === "string") runAfter(() => startTripNotification(batchId));
   const updated = { ...summary, ...changes };
-  runAfter(() => indexSummary(db, ai, updated));
+  if (await hasFlowcyAccess(summary.ownerId)) {
+    const ai = deps.ai ?? await getAiProvider();
+    runAfter(() => indexSummary(db, ai, updated));
+  }
   // Flights added, changed or removed start or stop being tracked.
   runAfter(() => syncTripFlights(db, summary.id, summary.ownerId, document));
   // So do the trip's weather forecasts (new places, new dates).
@@ -548,21 +553,15 @@ export interface TripAgentRun {
   applied: number;
 }
 
-/**
- * Reads the shared source, has the trip agent turn it into operations and saves those that fit.
- * `charge` (held by the caller) is settled at the agent's token cost; a run that never reached the
- * model releases it.
- */
+/** Reads the shared source, has the trip agent turn it into operations and saves those that fit. */
 export async function updateTripFromSource(
   db: Database,
   ownerId: string,
   id: string,
   input: IngestTripInput,
-  deps: ServiceDeps & { charge: ChatCharge | null },
+  deps: ServiceDeps,
 ): Promise<TripAgentRun> {
   const { ai, store } = await resolveDeps(deps);
-  const steps: LanguageModelUsage[] = [];
-  let outcome = "failed";
   try {
     const { trip } = await getOwnedTrip(db, id, ownerId);
     const { content } = await extractSource(db, ownerId, { source: input.source, followLinks: true }, store, ai);
@@ -570,7 +569,7 @@ export async function updateTripFromSource(
       document: trip.document,
       source: { text: content.text, title: content.sourceTitle, url: content.sourceUrl, siteName: content.siteName, images: sourceImages(content) },
       instructions: input.instructions,
-    }, { onUsage: (usage) => steps.push(usage) });
+    });
     if (!result) throw new ApiError(502, "TRIP_AGENT_FAILED", "The trip could not be updated from this source. Please try again.");
 
     const proposed = parseOperations(result.operations).operations;
@@ -583,7 +582,6 @@ export async function updateTripFromSource(
       const { document, operations } = applicableOperations(latest.trip.document, proposed);
       try {
         const saved = operations.length ? await saveDocument(db, { ...deps, actor: "source" }, latest.summary, latest.trip, document) : toTripJson(latest.summary, latest.trip, ownerId);
-        outcome = "finished";
         return { trip: saved, changeSummary: result.changeSummary, applied: operations.length };
       } catch (error) {
         if (attempt < 2 && error instanceof ApiError && error.code === "TRIP_REVISION_CONFLICT") continue;
@@ -591,7 +589,6 @@ export async function updateTripFromSource(
       }
     }
   } finally {
-    if (deps.charge) await settleUsage(deps.charge, ai, steps, { tripId: id, outcome });
   }
 }
 
@@ -608,9 +605,8 @@ export async function ingestTrip(
 ): Promise<{ status: "queued" }> {
   const { ai } = await resolveDeps(deps);
   await getOwnedTrip(db, id, principal.sub);
-  const charge = await reserveTripAgentPoints(principal.sub, id, crypto.randomUUID(), ai.chatModelId(), deps.billingEnvironment);
   runAfter(async () => {
-    await updateTripFromSource(db, principal.sub, id, input, { ...deps, ai, charge });
+    await updateTripFromSource(db, principal.sub, id, input, { ...deps, ai });
   });
   return { status: "queued" };
 }
@@ -625,6 +621,5 @@ export async function addToTripFromSource(
 ): Promise<TripAgentRun> {
   const { ai } = await resolveDeps(deps);
   await getOwnedTrip(db, id, ownerId);
-  const charge = await reserveTripAgentPoints(ownerId, id, crypto.randomUUID(), ai.chatModelId(), deps.billingEnvironment);
-  return updateTripFromSource(db, ownerId, id, input, { ...deps, ai, charge });
+  return updateTripFromSource(db, ownerId, id, input, { ...deps, ai });
 }

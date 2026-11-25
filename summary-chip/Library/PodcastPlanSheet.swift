@@ -100,9 +100,9 @@ struct PodcastPlanSheet: View {
                 Button("Keep Reviewing", role: .cancel) {}
             } message: {
                 if plan.missingFrameCount > 0 {
-                    Text("Generation uses points and follows the script and camera storyboard you reviewed. Shots without a frame are designed from their camera direction.")
+                    Text("Generation follows the script and camera storyboard you reviewed. Shots without a frame are designed from their camera direction.")
                 } else {
-                    Text("Generation uses points and follows the script, camera storyboard and frames you reviewed.")
+                    Text("Generation follows the script, camera storyboard and frames you reviewed.")
                 }
             }
 #endif
@@ -270,7 +270,7 @@ private struct PodcastPlanCard: View {
                 }
                 if index < plan.script.segments.count - 1 { Divider().padding(.leading, 140) }
             }
-            Text("Generation uses points and follows the script and storyboard you reviewed.")
+            Text("Generation follows the script and storyboard you reviewed.")
                 .font(.caption).foregroundStyle(.secondary)
 
         }
@@ -462,7 +462,7 @@ private struct PodcastPlanLineSheet: View {
                 } footer: {
                     if plan.storyboard == true && index < 40 {
                         if segment.camera == original.camera { Text("The storyboard frame for this line.") }
-                        else { Text("Saving redraws this frame from the new camera direction. Drawing uses points.") }
+                        else { Text("Saving redraws this frame from the new camera direction.") }
                     }
                 }
                 Section("Speaker") {

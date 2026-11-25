@@ -123,6 +123,8 @@ const baseline = z.strictObject({
   sourceRevisionToken: z.string().max(1000),
   sourceValue: nullableText,
   acceptedValue: nullableText,
+  sourceLanguage: resumeLanguageSchema.optional(),
+  canonicalSourceValue: nullableText.optional(),
 });
 export const commitResumeTranslationSchema = z.strictObject({
   ...scope,
@@ -136,4 +138,9 @@ export const commitResumeTranslationSchema = z.strictObject({
   baseOperations: z.array(resumeOperationSchema).max(1500).optional(),
   baseBaselines: z.record(path, baseline).optional(),
 });
+export const saveResumeTranslationSchema = commitResumeTranslationSchema
+  .omit({ operations: true, baselines: true, baseOperations: true, baseBaselines: true })
+  .extend({
+    translations: z.array(z.strictObject({ path, value: body.refine((text) => !!text.trim(), "Translation is empty") })),
+  });
 export type ResumeBaseline = z.infer<typeof baseline>;

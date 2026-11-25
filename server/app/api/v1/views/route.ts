@@ -3,7 +3,6 @@ import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson, readJson } from "@/lib/http/errors";
 import { acceptedLanguage } from "@/lib/services/translations";
 import { recordView } from "@/lib/services/views";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 /** Translating the source document continues after the response (`after`). */
@@ -16,7 +15,7 @@ export async function POST(request: Request) {
       email: principal.email,
       authorization: request.headers.get("authorization"),
       accepted: acceptedLanguage(request),
-      billingEnvironment: () => billingEnvironment(request, principal),
+
     }));
   });
 }

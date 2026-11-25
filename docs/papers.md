@@ -109,8 +109,8 @@ must be replaced with images for Word; unresolved content fails export instead o
 discarded. PDF retains native LaTeX diagrams. Word and PDF can paginate differently.
 
 **More → Language** manages saved translations in English, Simplified/Traditional Chinese,
-Japanese, Korean, Spanish, French, and German, matching trip languages. Translating uses points;
-reading or exporting never starts a paid translation. Only human prose is translated; LaTeX
+Japanese, Korean, Spanish, French, and German, matching trip languages. Translating requires Flowcy Plus.
+Reading and exporting use saved translations. Only human prose is translated; LaTeX
 commands, equations, citation keys, file paths, assets and bibliography records stay intact.
 The original source is editable; translated readings are read-only. Source edits mark translations
 outdated; updating reuses unchanged prose. An outdated/missing export language returns

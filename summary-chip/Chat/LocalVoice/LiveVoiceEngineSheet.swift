@@ -182,7 +182,7 @@ struct LiveVoiceEngineSheet: View {
     }
 
     private func subtitle(_ option: LiveVoiceEngine) -> String {
-        guard let agent = option.localAgent else { return String(localized: "Cloud voice, uses your Chippy points") }
+        guard let agent = option.localAgent else { return String(localized: "Cloud voice powered by Flowcy") }
         guard let status = setup.status else { return String(localized: "Checking…") }
         guard let install = status.install(for: agent), install.path != nil else {
             return String(localized: "Not found. Install the \(agent.executableName) command to use it.")
@@ -221,15 +221,17 @@ struct LiveVoiceEngineSheet: View {
 }
 
 /// Picks the model one agent answers with. Sessions read it when they start.
-private struct AgentModelPicker: View {
+struct AgentModelPicker: View {
     let agent: LocalAgentKind
     let setup: LocalVoiceSetupModel
     @AppStorage private var saved: String
+    private let identifier: String
 
-    init(agent: LocalAgentKind, setup: LocalVoiceSetupModel) {
+    init(agent: LocalAgentKind, setup: LocalVoiceSetupModel, modelKey: String? = nil, identifier: String = "voice-agent-model") {
         self.agent = agent
         self.setup = setup
-        _saved = AppStorage(wrappedValue: "", LiveVoiceSettings.modelKey(for: agent))
+        self.identifier = identifier
+        _saved = AppStorage(wrappedValue: "", modelKey ?? LiveVoiceSettings.modelKey(for: agent))
     }
 
     private var models: [AgentModelOption] { setup.agentModels[agent] ?? [] }
@@ -254,7 +256,7 @@ private struct AgentModelPicker: View {
             if !subtitle.isEmpty { Text(subtitle) }
         }
         .sensoryFeedback(.selection, trigger: saved)
-        .accessibilityIdentifier("voice-agent-model")
+        .accessibilityIdentifier(identifier)
         .task { await setup.loadModels(for: agent) }
     }
 }

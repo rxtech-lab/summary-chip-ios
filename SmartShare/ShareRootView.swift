@@ -228,7 +228,7 @@ private struct ShareToTripFlow: View {
     @State private var isSending = false
     @State private var sentTrip: TripListItem?
     @State private var errorMessage: String?
-    @State private var needsTopUp = false
+    @State private var needsSubscription = false
     @State private var failed = 0
 
     private var selected: TripListItem? { trips?.first { $0.id == selectedID } }
@@ -268,13 +268,13 @@ private struct ShareToTripFlow: View {
             if let sourceFile { LocalDocument.discardCopy(sourceFile) }
         }
         .statusAlert("Couldn't Send", message: errorMessage) { errorMessage = nil }
-        .alert("Not Enough Points", isPresented: $needsTopUp) {
+        .alert("Flowcy Plus Required", isPresented: $needsSubscription) {
             Button("Open Chippy") {
-                if let url = URL(string: "summarychip://top-up") { openURL(url) }
+                if let url = URL(string: "summarychip://subscription") { openURL(url) }
             }
             Button("Later", role: .cancel) {}
         } message: {
-            Text("Updating a trip from what you share uses points. Top up in Chippy to continue.")
+            Text("Open Chippy to subscribe to Flowcy Plus or check your access.")
         }
         .sensoryFeedback(.success, trigger: sentTrip?.id)
         .sensoryFeedback(.error, trigger: failed)
@@ -337,7 +337,7 @@ private struct ShareToTripFlow: View {
                     TextField("Instructions (optional)", text: $instructions, prompt: Text("e.g. This is our hotel in Sendai"), axis: .vertical)
                         .lineLimit(2...5)
                 } footer: {
-                    Text("The agent reads \(input.displayTitle) and adds what's useful: trains, flights, hotels, costs. Uses points.")
+                    Text("The agent reads \(input.displayTitle) and adds what's useful: trains, flights, hotels, costs.")
                 }
             }
         }
@@ -379,9 +379,9 @@ private struct ShareToTripFlow: View {
         do {
             try await api.ingestIntoTrip(id: trip.id, input: input, instructions: instructions)
             withAnimation { sentTrip = trip }
-        } catch let error as SummaryAPIError where error.needsTopUp {
+        } catch let error as SummaryAPIError where error.needsSubscription {
             failed += 1
-            needsTopUp = true
+            needsSubscription = true
         } catch {
             failed += 1
             errorMessage = error.localizedDescription

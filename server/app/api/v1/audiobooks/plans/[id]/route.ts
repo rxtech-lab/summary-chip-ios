@@ -2,7 +2,6 @@ import { confirmAudiobookPlanSchema, reviseAudiobookPlanSchema } from "@/lib/con
 import { noStoreJson, readJson } from "@/lib/http/errors";
 import { withApiAuth } from "@/lib/http/handler";
 import { confirmAudiobookPlan, deleteAudiobookPlan, readAudiobookPlan, reviseAudiobookPlan } from "@/lib/services/audiobooks";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,8 +21,8 @@ export async function PATCH(request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   return withApiAuth(request, async ({ principal, db }) => {
     const { revision, chapters } = await readJson(request, body => confirmAudiobookPlanSchema.parse(body));
-    return noStoreJson({ job: await confirmAudiobookPlan(db, principal.sub, (await context.params).id, revision, { billingEnvironment: await billingEnvironment(request, principal) }, chapters) });
-  });
+    return noStoreJson({ job: await confirmAudiobookPlan(db, principal.sub, (await context.params).id, revision, {}, chapters) });
+  }, { requireSubscription: true });
 }
 export async function DELETE(request: Request, context: Context) {
   return withApiAuth(request, async ({ principal, db }) => {

@@ -3,7 +3,6 @@ import { withMcpAuth } from "@/lib/http/handler";
 import { createMcpServer } from "@/lib/mcp/server";
 import { securitySchemes } from "@/lib/mcp/oauth-config";
 import { acceptedLanguage } from "@/lib/services/translations";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 /** `add_summary` checks for duplicates and designs the cover before answering (the import route allows 180 s). */
@@ -18,7 +17,7 @@ export async function POST(request: Request) {
     const server = createMcpServer({
       db,
       principal,
-      billingEnvironment: await billingEnvironment(request, principal),
+
       accepted: acceptedLanguage(request),
     });
     // Stateless: no session ids, and each response is plain JSON instead of an SSE stream.

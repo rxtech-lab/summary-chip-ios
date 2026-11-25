@@ -12,11 +12,11 @@ Tick **Plan Mode** in the creation form, then tap **Generate**: the server write
 
 Storyboard frames are drawn by `STORY_BOARD_IMAGE_MODEL` (priced by `STORY_BOARD_IMAGE_USD_PER_IMAGE`, defaulting to the illustration price): one text-free 16:9 keyframe (stored as a 1280×720 PNG) for each of the first 40 shots, in the chosen video style. The sheet draws them when it opens and after each revision. Frames are keyed by a hash of their camera direction, so unchanged shots keep their frame across revisions and reorders, and a changed direction redraws only that shot. Without the model, plans have no frames and everything else works.
 
-Planning, chat revisions and frames spend points. Planning never synthesizes speech, creates a cover, starts a video design, or renders media. Confirmation starts generation using the saved narration verbatim. The approved frames are copied next to the recording as `video-assets/plan/storyboard-<n>.png` (`segments[n].storyboard`). They are supplied to the video designer as ready images (`gen/storyboard-<n>.png`, never deleted with a failed draft), listed on each turn as `storyboardFrame` beside its camera direction and real spoken timings, and always shipped in the composition's assets for device and cloud renders. Confirmed plans cannot be edited. Failed generation can be retried; a completed plan returns its existing episode without generating or charging again. An expiring database lease prevents concurrent media generation across server instances.
+Planning never synthesizes speech, creates a cover, starts a video design, or renders media. Confirmation starts generation using the saved narration verbatim. The approved frames are copied next to the recording as `video-assets/plan/storyboard-<n>.png` (`segments[n].storyboard`). They are supplied to the video designer as ready images (`gen/storyboard-<n>.png`, never deleted with a failed draft), listed on each turn as `storyboardFrame` beside its camera direction and real spoken timings, and always shipped in the composition's assets for device and cloud renders. Confirmed plans cannot be edited. Failed generation can be retried; a completed plan returns its existing episode without generating again. An expiring database lease prevents concurrent media generation across server instances.
 
 Unconfirmed plans are listed above the library feed as **Planned Podcasts** (shown when the feed could contain podcasts you made). Tap one to reopen its plan sheet and confirm it, or delete it from its menu. Closing a reopened plan without confirming returns to the library and keeps it listed.
 
-`0044_podcast_plans.sql`, `0045_podcast_plan_chat.sql` and `0046_podcast_plan_timestamps.sql` must be migrated before enabling this flow on a deployed server. Drafts are owner scoped and cascade on account deletion. These endpoints require app bearer authentication and the same billing proof as podcast generation. Each returns `{plan: {id, revision, confirmed, script, messages, frames, storyboard}}`: `frames` holds hour-long private URLs aligned with `script.segments` (null for shots without one) and `storyboard` says whether frames can be drawn.
+`0044_podcast_plans.sql`, `0045_podcast_plan_chat.sql` and `0046_podcast_plan_timestamps.sql` must be migrated before enabling this flow on a deployed server. Drafts are owner scoped and cascade on account deletion. These endpoints require a signed-in Flowcy Plus account. Each returns `{plan: {id, revision, confirmed, script, messages, frames, storyboard}}`: `frames` holds hour-long private URLs aligned with `script.segments` (null for shots without one) and `storyboard` says whether frames can be drawn.
 
 | Method and path | Input | Response / behavior |
 | --- | --- | --- |
@@ -35,7 +35,7 @@ Conflict codes are `PODCAST_PLAN_CHANGED` (409, reload before editing/confirming
 
 All `/api/v1` endpoints require the app's bearer token. All JSON responses use `Cache-Control: no-store`. Day boundaries are ISO 8601 instants describing one local calendar day, including 23/25-hour daylight-saving days. The app computes these boundaries using its calendar, rather than sending a UTC date.
 
-`GET /api/v1/daily-podcasts?start=<instant>&end=<instant>` returns `{ "podcast": null }` when no episode exists, or `{ "podcast": DailyPodcast }`. It never invokes AI or spends points.
+`GET /api/v1/daily-podcasts?start=<instant>&end=<instant>` returns `{ "podcast": null }` when no episode exists, or `{ "podcast": DailyPodcast }`. It returns the saved episode without generating it.
 
 `POST /api/v1/daily-podcasts` accepts:
 
@@ -47,7 +47,7 @@ All `/api/v1` endpoints require the app's bearer token. All JSON responses use `
 }
 ```
 
-Languages: `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`. The response envelope is `{ "podcast": DailyPodcast }`. For backward compatibility, a saved episode is returned unchanged when `regenerate` is false and `chipIds` is omitted. Supplying `chipIds` or `regenerate: true` creates another version. Generation spends points for narration and speech; saved playback is free. App Store billing proof follows the same routing as trip tours. Request timeout: 300 seconds. Do not automatically replay an ambiguous regeneration request.
+Languages: `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`. The response envelope is `{ "podcast": DailyPodcast }`. For backward compatibility, a saved episode is returned unchanged when `regenerate` is false and `chipIds` is omitted. Supplying `chipIds` or `regenerate: true` creates another version. Request timeout: 300 seconds. Do not automatically replay an ambiguous regeneration request.
 
 Both episode generation and plan preparation accept optional `sourceMode: "summary" | "fullText"`. Omission keeps the existing summary-and-highlights behavior. Full Source uses saved extracted text, falling back to the owner’s saved Markdown source document for local imports, and re-extracts an owned uploaded PDF when available, retaining the longer text. Local imports can have an empty `contentText` and no `sourceFileKey` even when their opted-in source document is saved in `contentMarkdown`; that document remains owner-only. A pending document returns 409 `PODCAST_SOURCE_PENDING` so the caller can retry once preparation finishes. It never substitutes the chip summary or an excerpt for missing source text. Missing text returns 422 `PODCAST_NO_SOURCE_TEXT`; sources totaling over 300,000 characters return 422 `PODCAST_SOURCE_TOO_LONG` rather than silently truncating later sections. No new upload route is required; PDFs continue through the existing presigned storage upload flow.
 
@@ -63,11 +63,11 @@ Errors use the standard `{error: {code, message, requestId}}` envelope:
 | --- | --- | --- |
 | 400 | VALIDATION_ERROR | Invalid day or language |
 | 401 | Standard auth errors | Sign in required |
-| 402 | PODCAST_POINTS_EXHAUSTED | Top up before generation |
+| 402 | FLOWCY_SUBSCRIPTION_REQUIRED | Flowcy Plus is required |
 | 404 | NOT_FOUND | Missing episode, segment or source access |
 | 422 | PODCAST_EMPTY | No eligible chips |
 | 503 | PODCAST_SPEECH_UNAVAILABLE | Speech model not configured |
-| 503 | PODCAST_BILLING_NOT_CONFIGURED / PODCAST_BILLING_UNAVAILABLE | Points service unavailable |
+| 503 | FLOWCY_SUBSCRIPTION_UNAVAILABLE | Membership verification is unavailable |
 | 502 | PODCAST_FAILED | Script, speech or storage failed |
 
 ## Theme music
@@ -80,13 +80,13 @@ Episodes are produced like a show rather than read back to back, following debat
 
 Music levels are relative to the voices' measured RMS loudness, and peaks are soft-limited. Mixing decodes MP3 to PCM with `mpg123-decoder` (WASM) and encodes one 44.1 kHz stereo 128 kbit/s MP3 with `@breezystack/lamejs`. There is no native binary. A 5½-minute, 24-turn episode mixes in about 7 s, with a peak of about 530 MB on Node. Caption cues are the exact spoken windows, so the intro, gaps and outro sit between cues. `DailyPodcast.music` records whether music was mixed in.
 
-Prompts describe only the mood and role, never chip content. Each clip is therefore generated once and stored under `podcast-music/<model>/`, shared by every account. The first episode that needs a missing clip pays for it (`AI_MUSIC_USD_PER_CLIP`, default $0.04 for Lyria 3 Clip); later episodes reuse it for free. Music is generated in parallel with speech. If music is not configured (`GEMINI_API_KEY` unset or `AI_MUSIC_MODEL=off`), or if generation or mixing fails, the episode is published with voices only. Older episodes are not re-mixed.
+Prompts describe only the mood and role, never chip content. Each clip is generated once and stored under `podcast-music/<model>/`, shared by every account. The first episode generates the missing clip and later episodes reuse it. Music is generated alongside speech. Configure Lyria on Flowcy and set `FLOWCY_MUSIC_ENABLED=true` on Chippy to enable it. Setting `AI_MUSIC_MODEL=off` publishes episodes with voices only, as does a generation or mixing failure.
 
 ## Storage and models
 
 On iOS and macOS, playback and MP3/MP4 export share a disk cache of complete episode audio in the app's Caches directory. Each recording expires seven days after download; listening again does not extend its lifetime. Expired files are pruned when audio is requested or cache storage is measured. Cache misses download the saved recording without generating audio. Failed or cancelled downloads are not cached, and disk-write failures leave playback available. Cache storage is included in Settings; Clear Cache and sign-out remove recordings, and removing a daily version evicts its audio. The OS may reclaim cached files earlier. Locally downloaded audio remains available until expiry or clearing even if source access is subsequently revoked on the server; metadata and new downloads still require server authorization.
 
-Uses the existing private S3-compatible `ObjectStore` (R2 configuration), `AI_PODCAST_MODEL`, `AI_SPEECH_MODEL`, speech pricing and points billing. `AI_PODCAST_MODEL` independently selects the script and translation model (default `anthropic/claude-haiku-5.5`), including video label translation; points use that model's pricing. Scripts and spoken translations use direct statements and avoid rhetorical constructions such as “不代表……而是……” and “不是……而是……” or their equivalents in other languages. `AI_PODCAST_VOICES` optionally lists up to four comma-separated voice IDs supported by the configured speech model. It defaults to `AI_TOUR_VOICE`. The agent chooses one to four hosts from the available voices, with a single narrator as the default configuration.
+Uses the existing private S3-compatible `ObjectStore` (R2 configuration), `AI_PODCAST_MODEL`, `AI_SPEECH_MODEL`, and Flowcy Plus access. `AI_PODCAST_MODEL` independently selects the script and translation model (default `anthropic/claude-haiku-5.5`), including video label translation. Scripts and spoken translations use direct statements and avoid rhetorical constructions such as “不代表……而是……” and “不是……而是……” or their equivalents in other languages. `AI_PODCAST_VOICES` optionally lists up to four comma-separated voice IDs supported by the configured speech model. It defaults to `AI_TOUR_VOICE`. The agent chooses one to four hosts from the available voices, with a single narrator as the default configuration.
 
 Each generation gets an immutable UUID and persists its complete script and one MP3. Individual speech turns are only transient inputs to assembly; new episodes do not store separate audio parts. Only after all audio succeeds does `latest.json` switch to the new episode. A failed generation leaves the previous episode available. Concurrent requests for the same day, language and chip selection in the same server process share one generation; there is no distributed cross-instance lock. Old versions remain private and are retained so an open player can finish playing during regeneration.
 
@@ -118,7 +118,7 @@ Live captions show one short phrase at a time with content-sized height. The spe
 
 **More → Publish to Web** opens a dedicated sheet on iOS and macOS that works like chip share links and reuses the same SummaryKit screens (`ShareLinksView` and `ShareLinkEditorSheet` with `ShareLinkStore.podcast`). An episode starts with no links. **Add Link** opens its own sheet, which takes an optional name (only the owner sees it) and a lifetime: 1, 3, 7, 30, 90 or 365 days, or Never. Each link can be copied, edited or deleted (swipe, context menu, or the editor's Delete button; deleting asks for confirmation). An episode can have up to 20 links. Podcast links always open for anyone holding them; there is no invite-only option, because the web player is signed out. Loading, saving and deleting show overlays, and errors use a native alert.
 
-`GET /api/v1/daily-podcasts/:key/links` returns `{items}` with the authenticated owner's links for that episode, oldest first. Each item has the same shape as a chip share link: `{id, url, label, access: "anyone", ttlDays, expiresAt, isExpired, emails: [], createdAt, updatedAt}`. `POST` accepts `{day, label?, ttlDays?}`, using the episode's original day boundaries, and returns 201. If `ttlDays` is omitted, the link gets the server's default lifetime; null means it never expires. `PATCH /links/:linkId` accepts `{label?, ttlDays?}`; a new `ttlDays` restarts the lifetime from now, which also reopens an expired link. `DELETE /links/:linkId` returns 204. Invalid TTLs or unknown fields return 400. Creating a link for another account's recording, or changing another account's link, returns 404. Creating a 21st link returns 409 `TOO_MANY_SHARE_LINKS`. Sharing never calls AI or spends points.
+`GET /api/v1/daily-podcasts/:key/links` returns `{items}` with the authenticated owner's links for that episode, oldest first. Each item has the same shape as a chip share link: `{id, url, label, access: "anyone", ttlDays, expiresAt, isExpired, emails: [], createdAt, updatedAt}`. `POST` accepts `{day, label?, ttlDays?}`, using the episode's original day boundaries, and returns 201. If `ttlDays` is omitted, the link gets the server's default lifetime; null means it never expires. `PATCH /links/:linkId` accepts `{label?, ttlDays?}`; a new `ttlDays` restarts the lifetime from now, which also reopens an expired link. `DELETE /links/:linkId` returns 204. Invalid TTLs or unknown fields return 400. Creating a link for another account's recording, or changing another account's link, returns 404. Creating a 21st link returns 409 `TOO_MANY_SHARE_LINKS`. Sharing reuses the saved recording.
 
 Each `/podcast/:token` link opens a web player with native audio seeking, timed artwork and captions, and a transcript. A link always points to the episode it was created for. Regenerating starts a new episode with no links, and the old episode's links keep working while that recording is retained. `GET /api/public/podcasts/:token` exposes only the title, language, date, duration, public audio path and display cues; chip IDs, voice configuration and storage keys stay private. `/audio` supports full responses and single HTTP byte ranges (206, or 416 for ranges that can't be satisfied). `/art/:index` serves each cue's artwork.
 
@@ -128,11 +128,11 @@ Database migration `0034_podcast_share_links.sql` adds the `podcast_share_links`
 
 ## Selecting chips, library episodes and daily versions
 
-`POST /api/v1/daily-podcasts` also accepts `chipIds?: string[]` and `library?: boolean` (default false). An omitted daily selection means all eligible chips; an explicit empty selection returns 400. Every selected daily ID must remain readable and belong to that activity day, or generation fails with 422 `PODCAST_SELECTION` before billing/AI. Duplicate IDs are treated as one source. Each successful daily creation becomes the default and preserves earlier versions.
+`POST /api/v1/daily-podcasts` also accepts `chipIds?: string[]` and `library?: boolean` (default false). An omitted daily selection means all eligible chips; an explicit empty selection returns 400. Every selected daily ID must remain readable and belong to that activity day, or generation fails with 422 `PODCAST_SELECTION` before generating audio. Duplicate IDs are treated as one source. Each successful daily creation becomes the default and preserves earlier versions.
 
 **New → New Podcast** and a summary's **Create Podcast** action open a dedicated sheet. **Chips** opens a searchable picker using the paginated library API restricted to `kind=summary`, with source filters. Selection survives searches and paging. A summary action preselects that chip. Creation sends `library: true` and explicit `chipIds`; sources may come from any activity day. It creates a private library chip with `kind=podcast` and returns its ID as `DailyPodcast.summaryId`. This episode does not change a daily default or appear in daily versions. `GET /api/v1/summaries/:id/podcast` returns the owner's persisted episode, rechecking the chip and every source. Opening its detail uses the existing podcast design and the app-owned audio player, which keeps playing during navigation.
 
-New owner-authenticated endpoints (no AI or points):
+New owner-authenticated endpoints :
 
 - `GET /api/v1/daily-podcasts/versions?start=…&end=…` returns `{items: [{podcast: DailyPodcast, isDefault: boolean}]}`, newest first. Unreadable recordings are omitted. Documents are read directly from the database, with source permissions checked in batches across versions.
 - The same URL with `chips=true` returns `{items: [{id, title, source}]}` for all readable eligible daily source chips, independent of feed filters/paging.
@@ -176,7 +176,7 @@ Local validation for the motion-video integration includes eight server lifecycl
 ### Live generation progress
 
 `POST /api/v1/daily-podcasts` accepts `Accept: text/event-stream`. Authentication,
-input validation and billing-environment validation happen before the stream opens.
+input validation and Flowcy Plus verification happen before the stream opens.
 Clients omitting this header continue to receive `{ "podcast": ... }` JSON.
 Each SSE event is a single JSON `data:` line:
 
@@ -189,7 +189,7 @@ segments), music (70%), mixing/caption alignment (75%), saving (95%), video-desi
 and complete (100%). The stream completes once the recording is saved; the episode's `videoDesign` then reports the video. These are estimated work weights, not elapsed-time estimates;
 AI calls can leave a stage unchanged for a while. Music starts alongside speech;
 video design follows mixing, because it is staged on the transcribed phrases. Optional fallbacks still
-allow the recording to finish. 100% follows successful saving and billing settlement.
+allow the recording to finish. 100% follows successful saving.
 Comments every ten seconds keep idle streams active. Concurrent requests within the
 same server process share generation and replay the latest progress to new observers.
 Disconnecting stops delivery, not the underlying generation; clients never automatically
@@ -211,7 +211,7 @@ The design agent runs as a Vercel Workflow (`workflows/design-podcast-video.ts`)
 hits the function timeout and the user can leave the app. Each agent turn is one workflow step that makes exactly one
 tool call: one small `write_file` (at most 16,000 characters), one `edit_file`, one `render_frame` or one
 `submit_video`. Extra tool calls in the same turn are not run and return a message asking the model to send them again.
-After every turn the step saves the draft (files, conversation, attempt and preview counts, cost) to
+After every turn the step saves the draft (files, conversation, attempt and preview counts) to
 `<episode>/video-design/<id>.json`, so a crash or redeploy resumes from the last turn. A turn has a 240 s timeout.
 Three failed model calls in a row end the run, as do 5 rejected submissions or 64 turns.
 
@@ -221,10 +221,6 @@ stale and can be replaced. A newer run makes the older one stop at its next turn
 composition replaces the previous one, as before: published renders and translation videos are removed. Then
 `videoDesign` is cleared, or kept at 92% while a requested translation's labels are translated. A failed run
 keeps `videoDesign.error` until the next design starts; the app then shows Retry Video or Generate Video.
-
-Billing: `POST /video` checks the balance with a hold it releases at once. The run's token cost is charged once, when it
-ends, with an idempotent hold and settlement (`<key>:video:<id>:charge`). A failed design is free. Designs started from
-episode creation are charged separately from the recording.
 
 The podcast sheet follows a running design with a non-blocking status capsule ("Designing video… 42%"). When the
 design finishes, the sheet switches to the video and waits for its cloud HD render. If audio is playing, it shows
@@ -273,7 +269,7 @@ The Download Podcast sheet also offers **Captions (SRT)** for audio-only and vid
 
 ## Translations
 
-An episode version can be spoken in more languages. **More → Translate…** opens the Languages sheet. It lists the episode's languages, original first, with a checkmark on the one playing. Tap a language to switch to it. Swipe or open the context menu on a translation to remove it, with native confirmation. **Add Translation** opens its own sheet with a language (only languages the episode doesn't have yet) and Media (Audio + video / Audio only, when the episode has a video). Translation spends points; its progress uses the same overlay as generation, followed by local video rendering. Once an episode has more than one language, **More → Language** switches directly.
+An episode version can be spoken in more languages. **More → Translate…** opens the Languages sheet. It lists the episode's languages, original first, with a checkmark on the one playing. Tap a language to switch to it. Swipe or open the context menu on a translation to remove it, with native confirmation. **Add Translation** opens its own sheet with a language (only languages the episode doesn't have yet) and Media (Audio + video / Audio only, when the episode has a video). Translation uses the generation overlay and then renders video on device. Once an episode has more than one language, **More → Language** switches directly.
 
 Turns are translated one for one, keeping the original's speaker, chip, artwork and order, and are then voiced with the same hosts. Each turn is transcribed for caption timing and mixed with the same theme music (only when the original had music). Switching language therefore resumes playback at the start of the same turn. The app remembers the last language chosen and opens episodes that have it in that language. The video reuses the original composition: the same scenes are driven by the translation's own timings from `data.json`, with translated chip titles, and a model pass translates on-screen labels as exact, unique text edits. Edited files must pass the same validation as a new video. Otherwise the translation keeps the original labels. Captions are never drawn into frames, so the translated subtitle track carries the narration.
 
@@ -283,7 +279,7 @@ Translations belong to an episode version. Regenerating creates a new version wi
 
 Every owner read that returns an episode presents one language. The response's `language` is the presented language, `originalLanguage` is the one it was generated in, and `languages` lists every available language, original first. Stored translations are never sent. All episode and media endpoints accept an optional `language` (a query parameter for reads, a body field for writes). When `language` is omitted or equals the original, the request uses the original recording. A missing translation returns 404 `PODCAST_TRANSLATION_MISSING`, except on the daily `GET` and library-chip `GET`, which fall back to the original. A translation keeps the episode's `key`, `day`, `chipIds`, `mood` and `createdAt`. Its own `title`, `speakers`, `segments` (with `captionCues`), `audioPath` (`…/audio?start&end&language=xx`), `durationSeconds`, `music` and `video` replace the original's.
 
-- `POST /api/v1/daily-podcasts/:key/translations` with `{day, language, includeVideo?}` translates the episode and returns `{podcast}` in that language. It supports the SSE progress envelope, with an extra `translating` stage (5%). An existing translation is returned without AI or points. Translating into the original language returns 422 `PODCAST_TRANSLATION_SAME`. Failure returns 502 `PODCAST_TRANSLATION_FAILED` and leaves the episode unchanged. Concurrent requests for the same episode and language share one translation in the server process.
+- `POST /api/v1/daily-podcasts/:key/translations` with `{day, language, includeVideo?}` translates the episode and returns `{podcast}` in that language. It supports the SSE progress envelope, with an extra `translating` stage (5%). An existing translation is returned from storage. Translating into the original language returns 422 `PODCAST_TRANSLATION_SAME`. Failure returns 502 `PODCAST_TRANSLATION_FAILED` and leaves the episode unchanged. Concurrent requests for the same episode and language share one translation in the server process.
 - `DELETE /api/v1/daily-podcasts/:key/translations/:language?start&end` removes the translation's recording, composition and published render, and returns the episode in its original language.
 - The video endpoints (`GET`/`POST /video`, `POST /video/upload`, `GET`/`POST`/`DELETE /video/publication`) act on the requested language's composition and render. `POST /video` with a translation `language` translates the current original composition (designing one first when missing).
 
@@ -304,7 +300,7 @@ script writing or HD rendering. Watch HD Video opens a dedicated full-height she
 its progress is an overlay and the finished R2 download is cached locally. 4K export
 uses the Download sheet and must remain in the foreground.
 
-Authenticated, owner-only API (no billing, `Cache-Control: no-store`):
+The owner-only API uses `Cache-Control: no-store`.
 
 - `GET /api/v1/background-jobs?cursor=<job-id>` returns `{items, nextCursor}`,
   newest first, 50 per page. Cursor belongs to the same owner. Deleted episodes
@@ -330,7 +326,7 @@ lose the durable job. Notification settings are accessible from the jobs sheet.
 
 The iOS/macOS generation sheet includes a dedicated Speakers sheet. Automatic lets the model choose hosts; custom mode accepts one to four ordered names (1–40 characters each). Starting generation saves speaker names, language, and audio/video preference in local app storage for the next generation. Source-chip selection remains specific to each episode. Video-only retries do not overwrite these preferences.
 
-`POST /api/v1/daily-podcasts` accepts optional `speakerNames: string[]`. Names are trimmed and validated; omission preserves automatic naming. The script must use the exact requested names and order. Requests exceeding the configured distinct voice count fail before reserving points. The names also participate in in-flight request deduplication.
+`POST /api/v1/daily-podcasts` accepts optional `speakerNames: string[]`. Names are trimmed and validated; omission preserves automatic naming. The script must use the exact requested names and order. Requests exceeding the configured distinct voice count fail before generation. The names also participate in in-flight request deduplication.
 
 ### Published episode previews and companion articles
 
@@ -437,27 +433,25 @@ day in the Feed. Progress and completion notifications use the existing Backgrou
 and APNs flow once video design starts. Publication to the web remains explicit.
 
 `GET /api/v1/daily-recap` reads the owner's settings, next run and latest outcome.
-`PUT` saves `{enabled, timeZone, language, hour}`. The verified billing environment is
-saved with the schedule and propagated to background generation; normal podcast points
-apply. These endpoints require bearer authentication and return no-store responses.
+`PUT` saves `{enabled, timeZone, language, hour}`. Chippy saves the StoreKit environment with the schedule and rechecks Flowcy Plus before generation. These endpoints require bearer authentication and return no-store responses.
 
 Migration `0043_daily_recaps` creates schedules and unique owner/local-date run claims.
 The secret-authenticated `/api/cron/daily-recaps` dispatches at most 20 due accounts per
-invocation, oldest schedule first. Empty days, disabled schedules, and accounts pending
+invocation, oldest schedule first. Empty days, disabled schedules, accounts without Flowcy Plus, and accounts pending
 deletion skip generation. Enabling does not backfill history. Failed or ambiguous starts
-and billable generation steps are not replayed automatically; the settings sheet reports
+and generation steps are not replayed automatically; the settings sheet reports
 an outcome and the owner can generate manually from that day. An interrupted run needs
 attention after 15 minutes. The next day proceeds independently. New accounts are off
 until they enable their schedule.
 
 Deployment requires the migration, the new cron configuration and `CRON_SECRET`, the
-existing AI/points configuration, and the configured cloud renderer snapshot and R2.
+Flowcy Plus and AI configuration, and the configured cloud renderer snapshot and R2.
 Local scheduler/mock-provider tests and app builds do not establish a completed live
 scheduled render or activate a user's account schedule.
 
 ### Summary backfill
 
-`POST /api/v1/daily-podcasts/:key/summary` accepts `{ day, language? }` and returns `{ podcast }` in the requested playback language. The summary is generated in the original language and validated to fewer than 200 words. Requires owner/source access and billing proof for generation; existing summaries are returned without a model charge. Concurrent requests in the same process share generation. Failures leave the episode unchanged and may be retried explicitly.
+`POST /api/v1/daily-podcasts/:key/summary` accepts `{ day, language? }` and returns `{ podcast }` in the requested playback language. The summary is generated in the original language and validated to fewer than 200 words. Requires owner and source access. Existing summaries are returned from storage. Concurrent requests in the same process share generation. Failures leave the episode unchanged and may be retried explicitly.
 
 ### Episode length
 

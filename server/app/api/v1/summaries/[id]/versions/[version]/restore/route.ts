@@ -1,7 +1,6 @@
 import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson } from "@/lib/http/errors";
 import { parseVersionNumber, restoreVersion } from "@/lib/services/versions";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 
@@ -13,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   return withApiAuth(request, async ({ principal, db }) => {
     const { id, version } = await params;
     return noStoreJson(await restoreVersion(db, principal.sub, id, parseVersionNumber(version), {
-      billingEnvironment: () => billingEnvironment(request, principal),
+
     }));
   });
 }

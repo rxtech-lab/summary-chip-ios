@@ -1,6 +1,6 @@
-/** Azure Speech over REST (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`); one request returns a complete MP3. */
+import { flowcyInference } from "./flowcy";
+
 const ATTEMPTS = 4;
-const OUTPUT_FORMAT = "audio-24khz-96kbitrate-mono-mp3";
 
 function escapeXml(text: string) {
   return text.replace(/[<>&'"]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[character]!);
@@ -13,18 +13,15 @@ export function azureSsml(voice: string, text: string) {
 }
 
 export async function azureSpeak(text: string, voice: string, abortSignal?: AbortSignal): Promise<{ bytes: Uint8Array; mediaType: string }> {
-  const key = process.env.AZURE_SPEECH_KEY?.trim();
-  const region = process.env.AZURE_SPEECH_REGION?.trim();
-  if (!key || !region) throw new Error("Azure Speech is not configured");
   let failure: unknown;
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     if (attempt) await new Promise((resolve) => setTimeout(resolve, 750 * 2 ** (attempt - 1)));
     abortSignal?.throwIfAborted();
     try {
       const timeout = AbortSignal.timeout(45_000);
-      const response = await fetch(`https://${encodeURIComponent(region)}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+      const response = await flowcyInference("azure-speech", {
         method: "POST",
-        headers: { "Ocp-Apim-Subscription-Key": key, "Content-Type": "application/ssml+xml", "X-Microsoft-OutputFormat": OUTPUT_FORMAT, "User-Agent": "chippy" },
+        headers: { "Content-Type": "application/ssml+xml" },
         body: azureSsml(voice, text),
         signal: abortSignal ? AbortSignal.any([abortSignal, timeout]) : timeout,
       });

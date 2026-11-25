@@ -3,7 +3,6 @@ import { createDailyPodcastSchema, podcastDaySchema, podcastLanguageQuery } from
 import { withApiAuth } from "@/lib/http/handler";
 import { noStoreJson, readJson } from "@/lib/http/errors";
 import { createDailyPodcast, podcastInLanguage, savedDailyPodcast } from "@/lib/services/daily-podcast";
-import { billingEnvironment } from "@/lib/subscription/environment";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -21,10 +20,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiAuth(request, async ({ principal, db, requestId }) => {
     const input = await readJson(request, (body) => createDailyPodcastSchema.parse(body));
-    const deps = { billingEnvironment: await billingEnvironment(request, principal) };
     if (request.headers.get("accept")?.split(",").some((type) => type.trim().split(";")[0] === "text/event-stream")) {
-      return podcastStream(async (report) => podcastInLanguage(await createDailyPodcast(db, principal.sub, input, deps, report)), requestId);
+      return podcastStream(async (report) => podcastInLanguage(await createDailyPodcast(db, principal.sub, input, {}, report)), requestId);
     }
-    return noStoreJson({ podcast: podcastInLanguage(await createDailyPodcast(db, principal.sub, input, deps)) });
-  });
+    return noStoreJson({ podcast: podcastInLanguage(await createDailyPodcast(db, principal.sub, input, {})) });
+  }, { requireSubscription: true });
 }

@@ -25,8 +25,8 @@ const listing = {
 };
 
 /** The owner's chips closest to `query` by meaning or keywords, most relevant first. */
-async function searchOwn(db: Database, ai: AiProvider, ownerId: string, query: string, limit = SEARCH_LIMIT): Promise<ChipListing[]> {
-  const match = relevance(query, await embedQuery(ai, query));
+async function searchOwn(db: Database, ai: AiProvider | null, ownerId: string, query: string, limit = SEARCH_LIMIT): Promise<ChipListing[]> {
+  const match = relevance(query, ai ? await embedQuery(ai, query) : null);
   return db.select(listing).from(summaries)
     .where(and(eq(summaries.ownerId, ownerId), match.where))
     .orderBy(...(match.score ? [asc(match.score)] : []), desc(summaries.createdAt))
@@ -37,7 +37,7 @@ async function searchOwn(db: Database, ai: AiProvider, ownerId: string, query: s
  * The owner's chips worth checking against the incoming one: those with the same source URL
  * (normalised), title or source title, or start of content, then the closest in meaning.
  */
-async function duplicateCandidates(db: Database, ai: AiProvider, ownerId: string, input: DuplicateInput): Promise<ChipListing[]> {
+async function duplicateCandidates(db: Database, ai: AiProvider | null, ownerId: string, input: DuplicateInput): Promise<ChipListing[]> {
   const url = normalizeSourceUrl(input.sourceUrl);
   const own = eq(summaries.ownerId, ownerId);
   // `sameContentStart` in SQL: the texts agree over the shorter one's opening.
@@ -80,17 +80,19 @@ export interface Duplicate {
 
 /**
  * Asks the duplicate agent whether an incoming chip is already in the owner's library, comparing
- * source, title and content. The agent only runs when the library has candidates. When it fails,
- * a chip with the same source URL or content start still counts as a duplicate.
+ * source, title and content. The agent only runs when the library has candidates and AI is
+ * available. Otherwise, a chip with the same source URL or content start still counts as a duplicate.
  */
-export async function findDuplicateChip(db: Database, ai: AiProvider, ownerId: string, input: DuplicateInput): Promise<Duplicate | null> {
+export async function findDuplicateChip(db: Database, ai: AiProvider | null, ownerId: string, input: DuplicateInput): Promise<Duplicate | null> {
   const candidates = await duplicateCandidates(db, ai, ownerId, input);
   if (candidates.length === 0) return null;
-  const verdict = await ai.findDuplicate(input, {
-    candidates,
-    search: (query) => searchOwn(db, ai, ownerId, query),
-    read: (id) => readOwn(db, ownerId, id),
-  });
+  const verdict = ai
+    ? await ai.findDuplicate(input, {
+        candidates,
+        search: (query) => searchOwn(db, ai, ownerId, query),
+        read: (id) => readOwn(db, ownerId, id),
+      })
+    : null;
 
   let match: { id: string; reason: string } | null = verdict?.duplicateOf ? { id: verdict.duplicateOf, reason: verdict.reason } : null;
   if (!verdict) {

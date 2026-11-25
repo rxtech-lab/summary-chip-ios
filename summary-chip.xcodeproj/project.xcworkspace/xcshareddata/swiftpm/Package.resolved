@@ -1,5 +1,5 @@
 {
-  "originHash" : "622b3b3c118604f2289468d2206aca172289e5fb7e44065bd79ffa5ac1fca6b4",
+  "originHash" : "9be955dd0c0b4f730048c46c43bb39aa86860752c21702037e1e907807d4f6e1",
   "pins" : [
     {
       "identity" : "kingfisher",
@@ -25,15 +25,6 @@
       "location" : "https://github.com/rxtech-lab/RxAuthSwift",
       "state" : {
         "revision" : "fad1772fcd4a4e9a252cd21ba180a92c5775d67c"
-      }
-    },
-    {
-      "identity" : "rxsubscriptionios",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rxtech-lab/RxSubscriptionIOS",
-      "state" : {
-        "revision" : "64afaf3205c0c1e2002c769eb86b67c513921c4d",
-        "version" : "1.2.1"
       }
     },
     {

@@ -154,7 +154,9 @@ struct ResumeDetailView: View {
             let model = ChatModel(client: environment.chatClient, store: environment.chatStore, resumeTarget: target)
             model.resumeCompany = resume?.companyName
             model.onResumeUpdated = { updated in
-                if resume?.variantId == updated.variantId, resume?.language == updated.language, resume?.familyId == updated.familyId { resume = updated }
+                guard let current = resume, current.familyId == updated.familyId, current.variantId == updated.variantId else { return }
+                if current.language == updated.language { resume = updated }
+                else { refresh() }
             }
             agent = model
             setSideAgentContext?(model)
