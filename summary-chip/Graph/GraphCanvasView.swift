@@ -49,6 +49,17 @@ struct GraphCanvasView: View {
     }
 
     var body: some View {
+        #if os(visionOS)
+        SpatialGraphRealityView(model: model, document: document, onTap: { element, size in
+            onSelect(element, false)
+            onTap(element, size)
+        })
+        #else
+        planarBody
+        #endif
+    }
+
+    private var planarBody: some View {
         GeometryReader { proxy in
             let size = proxy.size
             Canvas(rendersAsynchronously: false) { context, size in
